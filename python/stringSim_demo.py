@@ -11,15 +11,15 @@ from synthlab.ext.io import play
 from synthlab.core import Source, render
 
 class StringSim(Source):
-    def __init__(self, length: float, tension: float, density: float, mode_num: int, damp: np.ndarray):
+    def __init__(self, length: float, tension: float, density: float, mode_num: int, damping: np.ndarray):
         assert length>0 and tension>0 and density>0 and mode_num>0 
-        assert 0<=damp.min() and damp.max() <= np.sqrt(tension/density)/length 
+        assert 0<=damping.min() and damping.max() <= np.sqrt(tension/density)/length 
         
         self.l = length
         self.t = tension
         self.mu = density
         self.mode_N = mode_num 
-        self.gamma = damp
+        self.gamma = damping
         
         #hit string at a specific point
         self.init_force = 1.5
@@ -30,7 +30,7 @@ class StringSim(Source):
         c = np.sqrt(tension/density)
         
         self.omega0 = np.pi*c/length * index
-        self.damped_omega = np.sqrt(np.square(self.omega0) - np.square(damp))
+        self.damped_omega = np.sqrt(np.square(self.omega0) - np.square(damping))
         self.force_pos = np.sin(index*np.pi*0.03)#0.03 is the ratio of total length
         self.sum_weight = np.array(list(map(lambda n: n*((-1)**n)*tension*np.pi/length, index)))
         
