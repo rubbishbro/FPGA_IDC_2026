@@ -1,11 +1,21 @@
 # Locally unpacked wheels -- the sandbox cannot use pip's install path.
+# Kept at the repository root because python/tools/ resolves them from there.
 _libs/
 _wheels/
 
-# Rendered audio. Regenerate with the experiments or tests.
+# Rendered audio, from the experiments and tests. Regenerate any time.
+# Not anchored, because the experiments write to python/out/ as well as out/.
 out/
+**/out/
 
-__pycache__/
+# Python build artefacts. These patterns are recursive on purpose: a bare
+# `__pycache__/` matches only at the root and would miss every one under python/.
+**/__pycache__/
 *.py[cod]
-.pytest_cache/
+**/.pytest_cache/
 .venv/
+venv/
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db

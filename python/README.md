@@ -42,18 +42,28 @@ pip install numba              # only for synthlab.ext.jit (optional speed)
 ### Installing in this workspace
 
 This sandbox denies writes to the user site-packages, so `pip install` fails
-outright. The wheels are fetched and unpacked into `_libs/` instead, and
-`PYTHONPATH` points at it:
+outright. The wheels are fetched and unpacked into `_libs/` at the repository root
+instead. **Run everything from the repository root**, not from `python/`:
 
 ```powershell
-python tools/fetch_wheels.py numpy sounddevice cffi numba llvmlite
-python tools/unpack_wheels.py
+python python/tools/fetch_wheels.py numpy sounddevice cffi numba llvmlite
+python python/tools/unpack_wheels.py
 $env:PYTHONPATH = (Resolve-Path .\_libs).Path
 ```
 
-On a normal machine, ignore all of the above and just use pip or a venv.
+The tools resolve `_libs/` and `_wheels/` by walking up from their own location, so
+they work from any working directory; override with `SYNTHLAB_LIBS_DIR` /
+`SYNTHLAB_WHEELS_DIR` if you keep them elsewhere.
+
+On a normal machine with a working `pip`, ignore all of the above and just install
+into a venv.
 
 ## Layout
+
+This package lives under `python/` in the team repository, alongside the FPGA RTL
+(`top.sv`), the MATLAB reference models (`matlab/`) and the design notes (`docs/`).
+The paths below are relative to `python/`; commands are written to be run from the
+repository root.
 
 The library is two layers. `core` holds the abstractions and nothing else; `ext`
 holds every concrete algorithm, built on core. Nothing in core imports ext, and
@@ -144,7 +154,7 @@ delay buffers are ordinary attributes. Nothing is hidden behind a C++ object.
 ## Where to change the algorithm
 
 This is the point of the library, so here is the map of extension points. Each has
-a runnable version in `experiments/01_algorithm_swapping.py`.
+a runnable version in `python/experiments/01_algorithm_swapping.py`.
 
 | You want to change | Do this |
 |---|---|
@@ -184,9 +194,9 @@ class HardSync(sl.Oscillator):
 Don't trust your ears alone — every claim in the tests is a measured number.
 
 ```
-python tests/test_core.py        # 43 tests
-python tests/test_effects.py     # 21 tests
-python tests/test_layering.py    #  6 tests (architecture: core must not need ext)
+python python/tests/test_core.py        # 43 tests
+python python/tests/test_effects.py     # 21 tests
+python python/tests/test_layering.py    #  6 tests (architecture: core must not need ext)
 ```
 
 The analysis module is the same toolbox the tests use:
@@ -212,7 +222,7 @@ Concrete findings this workflow produced, as examples of what it catches:
   the fix: saw alias energy down **6.3x**, 50% pulse down **3.4x**.
 - **Alias measurement is easy to get wrong.** "Energy not on a harmonic" counts a
   narrow pulse's genuine sinc sidelobes as aliasing, inflating the number by 70x.
-  The metric in `tests/test_core.py` excludes each harmonic's own lobe; its
+  The metric in `python/tests/test_core.py` excludes each harmonic's own lobe; its
   docstring records where it still over-reports.
 - **`LFO(unipolar=1)` did not scale with `depth`.** The mapping was
   `out * 0.5 + 0.5`, correct only at `depth == 1`; at `depth = 600` a cutoff sweep

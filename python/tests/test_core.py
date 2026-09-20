@@ -18,7 +18,9 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import _bootstrap  # noqa: E402  (must run before importing synthlab)
+
+_bootstrap.install()
 
 import synthlab as sl
 from synthlab.core import Amp, Chain, Context, Modulated, Parallel, render, render_note

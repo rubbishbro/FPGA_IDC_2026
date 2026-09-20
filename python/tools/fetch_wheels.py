@@ -8,13 +8,18 @@ The ABI matching matters: picking the first wheel containing "cp314" selects the
 free-threaded `cp314t` build, which a normal CPython 3.14 cannot load.
 
 Usage:
-    python tools/fetch_wheels.py numpy sounddevice     # download to _wheels/
-    python tools/unpack_wheels.py                      # unpack all into _libs/
+    python python/tools/fetch_wheels.py numpy sounddevice   # download to <repo>/_wheels/
+    python python/tools/unpack_wheels.py                    # unpack all into <repo>/_libs/
+
+The download directory defaults to `<repo>/_wheels`, found by walking up from this
+file (this script lives at `python/tools/`, so the repo root is two levels up).
+Override with `SYNTHLAB_WHEELS_DIR` if you want them elsewhere.
 """
 
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import sysconfig
@@ -28,8 +33,9 @@ try:
 except Exception:  # truststore is optional; stock certs usually work
     pass
 
-ROOT = Path(__file__).resolve().parent.parent
-DEST = ROOT / "_wheels"
+#: Repository root. `parents[2]` is `python/tools/ -> python/ -> <repo>`.
+ROOT = Path(os.environ.get("SYNTHLAB_REPO_ROOT") or Path(__file__).resolve().parents[2])
+DEST = Path(os.environ.get("SYNTHLAB_WHEELS_DIR") or (ROOT / "_wheels"))
 socket.setdefaulttimeout(30)
 
 

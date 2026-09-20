@@ -1,6 +1,10 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent / "_libs"))
+# Dependencies live in <repo>/_libs (sibling of python/), and this file sits in
+# python/, so both the repo root and _libs are one level up.
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE.parent / "_libs"))
+sys.path.insert(0, str(_HERE))
 
 import numpy as np
 from synthlab.ext.io import play

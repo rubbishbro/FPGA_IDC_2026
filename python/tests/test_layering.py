@@ -13,15 +13,25 @@ not independence; these tests are.
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+import _bootstrap  # noqa: E402  (must run before importing synthlab)
 
-CORE = ROOT / "synthlab" / "core"
-EXT = ROOT / "synthlab" / "ext"
+PYTHON_ROOT = _bootstrap.install()
+
+#: Passed to the subprocesses so `import synthlab` works there too.
+CHILD_ENV = {
+    **os.environ,
+    "PYTHONPATH": os.pathsep.join(
+        [str(PYTHON_ROOT), str(_bootstrap.LIBS_DIR), os.environ.get("PYTHONPATH", "")]
+    ).strip(os.pathsep),
+}
+
+CORE = PYTHON_ROOT / "synthlab" / "core"
+EXT = PYTHON_ROOT / "synthlab" / "ext"
 
 
 def _imports_of(path: Path) -> list[str]:
@@ -71,7 +81,8 @@ def test_core_loads_without_ext_in_a_fresh_interpreter():
     )
     result = subprocess.run(
         [sys.executable, "-c", code],
-        cwd=ROOT,
+        cwd=PYTHON_ROOT,
+        env=CHILD_ENV,
         capture_output=True,
         text=True,
     )
@@ -90,7 +101,8 @@ def test_top_level_import_is_lazy():
         "print('ok')"
     )
     result = subprocess.run(
-        [sys.executable, "-c", code], cwd=ROOT, capture_output=True, text=True
+        [sys.executable, "-c", code], cwd=PYTHON_ROOT, env=CHILD_ENV,
+        capture_output=True, text=True
     )
     assert result.returncode == 0, (
         f"lazy-import check failed:\n{result.stdout}\n{result.stderr}"
