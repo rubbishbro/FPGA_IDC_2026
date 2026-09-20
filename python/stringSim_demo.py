@@ -62,12 +62,10 @@ class StringSim(Source):
         self.u_dot.fill(0)
      
     def process(self, ctx):
-        out = self.simStep(1.0 / ctx.sr)
-        if out < 0: out = -out
-        return out
+        return self.simStep(1.0 / ctx.sr)
 
 mode_N = 16
-string_len = 0.38
+string_len = 0.4
 string_tension = 140
 string_density = 0.005
 
