@@ -1,0 +1,11 @@
+# Locally unpacked wheels -- the sandbox cannot use pip's install path.
+_libs/
+_wheels/
+
+# Rendered audio. Regenerate with the experiments or tests.
+out/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
