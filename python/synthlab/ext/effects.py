@@ -1,6 +1,10 @@
 """
-Time-domain effects: delay, comb/allpass filters, reverb, modulated delays,
-waveshaping, quantisation and DC removal.
+Audio processors: delay, comb and allpass filters, reverb, modulated delays,
+waveshaping, quantisation, gain and DC removal.
+
+Nothing here generates signal; every class takes an input, so these are what you
+put in a `Chain` after a source. Modulation sources live in `modulators`, filter
+primitives in `processors`.
 
 Everything here is a plain `synthlab.core.Block` following the library's one
 rule: **process is called once per sample, and the state is public**.  There is no
@@ -19,11 +23,10 @@ read or write between samples.
 
 Sample rate
 -----------
-`Context` carries the sample rate and it is only known at `prepare()` time, so
-every block resolves the rate in `prepare()` and stores it in `self._sr`.  Blocks
-also accept an `sr=` constructor fallback and default to 48000.0 for direct,
-offline use where `prepare` was never called (and therefore *any* delay length is
-allowed -- see `read`).
+Every block reads the sample rate from the `Context` in `reset(ctx)`, which the
+render helpers call on the graph root before the first sample. Anything sized from
+the rate is allocated there and only there, so a reset block is always ready to
+run.
 
 Notation
 --------
@@ -31,11 +34,13 @@ Notation
 * `N`     delay length in **samples** (fractional delays are interpolated)
 * `fs`    sample rate in Hz, `T = 1 / fs`
 
-Deliberate omissions
---------------------
-`synthlab.osc` is *not* imported (the oscillators would be the natural place to
-get an LFO).  Each modulated effect runs its own phase accumulator instead, which
-also keeps it honest: you can see exactly what drives the delay time.
+Classification
+--------------
+The split from `processors` is by intent, not by maths: `processors` holds the
+filter primitives, this module holds what you reach for when shaping a sound. Two
+members sit on the line. `Gain` is memoryless and is as often a modulation target
+as an audio processor, and `Bitcrush` quantises rather than delaying. Neither is
+worth a module of its own.
 """
 
 from __future__ import annotations
@@ -177,25 +182,16 @@ class DelayLine(Block):
         # `max_seconds` is a Param descriptor, and the per-instance parameter cell
         # `self.p` does not exist until `Block.__init__` runs, so seed the shadow
         # attribute directly and let the descriptor take over afterwards.
-        self.__dict__["max_seconds"] = float(self._param_defaults["max_seconds"][0])
         self.delay_samples: int = 0
         self.max_delay_samples: int = 0
         super().__init__(name=name, **params)
 
     # -- lifecycle ---------------------------------------------------------
-    def prepare(self, ctx) -> None:
-        """Resolve the sample rate from `ctx`, allocate the buffer if needed."""
-        super().prepare(ctx)
-        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
-        if self.buffer is None or self._alloc_sr != self._sr:
-            self.max_seconds = float(self.p["max_seconds"])
-            self._alloc_sr = self._sr
-        self._ensure_buffer()
 
-    def reset(self) -> None:
-        """Zero the ring buffer and park the write cursor at 0."""
-        super().reset()
-        self.max_seconds = float(self.p["max_seconds"])
+    def reset(self, ctx) -> None:
+        """Size the ring buffer, then zero it and park the write cursor at 0."""
+        super().reset(ctx)
+        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self._ensure_buffer()
         self.buffer[:] = 0.0
         self.write_index = 0
@@ -217,7 +213,7 @@ class DelayLine(Block):
                 fresh[: current.size] = current
             self.buffer = fresh
         self.max_delay_samples = int(self.buffer.size)
-        self.delay_samples = int(round(float(self.p["delay"]) * sr))
+        self.delay_samples = int(round(float(self.params["delay"]) * sr))
         self._alloc_max = max_seconds
 
     # -- low level buffer access: the whole point of this class ------------
@@ -272,7 +268,7 @@ class DelayLine(Block):
         return float(buf[(self.write_index - 1 - int(offset)) % buf.size])
 
     def _clamped_feedback(self) -> float:
-        return float(np.clip(self.p["feedback"], -self.MAX_FEEDBACK, self.MAX_FEEDBACK))
+        return float(np.clip(self.params["feedback"], -self.MAX_FEEDBACK, self.MAX_FEEDBACK))
 
     # -- per-sample --------------------------------------------------------
     def process(self, x: float, ctx) -> float:
@@ -281,19 +277,18 @@ class DelayLine(Block):
             # `prepare` was skipped (or the rate changed): stay usable.
             self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
             self._alloc_sr = self._sr
-            self._ensure_buffer()
 
         buf = self.buffer
         L = buf.size
         sr = self._sr
-        delay_samples = float(self.p["delay"]) * sr
+        delay_samples = float(self.params["delay"]) * sr
         self.delay_samples = int(round(delay_samples))
 
         tail = self.read(delay_samples)
         buf[self.write_index] = float(x) + tail * self._clamped_feedback()
         self.write_index = (self.write_index + 1) % L
 
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return float(x) * (1.0 - mix) + tail * mix
 
 
@@ -347,39 +342,35 @@ class Allpass(Block):
 
     def __init__(self, name: str | None = None, sr: float = 48_000.0, **params):
         self._sr: float = float(sr)
-        self.__dict__["max_seconds"] = float(self._param_defaults["max_seconds"][0])
         self.delay_line = DelayLine(max_seconds=0.05, sr=self._sr)
         self.last_delayed: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
-        self._ensure_buffer()
-        self.delay_line.delay = 0.0
-        self.delay_line.feedback = 0.0
-        self.delay_line.prepare(ctx)
 
     def _ensure_buffer(self) -> None:
         """Size the inner line for the current `delay` and `max_seconds`."""
-        need = (max(1, int(round(float(self.p["delay"]) * self._sr))) + 2) / self._sr
+        need = (max(1, int(round(float(self.params["delay"]) * self._sr))) + 2) / self._sr
         # Never shrink a buffer the user asked to be larger: `Reverb` sizes its
         # allpasses so the tuning is never clipped.
-        self.p["max_seconds"] = max(need, float(self.p["max_seconds"]))
-        self.__dict__["max_seconds"] = self.p["max_seconds"]
-        self.delay_line.max_seconds = self.p["max_seconds"]
+        self.params["max_seconds"] = max(need, float(self.params["max_seconds"]))
+        self.delay_line.max_seconds = self.params["max_seconds"]
         self.delay_line._ensure_buffer()
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
+        self.delay_line.delay = 0.0
+        self.delay_line.feedback = 0.0
+        self.delay_line.reset(ctx)
+
         if hasattr(self, "delay_line"):
-            self.delay_line.reset()
+            self.delay_line.reset(ctx)
         self.last_delayed = 0.0
 
     def process(self, x: float, ctx) -> float:
         """One allpass sample; see the class docstring for the equation."""
-        n = max(1.0, round(float(self.p["delay"]) * self._sr))
-        g = float(np.clip(self.p["gain"], -0.9999, 0.9999))
+        n = max(1.0, round(float(self.params["delay"]) * self._sr))
+        g = float(np.clip(self.params["gain"], -0.9999, 0.9999))
         vn = float(x) + g * self.delay_line.read(n)
         delayed = self.delay_line.read(n)
         self.delay_line.buffer[self.delay_line.write_index] = vn
@@ -434,33 +425,29 @@ class Comb(Block):
 
     def __init__(self, name: str | None = None, sr: float = 48_000.0, **params):
         self._sr: float = float(sr)
-        self.__dict__["max_seconds"] = float(self._param_defaults["max_seconds"][0])
         self.delay_line = DelayLine(max_seconds=0.05, sr=self._sr)
         self.last_delay: float = 0.0
         self.last_out: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
-        self._ensure_buffer()
-        self.delay_line.feedback = 0.0
-        self.delay_line.prepare(ctx)
 
     def _ensure_buffer(self) -> None:
         """Size the inner line for the current `delay` and `max_seconds`."""
-        need = (max(1, int(round(float(self.p["delay"]) * self._sr))) + 2) / self._sr
+        need = (max(1, int(round(float(self.params["delay"]) * self._sr))) + 2) / self._sr
         # Never shrink a buffer the user asked to be larger: `Reverb` sizes its
         # combs so a `room_size` change never clips the Freeverb tuning.
-        self.p["max_seconds"] = max(need, float(self.p["max_seconds"]))
-        self.__dict__["max_seconds"] = self.p["max_seconds"]
-        self.delay_line.max_seconds = self.p["max_seconds"]
+        self.params["max_seconds"] = max(need, float(self.params["max_seconds"]))
+        self.delay_line.max_seconds = self.params["max_seconds"]
         self.delay_line._ensure_buffer()
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
+        self.delay_line.feedback = 0.0
+        self.delay_line.reset(ctx)
+
         if hasattr(self, "delay_line"):
-            self.delay_line.reset()
+            self.delay_line.reset(ctx)
         self.last_delay = 0.0
         self.last_out = 0.0
 
@@ -474,15 +461,15 @@ class Comb(Block):
         the pole slightly off the resonance, restoring decay.  Call it from
         `prepare` after changing `feedback`/`delay` yourself.
         """
-        n = float(self.p["delay"]) * self._sr
-        if abs(float(self.p["feedback"])) >= 0.9999 and n > 2.0:
-            self.p["delay"] = (n - 0.5 * n) / self._sr
+        n = float(self.params["delay"]) * self._sr
+        if abs(float(self.params["feedback"])) >= 0.9999 and n > 2.0:
+            self.params["delay"] = (n - 0.5 * n) / self._sr
 
     def process(self, x: float, ctx) -> float:
         """One comb sample; see the class docstring for the equation."""
-        n = max(1.0, round(float(self.p["delay"]) * self._sr))
-        a = float(np.clip(self.p["feedback"], -0.9999, 0.9999))
-        b = float(self.p["feedforward"])
+        n = max(1.0, round(float(self.params["delay"]) * self._sr))
+        a = float(np.clip(self.params["feedback"], -0.9999, 0.9999))
+        b = float(self.params["feedforward"])
 
         delayed = self.delay_line.read(n)
         self.last_delay = delayed
@@ -603,15 +590,23 @@ class Reverb(Block):
         super().__init__(name=name, **params)
 
     # -- lifecycle ---------------------------------------------------------
-    def prepare(self, ctx) -> None:
-        """(Re)tune the comb and allpass banks for `ctx.sr`, keeping state.
 
-        The banks are only rebuilt when the sample rate changes or the required
-        buffer grows; on an ordinary re-prepare the existing delay lines are kept
-        and merely re-tuned, so a reverb tail survives `reset()`-less replay and
-        no buffer is ever silently swapped out from under the state.
+    def rebuild(self) -> None:
+        """Force a fresh allocation of the comb/allpass banks on the next prepare.
+
+        Use it after changing `FREEVERB_COMB_TUNING` (or the module constants) so
+        the new lengths take effect instead of the cached ones.
         """
-        super().prepare(ctx)
+        self.combs = []
+        self.combs_r = []
+        self.allpasses = []
+        self.allpasses_r = []
+        self._alloc_sr = None
+        self._alloc_max_seconds = None
+
+    def reset(self, ctx) -> None:
+        """Clear comb buffers, allpass buffers and the damping one-pole memory."""
+        super().reset(ctx)
         sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self._sr = sr
         scale = sr / 44_100.0
@@ -619,7 +614,6 @@ class Reverb(Block):
         ap = [max(1, int(round(v * scale))) for v in FREEVERB_ALLPASS_TUNING]
         spread = max(0, int(round(FREEVERB_STEREO_SPREAD * scale)))
         max_seconds = min(60.0, max(comb[-1] + spread, ap[0]) * 2.5 / sr)
-
         rebuild = (
             not self.combs
             or self._alloc_sr != sr
@@ -646,8 +640,7 @@ class Reverb(Block):
             ]
             self._alloc_max_seconds = max_seconds
             self._alloc_sr = sr
-            self.reset()
-
+            self.reset(ctx)
         for i, c in enumerate(self.combs):
             c.delay = self.delay_seconds[i]
             c.feedback = 0.5
@@ -673,28 +666,12 @@ class Reverb(Block):
         self.damping_state = [0.0] * len(self.combs)
         self.damping_state_r = [0.0] * len(self.combs_r)
 
-    def rebuild(self) -> None:
-        """Force a fresh allocation of the comb/allpass banks on the next prepare.
-
-        Use it after changing `FREEVERB_COMB_TUNING` (or the module constants) so
-        the new lengths take effect instead of the cached ones.
-        """
-        self.combs = []
-        self.combs_r = []
-        self.allpasses = []
-        self.allpasses_r = []
-        self._alloc_sr = None
-        self._alloc_max_seconds = None
-
-    def reset(self) -> None:
-        """Clear comb buffers, allpass buffers and the damping one-pole memory."""
-        super().reset()
         for c in list(getattr(self, "combs", [])) + list(getattr(self, "combs_r", [])):
-            c.reset()
+            c.reset(ctx)
         for a in list(getattr(self, "allpasses", [])) + list(
             getattr(self, "allpasses_r", [])
         ):
-            a.reset()
+            a.reset(ctx)
         self.damping_state = [0.0] * len(getattr(self, "combs", []))
         self.damping_state_r = [0.0] * len(getattr(self, "combs_r", []))
         self.last_wet = 0.0
@@ -704,11 +681,11 @@ class Reverb(Block):
     # -- coefficients ------------------------------------------------------
     def _feedback(self) -> float:
         """Freeverb's room size -> comb feedback mapping: 0.70 + 0.28 * room."""
-        return 0.70 + 0.28 * float(np.clip(self.p["room_size"], 0.0, 1.0))
+        return 0.70 + 0.28 * float(np.clip(self.params["room_size"], 0.0, 1.0))
 
     def _damping_coeff(self) -> float:
         """Freeverb's damping -> one-pole coefficient mapping: 0.4 * damping."""
-        return 0.4 * float(np.clip(self.p["damping"], 0.0, 1.0))
+        return 0.4 * float(np.clip(self.params["damping"], 0.0, 1.0))
 
     # -- per-sample --------------------------------------------------------
     def _comb_bank(self, combs, damping_state, x: float, fb: float, damp: float,
@@ -748,7 +725,7 @@ class Reverb(Block):
         self.last_wet = left
         self.last_wet_r = right
 
-        width = float(np.clip(self.p["width"], -1.0, 2.0))
+        width = float(np.clip(self.params["width"], -1.0, 2.0))
         if width == 0.0:
             wet = 0.5 * (left + right)            # mono sum
         else:
@@ -756,7 +733,7 @@ class Reverb(Block):
             w = 0.5 * width * (1.0 + math.cos(math.pi * t))
             wet = w * left + (1.0 - w) * right
 
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return dry * (1.0 - mix) + wet * mix
 
 
@@ -838,22 +815,18 @@ class Chorus(Block):
         self.last_wet: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self._sr = sr
-        self.delay_line.max_seconds = float(self.p["max_seconds"])
+        self.delay_line.max_seconds = float(self.params["max_seconds"])
         self.delay_line.delay = min(
-            float(self.p["max_seconds"]), max(0.002, float(self.p["depth"])) * 2.0
+            float(self.params["max_seconds"]), max(0.002, float(self.params["depth"])) * 2.0
         )
         self.delay_line.feedback = 0.0
-        self.delay_line.prepare(ctx)
-        self.reset()
+        self.delay_line.reset(ctx)
 
-    def reset(self) -> None:
-        super().reset()
-        if hasattr(self, "delay_line"):
-            self.delay_line.reset()
         voices = self._voice_count()
         self.phase = [i / voices for i in range(voices)]
         self.voice_offsets = [2.0 * math.pi * i / voices for i in range(voices)]
@@ -862,21 +835,21 @@ class Chorus(Block):
         self.last_wet = 0.0
 
     def _voice_count(self) -> int:
-        return max(1, int(self.p["voices"]))
+        return max(1, int(self.params["voices"]))
 
     def _center_samples(self) -> float:
         """Delay length half way between the shortest and longest excursion."""
-        return max(0.001, float(self.p["depth"])) * self._sr
+        return max(0.001, float(self.params["depth"])) * self._sr
 
     def process(self, x: float, ctx) -> float:
         """One sample: advance every LFO, sum the taps, write once."""
         voices = self._voice_count()
         if len(self.phase) != voices or self.delay_line.buffer is None:
-            self.reset()
+            self.reset(ctx)
         sr = self._sr
-        inc = float(self.p["rate"]) / sr
+        inc = float(self.params["rate"]) / sr
         center = self._center_samples()
-        span = float(self.p["depth"]) * sr
+        span = float(self.params["depth"]) * sr
         x = float(x)
 
         total = 0.0
@@ -892,13 +865,13 @@ class Chorus(Block):
             total += self.delay_line.read(d)
         wet = total / voices
 
-        fb = float(np.clip(self.p["feedback"], -0.99, 0.99))
+        fb = float(np.clip(self.params["feedback"], -0.99, 0.99))
         d = self.delay_line
         d.buffer[d.write_index] = x + wet * fb
         d.write_index = (d.write_index + 1) % d.buffer.size
 
         self.last_wet = wet
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return x * (1.0 - mix) + wet * mix
 
 
@@ -959,19 +932,18 @@ class Flanger(Block):
         self.last_wet: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self._sr = sr
         self.delay_line.max_seconds = 0.05
-        self.delay_line.delay = max(0.001, float(self.p["depth"])) * 2.0
+        self.delay_line.delay = max(0.001, float(self.params["depth"])) * 2.0
         self.delay_line.feedback = 0.0
-        self.delay_line.prepare(ctx)
+        self.delay_line.reset(ctx)
 
-    def reset(self) -> None:
-        super().reset()
         if hasattr(self, "delay_line"):
-            self.delay_line.reset()
+            self.delay_line.reset(ctx)
         self.phase = 0.0
         self.lfo = 0.0
         self.delay_samples = 0.0
@@ -980,25 +952,25 @@ class Flanger(Block):
     def process(self, x: float, ctx) -> float:
         """One sample: advance the LFO, read the comb, write with feedback."""
         sr = self._sr
-        phi = self.phase + float(self.p["rate"]) / sr
+        phi = self.phase + float(self.params["rate"]) / sr
         phi -= math.floor(phi)
         self.phase = phi
         sine = math.sin(2.0 * math.pi * phi)
         self.lfo = sine
 
-        span = max(0.001, float(self.p["depth"])) * sr
+        span = max(0.001, float(self.params["depth"])) * sr
         d = span * (1.0 + sine)
         self.delay_samples = d
         x = float(x)
         wet = self.delay_line.read(d)
 
-        fb = float(np.clip(self.p["feedback"], -0.99, 0.99))
+        fb = float(np.clip(self.params["feedback"], -0.99, 0.99))
         dl = self.delay_line
         dl.buffer[dl.write_index] = x + wet * fb
         dl.write_index = (dl.write_index + 1) % dl.buffer.size
 
         self.last_wet = wet
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return x * (1.0 - mix) + wet * mix
 
 
@@ -1090,20 +1062,19 @@ class Phaser(Block):
         self.last_wet: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self._sr = sr
         self.delay_line.max_seconds = 0.01
         self.delay_line.delay = 1.0 / sr
         self.delay_line.feedback = 0.0
-        self.delay_line.prepare(ctx)
+        self.delay_line.reset(ctx)
         self._ensure_stages()
 
-    def reset(self) -> None:
-        super().reset()
         if hasattr(self, "delay_line"):
-            self.delay_line.reset()
+            self.delay_line.reset(ctx)
         self._ensure_stages()
         self.ap_x1[:] = 0.0
         self.ap_y1[:] = 0.0
@@ -1114,7 +1085,7 @@ class Phaser(Block):
         self.last_wet = 0.0
 
     def _ensure_stages(self) -> None:
-        n = max(1, int(self.p["stages"]))
+        n = max(1, int(self.params["stages"]))
         if self.ap_x1.size != n:
             self.ap_x1 = np.zeros(n, dtype=np.float64)
             self.ap_y1 = np.zeros(n, dtype=np.float64)
@@ -1141,17 +1112,17 @@ class Phaser(Block):
         The exponential (log-frequency) map is what keeps the sweep sounding
         even: the ear hears octaves, not hertz.
         """
-        fmin = max(1.0, float(self.p["fmin"]))
-        fmax = min(max(float(self.p["fmax"]), fmin + 1e-6), 0.49 * self._sr)
+        fmin = max(1.0, float(self.params["fmin"]))
+        fmax = min(max(float(self.params["fmax"]), fmin + 1e-6), 0.49 * self._sr)
         lfo = 0.5 * (1.0 + self.lfo)                     # 0..1
-        lfo = 1.0 - float(np.clip(self.p["depth"], 0.0, 1.0)) * (1.0 - lfo)
+        lfo = 1.0 - float(np.clip(self.params["depth"], 0.0, 1.0)) * (1.0 - lfo)
         return fmin * (fmax / fmin) ** lfo
 
     def process(self, x: float, ctx) -> float:
         """One sample: advance the LFO, cascade N allpasses, mix with the dry."""
         self._ensure_stages()
         sr = self._sr
-        phi = self.phase + float(self.p["rate"]) / sr
+        phi = self.phase + float(self.params["rate"]) / sr
         phi -= math.floor(phi)
         self.phase = phi
         self.lfo = math.sin(2.0 * math.pi * phi)
@@ -1162,7 +1133,7 @@ class Phaser(Block):
         self.stages_coeff[:] = a
 
         x = float(x)
-        g = float(np.clip(self.p["feedback"], -0.99, 0.99))
+        g = float(np.clip(self.params["feedback"], -0.99, 0.99))
         v = x + g * self.last_wet
         for i in range(self.ap_x1.size):
             x1 = self.ap_x1[i]
@@ -1175,7 +1146,7 @@ class Phaser(Block):
             v = y
         self.last_wet = v
 
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return x * (1.0 - mix) + v * mix
 
 
@@ -1375,18 +1346,17 @@ class Waveshaper(Block):
         self._shaper_key = None
         super().__init__(name=name, **params)
         # Validate immediately so a typo fails loudly at construction time.
-        self.shaper = self.resolve_shaper(self.p["shape"])
+        self.shaper = self.resolve_shaper(self.params["shape"])
         self._shaper_key = self.shaper_key()
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
-        self.shaper = self.resolve_shaper(self.p["shape"])
-        self._shaper_key = self.shaper_key()
 
-    def reset(self) -> None:
+    def reset(self, ctx) -> None:
         """Memoryless: nothing to clear, but the hook stays for combinators."""
-        super().reset()
+        super().reset(ctx)
+        self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
+        self.shaper = self.resolve_shaper(self.params["shape"])
+        self._shaper_key = self.shaper_key()
+
         self.last_wet = 0.0
         self.last_drive = 0.0
 
@@ -1397,7 +1367,7 @@ class Waveshaper(Block):
         leaving it out is why `shape="cheby", harmonic=5` used to silently produce
         the 2nd harmonic.
         """
-        return (self.p["shape"], self.p["harmonic"])
+        return (self.params["shape"], self.params["harmonic"])
 
     def resolve_shaper(self, shape) -> Callable[..., float]:
         """Return the callable for a `shape` name (or a callable, passed through).
@@ -1422,7 +1392,7 @@ class Waveshaper(Block):
             ) from None
         if key == "cheby":
             # Bind the harmonic order now, so the per-sample call stays 2-arg.
-            harmonic = max(0, int(self.p["harmonic"]))
+            harmonic = max(0, int(self.params["harmonic"]))
             return lambda u, k, n=harmonic: curve(u, k, n)
         return curve
 
@@ -1431,19 +1401,19 @@ class Waveshaper(Block):
         # Re-resolve only when `shape`/`harmonic` changed: a per-sample dict lookup
         # or `if` chain is exactly the overhead this caching exists to avoid.
         if self.shaper_key() != self._shaper_key:
-            self.shaper = self.resolve_shaper(self.p["shape"])
+            self.shaper = self.resolve_shaper(self.params["shape"])
             self._shaper_key = self.shaper_key()
 
-        k = max(0.0, float(self.p["drive"]))
+        k = max(0.0, float(self.params["drive"]))
         if not math.isfinite(k):
             k = 0.0
         self.last_drive = k
-        u = float(x) + float(self.p["bias"])
+        u = float(x) + float(self.params["bias"])
         if not math.isfinite(u):
             u = 0.0
         wet = float(self.shaper(u, k))
         self.last_wet = wet
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return u * (1.0 - mix) + wet * mix
 
 
@@ -1546,12 +1516,11 @@ class Bitcrush(Block):
         self.last_wet: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
 
-    def reset(self) -> None:
-        super().reset()
         self.hold = 0.0
         self.counter = 0
         self.step = 0.0
@@ -1559,13 +1528,13 @@ class Bitcrush(Block):
 
     def levels(self) -> int:
         """Number of quantisation levels per polarity: `2**(bits - 1)`."""
-        bits = int(np.clip(self.p["bits"], 1, 32))
+        bits = int(np.clip(self.params["bits"], 1, 32))
         return 1 << (bits - 1)
 
     def hold_samples(self) -> int:
         """`downsample` rounded to an integer number of samples, minimum 1."""
         try:
-            m = int(round(float(self.p["downsample"])))
+            m = int(round(float(self.params["downsample"])))
         except (TypeError, ValueError):
             m = 1
         return max(1, m)
@@ -1591,7 +1560,7 @@ class Bitcrush(Block):
         wet = self.hold
         self.last_wet = wet
 
-        mix = float(np.clip(self.p["mix"], 0.0, 1.0))
+        mix = float(np.clip(self.params["mix"], 0.0, 1.0))
         return x * (1.0 - mix) + wet * mix
 
 
@@ -1646,19 +1615,18 @@ class DcBlocker(Block):
         self.a: float = 0.0
         super().__init__(name=name, **params)
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
 
-    def reset(self) -> None:
-        super().reset()
         self.x1 = 0.0
         self.y1 = 0.0
         self.a = 0.0
 
     def coeff(self, cutoff_hz: float | None = None) -> float:
         """The pole coefficient `a = exp(-2*pi*fc/fs)` for a cutoff (Hz)."""
-        fc = float(self.p["cutoff"]) if cutoff_hz is None else float(cutoff_hz)
+        fc = float(self.params["cutoff"]) if cutoff_hz is None else float(cutoff_hz)
         if fc <= 0.0:
             return 1.0
         return math.exp(-2.0 * math.pi * fc / self._sr)
@@ -1722,16 +1690,12 @@ class Gain(Block):
         super().__init__(name=name, **params)
         self.sync(which="db")
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+
+    def reset(self, ctx) -> None:
+        """Stateless: only re-asserts the gain/db consistency."""
+        super().reset(ctx)
         self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
         self.sync(which="db")
-
-    def reset(self) -> None:
-        """Stateless: only re-asserts the gain/db consistency."""
-        super().reset()
-        if hasattr(self, "p"):
-            self.sync(which="db")
 
     @staticmethod
     def db_to_gain(db: float) -> float:
@@ -1756,24 +1720,24 @@ class Gain(Block):
         so `Gain(db=-6)` does what you expect); `which="gain"` goes the other way.
         """
         if which == "db":
-            g = self.db_to_gain(float(self.p["db"]))
-            self.p["db"] = self.gain_to_db(g)
-            self.p["gain"] = g
+            g = self.db_to_gain(float(self.params["db"]))
+            self.params["db"] = self.gain_to_db(g)
+            self.params["gain"] = g
             return g
-        g = max(0.0, float(self.p["gain"]))
-        self.p["gain"] = g
-        self.p["db"] = self.gain_to_db(g)
+        g = max(0.0, float(self.params["gain"]))
+        self.params["gain"] = g
+        self.params["db"] = self.gain_to_db(g)
         return g
 
     @property
     def linear(self) -> float:
         """The linear gain currently applied (mirrors the `gain` parameter)."""
-        return float(self.p["gain"])
+        return float(self.params["gain"])
 
     def process(self, x: float, ctx) -> float:
         """One sample: `y = gain * x + dc`."""
         g = self.sync(which="db")
-        offset = float(self.p["dc"])
+        offset = float(self.params["dc"])
         y = g * float(x) + offset
         if not math.isfinite(y):
             return 0.0

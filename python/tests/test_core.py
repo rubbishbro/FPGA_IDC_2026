@@ -201,7 +201,7 @@ def test_overriding_tick_actually_changes_the_phase_law():
 
     class DoubleRate(sl.Oscillator):
         def tick(self, freq, dt):
-            value = self.shape(self.ph, self.pulse_width)
+            value = self.shape(self.ph)
             self.ph += 2.0 * freq * dt
             self.ph -= math.floor(self.ph)
             return value
@@ -224,8 +224,8 @@ def test_hard_sync_forces_slave_to_the_master_period():
     class HardSync(sl.Oscillator):
         slave_ratio = sl.Param(2.5)
 
-        def reset(self):
-            super().reset()
+        def reset(self, ctx):
+            super().reset(ctx)
             self.master_ph = 0.0
 
         def tick(self, freq, dt):
@@ -234,7 +234,7 @@ def test_hard_sync_forces_slave_to_the_master_period():
             if self.master_ph >= 1.0:
                 self.master_ph -= math.floor(self.master_ph)
                 synced = True
-            value = self.shape(self.ph, self.pulse_width)
+            value = self.shape(self.ph)
             self.ph += freq * self.slave_ratio * dt
             if synced:
                 self.ph = 0.0
@@ -253,29 +253,70 @@ def test_hard_sync_forces_slave_to_the_master_period():
 def test_two_oscillators_do_not_share_state():
     a = sl.Oscillator(freq=100.0, wave="sine")
     b = sl.Oscillator(freq=100.0, wave="sine")
-    render(a, 0.01)
-    assert a.ph != b.ph or a.p is not b.p
-    a.p["freq"] = 500.0
-    assert b.p["freq"] == 100.0, "parameters leaked between instances"
+    ctx = Context(sr=SR)
+    a.reset(ctx)
+    b.reset(ctx)
+    render(a, 0.01, reset=False)
+    assert a.ph != b.ph or a.params is not b.params
+    a.params.freq = 500.0
+    assert b.params.freq == 100.0, "parameters leaked between instances"
 
 
-def test_wavetable_from_harmonics_matches_sine():
-    table = sl.WavetableOscillator.from_harmonics([1.0], size=4096)
-    osc = sl.WavetableOscillator(table=table, freq=200.0)
+def test_table_from_harmonics_matches_sine():
+    """A single-harmonic table read by a plain Oscillator is a sine."""
+    osc = sl.Oscillator(shape=sl.from_harmonics([1.0], size=4096), freq=200.0)
     y = render(osc, 0.5)
     assert abs(cents(fft_peak_hz(y), 200.0)) < 2.0
-    # Single-harmonic table should be close to a sine.
     assert harmonic_level(y, 200.0, 2) < 0.05
 
 
-def test_additive_oscillator_rebuilds_a_square_spectrum():
-    """Square = odd harmonics at 1/k. Build it explicitly and check."""
+def test_table_from_harmonics_rebuilds_a_square_spectrum():
+    """Square = odd harmonics at 1/k. Build the table explicitly and check."""
     partials = [1.0 / k if k % 2 == 1 else 0.0 for k in range(1, 16)]
-    osc = sl.AdditiveOscillator(partials=partials, freq=200.0)
+    osc = sl.Oscillator(shape=sl.from_harmonics(partials), freq=200.0)
     y = render(osc, 1.0)
     odd = harmonic_level(y, 200.0, 3)
     even = harmonic_level(y, 200.0, 2)
     assert odd > even * 10.0, f"odd={odd} even={even} (expected even harmonics near zero)"
+
+
+def test_a_scanner_is_one_gesture_and_a_looping_one_is_an_oscillator():
+    """Scanner reads its shape once; loop=1 makes it repeat like an oscillator."""
+    sweep = sl.saw()
+    once = render(sl.Scanner(shape=sweep, start=0.0, duration=0.1), 0.2)
+    # starts at the shape's start and holds its final value after the scan
+    assert once[0] == -1.0, once[0]
+    assert abs(once[-1] - 1.0) < 1e-6, once[-1]
+    mid = once[int(0.05 * SR)]
+    assert -1.0 <= mid <= 1.0
+    # a scan that has finished is not active, even though it holds a value
+    scan = sl.Scanner(shape=sweep, start=0.0, duration=0.05)
+    ctx = Context(sr=SR)
+    scan.reset(ctx)
+    for i in range(int(0.1 * SR)):
+        ctx.index = i
+        scan.eval(0.0, ctx)
+    assert not scan.active, "a finished scanner still reported active"
+
+    loop = render(sl.Scanner(shape=sweep, start=0.0, duration=0.1, loop=1.0), 0.2)
+    assert not np.allclose(once, loop), "loop=1 did not change the read law"
+
+
+def test_scanner_waits_for_its_start_time():
+    y = render(sl.Scanner(shape=sl.square(), start=0.05, duration=0.05), 0.15)
+    assert np.all(y[: int(0.05 * SR)] == 0.0), "output before start was not silence"
+
+
+def test_lfo_is_an_oscillator_at_a_control_rate():
+    """There is no separate LFO class: same accumulator, same shapes."""
+    a = render(sl.lfo(rate=5.0, shape="sine"), 0.4)
+    b = render(sl.Oscillator(freq=5.0, shape="sine"), 0.4)
+    assert np.array_equal(a, b), "lfo() and Oscillator disagree"
+
+
+def test_lfo_tempo_sync_is_a_rate_conversion():
+    assert abs(sl.lfo(rate=1.0, sync=1.0, bpm=120.0).params.freq - 2.0) < 1e-12
+    assert abs(sl.lfo(rate=1.0, sync=0.0, bpm=120.0).params.freq - 1.0) < 1e-12
 
 
 def test_noise_is_reproducible_from_seed():
@@ -291,21 +332,18 @@ def test_noise_is_reproducible_from_seed():
 # ---------------------------------------------------------------------------
 
 def test_biquad_lowpass_is_minus_3db_at_cutoff():
-    f = sl.Biquad(cutoff=1000.0, q=0.707, mode="lowpass")
-    f.update(SR)
+    f = sl.Biquad(*sl.design_lowpass(1000.0, 0.707, SR))
     assert abs(f.magnitude_at(1000.0, SR) - 0.7071) < 0.02
     assert f.magnitude_at(100.0, SR) > 0.99
     assert f.magnitude_at(10000.0, SR) < 0.01
 
 
 def test_biquad_highpass_and_bandpass_magnitudes():
-    hp = sl.Biquad(cutoff=1000.0, q=0.707, mode="highpass")
-    hp.update(SR)
+    hp = sl.Biquad(*sl.design_highpass(1000.0, 0.707, SR))
     assert hp.magnitude_at(100.0, SR) < 0.01
     assert abs(hp.magnitude_at(1000.0, SR) - 0.7071) < 0.02
 
-    bp = sl.Biquad(cutoff=1000.0, q=0.707, mode="bandpass")
-    bp.update(SR)
+    bp = sl.Biquad(*sl.design_bandpass(1000.0, 0.707, SR))
     # Constant-peak-gain bandpass is 0 dB at the centre.
     assert abs(bp.magnitude_at(1000.0, SR) - 1.0) < 0.02
     assert bp.magnitude_at(100.0, SR) < 0.2
@@ -316,7 +354,7 @@ def test_biquad_measured_response_matches_analytic():
     response with `magnitude_at`. This validates the implementation against its
     own analytic transfer function."""
     noise = sl.Noise("white")
-    filt = sl.Biquad(cutoff=2000.0, q=1.2, mode="lowpass")
+    filt = sl.Biquad(*sl.design_lowpass(2000.0, 1.2, SR))
     y = render(Chain(noise, filt), 4.0, seed=3)
 
     # Estimate magnitude at a few frequencies with a simple Goertzel-style probe
@@ -333,7 +371,7 @@ def test_biquad_measured_response_matches_analytic():
 def test_filters_are_stable_on_dc():
     """A stable filter fed DC must converge, not diverge."""
     for block in (
-        sl.Biquad(cutoff=500.0, q=5.0, mode="lowpass"),
+        sl.Biquad(*sl.design_lowpass(500.0, 5.0, SR)),
         sl.MoogLadder(cutoff=500.0, resonance=0.95),
         sl.StateVariableFilter(cutoff=500.0, q=0.5),
     ):
@@ -390,7 +428,7 @@ def test_adsr_release_decays_to_zero():
     env = sl.ADSR(attack=0.001, decay=0.001, sustain=1.0, release=0.02)
     env.trigger()
     ctx = Context(sr=SR)
-    env.prepare(ctx)
+    env.reset(ctx)
     for i in range(int(0.01 * SR)):
         ctx.index = i
         env.run(ctx)
@@ -406,10 +444,10 @@ def test_adsr_gate_edge_triggers_and_releases():
     """Driving `gate` must behave like a key press, including retrigger."""
     env = sl.ADSR(attack=0.005, decay=0.005, sustain=0.8, release=0.01)
     ctx = Context(sr=SR)
-    env.prepare(ctx)
+    env.reset(ctx)
 
     # Gate high.
-    env.p["gate"] = 1.0
+    env.params.gate = 1.0
     for i in range(100):
         ctx.index = i
         env.run(ctx)
@@ -418,7 +456,7 @@ def test_adsr_gate_edge_triggers_and_releases():
     assert held > 0.0
 
     # Gate low -> release.
-    env.p["gate"] = 0.0
+    env.params.gate = 0.0
     for i in range(int(0.05 * SR)):
         ctx.index = i
         env.run(ctx)
@@ -427,88 +465,79 @@ def test_adsr_gate_edge_triggers_and_releases():
 
 
 def test_lfo_frequency_and_range():
-    lfo = sl.LFO(rate=10.0, wave=0)
-    y = render(lfo, 1.0)
+    """An LFO is an Oscillator, so its shapes, range and rate are the oscillator's."""
+    y = render(sl.Oscillator(freq=10.0, shape="sine"), 1.0)
     assert abs(cents(fft_peak_hz(y), 10.0)) < 30.0, f"got {fft_peak_hz(y)}"
     assert y.max() <= 1.0 + 1e-9 and y.min() >= -1.0 - 1e-9
-    # A sine LFO spends symmetric time above/below zero.
-    assert abs(y.mean()) < 0.05
+    assert abs(y.mean()) < 0.05, "a sine spends symmetric time above and below zero"
+
+    # An amplitude range is a shape's job, not a mode on the oscillator: a shape
+    # bounded to 0..1 gives a modulator that never crosses its base.
+    def upper(x):
+        return 0.5 * (math.sin(2.0 * math.pi * x + math.pi / 2) + 1.0)
+
+    u = render(sl.Oscillator(freq=1.0, shape=upper), 2.0) * 600.0
+    assert u.min() > -1e-6, f"unipolar output went negative: min={u.min()}"
+    assert abs(u.min()) < 12.0, f"min should be near 0, got {u.min()}"
+    assert abs(u.max() - 600.0) < 12.0, f"max should be ~600, got {u.max()}"
+    assert abs(u.mean() - 300.0) < 12.0, f"mean should be ~300, got {u.mean()}"
 
 
-def test_lfo_unipolar_maps_to_0_1():
-    lfo = sl.LFO(rate=10.0, unipolar=1.0)
-    y = render(lfo, 0.5)
-    assert y.min() >= -1e-9 and y.max() <= 1.0 + 1e-9
-    assert abs(y.mean() - 0.5) < 0.05
-
-
-def test_lfo_unipolar_scales_with_depth():
-    """Regression test: `unipolar` must map the WAVEFORM into 0..1 and leave
-    `depth` as the amplitude, so the range is 0..depth in both modes.
-
-    The bug was `out * 0.5 + 0.5` applied to the already-scaled output, which is
-    only right when depth == 1. At depth 600 it produced -299.5..300.5 (mean 0.5)
-    instead of 0..600 -- a cutoff sweep that barely moved, while the min/max still
-    looked plausible at a glance.
-    """
-    depth = 600.0
-    y = render(sl.LFO(rate=1.0, depth=depth, unipolar=1.0), 2.0)
-    assert y.min() > -1e-6, f"unipolar output went negative: min={y.min()}"
-    assert abs(y.min()) < depth * 0.02, f"min should be near 0, got {y.min()}"
-    assert abs(y.max() - depth) < depth * 0.02, f"max should be ~600, got {y.max()}"
-    assert abs(y.mean() - depth / 2) < depth * 0.02, f"mean should be ~300, got {y.mean()}"
-
-    # Bipolar stays centred on zero with the same amplitude.
-    bipolar = render(sl.LFO(rate=1.0, depth=depth), 2.0)
-    assert abs(bipolar.mean()) < depth * 0.02
-    assert abs(bipolar.min() + depth) < depth * 0.02
-    assert abs(bipolar.max() - depth) < depth * 0.02
+def test_shape_helpers_agree_with_the_named_waves():
+    """`shape="saw"` and `shape=saw()` must be the same thing."""
+    for name, factory in (("sine", sl.sine), ("saw", sl.saw),
+                          ("triangle", sl.triangle), ("square", sl.square)):
+        a = render(sl.Oscillator(freq=50.0, shape=name), 0.1)
+        b = render(sl.Oscillator(freq=50.0, shape=factory()), 0.1)
+        assert np.array_equal(a, b), f"{name}: name and factory disagree"
 
 
 def test_lfo_driving_cutoff_stays_centred_on_the_base():
-    """`Modulated(filt, lfo, "cutoff", base=B)` must sweep centred on B for a
-    bipolar LFO, and upward from B for a unipolar one.
-
-    This is the check that would have caught the unipolar scaling bug at the level
-    the user actually experiences it: a filter sweep that does not sweep.
-    """
-    from synthlab.core import Context, Modulated
+    """`Modulated(filt, lfo, "cutoff", base=B)` must sweep centred on B, and an
+    offset LFO must sweep upward from B. Scale and offset come from `Amp`, so this
+    is the check that the split between oscillator and mapping still works."""
+    from synthlab.core import Amp, Context, Modulated
 
     filt = sl.MoogLadder(cutoff=1000.0)
-    lfo = sl.LFO(rate=1.0, depth=400.0)
-    node = Modulated(filt, lfo, "cutoff", base=1000.0)
+    node = Modulated(filt, sl.Oscillator(freq=1.0, shape="sine"), "cutoff",
+                     depth=400.0, base=1000.0)
     ctx = Context(sr=SR)
-    node.prepare(ctx)
+    node.reset(ctx)
 
     observed = []
     for i in range(SR):
         ctx.index = i
         node.run(0.0, ctx)
-        observed.append(filt.p["cutoff"])
+        observed.append(filt.params.cutoff)
     observed = np.array(observed)
 
-    assert observed.min() < 700.0, f"bipolar sweep never went low: min={observed.min()}"
-    assert observed.max() > 1300.0, f"bipolar sweep never went high: max={observed.max()}"
+    assert observed.min() < 700.0, f"sweep never went low: min={observed.min()}"
+    assert observed.max() > 1300.0, f"sweep never went high: max={observed.max()}"
 
-    # Unipolar should go up from the base and never below it.
+    # A modulator that only ever rises above the base: a shape whose range is 0..1
+    # instead of -1..1. (An `Amp` cannot do this job -- it multiplies its *input*
+    # by the control, so with no upstream signal it outputs 0.)
+    def upper(x):
+        return 0.5 * (math.sin(2.0 * math.pi * x + math.pi / 2) + 1.0)
+
     filt2 = sl.MoogLadder(cutoff=1000.0)
-    node2 = Modulated(filt2, sl.LFO(rate=1.0, depth=400.0, unipolar=1.0), "cutoff", base=1000.0)
-    node2.prepare(ctx)
+    raised = sl.Oscillator(freq=1.0, shape=upper)
+    node2 = Modulated(filt2, raised, "cutoff", depth=800.0, base=1000.0)
+    node2.reset(ctx)
     observed2 = []
     for i in range(SR):
         ctx.index = i
         node2.run(0.0, ctx)
-        observed2.append(filt2.p["cutoff"])
+        observed2.append(filt2.params.cutoff)
     observed2 = np.array(observed2)
 
-    assert observed2.min() > 990.0, f"unipolar sweep dipped below base: {observed2.min()}"
-    assert observed2.max() > 1300.0, f"unipolar sweep never rose: max={observed2.max()}"
+    assert observed2.min() > 990.0, f"offset sweep dipped below base: {observed2.min()}"
+    assert observed2.max() > 1300.0, f"offset sweep never rose: max={observed2.max()}"
 
 
 def test_lfo_tempo_sync():
     """At 120 bpm, rate=1 should be exactly 2 Hz."""
-    lfo = sl.LFO(rate=1.0, sync=1.0, bpm=120.0)
-    y = render(lfo, 2.0)
+    y = render(sl.lfo(rate=1.0, sync=1.0, bpm=120.0), 2.0)
     assert abs(cents(fft_peak_hz(y), 2.0)) < 30.0, f"got {fft_peak_hz(y)}"
 
 
@@ -526,7 +555,7 @@ def test_modulation_reaches_target_in_same_sample():
 
     # Constant is a Source, so its process takes the context only.
     def spy(ctx):
-        seen.append(target.p["level"])  # what the target sees when it runs
+        seen.append(target.params.level)  # what the target sees when it runs
         return original(ctx)
 
     # Patch the INSTANCE, not the class: `run` calls `self.process`, so an instance
@@ -536,7 +565,7 @@ def test_modulation_reaches_target_in_same_sample():
     mod = sl.Constant(level=0.25)
     node = Modulated(target, mod, "level", depth=1.0, base=0.0)
     ctx = Context(sr=SR)
-    node.prepare(ctx)
+    node.reset(ctx)
     ctx.index = 0
     out = node.run(0.0, ctx)
 
@@ -604,17 +633,18 @@ def test_parameter_named_value_is_rejected():
     `Param` is a data descriptor, so it wins over the instance attribute and
     swallows every write: the block then returns 0 forever with no error. That
     silently broke `Constant`, and everything reading its output went quiet.
+
+    The rejection happens when the class is created rather than when it is
+    instantiated, because that is when the declaration is read.
     """
-    class Bad(sl.Source):
-        value = sl.Param(1.0)
-
-        def process(self, x=0.0, ctx=None):
-            return self.value
-
     try:
-        Bad()
+        class Bad(sl.Source):
+            value = sl.Param(1.0)
+
+            def process(self, x=0.0, ctx=None):
+                return self.value
     except TypeError as exc:
-        assert "value" in str(exc) and "collides" in str(exc), str(exc)
+        assert "value" in str(exc) and "collide" in str(exc), str(exc)
     else:
         raise AssertionError("a parameter named 'value' was accepted")
 
@@ -639,7 +669,7 @@ def test_control_blocks_record_their_output_in_value():
     """
     osc = sl.Oscillator(freq=440.0, wave="sine")
     ctx = Context(sr=SR)
-    osc.prepare(ctx)
+    osc.reset(ctx)
 
     assert osc.last_output == 0.0
 
@@ -654,7 +684,7 @@ def test_control_blocks_record_their_output_in_value():
 
     # And a plain block driven by a helper gets the same treatment.
     env = sl.ADSR(attack=0.01, decay=0.1, sustain=0.5, release=0.1, gate=1.0)
-    env.prepare(ctx)
+    env.reset(ctx)
     ctx.index = 0
     level = env.run(ctx)
     assert env.last_output == level
@@ -675,10 +705,17 @@ def test_smoothed_converges_without_overshoot():
     assert y2[-1] > 0.99, f"did not converge: {y2[-1]}"
 
 
-def test_ramp_reaches_end():
-    ramp = sl.Ramp(gate=1.0, start=0.0, end=2.0, time=0.1)
+def test_scanner_reaches_its_end_and_holds():
+    """A one-shot scan is `Scanner`: the ramp's start/end mapping is the shape."""
+    ramp = sl.Scanner(shape=sl.saw(), start=0.0, duration=0.05)
     y = render(ramp, 0.2)
-    assert abs(y[-1] - 2.0) < 1e-6, f"ramp ended at {y[-1]}"
+    assert abs(y[-1] - 1.0) < 1e-6, f"scan ended at {y[-1]}"
+    assert y[0] == -1.0, f"scan started at {y[0]}"
+    # the same thing scaled to 0..2 with Amp, which is what `start`/`end` did
+    from synthlab.core import Amp, Chain
+    scaled = Chain(ramp, Amp(sl.Constant(level=1.0), gain=1.0, offset=1.0))
+    y2 = render(scaled, 0.2)
+    assert abs(y2[-1] - 2.0) < 1e-6, f"scaled scan ended at {y2[-1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -686,19 +723,19 @@ def test_ramp_reaches_end():
 # ---------------------------------------------------------------------------
 
 def test_chain_order_matters_and_is_respected():
-    a = sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass")
-    b = sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass")
+    a = sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR))
+    b = sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR))
     # Two identical lowpasses in series = 4th order, so twice the dB rolloff.
     single = render(Chain(a), 0.2, input_signal=np.ones(9600))
-    double = render(Chain(b, sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass")), 0.2,
+    double = render(Chain(b, sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR))), 0.2,
                     input_signal=np.ones(9600))
     # DC gain is 1 for both; use a high-frequency tone instead.
     t = np.arange(9600) / SR
     tone = np.sin(2 * np.pi * 4000.0 * t)
-    one = render(Chain(sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass")), 0.2, input_signal=tone)
+    one = render(Chain(sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR))), 0.2, input_signal=tone)
     two = render(
-        Chain(sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass"),
-              sl.Biquad(cutoff=200.0, q=0.7, mode="lowpass")),
+        Chain(sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR)),
+              sl.Biquad(*sl.design_lowpass(200.0, 0.7, SR))),
         0.2, input_signal=tone,
     )
     assert np.abs(two).max() < np.abs(one).max(), "cascading did not attenuate more"
@@ -715,7 +752,7 @@ def test_parallel_sum_and_mean():
 
 def test_render_is_reproducible():
     def build():
-        return Chain(sl.Noise("pink"), sl.Biquad(cutoff=1000.0, q=0.9, mode="lowpass"))
+        return Chain(sl.Noise("pink"), sl.Biquad(*sl.design_lowpass(1000.0, 0.9, SR)))
 
     a = render(build(), 0.1, seed=42)
     b = render(build(), 0.1, seed=42)
@@ -732,9 +769,14 @@ def test_reset_allows_identical_rerender():
 
 
 def test_block_state_is_isolated_between_instances():
-    f1 = sl.Biquad(cutoff=1000.0, mode="lowpass")
-    f2 = sl.Biquad(cutoff=1000.0, mode="lowpass")
-    render(f1, 0.01, input_signal=np.ones(480))
+    f1 = sl.Biquad(*sl.design_lowpass(1000.0, 0.707, SR))
+    f2 = sl.Biquad(*sl.design_lowpass(1000.0, 0.707, SR))
+    ctx = Context(sr=SR)
+    # State arrays appear on reset, so both filters must be reset before the
+    # comparison means anything.
+    f1.reset(ctx)
+    f2.reset(ctx)
+    render(f1, 0.01, input_signal=np.ones(480), reset=False)
     assert f1.y1 != f2.y1, "filter state leaked between instances"
 
 
@@ -760,6 +802,10 @@ def test_voice_note_on_off_lifecycle():
 
 def test_polyphony_allocates_distinct_voices():
     poly = sl.Polyphony(voices=4, factory=lambda: sl.patch_subtractive(220.0))
+    ctx = Context(sr=SR)
+    # Resetting first is required: the allocator asks each voice whether it is
+    # active, and a voice has no envelope stage until it has been reset.
+    poly.reset(ctx)
     poly.note_on(60)
     poly.note_on(64)
     assert len(poly.note_voice) == 2, poly.note_voice

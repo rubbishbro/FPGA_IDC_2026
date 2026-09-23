@@ -2,8 +2,14 @@
 Offline rendering: turn a graph into a numpy array.
 
 These are conveniences over the sample loop, not a second execution path -- they call
-`Block.drive` exactly like the combinators do, so an offline render and a live one
+`Block.eval` exactly like the combinators do, so an offline render and a live one
 produce identical samples.
+
+`render` resets the graph root before the loop; that single call both configures
+every block for the sample rate and clears its state, because combinators propagate
+it. Pass `reset=False` when the graph was set up by hand -- a triggered envelope, a
+`Voice` that has already received `note_on` -- but note that the root must still have
+been reset at some point, or the first `eval` raises.
 """
 
 from __future__ import annotations
@@ -35,10 +41,9 @@ def render(
     seed:         seeds `ctx.rng`, so a render is reproducible.
     input_signal: a buffer to feed in. Passing this for a generator is an error:
                   a generator takes no input, so the samples would have nowhere to go.
-    reset:        clear the graph first. `True` is what you want when measuring an
-                  algorithm. Pass `False` when you have already configured the graph
-                  by hand -- a triggered envelope, a partly run delay, a `Voice` that
-                  has received `note_on` -- because resetting would undo that setup.
+    reset:        initialise the graph first. `True` is what you want when measuring
+                  an algorithm. Pass `False` when you have already configured the
+                  graph by hand, because resetting would undo that setup.
     """
     n = int(round(seconds * sr))
     ctx = Context(sr=sr, seed=seed)
@@ -51,8 +56,7 @@ def render(
         )
 
     if reset:
-        block.reset()
-    block.prepare(ctx)
+        block.reset(ctx)
 
     out = np.empty(n, dtype=np.float64)
     if not block.needs_input:
@@ -81,8 +85,7 @@ def render_into(
     """
     ctx = Context(sr=sr, seed=seed)
     if reset:
-        block.reset()
-    block.prepare(ctx)
+        block.reset(ctx)
     for i in range(out.size):
         ctx.index = i
         out[i] = block.eval(0.0, ctx)
@@ -108,8 +111,7 @@ def render_note(
     """
     n = int(round(seconds * sr))
     ctx = Context(sr=sr, seed=seed)
-    voice.reset()
-    voice.prepare(ctx)
+    voice.reset(ctx)
 
     if hasattr(voice, "note_on"):
         voice.note_on(freq, velocity)

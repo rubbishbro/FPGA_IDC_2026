@@ -1,9 +1,16 @@
 """
-Modulation sources: envelopes, LFOs, ramps and random generators.
+Modulation machinery: envelopes, and the shapers you put a control signal through.
 
 These are ordinary Blocks whose output you route into any parameter with
 `Modulated`, or read yourself. Nothing here is special-cased, which means you can
 use an oscillator as a modulator at audio rate, or an envelope as an audio source.
+Oscillators and one-shot scans are in `generators`; this module holds the part
+that depends on events rather than on a clock.
+
+`ADSR` is the reason this module exists. Its length is not a parameter: the sustain
+lasts as long as the gate is held and the release starts when the gate falls, so it
+cannot be expressed as a fixed-length scan. `EnvelopeFollower` is the same idea
+backwards -- it derives a control signal from audio.
 
 Curves
 ------
@@ -12,7 +19,7 @@ than by exponential decay to a threshold. That is deliberate: it makes the shape
 exact and repeatable, keeps the segment length independent of the start level, and
 lets you substitute any curve you like:
 
-    expo(x, k) with k=0 is linear, k>0 bends the tail, k<0 bends the attack.
+    curve_expo(x, k) with k=0 is linear, k>0 bends the tail, k<0 bends the attack.
 """
 
 from __future__ import annotations
@@ -26,12 +33,9 @@ from ..core import Block, Param, Source, TAU
 
 
 __all__ = [
-    "AD",
     "ADSR",
     "Constant",
     "EnvelopeFollower",
-    "LFO",
-    "Ramp",
     "SampleHold",
     "Smoothed",
     "curve_expo",
@@ -96,8 +100,8 @@ class ADSR(Source):
     # Stage identifiers, readable from `.stage` after each sample.
     IDLE, ATTACK, DECAY, SUSTAIN, RELEASE = 0, 1, 2, 3, 4
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.stage = self.IDLE
         self.phase = 0.0
         self.level = 0.0
@@ -106,7 +110,7 @@ class ADSR(Source):
     def trigger(self, velocity: float | None = None) -> None:
         """Start the attack from wherever the envelope currently is."""
         if velocity is not None:
-            self.p["velocity"] = velocity
+            self.params["velocity"] = velocity
         self.stage = self.ATTACK
         self.phase = 0.0
 
@@ -123,7 +127,7 @@ class ADSR(Source):
             self._release_from = self.level
 
     def _stage_curve(self, override_key: str) -> float:
-        override = self.p[override_key]
+        override = self.params[override_key]
         return override if abs(override) > 1e-9 else self.curve
 
     def process(self, ctx) -> float:
@@ -170,175 +174,6 @@ class ADSR(Source):
         return self.level * self.velocity
 
 
-class AD(Source):
-    """Attack-decay envelope that ignores the gate after triggering.
-
-    One-shot: useful for percussive voices where the note length is baked into the
-    envelope. Re-triggers on a rising `gate` edge. Like `ADSR` this is a `Source`,
-    so apply it with `Amp` rather than chaining it after a signal.
-    """
-
-    gate = Param(0.0)
-    attack = Param(0.005, "s")
-    decay = Param(0.4, "s")
-    curve = Param(0.0)
-    velocity = Param(1.0, "", 0.0, 1.0)
-
-    def reset(self) -> None:
-        super().reset()
-        self.phase = 0.0
-        self.stage = 0  # 0 idle, 1 attack, 2 decay
-        self.level = 0.0
-        self._last_gate = 0.0
-
-    def trigger(self, velocity: float | None = None) -> None:
-        if velocity is not None:
-            self.p["velocity"] = velocity
-        self.stage = 1
-        self.phase = 0.0
-
-    def process(self, ctx) -> float:
-        dt = 1.0 / ctx.sr
-        if self.gate > 0.5 and self._last_gate <= 0.5:
-            self.trigger()
-        self._last_gate = self.gate
-
-        if self.stage == 1:
-            self.phase += dt / max(self.attack, 1e-6)
-            if self.phase >= 1.0:
-                self.phase = 0.0
-                self.stage = 2
-                self.level = 1.0
-            else:
-                self.level = curve_expo(self.phase, self.curve)
-        elif self.stage == 2:
-            self.phase += dt / max(self.decay, 1e-6)
-            if self.phase >= 1.0:
-                self.phase = 0.0
-                self.stage = 0
-                self.level = 0.0
-            else:
-                self.level = 1.0 - curve_expo(self.phase, self.curve)
-        else:
-            self.level = 0.0
-        return self.level * self.velocity
-
-
-class LFO(Source):
-    """Low-frequency oscillator with optional tempo sync and phase reset.
-
-    `depth` is the amplitude in either mode. Bipolar output (the default) sweeps
-    -depth..+depth, so `depth = 600` gives -600..+600. With `unipolar = 1.0` the
-    waveform is mapped into 0..1 first, giving 0..depth -- normally what you want
-    when driving a filter cutoff, because a bipolar cutoff sweep spends half its
-    time below the base value.
-
-    `sync = 1.0` switches `rate` from Hz to beats (`bpm` defines the beat), so
-    `rate = 1.0` is one cycle per beat. `wave` selects the shape and `smooth`
-    blends toward a sine so you can soften the sharp ones.
-    """
-
-    rate = Param(1.0, "Hz", doc="Hz, or beats per cycle when sync=1")
-    depth = Param(1.0)
-    offset = Param(0.0)
-    phase = Param(0.0, "", 0.0, 1.0)
-    unipolar = Param(0.0, doc="1.0 maps the output to 0..1")
-    sync = Param(0.0, doc="1.0 = rate is in beats")
-    bpm = Param(120.0, "bpm")
-    wave = Param(0.0, doc="0 sine, 1 triangle, 2 saw, 3 ramp, 4 square, 5 random")
-    smooth = Param(0.0, "", 0.0, 1.0, doc="blend the shape toward a sine")
-    retrigger = Param(0.0, doc="1.0 restarts the phase on a rising edge")
-
-    def reset(self) -> None:
-        super().reset()
-        self.ph = 0.0
-        self._last_retrigger = 0.0
-        self._sh_value = 0.0
-        self._sh_phase = 0.0
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self.ph = self.phase
-
-    def _shape(self, ph: float) -> float:
-        which = int(self.wave) % 6
-        if which == 0:
-            return math.sin(TAU * ph)
-        if which == 1:
-            return 4.0 * abs(ph - 0.5) - 1.0
-        if which == 2:
-            return 1.0 - 2.0 * ph
-        if which == 3:
-            return 2.0 * ph - 1.0
-        if which == 4:
-            return 1.0 if ph < 0.5 else -1.0
-        return self._sh_value  # sample & hold
-
-    def process(self, ctx) -> float:
-        if self.retrigger > 0.5 and self._last_retrigger <= 0.5:
-            self.ph = 0.0
-        self._last_retrigger = self.retrigger
-
-        if int(self.wave) % 6 == 5:
-            # Sample & hold: draw a new value each cycle.
-            if self.ph < self._sh_phase:
-                self._sh_value = float(ctx.rng.uniform(-1.0, 1.0))
-            self._sh_phase = self.ph
-
-        value = self._shape(self.ph)
-        if self.smooth > 0.0:
-            value = value * (1.0 - self.smooth) + math.sin(TAU * self.ph) * self.smooth
-
-        # `value` is the raw waveform in [-1, 1]. `unipolar` maps the WAVEFORM into
-        # [0, 1], leaving `depth` as the amplitude -- that keeps `depth` meaning the
-        # same thing in both modes, and keeps the documented 0..1 contract at
-        # depth 1. An earlier version shifted the scaled output by a fixed 0.5,
-        # which collapsed a depth-600 sweep into a near-constant signal.
-        if self.unipolar > 0.5:
-            value = value * 0.5 + 0.5
-
-        hz = self.rate * (self.bpm / 60.0) if self.sync > 0.5 else self.rate
-        self.ph += hz / ctx.sr
-        self.ph -= math.floor(self.ph)
-
-        return value * self.depth + self.offset
-
-
-class Ramp(Source):
-    """One-shot linear ramp -- for parameter sweeps and automated gestures.
-
-    Runs from `start` to `end` over `time` seconds once triggered, then holds.
-    `loop = 1.0` turns it into a phasor instead. Trigger with a rising `gate`.
-    """
-
-    gate = Param(0.0)
-    start = Param(0.0)
-    end = Param(1.0)
-    time = Param(1.0, "s")
-    loop = Param(0.0)
-    curve = Param(0.0)
-
-    def reset(self) -> None:
-        super().reset()
-        self.pos = 0.0
-        self._last_gate = 0.0
-
-    def trigger(self) -> None:
-        self.pos = 0.0
-
-    def process(self, ctx) -> float:
-        if self.gate > 0.5 and self._last_gate <= 0.5:
-            self.trigger()
-        self._last_gate = self.gate
-
-        self.pos += (1.0 / max(self.time, 1e-6)) / ctx.sr
-        if self.pos >= 1.0:
-            self.pos = self.pos - math.floor(self.pos) if self.loop > 0.5 else 1.0
-
-        shaped = curve_expo(self.pos, self.curve)
-        return self.start + (self.end - self.start) * shaped
-
-
 class SampleHold(Block):
     """Samples its input every `period` seconds and holds the value.
 
@@ -351,8 +186,8 @@ class SampleHold(Block):
     probability = Param(1.0, "", 0.0, 1.0)
     gate = Param(1.0, doc="0.0 freezes the current value")
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.last_output = 0.0
         self.acc = 0.0
 
@@ -377,8 +212,8 @@ class Smoothed(Block):
     time = Param(0.01, "s", doc="time constant; the 63% point")
     linear = Param(0.0, doc="1.0 = constant-rate slew instead of exponential")
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.last_output = 0.0
         self._primed = False
 
@@ -433,8 +268,8 @@ class EnvelopeFollower(Block):
     mode = Param(0.0)
     gain = Param(1.0)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.env = 0.0
         self.square = 0.0
 

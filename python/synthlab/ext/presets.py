@@ -6,8 +6,8 @@ edit, not a preset system: every value is a plain parameter you can reach in and
 change, and the routing is rebuilt by `Voice.wire()` if you swap a component.
 
     v = patch_subtractive(220.0)
-    v.shaper.p["resonance"] = 0.8      # reach in
-    v.source.p["wave"] = "square"
+    v.shaper.params.resonance = 0.8      # reach in
+    v.source.params.wave = "square"
     v.wire()                           # re-route after changing components
 
 These live outside `synthlab.ext.voices` because they are opinions about a sound,
@@ -19,10 +19,14 @@ from __future__ import annotations
 from typing import Callable
 
 from ..core import Chain, Modulated, Param
+
+#: Sample rate the presets are designed at; the coefficients are computed once.
+SR = 48_000
 from .effects import Comb
-from .generators import FMOscillator, Noise, Oscillator, SuperOscillator, WavetableOscillator
+from .generators import (FMOscillator, Noise, Oscillator, SuperOscillator,
+                         from_harmonics)
 from .modulators import ADSR
-from .processors import Biquad, MoogLadder
+from .processors import Biquad, MoogLadder, design_lowpass
 from .voices import Voice
 
 
@@ -83,7 +87,7 @@ def patch_pluck(freq: float = 164.81, decay: float = 0.997) -> Voice:
     from .effects import Comb
 
     burst = Chain(Noise(kind="white", amplitude=1.0, name="exciter"),
-                  Biquad(cutoff=2500.0, q=0.7, mode="lowpass"))
+                  Biquad(*design_lowpass(2500.0, 0.7, SR)))
     comb = Comb(delay=1.0 / freq, feedback=decay, feedforward=0.0, name="string")
 
     voice = Voice(source=burst, shaper=comb, amp=None, name="pluck")
@@ -94,10 +98,10 @@ def patch_pluck(freq: float = 164.81, decay: float = 0.997) -> Voice:
 
 def patch_wavetable(harmonics: list[float] | None = None, freq: float = 220.0) -> Voice:
     """Additive wavetable oscillator with an amplitude envelope."""
-    table = WavetableOscillator.from_harmonics(harmonics or [1.0, 0.5, 0.3, 0.2, 0.1])
+    shape = from_harmonics(harmonics or [1.0, 0.5, 0.3, 0.2, 0.1])
     return Voice(
-        source=WavetableOscillator(table=table, freq=freq),
-        shaper=Biquad(cutoff=6000.0, q=0.7, mode="lowpass"),
+        source=Oscillator(shape=shape, freq=freq),
+        shaper=Biquad(*design_lowpass(6000.0, 0.7, SR)),
         amp=ADSR(attack=0.02, decay=0.4, sustain=0.7, release=0.6),
     )
 
@@ -106,7 +110,7 @@ def patch_supersaw(freq: float = 220.0, voices: int = 7) -> Voice:
     """Detuned supersaw into a gentle filter -- the trance lead."""
     return Voice(
         source=SuperOscillator(freq=freq, voices=voices, detune=0.14),
-        shaper=Biquad(cutoff=4000.0, q=0.9, mode="lowpass"),
+        shaper=Biquad(*design_lowpass(4000.0, 0.9, SR)),
         amp=ADSR(attack=0.02, decay=0.3, sustain=0.8, release=0.5, curve=2.0),
     )
 

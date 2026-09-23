@@ -22,7 +22,7 @@ from typing import Callable
 import numpy as np
 
 from ..core import Amp, Block, Chain, Context, Modulated, Parallel, Param, Source
-from .modulators import ADSR, LFO
+from .modulators import ADSR
 from .processors import Biquad, MoogLadder
 
 
@@ -145,15 +145,15 @@ class Voice(Source):
     # -- note control ------------------------------------------------------
     def note_on(self, freq: float, velocity: float = 1.0) -> None:
         """Set the pitch and start the envelopes."""
-        self.p["freq"] = freq
-        self.p["velocity"] = velocity
+        self.params["freq"] = freq
+        self.params["velocity"] = velocity
         if hasattr(self.source, "p") and "freq" in self.source.p:
-            self.source.p["freq"] = freq
+            self.source.params.freq = freq
         if isinstance(self.amp, ADSR):
-            self.amp.p["velocity"] = velocity
+            self.amp.params.velocity = velocity
             self.amp.trigger()
         elif self.amp is not None:
-            self.amp.p["gate"] = 1.0
+            self.amp.params.gate = 1.0
         if self.filter_env is not None and hasattr(self.filter_env, "trigger"):
             self.filter_env.trigger()
 
@@ -161,7 +161,7 @@ class Voice(Source):
         if isinstance(self.amp, ADSR):
             self.amp.note_off()
         elif self.amp is not None:
-            self.amp.p["gate"] = 0.0
+            self.amp.params.gate = 0.0
         if self.filter_env is not None and hasattr(self.filter_env, "note_off"):
             self.filter_env.note_off()
 
@@ -173,21 +173,16 @@ class Voice(Source):
         return True
 
     # -- Block -------------------------------------------------------------
-    def reset(self) -> None:
-        super().reset()
-        if hasattr(self, "chain"):
-            self.chain.reset()
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self.chain.prepare(ctx)
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        self.chain.reset(ctx)
 
     def process(self, ctx) -> float:
         # `Voice` is a Source, so there is no input: it generates its note.
         # Keep the source pitch in sync with the voice when the voice is the
         # authority (so Modulated on the Voice's freq does the right thing).
-        if hasattr(self.source, "p") and "freq" in self.source.p:
-            self.source.p["freq"] = self.freq
+        if hasattr(self.source, "params") and "freq" in self.source.params:
+            self.source.params.freq = self.freq
         if self.shaper is not None and self._base_cutoff is not None:
             # Keep the modulation base in step with manual cutoff changes.
             self._base_cutoff = getattr(self.shaper, "cutoff", self._base_cutoff)
@@ -225,26 +220,20 @@ class Polyphony(Source):
         self.steal = steal
         factory = factory or Voice
         self.voices: list[Voice] = [factory() for _ in range(voices)]
-        self.p["max_voices"] = float(voices)
+        self.params["max_voices"] = float(voices)
         # Allocation bookkeeping, exposed so you can see what the allocator did.
         self.note_voice: dict[int, int] = {}
         self.age = [0] * voices
         self._counter = 0
 
-    def reset(self) -> None:
-        super().reset()
-        for voice in getattr(self, "voices", []):
-            voice.reset()
-        if hasattr(self, "age"):
-            self.age = [0] * len(self.voices)
-        if hasattr(self, "note_voice"):
-            self.note_voice.clear()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        for voice in self.voices:
+            voice.reset(ctx)
+        self.age = [0] * len(self.voices)
+        self.note_voice.clear()
         self._counter = 0
 
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        for voice in self.voices:
-            voice.prepare(ctx)
 
     def allocate(self, note: int) -> Voice | None:
         """Pick a voice for `note`. Override this to change the policy."""

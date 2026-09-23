@@ -57,16 +57,21 @@ __version__ = "0.3.0"
 _LAZY: dict[str, str] = {}
 for _module, _names in {
     "generators": (
-        "AdditiveOscillator", "FMOscillator", "Noise", "Oscillator",
-        "SuperOscillator", "WavetableOscillator", "polyblep",
+        "FMOscillator", "Noise", "Oscillator", "Scanner", "Shape",
+        "SuperOscillator", "expo_shape", "from_harmonics", "from_samples",
+        "from_spectrum", "lfo", "morph", "polyblep", "power_shape", "pulse",
+        "saw", "sine", "square", "triangle",
     ),
     "processors": (
-        "Biquad", "LowpassGate", "MoogLadder", "OnePole", "OnePoleHighpass",
-        "StateVariableFilter", "clamp_cutoff",
+        "DESIGNS", "Biquad", "LowpassGate", "MoogLadder", "OnePole",
+        "OnePoleHighpass", "StateVariableFilter", "biquad", "clamp_cutoff",
+        "design_bandpass", "design_highpass", "design_highshelf",
+        "design_lowpass", "design_lowshelf", "design_notch", "design_peak",
+        "one_pole_alpha",
     ),
     "modulators": (
-        "AD", "ADSR", "Constant", "EnvelopeFollower", "LFO", "Ramp", "SampleHold",
-        "Smoothed", "curve_expo", "curve_pow",
+        "ADSR", "Constant", "EnvelopeFollower", "SampleHold", "Smoothed",
+        "curve_expo", "curve_pow",
     ),
     "effects": (
         "Allpass", "Bitcrush", "Chorus", "Comb", "DcBlocker", "DelayLine",

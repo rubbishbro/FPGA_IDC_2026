@@ -140,8 +140,8 @@ def test_core_can_host_a_block_defined_by_the_user():
     class OnePole(Block):
         cutoff = Param(1000.0, "Hz")
 
-        def reset(self):
-            super().reset()
+        def reset(self, ctx):
+            super().reset(ctx)
             self.z = 0.0
 
         def process(self, x, ctx):
@@ -152,8 +152,8 @@ def test_core_can_host_a_block_defined_by_the_user():
     class Sine(Source):
         freq = Param(440.0, "Hz")
 
-        def reset(self):
-            super().reset()
+        def reset(self, ctx):
+            super().reset(ctx)
             self.ph = 0.0
 
         def process(self, ctx):

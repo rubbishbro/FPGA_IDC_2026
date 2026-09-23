@@ -2,10 +2,14 @@
 Filters, with the coefficient maths exposed.
 
 The point of this module is that you can see and replace the algebra, not just
-turn a cutoff knob. Every filter therefore exposes:
+turn a cutoff knob.
 
-  * `design(...)` -- the coefficient calculation, as a separate callable;
-  * the coefficients themselves as instance attributes (`b0, b1, b2, a1, a2`);
+Design and filtering are separate. The `design_*` functions turn a description of a
+response (a corner frequency, a resonance) into the five biquad coefficients;
+`Biquad` applies coefficients and nothing else, so it never has to know what
+response they came from. Every filter also exposes:
+
+  * the coefficients themselves as parameters (`b0, b1, b2, a1, a2`);
   * the per-sample state (`x1, x2, y1, y2`, or `ic1, ic2` for the SVF);
   * `magnitude_at(freq)` -- the analytic transfer function, so you can plot or
     assert the response instead of guessing.
@@ -25,19 +29,23 @@ from ..core import Block, Param, TAU
 
 __all__ = [
     "Biquad",
+    "DESIGNS",
     "LowpassGate",
     "MoogLadder",
     "OnePole",
     "OnePoleHighpass",
     "StateVariableFilter",
+    "biquad",
     "clamp_cutoff",
+    "design_bandpass",
+    "design_highpass",
+    "design_highshelf",
+    "design_lowpass",
+    "design_lowshelf",
+    "design_notch",
+    "design_peak",
     "one_pole_alpha",
 ]
-
-
-def clamp_cutoff(freq: float, sr: float, headroom: float = 0.45) -> float:
-    """Keep a cutoff inside a stable range. RBJ biquads go unstable at Nyquist."""
-    return float(min(max(freq, 1.0), sr * headroom))
 
 
 def one_pole_alpha(cutoff: float, sr: float) -> float:
@@ -51,126 +59,188 @@ def one_pole_alpha(cutoff: float, sr: float) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Biquad: the reference RBJ design, fully open
+# Biquad coefficient design (RBJ Audio EQ Cookbook)
+# ---------------------------------------------------------------------------
+#
+# These are plain functions, not a block: they turn a description of a response
+# into the five coefficients, and `Biquad` applies whatever coefficients it is
+# given. Keeping them apart means you can design a filter, inspect or edit the
+# numbers, save them, or run a filter whose coefficients came from somewhere else
+# entirely.
+
+def _alpha(cutoff: float, q: float, sr: float):
+    """`(w0, cos w0, sin w0, alpha)` for a corner at `cutoff` with resonance `q`."""
+    w0 = TAU * clamp_cutoff(cutoff, sr) / sr
+    cw = math.cos(w0)
+    sw = math.sin(w0)
+    return w0, cw, sw, sw / (2.0 * max(q, 1e-6))
+
+
+def _normalise(b0, b1, b2, a0, a1, a2):
+    return (b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0)
+
+
+def design_lowpass(cutoff: float, q: float = 0.707, sr: float = 48_000.0):
+    """RBJ lowpass. `q = 0.707` is maximally flat; higher peaks at the corner."""
+    _, cw, _, alpha = _alpha(cutoff, q, sr)
+    b0 = (1.0 - cw) / 2.0
+    return _normalise(b0, 1.0 - cw, b0, 1.0 + alpha, -2.0 * cw, 1.0 - alpha)
+
+
+def design_highpass(cutoff: float, q: float = 0.707, sr: float = 48_000.0):
+    """RBJ highpass."""
+    _, cw, _, alpha = _alpha(cutoff, q, sr)
+    b0 = (1.0 + cw) / 2.0
+    return _normalise(b0, -(1.0 + cw), b0, 1.0 + alpha, -2.0 * cw, 1.0 - alpha)
+
+
+def design_bandpass(cutoff: float, q: float = 0.707, sr: float = 48_000.0):
+    """RBJ bandpass with constant 0 dB peak gain (so it is 1.0 at the centre)."""
+    _, cw, _, alpha = _alpha(cutoff, q, sr)
+    return _normalise(alpha, 0.0, -alpha, 1.0 + alpha, -2.0 * cw, 1.0 - alpha)
+
+
+def design_notch(cutoff: float, q: float = 0.707, sr: float = 48_000.0):
+    """RBJ notch."""
+    _, cw, _, alpha = _alpha(cutoff, q, sr)
+    return _normalise(1.0, -2.0 * cw, 1.0, 1.0 + alpha, -2.0 * cw, 1.0 - alpha)
+
+
+def design_peak(cutoff: float, q: float = 0.707, gain_db: float = 6.0,
+                sr: float = 48_000.0):
+    """RBJ peaking EQ: `gain_db` at the centre, unity far away."""
+    _, cw, _, alpha = _alpha(cutoff, q, sr)
+    A = 10.0 ** (gain_db / 40.0)
+    return _normalise(1.0 + alpha * A, -2.0 * cw, 1.0 - alpha * A,
+                      1.0 + alpha / A, -2.0 * cw, 1.0 - alpha / A)
+
+
+def design_lowshelf(cutoff: float, q: float = 0.707, gain_db: float = 6.0,
+                    sr: float = 48_000.0):
+    """RBJ low shelf: `gain_db` below `cutoff`."""
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = TAU * clamp_cutoff(cutoff, sr) / sr
+    cw = math.cos(w0)
+    sw = math.sin(w0)
+    alpha = sw / (2.0 * max(q, 1e-6))
+    sq = 2.0 * math.sqrt(A) * alpha
+    return _normalise(
+        A * ((A + 1.0) - (A - 1.0) * cw + sq),
+        2.0 * A * ((A - 1.0) - (A + 1.0) * cw),
+        A * ((A + 1.0) - (A - 1.0) * cw - sq),
+        (A + 1.0) + (A - 1.0) * cw + sq,
+        -2.0 * ((A - 1.0) + (A + 1.0) * cw),
+        (A + 1.0) + (A - 1.0) * cw - sq)
+
+
+def design_highshelf(cutoff: float, q: float = 0.707, gain_db: float = 6.0,
+                     sr: float = 48_000.0):
+    """RBJ high shelf: `gain_db` above `cutoff`."""
+    A = 10.0 ** (gain_db / 40.0)
+    w0 = TAU * clamp_cutoff(cutoff, sr) / sr
+    cw = math.cos(w0)
+    sw = math.sin(w0)
+    alpha = sw / (2.0 * max(q, 1e-6))
+    sq = 2.0 * math.sqrt(A) * alpha
+    return _normalise(
+        A * ((A + 1.0) + (A - 1.0) * cw + sq),
+        -2.0 * A * ((A - 1.0) + (A + 1.0) * cw),
+        A * ((A + 1.0) + (A - 1.0) * cw - sq),
+        (A + 1.0) - (A - 1.0) * cw + sq,
+        2.0 * ((A - 1.0) - (A + 1.0) * cw),
+        (A + 1.0) - (A - 1.0) * cw - sq)
+
+
+#: The RBJ designs by name, for the convenience constructors below.
+DESIGNS = {
+    "lowpass": design_lowpass,
+    "highpass": design_highpass,
+    "bandpass": design_bandpass,
+    "notch": design_notch,
+    "peak": design_peak,
+    "lowshelf": design_lowshelf,
+    "highshelf": design_highshelf,
+}
+
+
+def clamp_cutoff(freq: float, sr: float, headroom: float = 0.45) -> float:
+    """Keep a cutoff inside a stable range. RBJ biquads go unstable at Nyquist."""
+    return float(min(max(freq, 1.0), sr * headroom))
+
+
+def biquad(mode: str, cutoff: float, q: float = 0.707, gain_db: float = 0.0,
+           sr: float = 48_000.0, **params) -> "Biquad":
+    """A `Biquad` configured for one of the named RBJ responses.
+
+    Thin convenience over `DESIGNS[mode]` + `Biquad`: the coefficients are worked
+    out once, here, rather than by the filter. Use the functions directly if you
+    want the numbers instead of the block.
+    """
+    try:
+        design = DESIGNS[mode]
+    except KeyError:
+        raise ValueError(
+            f"unknown mode {mode!r}; known: {sorted(DESIGNS)}"
+        ) from None
+    if mode in ("peak", "lowshelf", "highshelf"):
+        coeffs = design(cutoff, q, gain_db, sr)
+    else:
+        coeffs = design(cutoff, q, sr)
+    return Biquad(*coeffs, **params)
+
+
+# ---------------------------------------------------------------------------
+# Biquad: the filter itself, coefficients only
 # ---------------------------------------------------------------------------
 
 class Biquad(Block):
-    """Direct-form-I biquad using the Audio EQ Cookbook (RBJ) coefficients.
+    """Direct-form-I biquad, driven purely by its coefficients.
 
         y[n] = b0*x[n] + b1*x[n-1] + b2*x[n-2] - a1*y[n-1] - a2*y[n-2]
 
     Form I is used rather than the more common transposed form II because you can
     read `x1, x2, y1, y2` directly and see the history terms the equation names.
 
-    `mode` selects the response; `q` is the resonance (0.707 = Butterworth, no
-    peak). The coefficients are recomputed every sample from the live `cutoff` and
-    `q` parameters, so audio-rate modulation of the cutoff works -- that is the
-    whole point of a per-sample filter. Override `design()` to use your own
-    topology (ladder, SVF, state-variable moog, ...) while keeping the same API.
+    The five coefficients are the parameters; `a0` is assumed to be 1 (normalise
+    your design). Set them directly for a fixed filter::
+
+        Biquad(0.2929, 0.5858, 0.2929, -0.1716, 0.0)      # 1 kHz lowpass
+
+    or get them from a design:
+
+        from synthlab.ext.processors import design_lowpass, Biquad
+        Biquad(*design_lowpass(1000.0, 0.707, 48000.0))
+
+    `biquad("lowpass", 1000.0)` does both in one call.
+
+    Nothing is recomputed per sample, so these are constant coefficients unless you
+    write them. To sweep a filter, modulate a parameter of a design function's
+    output -- or write the coefficients from a `Modulated` -- rather than expecting
+    the block to redraw itself from a cutoff.
     """
 
-    cutoff = Param(1000.0, "Hz", doc="corner/centre frequency")
-    q = Param(0.707, doc="resonance; 0.707 = maximally flat, higher = peak")
-    gain_db = Param(0.0, "dB", doc="peak gain, used by peaking/shelf modes only")
-    mode = Param(0.0, doc="see MODES; a float so it can be scheduled")
+    b0 = Param(1.0, doc="feedforward coefficient of x[n]")
+    b1 = Param(0.0, doc="feedforward coefficient of x[n-1]")
+    b2 = Param(0.0, doc="feedforward coefficient of x[n-2]")
+    a1 = Param(0.0, doc="feedback coefficient of y[n-1] (a0 is taken as 1)")
+    a2 = Param(0.0, doc="feedback coefficient of y[n-2]")
     mix = Param(1.0, "", 0.0, 1.0, doc="0 = dry, 1 = fully filtered")
 
-    MODES = ("lowpass", "highpass", "bandpass", "notch", "peak", "lowshelf", "highshelf")
+    def __init__(self, b0: float = 1.0, b1: float = 0.0, b2: float = 0.0,
+                 a1: float = 0.0, a2: float = 0.0,
+                 name: str | None = None, **params):
+        super().__init__(name=name, b0=b0, b1=b1, b2=b2, a1=a1, a2=a2, **params)
 
-    def __init__(
-        self,
-        cutoff: float = 1000.0,
-        q: float = 0.707,
-        mode: str = "lowpass",
-        name: str | None = None,
-        **params,
-    ):
-        if mode not in self.MODES:
-            raise ValueError(f"unknown mode {mode!r}; known: {self.MODES}")
-        self.mode_name = mode
-        super().__init__(name=name, cutoff=cutoff, q=q,
-                         mode=float(self.MODES.index(mode)), **params)
-        self.b0 = self.b1 = self.b2 = 1.0
-        self.a1 = self.a2 = 0.0
-
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.x1 = self.x2 = self.y1 = self.y2 = 0.0
 
-    # -- the maths you may want to replace ---------------------------------
-    def design(self, cutoff: float, q: float, mode: str, gain_db: float, sr: float):
-        """Return `(b0, b1, b2, a1, a2)` normalised so a0 = 1.
+    def coefficients(self) -> tuple:
+        """The five live coefficients as a tuple."""
+        return (self.b0, self.b1, self.b2, self.a1, self.a2)
 
-        This is the RBJ cookbook, written out rather than imported so you can edit
-        it. `w0` is the digital corner frequency, `alpha` sets the bandwidth.
-        """
-        w0 = TAU * clamp_cutoff(cutoff, sr) / sr
-        cw = math.cos(w0)
-        sw = math.sin(w0)
-        alpha = sw / (2.0 * max(q, 1e-6))
-        A = 10.0 ** (gain_db / 40.0)
-
-        if mode == "lowpass":
-            b0 = (1.0 - cw) / 2.0
-            b1 = 1.0 - cw
-            b2 = b0
-            a0 = 1.0 + alpha
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha
-        elif mode == "highpass":
-            b0 = (1.0 + cw) / 2.0
-            b1 = -(1.0 + cw)
-            b2 = b0
-            a0 = 1.0 + alpha
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha
-        elif mode == "bandpass":  # constant 0 dB peak gain
-            b0 = alpha
-            b1 = 0.0
-            b2 = -alpha
-            a0 = 1.0 + alpha
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha
-        elif mode == "notch":
-            b0 = 1.0
-            b1 = -2.0 * cw
-            b2 = 1.0
-            a0 = 1.0 + alpha
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha
-        elif mode == "peak":
-            b0 = 1.0 + alpha * A
-            b1 = -2.0 * cw
-            b2 = 1.0 - alpha * A
-            a0 = 1.0 + alpha / A
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha / A
-        elif mode == "lowshelf":
-            sq = 2.0 * math.sqrt(A) * alpha
-            b0 = A * ((A + 1.0) - (A - 1.0) * cw + sq)
-            b1 = 2.0 * A * ((A - 1.0) - (A + 1.0) * cw)
-            b2 = A * ((A + 1.0) - (A - 1.0) * cw - sq)
-            a0 = (A + 1.0) + (A - 1.0) * cw + sq
-            a1 = -2.0 * ((A - 1.0) + (A + 1.0) * cw)
-            a2 = (A + 1.0) + (A - 1.0) * cw - sq
-        else:  # highshelf
-            sq = 2.0 * math.sqrt(A) * alpha
-            b0 = A * ((A + 1.0) + (A - 1.0) * cw + sq)
-            b1 = -2.0 * A * ((A - 1.0) + (A + 1.0) * cw)
-            b2 = A * ((A + 1.0) + (A - 1.0) * cw - sq)
-            a0 = (A + 1.0) - (A - 1.0) * cw + sq
-            a1 = 2.0 * ((A - 1.0) - (A + 1.0) * cw)
-            a2 = (A + 1.0) - (A - 1.0) * cw - sq
-
-        return b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0
-
-    def magnitude_at(self, freq: float, sr: float = 48000.0) -> float:
-        """Analytic |H(e^jw)| at `freq`, using the current coefficients.
-
-        Evaluate this to plot or assert the response. It reads `self.b0..a2`, so to
-        test a design without running audio, set the coefficients with `update()`
-        and call this directly.
-        """
+    def magnitude_at(self, freq: float, sr: float = 48_000.0) -> float:
+        """Analytic |H(e^jw)| at `freq`, from the live coefficients."""
         w = TAU * freq / sr
         z1 = complex(math.cos(-w), math.sin(-w))
         z2 = z1 * z1
@@ -178,27 +248,12 @@ class Biquad(Block):
         den = 1.0 + self.a1 * z1 + self.a2 * z2
         return float(abs(num / den)) if den != 0 else float("inf")
 
-    def update(self, sr: float) -> None:
-        """Recompute the coefficients from the live parameters."""
-        mode = self.MODES[int(self.mode) % len(self.MODES)]
-        self.b0, self.b1, self.b2, self.a1, self.a2 = self.design(
-            self.cutoff, self.q, mode, self.gain_db, sr
-        )
-
-    # -- Block -------------------------------------------------------------
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self.update(ctx.sr)
-
     def process(self, x: float, ctx=None) -> float:
-        self.update(ctx.sr)
-        y = (
-            self.b0 * x
-            + self.b1 * self.x1
-            + self.b2 * self.x2
-            - self.a1 * self.y1
-            - self.a2 * self.y2
-        )
+        y = (self.b0 * x
+             + self.b1 * self.x1
+             + self.b2 * self.x2
+             - self.a1 * self.y1
+             - self.a2 * self.y2)
         self.x2, self.x1 = self.x1, x
         self.y2, self.y1 = self.y1, y
         return x + (y - x) * self.mix
@@ -233,8 +288,8 @@ class StateVariableFilter(Block):
     output = Param(0.0, doc="0=lp, 1=bp, 2=hp, 3=notch")
     stable = Param(1.0, doc="1.0 clamps f to keep the integrators from diverging")
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.lp = self.bp = 0.0
         self.hp = self.notch = 0.0
 
@@ -293,8 +348,8 @@ class MoogLadder(Block):
     drive = Param(1.0, doc="input gain into the ladder non-linearity")
     mix = Param(1.0, "", 0.0, 1.0)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.s1 = self.s2 = self.s3 = self.s4 = 0.0
 
     def coefficients(self, cutoff: float, sr: float):
@@ -340,8 +395,8 @@ class OnePole(Block):
     cutoff = Param(1000.0, "Hz")
     mix = Param(1.0, "", 0.0, 1.0)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.z = 0.0
 
     def process(self, x: float, ctx=None) -> float:
@@ -356,8 +411,8 @@ class OnePoleHighpass(Block):
     cutoff = Param(20.0, "Hz")
     mix = Param(1.0, "", 0.0, 1.0)
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.z = 0.0
 
     def process(self, x: float, ctx=None) -> float:
@@ -379,8 +434,8 @@ class LowpassGate(Block):
     response = Param(0.001, "s", doc="attack time of the level follower")
     depth = Param(0.9, "", 0.0, 1.0, doc="how much the cutoff closes at low level")
 
-    def reset(self) -> None:
-        super().reset()
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self.env = 0.0
         self.z = 0.0
 

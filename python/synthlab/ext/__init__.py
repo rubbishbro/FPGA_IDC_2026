@@ -8,13 +8,13 @@ abstractions, and `synthlab.core` still works if you delete this directory.
 Layout
 ------
 Generators (`Source` subclasses -- produce signal, take no input)
-    generators.py   Oscillator, WavetableOscillator, FMOscillator,
-                    AdditiveOscillator, SuperOscillator, Noise, polyblep
-    modulators.py   ADSR, AD, LFO, Ramp, Constant, EnvelopeFollower, Smoothed
+    generators.py   Shape (+ table and curve helpers), Oscillator (repeats),
+                    Scanner (reads once), lfo, FMOscillator, SuperOscillator, Noise
+    modulators.py   ADSR, Constant, SampleHold, Smoothed, EnvelopeFollower
 
 Processors (`Block` subclasses -- transform the signal they are given)
     processors.py   Biquad, StateVariableFilter, MoogLadder, OnePole,
-                    OnePoleHighpass, LowpassGate
+                    OnePoleHighpass, LowpassGate, design_* coefficient helpers
     effects.py      DelayLine, Allpass, Comb, Reverb, Chorus, Flanger, Phaser,
                     Waveshaper, Bitcrush, DcBlocker, Gain
 

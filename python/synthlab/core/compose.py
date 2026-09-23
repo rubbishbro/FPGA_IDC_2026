@@ -65,7 +65,7 @@ class Chain(Block):
 
     Appending one directly (`Chain(osc, env)`) is the classic silent mistake: the
     envelope ignores the oscillator and emits its own DC contour, which output
-    hardware blocks, so it sounds like a click followed by silence. `prepare`
+    hardware blocks, so it sounds like a click followed by silence. `reset`
     rejects that shape with a `TypeError`.
     """
 
@@ -73,13 +73,8 @@ class Chain(Block):
         self.blocks = _as_blocks(blocks)
         super().__init__(name=name)
 
-    def reset(self) -> None:
-        super().reset()
-        for block in getattr(self, "blocks", []):
-            block.reset()
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         self._controls = _referenced_controls(self.blocks)
 
         seen: set[int] = set()
@@ -103,7 +98,7 @@ class Chain(Block):
                 )
 
         for block in self.blocks:
-            block.prepare(ctx)
+            block.reset(ctx)
 
     def process(self, x: float, ctx) -> float:
         controls = getattr(self, "_controls", None)
@@ -144,18 +139,10 @@ class Parallel(Block):
             raise ValueError(f"unknown op {op!r}; known: sum, mean, product")
         super().__init__(name=name)
 
-    def reset(self) -> None:
-        # `Block.__init__` calls reset() before subclass attributes are assigned, so
-        # guard with getattr -- otherwise this overwrites `blocks` with an empty list
-        # and the combinator silently outputs nothing.
-        super().reset()
-        for block in getattr(self, "blocks", []):
-            block.reset()
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         for block in self.blocks:
-            block.prepare(ctx)
+            block.reset(ctx)
 
     def process(self, x: float, ctx) -> float:
         outs = [block.eval(x, ctx) for block in self.blocks]
@@ -211,10 +198,10 @@ class Modulated(Block):
         additive: bool = True,
         name: str | None = None,
     ):
-        if param not in target._param_defaults:
+        if param not in target.params:
             raise TypeError(
                 f"{type(target).__name__} has no parameter {param!r}; "
-                f"known: {sorted(target._param_defaults)}"
+                f"known: {sorted(target.params.names())}"
             )
         self.target = target
         self.source = source
@@ -224,25 +211,19 @@ class Modulated(Block):
         super().__init__(name=name)
         # Default the base to the target's current value so a modulation block is
         # absolute rather than accumulating on the previous write.
-        self.base = target.p[param] if base is None else base
+        self.base = target.params[param] if base is None else base
 
-    def reset(self) -> None:
-        super().reset()
-        for attribute in ("target", "source"):
-            if hasattr(self, attribute):
-                getattr(self, attribute).reset()
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self.target.prepare(ctx)
-        self.source.prepare(ctx)
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        self.target.reset(ctx)
+        self.source.reset(ctx)
 
     def process(self, x: float, ctx) -> float:
         mod = self.source.eval(x, ctx)
         value = mod * self.depth
         if self.additive:
             value = self.base + value
-        self.target.p[self.param] = value
+        self.target.params.set(self.param, value)
         result = self.target.eval(x, ctx)
         self.last_output = result
         return result
@@ -262,9 +243,10 @@ class Amp(Block):
     looks like a mis-tuned envelope rather than a bug, so it is asserted in the tests.
 
     `gain` scales the result further. `offset` shifts the control, which is what you
-    want for a tremolo that should never fully mute:
+    want for a tremolo that should never fully mute. Both are applied as
+    `x * (control + offset) * gain`:
 
-        Chain(osc, Amp(LFO(rate=5.0, depth=0.5, unipolar=1.0), offset=0.5))
+        Chain(osc, Amp(sweep, offset=0.5))       # a sweep that stays positive
     """
 
     gain = Param(1.0, doc="extra multiplier applied after the control signal")
@@ -280,20 +262,15 @@ class Amp(Block):
     ):
         if not isinstance(control, Block):
             raise TypeError(
-                f"Amp needs a control Block (an ADSR, an LFO, ...), got "
+                f"Amp needs a control Block (an ADSR, an oscillator, ...), got "
                 f"{type(control).__name__}"
             )
         self.control = control
         super().__init__(name=name, gain=gain, offset=offset, **params)
 
-    def reset(self) -> None:
-        super().reset()
-        if hasattr(self, "control"):
-            self.control.reset()
-
-    def prepare(self, ctx) -> None:
-        super().prepare(ctx)
-        self.control.prepare(ctx)
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        self.control.reset(ctx)
 
     def process(self, x: float, ctx=None) -> float:
         control = self.control

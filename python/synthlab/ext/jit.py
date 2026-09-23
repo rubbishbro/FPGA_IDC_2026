@@ -23,12 +23,13 @@ Example
     from synthlab.jit import FastBlock
 
     class OnePole(FastBlock):
-        params = ("cutoff", "sr")
+        param_names = ("cutoff", "sr")
         state = ("prev",)
         cutoff = 800.0
         sr = 48000.0
 
-        def kernel(self, x, cutoff, sr, prev):
+        @staticmethod
+        def kernel(x, cutoff, sr, prev):
             a = 1.0 - math.exp(-2.0 * math.pi * cutoff / sr)
             y = prev + a * (x - prev)
             return y, y      # (output, *new_state)
@@ -90,31 +91,13 @@ def kernel(fn: Callable | None = None, **njit_kwargs):
     return deco
 
 
-class _FastBlockMeta(type):
-    """Builds `_param_defaults` at class-creation time from the `params` mapping.
-
-    Parameters must be declared on the *class*, not injected per instance: the
-    graph flattener keys parameters by block instance, and two instances of the
-    same class sharing one parameter table would silently cross-talk.
-    """
-
-    def __new__(mcls, name, bases, namespace, **kwargs):
-        params = namespace.get("params", ())
-        cls = super().__new__(mcls, name, bases, namespace)
-        for key in params:
-            # Defaults were captured in `_defaults` by __init_subclass__.
-            default = getattr(cls, "_defaults", {}).get(key, 0.0)
-            setattr(cls, key, Param(default))
-        return cls
-
-
-class FastBlock(Block, metaclass=_FastBlockMeta):
+class FastBlock(Block):
     """Wrap a compiled kernel as a Block.
 
     Declare parameters and state as class attributes:
 
         class OnePole(FastBlock):
-            params = ("cutoff",)
+            param_names = ("cutoff",)
             state = ("prev",)
             cutoff = 800.0          # a plain value, read as the parameter default
 
@@ -126,16 +109,10 @@ class FastBlock(Block, metaclass=_FastBlockMeta):
     `(output, *new_state)`.
     """
 
-    params: tuple[str, ...] = ()
+    #: Names of the parameters, in the order the kernel receives them. The values
+    #: are declared as class attributes of the same name.
+    param_names: tuple[str, ...] = ()
     state: tuple[str, ...] = ()
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        # A class attribute named like a parameter is its default; capture it now
-        # because Param will shadow the plain value afterwards.
-        cls._defaults = {
-            key: getattr(cls, key) for key in cls.params if key != "params"
-        }
 
     def __init__(self, name: str | None = None, **overrides):
         defaults = getattr(type(self), "_defaults", {})
@@ -144,7 +121,8 @@ class FastBlock(Block, metaclass=_FastBlockMeta):
         super().__init__(name=name, **merged)
         self._state_values = {key: 0.0 for key in self.state}
 
-    def reset(self) -> None:
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
         if hasattr(self, "_state_values"):
             self._state_values = {key: 0.0 for key in self.state}
 
@@ -157,7 +135,16 @@ class FastBlock(Block, metaclass=_FastBlockMeta):
     def write_state(self, values: dict[str, float]) -> None:
         self._state_values.update(values)
 
-    def kernel(self, x: float, *args):  # pragma: no cover - user supplied
+    @staticmethod
+    def kernel(x: float, *args):  # pragma: no cover - user supplied
+        """The per-sample function. Must be a `staticmethod`.
+
+        It takes no `self`: the block passes the sample, then the parameters in
+        `param_names` order, then the state in `state` order, all as scalars. Numba
+        compiles *functions*, and a plain (non-static) method would keep `self` in
+        the signature, so the compiled kernel would be called with one argument too
+        few.
+        """
         raise NotImplementedError
 
     def _compiled(self):
@@ -165,15 +152,17 @@ class FastBlock(Block, metaclass=_FastBlockMeta):
         cls = type(self)
         fn = getattr(cls, "_compiled_kernel", None)
         if fn is None:
-            base = cls.kernel
-            fn = kernel(base.__func__ if hasattr(base, "__func__") else base)
+            raw = cls.__dict__.get("kernel") or cls.kernel
+            if isinstance(raw, staticmethod):
+                raw = raw.__func__
+            fn = kernel(raw)
             cls._compiled_kernel = fn
         return fn
 
     def process(self, x: float, ctx) -> float:
         fn = self._compiled()
         args = [x]
-        args.extend(self.p[key] for key in self.params)
+        args.extend(self.params[key] for key in self.param_names)
         args.extend(self._state_values[key] for key in self.state)
 
         result = fn(*args)
@@ -198,7 +187,7 @@ def warmup(*blocks: Block) -> float:
     ctx = Context(sr=48_000)
     t0 = time.perf_counter()
     for block in blocks:
-        block.prepare(ctx)
+        block.reset(ctx)
         is_source = isinstance(block, Source)
         for i in range(4):
             ctx.index = i

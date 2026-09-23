@@ -67,7 +67,7 @@ def experiment_custom_waveform() -> np.ndarray:
     """
     banner("1. Custom waveform formulas (phase -> amplitude)")
 
-    def skewed_sine(ph, pw):
+    def skewed_sine(ph):
         """A sine whose peak is dragged toward the start or end of the cycle.
 
         This is the basis of 'phase distortion' synthesis: instead of filtering a
@@ -77,12 +77,12 @@ def experiment_custom_waveform() -> np.ndarray:
         warped = ph ** k
         return math.sin(math.tau * warped)
 
-    def staircase(ph, pw):
+    def staircase(ph):
         """Quantised phase -- a bit-crushed oscillator, 4 steps per cycle."""
         steps = 4
         return 2.0 * (math.floor(ph * steps) / (steps - 1.0)) - 1.0
 
-    def folded_sine(ph, pw):
+    def folded_sine(ph):
         """Clamp a scaled sine. Overflowing is flattened against the rails rather
         than reflected, which keeps the curve continuous and cheap, and adds
         odd harmonics without the broadband click of a true hard clip."""
@@ -92,7 +92,7 @@ def experiment_custom_waveform() -> np.ndarray:
     for label, fn in (("skewed_sine (phase distortion)", skewed_sine),
                       ("staircase (4 steps)", staircase),
                       ("folded_sine", folded_sine)):
-        osc = sl.Oscillator(freq=freq, wave="custom", shape=fn)
+        osc = sl.Oscillator(freq=freq, shape=fn)
         y = render(osc, 0.25)
 
         # Count the harmonics that differ from a plain sine. Normalise by the
@@ -109,7 +109,7 @@ def experiment_custom_waveform() -> np.ndarray:
         print(f"  {label:<34} harmonics 2-6: {strengths}")
 
     # Keep one for the caller to listen to.
-    return render(sl.Oscillator(freq=freq, wave="custom", shape=skewed_sine), 1.0)
+    return render(sl.Oscillator(freq=freq, shape=skewed_sine), 1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -117,49 +117,52 @@ def experiment_custom_waveform() -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def experiment_custom_filter() -> np.ndarray:
-    """Subclass `Biquad` and override `design` with a different topology.
+    """Write your own coefficients and hand them to `Biquad`.
 
-    `Biquad` computes RBJ cookbook coefficients. Overriding one method gets you an
-    entirely different filter while inheriting the parameter handling, the state
-    variables and `magnitude_at` for free.
+    `Biquad` applies the five coefficients and nothing else, so a different filter
+    is a different coefficient function -- not a subclass. Design first, then
+    construct: the numbers are available to inspect, plot or edit before any audio
+    runs.
     """
     banner("2. Custom filter coefficient maths")
 
-    class Butterworth3(sl.Biquad):
-        """A 3-pole Butterworth cascaded as a first-order section plus a biquad.
+    def butterworth3_lowpass(cutoff: float, sr: float):
+        """3-pole Butterworth: a first-order section plus a biquad.
 
-        A real 3rd-order Butterworth is not a single biquad, so this class carries
-        an extra first-order pole. It shows that a 'filter block' is just a
-        difference equation you own.
+        A 3rd-order Butterworth is not a single biquad, so this pair of coefficient
+        sets has to be cascaded by hand.
+        """
+        w0 = math.tau * min(max(cutoff, 1.0), sr * 0.45) / sr
+        cw, sw = math.cos(w0), math.sin(w0)
+        alpha = sw / 2.0                      # Q = 1 for this section
+        b0 = (1.0 - cw) / 2.0
+        a0 = 1.0 + alpha
+        biquad = (b0 / a0, (1.0 - cw) / a0, b0 / a0, -2.0 * cw / a0, (1.0 - alpha) / a0)
+        first_order = (1.0 - math.exp(-math.tau * cutoff / sr),)
+        return biquad, first_order
+
+    class Cascade(sl.Biquad):
+        """A biquad with one first-order pole in front of it.
+
+        Subclassing is still how you add *state*; the coefficients come from the
+        function above rather than from a `design` hook.
         """
 
-        def reset(self) -> None:
-            super().reset()
+        def __init__(self, biquad, first_order_a, **params):
+            self.first_order_a = first_order_a
+            super().__init__(*biquad, **params)
+
+        def reset(self, ctx) -> None:
+            super().reset(ctx)
             self.z = 0.0
 
-        def design(self, cutoff, q, mode, gain_db, sr):
-            # Bilinear-transform Butterworth poles at 60 degrees for the biquad part.
-            w0 = math.tau * min(max(cutoff, 1.0), sr * 0.45) / sr
-            cw, sw = math.cos(w0), math.sin(w0)
-            alpha = sw / (2.0 * 1.0)  # Q = 1 for this section
-            b0 = (1.0 - cw) / 2.0
-            b1 = 1.0 - cw
-            b2 = b0
-            a0 = 1.0 + alpha
-            a1 = -2.0 * cw
-            a2 = 1.0 - alpha
-            return b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0
-
         def process(self, x, ctx=None):
-            # First-order section first, then the inherited biquad.
-            a = 1.0 - math.exp(-math.tau * self.cutoff / ctx.sr)
-            self.z += a * (x - self.z)
+            self.z += self.first_order_a * (x - self.z)
             return super().process(self.z, ctx)
 
-    order1 = sl.Biquad(cutoff=1000.0, q=0.707, mode="lowpass")
-    order3 = Butterworth3(cutoff=1000.0, q=0.707, mode="lowpass")
-    order1.update(SR)
-    order3.update(SR)
+    order1 = sl.Biquad(*sl.design_lowpass(1000.0, 0.707, SR))
+    biquad, fo = butterworth3_lowpass(1000.0, SR)
+    order3 = Cascade(biquad, fo[0])
 
     print("  magnitude response (dB), 1st-order vs custom 3-pole:")
     for f in (200.0, 1000.0, 2000.0, 4000.0, 8000.0):
@@ -167,10 +170,8 @@ def experiment_custom_filter() -> np.ndarray:
         b = 20 * math.log10(max(order3.magnitude_at(f, SR), 1e-12))
         print(f"    {f:>7.0f} Hz    {a:>8.2f} dB    {b:>8.2f} dB")
 
-    order3.update(SR)
-    print(f"\n  custom 3-pole measured at 8 kHz: "
-          f"{order3.magnitude_at(8000.0, SR):.6f} "
-          f"({20 * math.log10(max(order3.magnitude_at(8000.0, SR), 1e-12)):.1f} dB)")
+    print(f"\n  the biquad section's coefficients: "
+          f"{tuple(round(c, 6) for c in biquad)}")
 
     tone = np.sin(math.tau * 440.0 * np.arange(SR // 4) / SR)
     return render(order3, 0.25, input_signal=tone)
@@ -199,8 +200,8 @@ def experiment_custom_phase_law() -> np.ndarray:
 
         slave_ratio = sl.Param(2.5, doc="slave freq = master freq * ratio")
 
-        def reset(self) -> None:
-            super().reset()
+        def reset(self, ctx) -> None:
+            super().reset(ctx)
             self.master_ph = 0.0
 
         def tick(self, freq, dt):
@@ -210,7 +211,7 @@ def experiment_custom_phase_law() -> np.ndarray:
                 self.master_ph -= math.floor(self.master_ph)
                 synced = True
 
-            value = self.shape(self.ph, self.pulse_width)
+            value = self.shape(self.ph)
             self.ph += freq * self.slave_ratio * dt
             if synced:
                 # Restart the slave. This mid-cycle discontinuity is the sound of
@@ -368,36 +369,57 @@ def experiment_custom_block() -> np.ndarray:
         A `Block`, not a `Source`: it filters whatever it is given, which is what a
         vowel does to a glottal source.
 
-        `vowel` is a live parameter, so it can be scheduled or modulated. The
-        filters are reused rather than rebuilt, which is why this stays cheap.
+        Coefficients cannot be modulated, so changing `vowel` or `q` rebuilds the
+        bank instead. That is the honest cost of a fixed-coefficient filter: a sweep
+        is a designed trajectory, not a per-sample parameter write.
         """
 
         vowel = sl.Param(0.0, doc="0=a, 1=e, 2=i, 3=o, 4=u")
         q = sl.Param(8.0, doc="formant sharpness")
         wet = sl.Param(1.0)
 
-        def reset(self) -> None:
-            super().reset()
-            # Reused across samples; only their parameters change with the vowel.
+        def __init__(self, sr: float = SR, name: str | None = None, **params):
+            self._sr = float(sr)
+            self._key = None
+            self.bank = None
+            super().__init__(name=name, **params)
+
+        def reset(self, ctx) -> None:
+            super().reset(ctx)
+            self._sr = float(getattr(ctx, "sr", self._sr) or self._sr)
+            self._key = None
+            self._rebuild()
+
+        def param_changed(self, name) -> None:
+            # Fires during __init__ too, which is why `_rebuild` guards on `bank`.
+            if name in ("vowel", "q"):
+                self._rebuild()
+
+        def _rebuild(self) -> None:
+            idx = int(self.params["vowel"]) % len(VOWELS)
+            key = (idx, float(self.params["q"]), self._sr)
+            if key == self._key:
+                return
+            self._key = key
+            formants = list(VOWELS.values())[idx]
             self.bank = [
-                (sl.Biquad(cutoff=f, q=8.0, mode="bandpass"), gain)
-                for f, gain in zip(VOWELS["a"], (1.0, 0.5, 0.25))
+                (sl.Biquad(*sl.design_bandpass(f, key[1], self._sr)), gain)
+                for f, gain in zip(formants, (1.0, 0.5, 0.25))
             ]
+            for filt, _ in self.bank:
+                filt.reset(self.ctx)
 
         def process(self, x, ctx=None):
-            idx = int(self.vowel) % 5
-            formants = list(VOWELS.values())[idx]
             total = 0.0
-            for (filt, gain), freq in zip(self.bank, formants):
-                filt.p["cutoff"] = freq
-                filt.p["q"] = self.q
+            for filt, gain in self.bank:
                 total += filt.process(x, ctx) * gain
-            return x * (1.0 - self.wet) + total * self.wet
+            wet = self.params["wet"]
+            return x * (1.0 - wet) + total * wet
 
     # A glottal-ish source: a pulse wave through a gentle lowpass.
     source = Chain(
         sl.Oscillator(freq=110.0, wave="pulse", pulse_width=0.35, antialias="polyblep"),
-        sl.Biquad(cutoff=3000.0, q=0.7, mode="lowpass"),
+        sl.Biquad(*sl.design_lowpass(3000.0, 0.7, SR)),
     )
     voice = Chain(source, FormantBank())
     y = render(voice, 1.0)
@@ -406,7 +428,7 @@ def experiment_custom_block() -> np.ndarray:
     for name, formants in VOWELS.items():
         bank = FormantBank(vowel=float(list(VOWELS).index(name)))
         out = render(Chain(Chain(sl.Oscillator(freq=110.0, wave="pulse", pulse_width=0.35),
-                                 sl.Biquad(cutoff=3000.0, mode="lowpass")), bank), 0.5)
+                                 sl.Biquad(*sl.design_lowpass(3000.0, 0.707, SR))), bank), 0.5)
 
         def amp(f):
             idx = np.arange(out.size)

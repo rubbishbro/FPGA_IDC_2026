@@ -16,82 +16,194 @@ oscillator and emitting DC (a click on real hardware).
 
 The `needs_input` flag and `eval` method below are how the rest of the library
 consumes blocks without caring which kind it has. Callers never test `isinstance`.
+
+Lifecycle
+---------
+There is one lifecycle method, `reset(ctx)`, and it is mandatory: a block that has
+not been reset raises on use. It both *configures* the block for the sample rate
+and *clears* its state, in that order, and it recurses into any blocks a combinator
+holds. `render` calls it on the graph root, so a whole patch is initialised by
+initialising the root.
+
+Splitting configuration from clearing was the earlier design, and it was worse in
+two ways. It needed two mirror-image recursive walks in every combinator, and the
+order between the halves was a per-subclass convention -- `Chorus` had to call
+`reset` from the end of its own `prepare` because it had just rebuilt an internal
+delay line. One method makes the order explicit and impossible to get wrong.
 """
 
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
-import numpy as np
+from .parameter import Field, Param, Params
 
-from .parameter import Param
+#: Names a parameter must not take. A `Param` is a data descriptor, so a parameter
+#: named `reset` or `ctx` would swallow every write to that attribute or method and
+#: the failure would surface much later, as something like "'float' object is not
+#: callable". Rejected when the class is built.
+_RESERVED_NAMES = frozenset({
+    # instance attributes Block maintains itself
+    "p", "params", "name", "ctx", "last_output", "_sampled_index",
+    "value",
+    # the protocol a block is called through
+    "process", "run", "eval", "reset", "describe", "param_table", "param_changed",
+    "needs_input", "prepare",
+    # class-level bookkeeping
+    "_fields", "_own_params", "_param_defaults", "_RESERVED_NAMES",
+})
+
+
+class _Namespace(dict):
+    """Class-body namespace that notices a declaration being overwritten.
+
+    A class body executes before the metaclass sees it, so a `Param` replaced by a
+    method of the same name is already gone by then -- it is absent from the class,
+    from `_fields`, and from the parameter store, leaving no trace to check for.
+    The overwrite has to be caught as it happens, which is what this does: the
+    earlier value is a `Param` and the later one is not, so the parameter was
+    destroyed.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self._lost: list[str] = []
+
+    def __setitem__(self, key, value):
+        previous = self.get(key)
+        if isinstance(previous, Param) and not isinstance(value, Param):
+            self._lost.append(key)
+        super().__setitem__(key, value)
 
 
 class _BlockMeta(type):
-    """Gives every Block subclass its own parameter table, built from the `Param`
-    descriptors in its MRO.
+    """Gives every Block subclass its own parameter slots and field table.
 
     This has to happen in a metaclass rather than in a class attribute or
-    `__init_subclass__`. A shared dict on `Block` would let every subclass append to
-    one global table (so `Oscillator` would appear to have `cutoff`, `gate`,
+    `__init_subclass__`. A shared table on `Block` would let every subclass append
+    to one global list (so `Oscillator` would appear to have `cutoff`, `gate`,
     `attack`, ...), and `__init_subclass__` never runs for `Block` itself.
+
+    Slots are assigned once, here, and never change. The descriptor and the value
+    array both address a parameter by its slot, so a name never has to be resolved
+    at run time.
     """
 
+    @classmethod
+    def __prepare__(mcls, name, bases, **kwargs):
+        return _Namespace()
+
     def __new__(mcls, name, bases, namespace, **kwargs):
+        _synthesize(namespace)
         cls = super().__new__(mcls, name, bases, namespace, **kwargs)
-        own: dict[str, Param] = {}
-        for klass in cls.__mro__:
+
+        declared: dict[str, Param] = {}
+        for klass in reversed(cls.__mro__):
             for key, value in vars(klass).items():
                 if isinstance(value, Param):
-                    own[key] = value
-        cls._own_params = own
-        cls._param_defaults = {k: (p.default, p.unit) for k, p in own.items()}
+                    declared[key] = value
+        fields = []
+        for slot, (key, spec) in enumerate(declared.items()):
+            spec.slot = slot
+            spec.name = key
+            fields.append(Field(key, slot, spec))
+        fields = tuple(fields)
+        _reject(cls, fields, namespace)
+        cls._fields = fields
         return cls
+
+
+def _synthesize(namespace) -> None:
+    """Turn a bare `param_names` tuple into real `Param` declarations.
+
+    A class that declares its parameters by name -- which is what wrapping a
+    compiled kernel wants, since the values have to line up with the kernel's
+    argument order -- gets the descriptors built here, before they are collected.
+    The default for each is the class attribute of the same name, captured now
+    because the descriptor replaces it.
+
+    There is a naming trap: a class-body attribute called `params` would shadow the
+    instance's parameter store, so the list of names goes in `param_names`. `params`
+    is still accepted for compatibility but is rejected if it is not a tuple of
+    strings.
+    """
+    names = namespace.get("param_names")
+    if names is None and "state" in namespace:
+        legacy = namespace.get("params")
+        if legacy is not None and not isinstance(legacy, tuple):
+            raise TypeError(
+                "a class-body attribute named `params` must be the tuple of "
+                "parameter names; it now collides with the instance's parameter "
+                "store. Rename it to `param_names`."
+            )
+        names = legacy
+    if not names:
+        return
+    namespace._defaults = {key: namespace.get(key, 0.0) for key in names}
+    for key in names:
+        namespace[key] = Param(namespace._defaults[key])
+
+
+def _reject(cls, fields: tuple, namespace) -> None:
+    """Refuse declarations that cannot work, at class-creation time.
+
+    Two ways a parameter name breaks, and the second one is easy to miss:
+
+    * It collides with a `Block` attribute or method, so the descriptor swallows
+      writes to that attribute.
+    * The class body assigns a *method* of the same name. That assignment replaces
+      the `Param` in the class namespace before the metaclass runs, so the
+      declaration is destroyed rather than shadowed: the parameter does not exist,
+      `params` rejects it, and `self.<name>` is a bound method where a number was
+      expected. `ADSR` had a `release` parameter and a `release()` method; the
+      method won and the parameter silently vanished. The finished class gives no
+      sign of this, which is why the check reads the namespace the body produced.
+    """
+    names = {f.name for f in fields}
+    clashes = sorted(names & _RESERVED_NAMES)
+    if clashes:
+        raise TypeError(
+            f"{cls.__name__} declares parameter(s) "
+            f"{', '.join(repr(c) for c in clashes)}, which collide with a Block "
+            f"attribute or method of the same name. A `Param` is a data "
+            f"descriptor, so it would silently swallow every write to that "
+            f"attribute. Rename the parameter."
+        )
+
+    lost = sorted(getattr(namespace, "_lost", ()))
+    if lost:
+        raise TypeError(
+            f"{cls.__name__} declares {', '.join(repr(n) for n in lost)} as a "
+            f"parameter and then assigns something else of the same name, so the "
+            f"`Param` is overwritten and the parameter does not exist. A method and "
+            f"a parameter cannot share a name; rename one of the two."
+        )
 
 
 class Block(metaclass=_BlockMeta):
     """A per-sample processor.
 
     Subclass and implement `process(self, x, ctx)`. Declare parameters with `Param`.
-    Keep all state on `self` and clear it in `reset` (calling `super().reset()`).
+    Keep all state on `self` and clear it in `reset(ctx)`, calling
+    `super().reset(ctx)`.
     """
 
-    # Populated by the metaclass; declared here only so static readers see them.
-    _own_params: dict[str, Param] = {}
-    _param_defaults: dict[str, tuple] = {}
+    #: Populated by the metaclass; declared here only so static readers see them.
+    _fields: tuple = ()
 
     #: Whether `process` takes an input sample. Generators set this to False.
     needs_input: bool = True
 
-    #: Names a parameter must not take, because `Param` is a data descriptor and
-    #: would silently swallow every write to the attribute or method they name.
-    #: Kept explicit rather than computed from the MRO: a heuristic also flags
-    #: `_param_defaults` and `_own_params`, which a parameter may legitimately shadow.
-    _RESERVED_NAMES = frozenset({
-        # instance attributes Block maintains itself
-        "p", "name", "ctx", "last_output", "_sampled_index",
-        # `value` no longer exists on Block, but it was the name that once shadowed
-        # the recorded output and made every envelope-driven patch go silent. It is
-        # reserved so the same trap cannot be re-set. (`Constant`'s parameter is
-        # `level` for this reason.)
-        "value",
-        # the protocol a block is called through
-        "process", "run", "eval", "prepare", "reset", "describe", "param_table",
-        "needs_input",
-    })
-
     def __init__(self, name: str | None = None, **params):
-        self._reject_attribute_collisions()
-        self.p: dict[str, Any] = {k: v for k, (v, _) in self._param_defaults.items()}
+        object.__setattr__(self, "params", Params(self, self._fields))
         for key, value in params.items():
-            if key not in self.p:
+            if key not in self.params:
                 raise TypeError(
                     f"{type(self).__name__} has no parameter {key!r}; "
-                    f"known: {sorted(self.p)}"
+                    f"known: {sorted(self.params.names())}"
                 )
-            self.p[key] = value
-        self._warn_out_of_range()
+        self.params.set_defaults(params)
+        self.params.warn_out_of_range()
 
         self.name = name or type(self).__name__
         self.ctx: Any = None
@@ -100,59 +212,44 @@ class Block(metaclass=_BlockMeta):
         #: Context index this block was last driven at, so a reader can tell whether
         #: `last_output` is current for the sample being computed.
         self._sampled_index: int | None = None
-        self.reset()
-
-    def _reject_attribute_collisions(self) -> None:
-        """Refuse a parameter whose name is already a Block attribute or method.
-
-        `Param` is a data descriptor, so a parameter named `name`, `last_output` or
-        `ctx` silently swallows every write to that attribute: `self.name` becomes a
-        number, the recorded output stops being the output, and the failure surfaces
-        much later as something like "'float' object is not callable". Caught here it
-        is a one-line error naming the class and the parameter.
-        """
-        clashes = sorted(self._RESERVED_NAMES & set(self._param_defaults))
-        if clashes:
-            raise TypeError(
-                f"{type(self).__name__} declares a parameter named "
-                f"{', '.join(repr(c) for c in clashes)}, which collides with a Block "
-                f"attribute or method of the same name. Because `Param` is a data "
-                f"descriptor it would silently swallow every write to that attribute. "
-                f"Rename the parameter."
-            )
+        #: Set by `reset(ctx)`; `eval` and `run` refuse to work without it.
+        self._initialized: bool = False
 
     # -- lifecycle ---------------------------------------------------------
-    def reset(self) -> None:
-        """Clear state so the block can be re-rendered deterministically.
+    def reset(self, ctx) -> None:
+        """Configure for `ctx` and clear state, in that order.
 
-        Subclasses that keep running state must call `super().reset()` and then
-        re-initialise their own fields.
+        Subclasses call `super().reset(ctx)` first, then rebuild whatever depends
+        on the sample rate and zero their own state. State arrays are sized from
+        what the configuration step produced, which is why the order is fixed here
+        rather than left to each subclass.
+
+        Idempotent: calling it again with the same context must give the same
+        starting conditions, so a block can be re-rendered deterministically.
         """
-        self.last_output = 0.0
-
-    def prepare(self, ctx) -> None:
-        """Called once before a render pass, with the sample rate and timing."""
         self.ctx = ctx
+        self.last_output = 0.0
+        self._sampled_index = None
+        self._initialized = True
 
-    def _warn_out_of_range(self) -> None:
-        """Warn about constructor arguments outside a parameter's declared bounds.
+    def param_changed(self, name: str) -> None:
+        """Called after a parameter of this block is assigned a different value.
 
-        An out-of-range value is otherwise a silent disaster that looks like a bug in
-        the library: `MoogLadder(cutoff=6000, resonance=1.5)` drives the ladder
-        feedback past its stability limit and the output becomes NaN within a
-        second, with no hint as to why.
+        Blocks that cache anything derived from their parameters override this and
+        mark the cache stale; the next `process` rebuilds it. The default is to do
+        nothing, which is correct for a parameter read fresh every sample.
+
+        This is a hook, not a policy: it does not say *which* parameters matter or
+        what "stale" costs. Those are internal to the block.
         """
-        for name, value in self.p.items():
-            spec = self._own_params.get(name)
-            if isinstance(spec, Param) and not spec.in_range(value):
-                unit = f" {spec.unit}" if spec.unit else ""
-                warnings.warn(
-                    f"{type(self).__name__}({name}={value!r}) is outside the "
-                    f"supported range [{spec.minimum}, {spec.maximum}]{unit}. "
-                    f"{spec.doc or 'Results outside this range are undefined.'}",
-                    RuntimeWarning,
-                    stacklevel=3,
-                )
+
+    def _require_initialized(self) -> None:
+        if not self._initialized:
+            raise RuntimeError(
+                f"{type(self).__name__} was used before it was reset. Call "
+                f"reset(ctx) first -- for a graph, reset the root and it will "
+                f"propagate."
+            )
 
     # -- the part you implement --------------------------------------------
     def process(self, x: float, ctx) -> float:
@@ -166,6 +263,7 @@ class Block(metaclass=_BlockMeta):
         Combinators call `eval`, which dispatches here. Direct callers should also
         prefer `eval`; call `run` only when the block kind is already known.
         """
+        self._require_initialized()
         result = self.process(x, ctx)
         self.last_output = result
         self._sampled_index = ctx.index if ctx is not None else None
@@ -179,6 +277,7 @@ class Block(metaclass=_BlockMeta):
         adding a new kind of block means changing `Source`, not eleven call sites.
         """
         if not self.needs_input:
+            self._require_initialized()
             result = self.process(ctx)
             self.last_output = result
             self._sampled_index = ctx.index if ctx is not None else None
@@ -193,15 +292,15 @@ class Block(metaclass=_BlockMeta):
     def describe(self) -> str:
         """Human-readable parameter dump -- the replacement for a GUI knob panel."""
         rows = [f"{type(self).__name__}({self.name})"]
-        for key, (_, unit) in self._param_defaults.items():
-            value = self.p[key]
+        for field in self._fields:
+            value = self.params[field.name]
             shown = f"{value:.5g}" if isinstance(value, (int, float)) else repr(value)
-            rows.append(f"    {key:<16} {shown:>12} {unit}")
+            rows.append(f"    {field.name:<16} {shown:>12} {field.unit}")
         return "\n".join(rows)
 
     def param_table(self) -> dict[str, Any]:
         """A copy of the live parameter values."""
-        return dict(self.p)
+        return self.params.all()
 
 
 class Source(Block):
@@ -219,6 +318,7 @@ class Source(Block):
 
     def run(self, ctx) -> float:  # type: ignore[override]
         """Generate one sample and record it in `last_output`."""
+        self._require_initialized()
         result = self.process(ctx)
         self.last_output = result
         self._sampled_index = ctx.index if ctx is not None else None

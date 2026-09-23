@@ -7,18 +7,19 @@ modulation, rendering, playback, measurement) without hiding any of the maths.
 The design rule is: **if you want a different sound, change the algorithm, not a
 parameter.** Every generator, filter and effect is a per-sample state machine whose
 coefficients and internal state are public attributes, so the usual way to add a
-feature is to subclass a block and rewrite one method.
+feature is to write a shape, a coefficient function or a `process` method.
 
 ```python
-from synthlab import Oscillator, MoogLadder, ADSR, Chain, Modulated, LFO, Amp, render
+from synthlab import Oscillator, MoogLadder, ADSR, Chain, Modulated, Amp, render
 from synthlab.ext.io import play
 
-osc  = Oscillator(freq=110.0, wave="saw", antialias="polyblep")
-filt = MoogLadder(cutoff=1200.0, resonance=0.6, drive=1.5)
-env  = ADSR(attack=0.01, decay=0.3, sustain=0.5, release=0.4, gate=1.0)
-lfo  = LFO(rate=0.6, depth=600.0, unipolar=1.0)
+osc   = Oscillator(freq=110.0, shape="saw", antialias="polyblep")
+filt  = MoogLadder(cutoff=1200.0, resonance=0.6, drive=1.5)
+env   = ADSR(attack=0.01, decay=0.3, sustain=0.5, release=0.4, gate=1.0)
+sweep = Oscillator(freq=0.6, shape="sine")      # a low-frequency oscillator
 
-patch = Chain(osc, Modulated(filt, lfo, "cutoff", base=900.0), Amp(env))
+patch = Chain(osc, Modulated(filt, sweep, "cutoff", depth=600.0, base=900.0),
+              Amp(env))
 play(render(patch, 2.0))
 ```
 
@@ -43,12 +44,12 @@ pip install numba              # only for synthlab.ext.jit (optional speed)
 
 This sandbox denies writes to the user site-packages, so `pip install` fails
 outright. The wheels are fetched and unpacked into `_libs/` at the repository root
-instead. **Run everything from the repository root**, not from `python/`:
+instead. The scripts put `_libs/` on `sys.path` themselves, so run them from the
+repository root:
 
 ```powershell
 python python/tools/fetch_wheels.py numpy sounddevice cffi numba llvmlite
 python python/tools/unpack_wheels.py
-$env:PYTHONPATH = (Resolve-Path .\_libs).Path
 ```
 
 The tools resolve `_libs/` and `_wheels/` by walking up from their own location, so
@@ -74,8 +75,8 @@ rather than a comment that claims it.
 
 | File | What it holds |
 |---|---|
-| `parameter.py` | `Param` — live, introspectable parameters |
-| `block.py` | `Block` (processor) and `Source` (generator), and the `eval` dispatch between them |
+| `parameter.py` | `Param` — a declared parameter, and `Params`, the per-instance store |
+| `block.py` | `Block` (processor) and `Source` (generator), the `eval` dispatch, and the `reset(ctx)` lifecycle |
 | `context.py` | `Context` — sample rate, sample index, seeded RNG |
 | `compose.py` | `Chain`, `Parallel`, `Modulated`, `Amp` |
 | `render.py` | `render`, `render_into`, `render_note` |
@@ -84,10 +85,10 @@ rather than a comment that claims it.
 
 | File | What it holds | Kind |
 |---|---|---|
-| `generators.py` | Oscillator, wavetable, FM, additive, supersaw, noise, PolyBLEP | `Source` |
-| `modulators.py` | ADSR, AD, LFO, ramp, sample & hold, smoothing, envelope follower | `Source` |
-| `processors.py` | Biquad (RBJ), state-variable, Moog ladder, one-pole, lowpass gate | `Block` |
-| `effects.py` | Delay, allpass, comb, reverb, chorus, flanger, phaser, waveshapers, bitcrush | `Block` |
+| `generators.py` | `Shape` (function/table/curve), `Oscillator` (repeats), `Scanner` (reads once), `lfo`, FM, supersaw, noise, PolyBLEP | `Source` |
+| `modulators.py` | ADSR, constant, sample & hold, smoothing, envelope follower | mixed |
+| `processors.py` | Biquad (coefficients only) plus `design_*` helpers, state-variable, Moog ladder, one-pole, lowpass gate | `Block` |
+| `effects.py` | Delay, allpass, comb, reverb, chorus, flanger, phaser, waveshapers, bitcrush, gain | `Block` |
 | `voices.py` | `Voice`, `Polyphony`, pitch helpers | `Source` |
 | `presets.py` | `patch_subtractive`, `patch_fm`, … — opinions, nothing depends on them | — |
 | `analysis.py` | Spectrum, peak finding, harmonic amplitudes, THD, aliasing, reports | — |
@@ -121,28 +122,40 @@ from synthlab.ext.io import play                             # audio out
 **Blocks are per-sample.** `process(x, ctx) -> y` is called once per sample.
 This is slower than operating on numpy buffers, but buffer-at-a-time processing
 cannot express feedback, one-sample-delay state, or sample-accurate modulation,
-and it hides the algebra you are trying to experiment with. Measured on this
-machine, a 20-block chain renders **~5x faster than real time** through the pure
-Python path, which is plenty for offline work. Reach for `synthlab.ext.jit` when a
-specific block is hot.
+and it hides the algebra you are trying to experiment with. Reach for
+`synthlab.ext.jit` when a specific block is hot.
 
-**Parameters are live.** Declare them with `Param` and they become attributes:
+**One lifecycle method.** `reset(ctx)` configures a block for the sample rate and
+clears its state, in that order, and recurses into any blocks a combinator holds.
+It is mandatory: a block that has not been reset raises on use. `render` calls it on
+the graph root, so a whole patch is initialised by initialising the root. Pass
+`reset=False` once you have set a graph up by hand.
+
+**Parameters are declared, live and private.** Declare them with `Param` and read
+them through `block.params`:
 
 ```python
 class MyBlock(Block):
     cutoff = Param(1000.0, "Hz", doc="corner frequency")
+
+b = MyBlock(cutoff=800.0)
+b.params.cutoff          # read
+b.params.cutoff = 900.0  # write; calls b.param_changed("cutoff")
+b.describe()             # human-readable dump
 ```
 
-They are per-instance, introspectable (`block.describe()`), modulatable, and
-typo-checked — `Oscillator(freq=100, nonsense=1)` raises.
+They are per-instance, introspectable, modulatable and typo-checked —
+`Oscillator(freq=100, nonsense=1)` raises, and `b.params.typo = 1` raises too.
+The store is not a plain dict, so an undeclared name cannot become an invisible
+extra key.
 
 **Modulation is routing.** `Modulated(target, source, "param", depth=..., base=...)`
-writes the source's output into the target's parameter cell once per sample, so
+writes the source's output into the target's parameter once per sample, so
 audio-rate modulation is exact and visible in the same sample:
 
 ```python
-Modulated(filt, lfo, "cutoff", base=900.0)        # filter sweep
-Modulated(carrier, env, "index", depth=-8, base=8)  # FM timbre envelope
+Modulated(filt, sweep, "cutoff", depth=600, base=900)   # filter sweep
+Modulated(carrier, env, "index", depth=-8, base=8)      # FM timbre envelope
 ```
 
 **Renders are reproducible.** Random blocks draw from `ctx.rng`, seeded per
@@ -158,35 +171,57 @@ a runnable version in `python/experiments/01_algorithm_swapping.py`.
 
 | You want to change | Do this |
 |---|---|
-| The waveform | `Oscillator(wave="custom", shape=my_func)` — a `(phase, pulse_width) -> float` callable |
+| The waveform | Pass any `shape`: `Oscillator(shape=lambda x: ...)`, or `shape=saw()` / `from_harmonics([...])` |
 | The phase law (hard sync, through-zero FM) | Subclass `Oscillator` and override `tick` |
-| The anti-aliasing | Subclass and override `tick`, or replace the `polyblep` call |
-| The filter's coefficients | Subclass `Biquad` and override `design` (gets parameter handling and `magnitude_at` free) |
-| A whole new filter topology | Subclass `Block`; expose your own state |
+| The anti-aliasing | Declare the jumps in a `Shape` via `edges()`, or override `tick` |
+| The filter's coefficients | Call a `design_*` function (or write the numbers) and pass them to `Biquad` |
+| A whole new filter topology | Subclass `Biquad` for the state, take the coefficients from anywhere |
 | The distortion curve | `shaper.shaper = lambda u, k: ...`, or `Waveshaper(shape=my_func)` |
 | The envelope shape | `curve_expo(x, k)` / `curve_pow(x, k)`, or pass your own curve |
 | An entire new effect | Subclass `Block` and implement `process` |
-| The wavetable | `WavetableOscillator.from_harmonics/from_samples/from_spectrum`, or edit `.table` in place |
+| A wavetable | `from_harmonics` / `from_samples` / `from_spectrum` / `morph`, then `Oscillator(shape=...)` |
 
-Example — a custom filter, where only the maths changes:
+Example — a shape is a function from position to value:
 
 ```python
-class MyFilter(sl.Biquad):
-    def design(self, cutoff, q, mode, gain_db, sr):
-        # Return (b0, b1, b2, a1, a2), normalised so a0 = 1.
-        ...
+import math
+from synthlab import Oscillator, Shape
+
+def folded(x):                       # x runs 0..1 over one cycle
+    return max(-1.0, min(1.0, 2.2 * math.sin(math.tau * x)))
+
+osc = Oscillator(freq=220.0, shape=folded)
+osc = Oscillator(freq=220.0, shape=Shape(folded, edges=((0.0, -1.0),)))  # + PolyBLEP
+```
+
+Example — a custom filter, where only the coefficients change:
+
+```python
+import synthlab as sl
+
+def my_lowpass(cutoff, sr):
+    # Return (b0, b1, b2, a1, a2), normalised so a0 = 1.
+    ...
+
+filt = sl.Biquad(*my_lowpass(1000.0, 48000))
 ```
 
 Example — a custom oscillator law:
 
 ```python
+import math
+import synthlab as sl
+
 class HardSync(sl.Oscillator):
     slave_ratio = sl.Param(2.5)
 
     def tick(self, freq, dt):
         # tick OWNS the phase accumulator: whatever you leave in self.ph
         # is what the next sample reads.
-        ...
+        value = self.shape(self.ph)
+        self.ph += freq * self.slave_ratio * dt
+        self.ph -= math.floor(self.ph)
+        return value
 ```
 
 ## Verifying what you built
@@ -194,7 +229,7 @@ class HardSync(sl.Oscillator):
 Don't trust your ears alone — every claim in the tests is a measured number.
 
 ```
-python python/tests/test_core.py        # 43 tests
+python python/tests/test_core.py        # 46 tests
 python python/tests/test_effects.py     # 21 tests
 python python/tests/test_layering.py    #  6 tests (architecture: core must not need ext)
 ```
@@ -213,26 +248,35 @@ Concrete findings this workflow produced, as examples of what it catches:
 - **Appending an envelope silently produces DC.** `Chain(osc, env)` looks reasonable
   and yields a click followed by silence, because an envelope ignores its input. The
   fix (`Amp`) and the guard that rejects the old form both exist because of this.
-- **A parameter named `value` was shadowed** by the attribute used to record block
-  output, so `Constant` returned 0 forever and every envelope-driven patch went
-  quiet. It is now a construction-time error.
-- **PolyBLEP sign errors are silent.** The pulse wave has two discontinuities
-  needing *opposite* correction signs. With both inverted, aliasing got 2.8x
-  *worse* than no correction while still sounding like a plausible square. After
-  the fix: saw alias energy down **6.3x**, 50% pulse down **3.4x**.
+- **A `Param` and a method cannot share a name.** `ADSR` had a `release` parameter
+  and a `release()` method; the method assignment replaced the `Param` in the class
+  namespace, so the parameter did not exist at all. It is now a class-creation
+  error, and the method is `note_off()`.
+- **PolyBLEP signs are per-shape and are not derivable** from the direction of the
+  jump: `saw` needs `-1` and `pulse` needs `+1`, and swapping them makes both
+  *worse* while still sounding like a plausible waveform. Measured: saw alias energy
+  down **31x**, 50% pulse down **26x**. The signs are data in `Shape.edges()` and are
+  pinned by tests.
+- **A coefficient-only filter cannot be swept by writing parameters.** Interpolating
+  `b0..a2` moves the poles and can leave the unit circle, so a sweep has to be a
+  designed trajectory (recompute from cutoff/Q, or interpolate along a checked
+  path). `Biquad` therefore takes coefficients and never redraws itself.
 - **Alias measurement is easy to get wrong.** "Energy not on a harmonic" counts a
   narrow pulse's genuine sinc sidelobes as aliasing, inflating the number by 70x.
   The metric in `python/tests/test_core.py` excludes each harmonic's own lobe; its
   docstring records where it still over-reports.
-- **`LFO(unipolar=1)` did not scale with `depth`.** The mapping was
-  `out * 0.5 + 0.5`, correct only at `depth == 1`; at `depth = 600` a cutoff sweep
-  collapsed to a near-constant 0.5 mean. There is now a regression test that
-  measures the cutoff a `Modulated` filter actually receives.
+- **An amplitude range belongs to a shape, not to a mode.** The old `LFO(unipolar=1)`
+  mapped `out * 0.5 + 0.5`, which is only right at `depth == 1`; at `depth = 600` a
+  cutoff sweep collapsed to a near-constant mean. A shape bounded to 0..1 does the
+  job without a special mode.
 - **`Waveshaper(shape="cheby", harmonic=n)` ignored `harmonic`** and always
   produced the 2nd harmonic, so the documented "exactly one harmonic" was wrong.
 - **`Oscillator.process` overwrote the phase after `tick`**, which silently made
   every custom phase law (hard sync, through-zero FM) impossible while still
   producing a plausible tone at the wrong frequency.
+- **`reset` runs during construction**, so a `param_changed` hook fires before a
+  block's own context exists. Any cache rebuilt from a parameter has to tolerate
+  that call.
 
 ## Known limitations
 
@@ -245,38 +289,43 @@ Concrete findings this workflow produced, as examples of what it catches:
   detuned ensembles and inharmonic FM, so `analysis` reports measurements rather
   than guesses. If you need pitch tracking, use `dominant_frequency` on a sustained
   portion, or bring a dedicated library and compare it against these primitives.
-- `AdditiveOscillator` sums every partial per sample, so cost grows with the
-  partial count. Use `WavetableOscillator` for large harmonic sets.
+- `pulse` with a narrow duty cycle aliases badly and PolyBLEP only helps a little:
+  each jump is corrected over one sample, which is not enough when the two jumps are
+  six samples apart. Use `minblep` or a band-limited table if it matters.
 - The Chamberlin SVF tuning is only accurate while `fc < ~sr/6`; it is clamped
   rather than corrected. Use `Biquad` when you need accurate tuning at high
   cutoffs, and `MoogLadder` when you want the resonance character.
+- `FMOscillator` and `SuperOscillator` are not shapes: two independent phase
+  accumulators at an arbitrary rate ratio make the output depend on more than the
+  carrier's position, so neither can be a wavetable. Only a rational FM ratio
+  repeats, at the ratio's denominator times the carrier period.
 
 ## Gotchas worth knowing
 
-- **An envelope must be applied with `Amp`, not appended.** `ADSR` and `LFO` are
-  `Source` blocks: they ignore their input and emit their own contour. So
-  `Chain(osc, env)` throws the oscillator away and makes the envelope's raw value
-  the audio — a DC ramp, which output hardware blocks. You hear a click and then
-  silence. Use `Chain(osc, Amp(env))`. `Chain.prepare` now raises a `TypeError`
+- **An envelope must be applied with `Amp`, not appended.** `ADSR` and every other
+  generator in `generators.py` is a `Source`: it ignores its input and emits its own
+  contour. So `Chain(osc, env)` throws the oscillator away and makes the envelope's
+  raw value the audio — a DC ramp, which output hardware blocks. You hear a click
+  and then silence. Use `Chain(osc, Amp(env))`. `Chain.reset` raises a `TypeError`
   explaining this instead of staying quiet.
+- **`Amp` multiplies its input**, it is not a standalone source. It computes
+  `x * (control + offset) * gain`, so with no upstream signal it outputs 0. To build
+  a modulator that never crosses zero, use a shape bounded to 0..1, not `Amp`.
 - **`release` vs `release()`.** `ADSR` has a `release` *parameter*, so the method
-  is `note_off()`. A method of the same name would shadow the parameter.
+  is `note_off()`.
 - **`render()` resets by default.** Pass `reset=False` after manually triggering an
   envelope or building a voice with `note_on`, or the setup is discarded.
   `render_note(voice, freq, seconds)` handles that for you.
 - **Stay inside a parameter's declared range.** `MoogLadder(resonance=1.5)` drives
   the ladder feedback past its stability limit and the output becomes NaN within a
-  second; `Block.__init__` now warns, and the ladder clamps, but the sound you asked
-  for is not the sound you get. `Param` bounds are metadata, not an automatic clamp
-  (they cannot be, since modulation writes parameters at audio rate).
-- **A parameter may not be called `value`.** `Block.last_output` records each
-  block's output for other blocks to read, and a `Param` named `value` would be a
-  data descriptor that shadows it, silently swallowing every write. `Block.__init__`
-  rejects it. (`Constant`'s parameter is `level`.)
+  second; construction warns, and the ladder clamps, but the sound you asked for is
+  not the sound you get. `Param` bounds are metadata, not an automatic clamp (they
+  cannot be, since modulation writes parameters at audio rate).
+- **A parameter may not be named after the protocol.** `reset`, `ctx`, `params`,
+  `last_output`, `process`, … are rejected when the class is built, because a
+  `Param` is a data descriptor and would swallow every write to that attribute.
 - **Cutoffs are clamped** below Nyquist. RBJ biquads go unstable at Nyquist, and
   the Chamberlin SVF tuning warps badly above ~sr/6.
-- **`AdditiveOscillator` costs more than the others** because it sums `count`
-  partials every sample. Keep the partial count modest, or use a wavetable.
 - **Console encoding.** This shell is GBK; printing device names containing `®` or
   Chinese characters needs `$env:PYTHONIOENCODING="utf-8"`.
 - **numba compiles on first call** (seconds of hitch). Call `synthlab.ext.jit.warmup()`
