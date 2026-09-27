@@ -1,0 +1,14 @@
+{
+  "instrument": "guitar",
+  "n_notes": 71,
+  "n_failures": 0,
+  "band_hz": 16000.0,
+  "B_median": 2.7968564975902996e-07,
+  "B_max": 1.0676124136283996e-05,
+  "modes_median": 48.0,
+  "modes_min": 15,
+  "modes_max": 48,
+  "gamma_at_1kHz_median": 2.5301429969391815,
+  "r2_median": 0.977402359141439,
+  "failures": []
+}

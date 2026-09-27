@@ -1,0 +1,36 @@
+{
+  "guitar": {
+    "body_rmse_db": 0.45,
+    "max_modes": 48,
+    "band_hz": 16000.0,
+    "noise_amp": 0.18,
+    "melody": {
+      "seconds": 15.45,
+      "render_s": 17.5,
+      "kills": 0,
+      "hard": 0
+    },
+    "stress": {
+      "kills": 8,
+      "hard": 0,
+      "max_active": 5
+    }
+  },
+  "piano": {
+    "body_rmse_db": 0.46,
+    "max_modes": 48,
+    "band_hz": 20000.0,
+    "noise_amp": 0.08,
+    "melody": {
+      "seconds": 15.45,
+      "render_s": 18.0,
+      "kills": 0,
+      "hard": 0
+    },
+    "stress": {
+      "kills": 8,
+      "hard": 0,
+      "max_active": 5
+    }
+  }
+}

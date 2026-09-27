@@ -1,0 +1,14 @@
+{
+  "instrument": "piano",
+  "n_notes": 66,
+  "n_failures": 0,
+  "band_hz": 20000.0,
+  "B_median": 5.746728037865015e-06,
+  "B_max": 0.00483037310705295,
+  "modes_median": 11.0,
+  "modes_min": 2,
+  "modes_max": 64,
+  "gamma_at_1kHz_median": 1.8762767714739967,
+  "r2_median": 0.8320921773567703,
+  "failures": []
+}
