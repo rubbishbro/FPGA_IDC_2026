@@ -35,17 +35,18 @@ FFT_results/sim/            audio, figures and metrics per topic
 ## Layout
 
 ```
-python/
+python/                     the FPGA audio pipeline
   paths.py                  SINGLE SOURCE OF TRUTH for every output path
   instruments.py            instrument registry (source / model / band / mode count)
+  requirements.txt          numpy, scipy, matplotlib, soundfile
   fft_analysis/             extraction:  core.py, run.py, sustain.py, percussion.py
   modal_sim/                synthesis:   engine.py, sustain_engine.py, drumkit.py,
                             params.py, song.py, kit_eval.py, cymbal_compare.py ...
   MATH.md                   the maths behind the engine (string model, exact update)
-  README.md                 docs for the EARLIER "SythSound" library (see below)
-  synthlab/ experiments/ tools/ tests/ stringSim_demo.py
-                            earlier phase, kept for reference — NOT used by the
-                            current pipeline
+
+legacy_sythsound/           a SEPARATE, earlier project (general modular-synth
+                            library): synthlab/ + its own tests/ experiments/ tools/
+                            and README. Shares nothing with the pipeline above.
 
 FFT_results/
   README.md report.md       extraction overview + summary table
@@ -58,10 +59,15 @@ music_resources/            sample libraries (read-only): Philharmonia Orchestra
                             the pitched instruments, AVL Drumkits for kick/snare/tom,
                             Salamander Drumkit (public domain) for the cymbals
 
-matlab/                     earlier MATLAB verification of the engine architecture
 reference_agent_readfirst/  board + competition docs (start at fpga_platform.md)
+rtl/                        SystemVerilog implementation — see rtl/README.md for the
+                            working agreement and the staged roadmap
 top.sv                      FPGA scratch (matrix keyboard scanner), not the engine
 ```
+
+> The earlier MATLAB verification of the engine architecture (`schemeA/B/C`,
+> `single_voice.m`, `docs/synth_engine.md`) was removed from the working tree in
+> commit `3a4d9f1`; it is still in git history if it is ever needed again.
 
 ## Running
 
