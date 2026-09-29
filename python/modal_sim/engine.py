@@ -12,6 +12,7 @@ Per the agreed architecture:
 from __future__ import annotations
 
 import numpy as np
+from scipy.signal import butter, sosfilt
 
 from params import Patch, SR
 
@@ -20,9 +21,10 @@ class ModalSynth:
     def __init__(self, patch: Patch, max_poly: int = 24, sr: int = SR,
                  high_water: int | None = None,
                  tau_forte: float = 1.5e-4, tau_piano: float = 2.5e-4,
-                 kill_factor: float = 150.0, release_factor: float = 9.0,
+                 kill_factor: float = 150.0, release_factor: float = 1.0,
                  free_thr: float = 2e-4, level_tau: float = 0.01,
-                 noise_amp: float = 0.12, noise_ms: float = 14.0, seed: int = 0):
+                 noise_amp: float = 0.12, noise_ms: float = 14.0,
+                 noise_lp_hz: float = 5000.0, seed: int = 0):
         self.patch = patch
         self.sr = sr
         self.dt = 1.0 / sr
@@ -33,6 +35,9 @@ class ModalSynth:
         self.free_thr = free_thr
         self.level_decay = float(np.exp(-self.dt / level_tau))
         self.noise_amp = noise_amp
+        self.noise_gain = 1.0
+        self.noise_sos = butter(2, min(noise_lp_hz / (sr / 2.0), 0.95), btype="low",
+                                output="sos")
         self.blast = max(2, int(noise_ms * 1e-3 * sr))
         self.rng = np.random.default_rng(seed)
         self.Nmax = patch.max_modes
@@ -59,9 +64,11 @@ class ModalSynth:
         self.key = -np.ones(V, dtype=int)
         self.burst = np.zeros((V, self.blast))
         self.bi = np.zeros(V, dtype=int)
+        self.last_noise = 0.0
         self.n = 0
         self.kill_count = 0
         self.hard_count = 0
+        self.kill_jump = 0.0
         self.active_hist = []
 
     # ------------------------------------------------------------------
@@ -76,12 +83,27 @@ class ModalSynth:
         n = np.arange(plen, dtype=float)
         pulse = 0.5 - 0.5 * np.cos(2.0 * np.pi * n / max(plen, 1))
         p = np.abs(np.exp(-1j * 2.0 * np.pi * np.outer(f, n) / self.sr).dot(pulse))
+        # bound the boost: P is tiny for high modes, and dividing by it made their gains
+        # explode into a coherent onset click (raw sum ~16x while a mode is ~1).
+        p = np.maximum(p, np.max(p) * 0.1)
         theta = 2.0 * np.pi * f * self.dt
         g = w * np.sin(theta) / (p + 1e-9)
         self.gain[v] = np.clip(g, 0.0, 1e4)
 
     def _kill(self, v, hard=False):
-        """Scheme C: accelerate the tail continuously (never cut to zero)."""
+        """Scheme C: accelerate the tail continuously (never cut to zero).
+
+        Changing the pole radius swaps a1/a2 while y1/y2 still hold energy, so the next
+        sample steps by `(a1_old-a1_new)*y1 + (a2_old-a2_new)*y2`. That jump is recorded
+        (relative to the voice level) so "no click" is a measured claim, not an
+        assumption.
+        """
+        th = 2.0 * np.pi * self.f[v] * self.dt
+        ro = np.exp(-self.base_gamma[v] * self.dt)
+        rn = np.exp(-self.base_gamma[v] * self.kill_factor * self.dt)
+        jump = (2.0 * (rn - ro) * np.cos(th) * self.y1[v]
+                + (ro * ro - rn * rn) * self.y2[v])
+        self.kill_jump = max(self.kill_jump, float(np.abs(jump).max()))
         self.fast[v] = True
         self.gamma[v] = self.base_gamma[v] * self.kill_factor
         self._set_coeffs(v)
@@ -198,11 +220,13 @@ class ModalSynth:
             offs.setdefault(int(round((t + dur) * self.sr)), []).append(int(midi))
 
         buf = np.zeros(n)
+        nbuf = np.zeros(n)
         for i in range(n):
             for midi, vel in onsets.get(i, ()):
                 self.note_on(midi, vel)
             for midi in offs.get(i, ()):
                 self.note_off(midi)
             buf[i] = self.step()
-        buf = self.body.process(buf)
+            nbuf[i] = self.last_noise
+        buf = self.body.process(buf) + self.noise_gain * sosfilt(self.noise_sos, nbuf)
         return gain * buf

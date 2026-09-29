@@ -1,0 +1,21 @@
+{
+  "instrument": "banjo",
+  "n_notes": 74,
+  "n_failures": 0,
+  "band_hz": 16000.0,
+  "B_median": 1.2754228811213644e-05,
+  "B_max": 0.0002949380482441557,
+  "modes_median": 40.5,
+  "modes_min": 12,
+  "modes_max": 64,
+  "gamma_at_1kHz_median": 5.988311956218839,
+  "r2_median": 0.9486414147153082,
+  "partials_total": 3076,
+  "partials_trusted": 1776,
+  "frac_trusted": 0.577373211963589,
+  "f0_cents_median": 1.0706047623724086,
+  "f0_cents_p90_abs": 16.718817295551222,
+  "f0_cents_max_abs": 30.216203171559464,
+  "f0_outliers": [],
+  "failures": []
+}

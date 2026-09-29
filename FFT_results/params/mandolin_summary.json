@@ -1,0 +1,21 @@
+{
+  "instrument": "mandolin",
+  "n_notes": 39,
+  "n_failures": 0,
+  "band_hz": 16000.0,
+  "B_median": 1.9608322945693492e-05,
+  "B_max": 0.00026135880488946985,
+  "modes_median": 25.0,
+  "modes_min": 9,
+  "modes_max": 64,
+  "gamma_at_1kHz_median": 3.8888871596754857,
+  "r2_median": 0.9031975015564393,
+  "partials_total": 1203,
+  "partials_trusted": 795,
+  "frac_trusted": 0.6608478802992519,
+  "f0_cents_median": 3.5297117512466456,
+  "f0_cents_p90_abs": 19.466945428015862,
+  "f0_cents_max_abs": 23.67629909267033,
+  "f0_outliers": [],
+  "failures": []
+}

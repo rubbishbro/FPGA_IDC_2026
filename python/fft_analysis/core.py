@@ -194,10 +194,16 @@ def scan_piano(piano_dir: str) -> list[dict]:
 # loading
 # ---------------------------------------------------------------------------
 
-def load_audio(path: str, sr: int = SR) -> np.ndarray:
-    """Load, down-mix to mono, resample to `sr`. float64."""
+def load_audio(path: str, sr: int = SR, channel: int | None = None) -> np.ndarray:
+    """Load, down-mix to mono, resample to `sr`. float64.
+
+    ``channel`` picks ONE channel instead of the mono mean. A spaced stereo pair
+    (e.g. the Salamander overheads) has up to ~5 ms of inter-channel delay on
+    off-centre hits, so averaging the two channels comb-filters the spectrum and
+    corrupts a modal fit; take a single channel there instead.
+    """
     x, file_sr = sf.read(path, always_2d=True)
-    x = x.mean(axis=1).astype(np.float64)
+    x = (x[:, channel] if channel is not None else x.mean(axis=1)).astype(np.float64)
     if file_sr != sr:
         from math import gcd
         g = gcd(int(file_sr), int(sr))
@@ -270,47 +276,156 @@ def _spectrum(seg: np.ndarray, sr: int):
     return freqs, X
 
 
-def estimate_f0(seg: np.ndarray, sr: int, nominal: float) -> float:
+def estimate_f0(seg: np.ndarray, sr: int, nominal: float,
+                band_hz: float = MP3_BAND_HZ, span: float = 0.15,
+                max_hz: float | None = None, n_harm: int = 24,
+                n_peaks: int = 64, cap: float = 0.05) -> float:
+    """Fundamental by two-way mismatch (TWM) of a harmonic series to the peaks.
+
+    A 1/k-weighted harmonic-sum comb fixed the lowest piano notes (a single loud peak
+    was not the fundamental) but is still confounded by instruments with dense spectra
+    -- banjo and mandolin, whose courses and sympathetic strings add strong
+    non-harmonic components. Off-harmonic floor energy accumulates under a comb, so a
+    wrong series could win by a few percent: a whole semitone on some notes.
+
+    TWM scores how well a candidate series matches the strong peaks in *both*
+    directions: every predicted harmonic must find a nearby peak (miss), and every
+    strong peak must be explained by some harmonic (spurious). The series that is
+    actually present wins. The search stays within nominal*(1 +- span), so octave and
+    harmonic ambiguity is out of reach.
+    """
     freqs, X = _spectrum(seg, sr)
-    lo, hi = nominal * 0.90, nominal * 1.10
-    band = np.where((freqs >= lo) & (freqs <= hi))[0]
-    band = band[(band > 1) & (band < len(X) - 1)]
-    if band.size == 0:
+    if X.size < 8 or float(X.max()) <= 0.0:
         return float(nominal)
-    logmag = np.log(X + 1e-20)
-    i = band[np.argmax(X[band])]
-    df = freqs[1] - freqs[0]
-    return float((i + _parabolic(logmag, i)) * df)
+    Xn = X / float(X.max())
+    floor = float(X.max()) * 1e-4
+    if X.size > 2:
+        pk = np.where((X[1:-1] > X[:-2]) & (X[1:-1] >= X[2:]) & (X[1:-1] > floor))[0] + 1
+    else:
+        pk = np.zeros(0, int)
+    if pk.size < 3:
+        return float(nominal)
+    keep = pk[np.argsort(-Xn[pk])][:n_peaks]
+    MP = freqs[keep]
+    MA = Xn[keep]
+    W = MA / (MA.sum() + 1e-30)
+
+    top = band_hz if max_hz is None else min(band_hz, max_hz)
+    lo, hi = nominal * (1.0 - span), nominal * (1.0 + span)
+    kmax = max(1, min(n_harm, int(top / max(lo, 1e-6))))
+    if kmax < 3:
+        # Too few harmonics fit in the band to constrain a series at all (top piano
+        # notes). TWM degenerates to a constant, so fall back to the strongest peak in
+        # the search window rather than letting argmin pick the window edge.
+        band_ix = np.where((freqs >= lo) & (freqs <= hi))[0]
+        if band_ix.size:
+            return float(freqs[band_ix[np.argmax(X[band_ix])]])
+        return float(nominal)
+    kk = np.arange(1, kmax + 1, dtype=float)
+    df = float(freqs[1] - freqs[0])
+    step = max(df / 6.0, nominal * 3e-4)
+    cand = np.arange(lo, hi + step, step)
+    if cand.size > 1500:
+        cand = np.linspace(lo, hi, 1500)
+
+    def score(f0: float) -> float:
+        P = kk * f0
+        P = P[P <= top]
+        if P.size < 2:
+            return 9.9
+        d = np.abs(P[:, None] - MP[None, :]) / P[:, None]
+        miss = float(np.mean(np.minimum(d.min(axis=1), cap)))
+        d2 = np.abs(MP[:, None] - P[None, :]) / MP[:, None]
+        spur = float(np.sum(np.minimum(d2.min(axis=1), cap) * W))
+        return miss + spur
+
+    sc = np.fromiter((score(f) for f in cand), float, cand.size)
+    i = int(np.argmin(sc))
+    f0 = float(cand[i])
+    if 0 < i < cand.size - 1:
+        a, b, c = sc[i - 1], sc[i], sc[i + 1]
+        den = a - 2.0 * b + c
+        if den != 0.0:
+            f0 = float(cand[i] + np.clip(0.5 * (a - c) / den, -1.0, 1.0) * step)
+    return f0
+
+
+def _fit_B(ks, fks, f0: float, weights=None) -> float:
+    """Robust (iteratively reweighted, outlier-rejecting) inharmonicity ``B``.
+
+    ``y = (f_k / (k f0))^2 - 1 = B k^2``. Strong partials are weighted more (they are
+    the ones with a well-resolved peak); two rounds of 4*MAD outlier rejection stop a
+    single mis-picked high harmonic from dragging ``B`` up.
+    """
+    ks = np.asarray(ks, float)
+    fks = np.asarray(fks, float)
+    good = np.isfinite(ks) & np.isfinite(fks) & (ks > 0) & (fks > 0)
+    ks, fks = ks[good], fks[good]
+    if ks.size < 3:
+        return 0.0
+    x = ks ** 2
+    y = (fks / (ks * f0)) ** 2 - 1.0
+    w = np.ones_like(x) if weights is None else np.asarray(weights, float)[good]
+
+    def wls(xx, yy, ww):
+        ww = ww / max(float(ww.sum()), 1e-30)
+        xm = float((ww * xx).sum())
+        return float((ww * xx * (yy - (ww * yy).sum())).sum()
+                     / max((ww * xx * (xx - xm)).sum(), 1e-30))
+
+    B = wls(x, y, w)
+    for _ in range(2):
+        res = y - B * x
+        med = float(np.median(res))
+        mad = float(np.median(np.abs(res - med))) + 1e-30
+        keep = np.abs(res - med) <= 4.0 * mad
+        if 3 <= int(keep.sum()) < x.size:
+            B = wls(x[keep], y[keep], w[keep])
+    return max(0.0, B)
 
 
 def find_partials(seg: np.ndarray, sr: int, f0: float, band_hz: float,
                   max_modes: int = 64):
-    """Locate partial peaks near k*f0, then fit inharmonicity B.
+    """Locate the harmonic series near k*f0 with *unique* peak assignment.
 
-    Returns dict with k, f_k, amp_k (peak amplitude) and B.
+    Every spectral peak may be claimed by at most one harmonic (greedy, low k first).
+    Without this, two harmonics could snap to the same peak -- the piano low notes did
+    -- which duplicated a mode and corrupted the inharmonicity fit. Each partial also
+    carries a local prominence (peak vs the neighbouring spectral valley) so noisy
+    picks can be gated downstream.
+
+    Returns dict with k, f_k, amp_k (peak amplitude), B and prom_db.
     """
     freqs, X = _spectrum(seg, sr)
-    df = freqs[1] - freqs[0]
+    df = float(freqs[1] - freqs[0])
     logmag = np.log(X + 1e-20)
 
     # local maxima above a floor, used as candidate partials
-    floor = X.max() * 1e-4
-    cand = np.where((X[1:-1] > X[:-2]) & (X[1:-1] >= X[2:]) & (X[1:-1] > floor))[0] + 1
+    floor = float(X.max()) * 1e-4
+    if X.size > 2:
+        cand = np.where((X[1:-1] > X[:-2]) & (X[1:-1] >= X[2:]) & (X[1:-1] > floor))[0] + 1
+    else:
+        cand = np.zeros(0, int)
     cand_f = freqs[cand]
+    used = np.zeros(cand.size, dtype=bool)
 
-    def nearest(pred, tol):
+    def claim(pred: float, tol: float):
         if cand.size == 0:
             return None
-        j = int(np.argmin(np.abs(cand_f - pred)))
+        avail = np.nonzero(~used)[0]
+        if avail.size == 0:
+            return None
+        j = int(avail[np.argmin(np.abs(cand_f[avail] - pred))])
         if abs(cand_f[j] - pred) > tol:
             return None
-        return cand[j]
+        used[j] = True
+        return int(cand[j])
 
-    # pass 1: low harmonics with a small tolerance, fit B
-    ks1, fs1 = [], []
+    # pass 1: B from the low, strong harmonics
+    ks1, fs1, w1 = [], [], []
     kmax1 = max(1, min(10, int(band_hz / max(f0, 1e-6))))
     for k in range(1, kmax1 + 1):
-        j = nearest(k * f0, 0.35 * f0)
+        j = claim(k * f0, 0.35 * f0)
         if j is None:
             continue
         fk = (j + _parabolic(logmag, j)) * df
@@ -318,40 +433,37 @@ def find_partials(seg: np.ndarray, sr: int, f0: float, band_hz: float,
             continue
         ks1.append(k)
         fs1.append(fk)
-    B = 0.0
-    if len(ks1) >= 3:
-        ks1 = np.asarray(ks1, float)
-        fs1 = np.asarray(fs1, float)
-        y = (fs1 / (ks1 * f0)) ** 2 - 1.0
-        x = ks1 ** 2
-        B = float(np.sum(x * y) / max(np.sum(x * x), 1e-12))
-        B = max(0.0, B)
+        w1.append(float(X[j]))
+    B = _fit_B(ks1, fs1, f0, w1)
 
-    # pass 2: full set using the inharmonicity prediction
-    ks, fks, amps = [], [], []
+    # pass 2: full series using the inharmonicity prediction, still one peak per k
+    used[:] = False
+    ks, fks, amps, prom = [], [], [], []
     kmax = int(min(max_modes, np.floor(band_hz / max(f0, 1e-6))))
     for k in range(1, kmax + 1):
         pred = k * f0 * np.sqrt(1.0 + B * k * k)
         if pred >= band_hz:
             break
         tol = max(0.35 * f0, 0.02 * pred)
-        j = nearest(pred, tol)
+        j = claim(pred, tol)
         if j is None:
             continue
-        fk = (j + _parabolic(logmag, j)) * df
+        pk = float(X[j])
+        half = 0.45 * max(f0, 0.02 * pred)
+        w = X[(freqs >= pred - half) & (freqs <= pred + half)]
+        loc = float(w.min()) if w.size else pk
         ks.append(k)
-        fks.append(fk)
-        amps.append(X[j])
+        fks.append((j + _parabolic(logmag, j)) * df)
+        amps.append(pk)
+        prom.append(20.0 * np.log10(max(pk, 1e-30) / max(loc, 1e-30)))
 
     ks = np.asarray(ks, int)
     fks = np.asarray(fks, float)
     amps = np.asarray(amps, float)
-    if len(ks) >= 3:
-        y = (fks / (ks * f0)) ** 2 - 1.0
-        x = ks.astype(float) ** 2
-        B2 = float(np.sum(x * y) / max(np.sum(x * x), 1e-12))
-        B = max(0.0, B2)
-    return dict(k=ks, f_k=fks, amp_k=amps, B=B)
+    prom = np.asarray(prom, float)
+    if ks.size >= 3:
+        B = _fit_B(ks, fks, f0, amps)
+    return dict(k=ks, f_k=fks, amp_k=amps, B=B, prom_db=prom)
 
 
 # ---------------------------------------------------------------------------
@@ -393,6 +505,7 @@ def fit_decay(env: np.ndarray, sr: int, t0: float = 0.05, t1: float = 1.2,
             env = np.convolve(env, np.ones(k) / k, mode="same")
     t = np.arange(n) / sr
     peak = float(env.max()) + 1e-30
+    t_peak = float(t[int(np.argmax(env))]) if n else 0.0
     noise = float(np.percentile(env[int(0.7 * n):], 20)) if n >= 10 else 0.0
     floor = max(peak * 10.0 ** (floor_db / 20.0), 3.0 * noise)
     usable = (t >= t0) & (t <= t1) & (env > floor)
@@ -402,7 +515,8 @@ def fit_decay(env: np.ndarray, sr: int, t0: float = 0.05, t1: float = 1.2,
     ee = env[usable]
     if tt.size < 16:
         return dict(a0=float(peak), gamma=0.0, r2=0.0, gamma2=np.nan, r2_late=0.0,
-                    t_fit=(float(t[0]), float(t[-1])))
+                    t_fit=(float(t[0]), float(t[-1])), t_peak=t_peak,
+                    extrap=0.0)
 
     def _fit(x, y):
         if x.size < 8:
@@ -423,8 +537,15 @@ def fit_decay(env: np.ndarray, sr: int, t0: float = 0.05, t1: float = 1.2,
         late = (t >= t0 + late_split) & (env > floor)
         if late.sum() >= 16:
             gamma2, _, r2_late = _fit(t[late], np.log(env[late] + 1e-30))
+    # `extrap` = how many e-folds the fitted a0 has to be extrapolated past the observed
+    # envelope peak. When the fit window starts long after the peak (a fast partial whose
+    # first usable point is 0.05 s in), `a0` is an extrapolation of a fit made on the
+    # noisy tail: it can be tens of dB too large. Such a partial is flagged untrusted
+    # downstream rather than being allowed to inject a spurious bright mode.
+    extrap = float(max(0.0, gamma) * max(0.0, float(tt[0]) - t_peak))
     return dict(a0=a0, gamma=float(gamma), r2=float(r2), gamma2=float(gamma2),
-                r2_late=float(r2_late), t_fit=(float(tt[0]), float(tt[-1])))
+                r2_late=float(r2_late), t_fit=(float(tt[0]), float(tt[-1])),
+                t_peak=t_peak, extrap=extrap)
 
 
 # ---------------------------------------------------------------------------
@@ -441,14 +562,23 @@ def analyze_note(path: str, nominal_midi: int, entry: dict | None = None,
     peak = float(np.max(np.abs(seg))) + 1e-30
     seg_n = seg / peak
 
-    f0 = estimate_f0(seg_n, sr, midi_to_hz(nominal_midi))
+    # Estimate f0 on a mid window, not the whole region: the first ~0.2 s is the
+    # broadband attack (which adds spurious peaks) and on plucked instruments the long
+    # tail can be dominated by sympathetic strings (mandolin Gs5 locked a semitone low
+    # on the full region and was correct on the mid window).
+    n = seg_n.size
+    a = min(int(0.20 * sr), n // 4)
+    b = min(n, max(a + int(0.30 * sr), int(0.90 * sr)))
+    f0 = estimate_f0(seg_n[a:b], sr, midi_to_hz(nominal_midi), band_hz=band_hz)
     part = find_partials(seg_n, sr, f0, band_hz, max_modes=max_modes)
     ks, fks, B = part["k"], part["f_k"], part["B"]
+    prom = part["prom_db"]
 
     gamma = np.full(ks.size, np.nan)
     a0 = np.full(ks.size, np.nan)
     r2 = np.full(ks.size, np.nan)
     gamma2 = np.full(ks.size, np.nan)
+    extrap = np.full(ks.size, np.nan)
     envs = []
     for i, fk in enumerate(fks):
         bw = min(0.40 * f0, 0.30 * fk)
@@ -460,14 +590,49 @@ def analyze_note(path: str, nominal_midi: int, entry: dict | None = None,
         gamma2[i] = fit["gamma2"]
         a0[i] = fit["a0"] * peak                    # back to file scale
         r2[i] = fit["r2"]
+        extrap[i] = fit["extrap"]
         if i < 8:
             envs.append(env.astype(np.float32))
+
+    # Damping fallback for partials that are not a single exponential (beating courses,
+    # very long piano strings): their log-linear fit is meaningless (r2 ~ 0, gamma ~ 0
+    # or negative). Keeping such a gamma made the mode ring for seconds and overflow the
+    # voice pool. Since the damping cannot be measured *for that partial*, use the note's
+    # own measured gamma-vs-frequency trend, which is exactly the information that is
+    # available.
+    ok = np.isfinite(gamma) & (r2 >= 0.3) & (gamma > 0.02)
+    if int(ok.sum()) >= 3:
+        lf = np.log(np.maximum(fks, 1.0))
+        A = np.vstack([np.ones(int(ok.sum())), lf[ok]]).T
+        coef, *_ = np.linalg.lstsq(A, np.log(gamma[ok]), rcond=None)
+        pred = np.exp(coef[0] + coef[1] * lf)
+        bad = ~ok & np.isfinite(gamma)
+        gamma[bad] = np.clip(pred[bad], 0.05, 400.0)
+    elif int(ok.sum()) > 0:
+        gamma[~ok & np.isfinite(gamma)] = float(np.median(gamma[ok]))
+
+    # A partial is "trusted" only if the decay fit is real, the peak stands out from its
+    # local background, and it is not vanishingly weak. The weakness floor is on `a0`
+    # (the *onset* amplitude), not the whole-segment `amp_k`: a guitar's high partials
+    # decay in tens of ms, so their average over the multi-second region is tens of dB
+    # below the fundamental even though they are clearly audible at the attack.
+    # Reliability gates. A poor log-linear decay fit (r2) must NOT drop a real partial:
+    # paired/beating strings (mandolin), the long strings of a piano, and the
+    # fundamental of a plucked note all fit badly yet are essential to the timbre --
+    # gating on r2 deleted the mandolin's fundamental and the piano C4 3rd/4th
+    # harmonics. What must be gated is the *unreliable*: a peak that does not stand out
+    # from its background, an amplitude that had to be extrapolated, a vanishing partial.
+    a0_arr = np.asarray(a0, float)
+    a0_floor = float(np.nanmax(a0_arr)) * 1e-3 if a0_arr.size else 0.0
+    trusted = (np.isfinite(gamma) & np.isfinite(a0) & (a0 > 0)
+               & (prom > 6.0) & (a0 > a0_floor) & (extrap <= 1.5))
 
     return dict(
         note=entry.get("note", ""), midi=nominal_midi,
         dynamic=entry.get("dynamic", ""), variation=entry.get("variation", ""),
         path=path, sr=sr, f0=f0, B=B,
         k=ks, f_k=fks, amp_k=part["amp_k"], a0=a0, gamma=gamma, gamma2=gamma2, r2=r2,
+        prom_db=prom, extrap=extrap, trusted=trusted,
         region=(start, end), peak=peak, envs=np.asarray(envs) if envs else None,
         env_dt=(1.0 / (sr / max(1, int(round(sr / 2000.0))))),
     )

@@ -1,5 +1,11 @@
 # SythSound
 
+> **Earlier phase, kept for reference.** This README documents `synthlab/` (plus
+> `experiments/`, `tools/`, `tests/`, `stringSim_demo.py`), a general modular-synth
+> library written before the modal-synthesis engine. It is **not** used by the
+> current pipeline — that lives in `fft_analysis/` + `modal_sim/`, with the repo map
+> in the top-level `README.md`.
+
 An electronic music synthesis experiment bench for Python. You write the
 algorithms; this gives you the plumbing (per-sample blocks, composition,
 modulation, rendering, playback, measurement) without hiding any of the maths.

@@ -1,0 +1,14 @@
+{
+  "bpm": 120.0,
+  "bars": 4,
+  "tail_cap_s": 3.0,
+  "seconds": 10.0,
+  "render_s": 26.3,
+  "hits": 58,
+  "peak": 0.9,
+  "finite": true,
+  "guitar_peak": 1.0,
+  "piano_peak": 1.0,
+  "drums_rms": 0.1228,
+  "band_rms": 0.0587
+}
