@@ -61,7 +61,10 @@ music_resources/            sample libraries (read-only): Philharmonia Orchestra
 
 reference_agent_readfirst/  board + competition docs (start at fpga_platform.md)
 rtl/                        SystemVerilog implementation — see rtl/README.md for the
-                            working agreement and the staged roadmap
+                            working agreement and the staged roadmap, and
+                            rtl/DECISIONS.md for the frozen design decisions
+sim/                        cocotb + Icarus Verilog verification — see sim/README.md
+                            for the environment, the iverilog SV subset, and pitfalls
 top.sv                      FPGA scratch (matrix keyboard scanner), not the engine
 ```
 
