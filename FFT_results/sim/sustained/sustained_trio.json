@@ -1,0 +1,20 @@
+{
+  "flute": {
+    "notes": 12,
+    "peak": 1.0,
+    "hard": 0
+  },
+  "trumpet": {
+    "notes": 12,
+    "peak": 1.0,
+    "hard": 0
+  },
+  "cello": {
+    "notes": 4,
+    "peak": 1.0,
+    "hard": 0
+  },
+  "render_s": 53.0,
+  "peak": 0.9,
+  "finite": true
+}

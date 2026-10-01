@@ -23,9 +23,14 @@ from scipy.ndimage import uniform_filter1d
 
 SR = 48_000
 
+import sys
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(_HERE, "..", ".."))
-FFT_DIR = os.path.join(ROOT, "FFT_results")
+sys.path.insert(0, os.path.dirname(_HERE))         # python/ -> paths.py
+import paths                                        # noqa: E402
+
+FFT_DIR = paths.PARAMS      # extracted tables (was FFT_results/ flat)
 
 
 def midi_to_hz(midi: float) -> float:
@@ -68,16 +73,21 @@ def _levy(Hd, omega, p, q, iters=8):
 
 
 def fit_body(mean_db, grid, n_fft: int = 4096, fs: int = SR, order: int = 8,
-             smooth: int = 15):
+             smooth: int = 15, body_scale: float = 0.3):
     """Return (sos, freqs, fit_db, rmse_db) for the body coloration curve.
 
-    The target is lightly smoothed first: the raw per-note-averaged curve carries fine
-    structure that an 8th-order fit chases with spurious notches, which would swallow
-    whole notes. Smoothing gives a faithful monotone fit (RMSE < 0.5 dB here).
+    The extracted `a_k` already contain the source x string x body colouration, so the
+    runtime body filter must not re-apply the overall tilt (double-colouring) and must not
+    impose the pitch-to-pitch variance of the averaged curve (that distorts the
+    harmonics). It is therefore a *mild, detrended* residual coloration.
     """
     mdb = np.asarray(mean_db, dtype=float)
     if smooth and smooth > 1:
         mdb = uniform_filter1d(mdb, size=int(smooth), mode="nearest")
+    trend = uniform_filter1d(mdb, size=max(3, len(mdb) // 3), mode="nearest")
+    resid = mdb - trend
+    resid = uniform_filter1d(resid, size=max(1, int(smooth) // 2), mode="nearest")
+    mdb = resid * float(body_scale)
     fgrid = np.linspace(0.0, fs / 2.0, n_fft // 2 + 1)
     mag = np.interp(fgrid, grid, 10.0 ** (mdb / 20.0),
                     left=10.0 ** (mdb[0] / 20.0),
@@ -93,7 +103,7 @@ def fit_body(mean_db, grid, n_fft: int = 4096, fs: int = SR, order: int = 8,
     target = np.interp(fgrid[good], grid, mdb)
     target -= np.interp(30.0, grid, mdb)
     rmse = float(np.sqrt(np.mean((fit_db - target) ** 2)))
-    return sos, fgrid[good], fit_db, rmse
+    return sos, fgrid[good], fit_db, rmse, target
 
 
 class BodyFilter:
@@ -124,6 +134,7 @@ class Patch:
         self.band_hz = band_hz
         self.min_r2 = min_r2
         d = np.load(os.path.join(fft_dir, f"{name}_partials.npz"), allow_pickle=True)
+        has_trusted = "trusted" in d.files
         self.by_key = {}
         for nid in range(d["f0"].size):
             m = d["note_id"] == nid
@@ -132,6 +143,8 @@ class Patch:
                 k=d["k"][m].astype(float), f_k=d["f_k"][m].astype(float),
                 a0=d["a0"][m].astype(float), gamma=d["gamma"][m].astype(float),
                 r2=d["r2"][m].astype(float), B=float(d["B"][nid]),
+                trusted=(d["trusted"][m].astype(bool) if has_trusted
+                         else np.ones(int(m.sum()), bool)),
             ))
         self.midis = sorted({k[0] for k in self.by_key})
 
@@ -140,44 +153,64 @@ class Patch:
         self.mean_db = body["mean_db"]
         self.fir = body["fir"]
         order = 2 * body_sections
-        self.sos, self._bf, self._bdb, self.body_rmse = fit_body(
-            self.mean_db, self.grid, order=order)
+        (self.sos, self._bf, self._bdb, self.body_rmse,
+         self.body_target_db) = fit_body(self.mean_db, self.grid, order=order)
         self.body = BodyFilter(self.sos)
-        fq = np.geomspace(40.0, min(band_hz, 20_000.0), 200)
-        self._body_floor = float(np.max(self.body.magnitude(fq))) * 0.03
+
+        # Optional closed-loop decay calibration (see modal_sim/calibrate_decay.py):
+        # the synthesis decayed slower than the recording because a few low partials
+        # came out with gamma below the fundamental's. Keyed by (midi, dynamic).
+        self.gamma_scale = {}
+        gs = os.path.join(fft_dir, f"{name}_gammascale.npz")
+        if os.path.exists(gs):
+            g = np.load(gs)
+            for m, dy, s in zip(g["midi"], g["dynamic"], g["scale"]):
+                self.gamma_scale[(int(m), str(dy))] = float(s)
 
     # ------------------------------------------------------------------
-    def _pick(self, midi, dynamic):
+    def _pick_key(self, midi, dynamic):
         for dyn in (dynamic, "forte", "piano"):
             if (midi, dyn) in self.by_key:
-                return self.by_key[(midi, dyn)][0]
+                return (midi, dyn)
         near = min(self.midis, key=lambda m: abs(m - midi))
         for dyn in (dynamic, "forte", "piano"):
             if (near, dyn) in self.by_key:
-                return self.by_key[(near, dyn)][0]
-        return next(iter(self.by_key.values()))[0]
+                return (near, dyn)
+        return next(iter(self.by_key))
+
+    def _pick(self, midi, dynamic):
+        return self.by_key[self._pick_key(midi, dynamic)][0]
+
+    def _scale(self, key, midi, dynamic):
+        if not self.gamma_scale:
+            return 1.0
+        for k in ((midi, dynamic), key, (midi, "forte"), (midi, "piano")):
+            if k in self.gamma_scale:
+                return self.gamma_scale[k]
+        return 1.0
 
     def body_mag_at(self, f):
         return self.body.magnitude(f)
 
     def modes(self, midi, dynamic="forte"):
         """(f_k, gamma_k, weight_k) for a note at the played pitch, pre-body weights."""
-        src = self._pick(midi, dynamic)
+        key = self._pick_key(midi, dynamic)
+        src = self.by_key[key][0]
         f0 = midi_to_hz(midi)
         k = src["k"]
         f = k * f0 * np.sqrt(1.0 + src["B"] * k * k)
-        g = src["gamma"].copy()
+        g = src["gamma"].copy() * self._scale(key, midi, dynamic)
         w = src["a0"].copy()
-        good = (np.isfinite(g) & (g > 0.02) & (w > 0) & (f < self.band_hz)
-                & (src["r2"] > self.min_r2))
+        # `trusted` already encodes prominence / amplitude / extrapolation gates, and
+        # gamma is clamped below; do NOT re-gate on r2 here -- that dropped beating and
+        # long-string partials (the mandolin fundamental, piano 3rd/4th harmonics).
+        good = (np.isfinite(g) & (w > 0) & (f < self.band_hz) & src["trusted"])
         f, g, w = f[good], g[good], w[good]
         if f.size > self.max_modes:
             f, g, w = f[:self.max_modes], g[:self.max_modes], w[:self.max_modes]
         g = np.clip(g, 0.02, 400.0)
-        # shape-normalise a_k first, then divide by the body. Because the engine's
-        # shared body filter multiplies this back, the net partial = a_k_norm, so every
-        # note comes out at a consistent level (no per-note re-normalisation).
+        # a_k already contains the source x string x body colouration, so they are the
+        # mode weights directly (shape-normalised per note). The shared body filter adds
+        # only its detrended residual structure at the output.
         w = w / max(w.max(), 1e-12)
-        bm = np.maximum(self.body.magnitude(f), self._body_floor)
-        w = w / bm
         return f, g, w
