@@ -5,7 +5,7 @@ Must be imported before anything from synthlab. It does two things an installed
 package would not need, both consequences of this project shipping as source:
 
 1. makes `synthlab` importable. The tests are run as scripts
-   (`python tests/test_core.py`), so nothing has put `python/` on `sys.path` yet.
+   (`python tests/test_core.py`), so nothing has put `sythsound/` on `sys.path` yet.
 2. makes the optional third-party wheels importable. `tools/fetch_wheels.py`
    unpacks them into `<repo>/_libs/` because this environment cannot use pip's
    install path, so it has to be added explicitly.
@@ -20,10 +20,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-#: `python/` -- the directory holding the synthlab package.
+#: `sythsound/` -- the directory holding the synthlab package.
 PYTHON_ROOT: Path = Path(__file__).resolve().parent.parent
 
-#: The repository root, one level above `python/`.
+#: The repository root, one level above `sythsound/`.
 REPO_ROOT: Path = PYTHON_ROOT.parent
 
 #: Where tools/fetch_wheels.py unpacks downloaded wheels.
@@ -39,7 +39,7 @@ def enable_optional_packages() -> None:
 
 
 def install() -> Path:
-    """Make both synthlab and the optional wheels importable. Returns `python/`."""
+    """Make both synthlab and the optional wheels importable. Returns `sythsound/`."""
     path = str(PYTHON_ROOT)
     if path not in sys.path:
         sys.path.insert(0, path)

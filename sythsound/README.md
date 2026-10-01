@@ -48,8 +48,8 @@ instead. The scripts put `_libs/` on `sys.path` themselves, so run them from the
 repository root:
 
 ```powershell
-python python/tools/fetch_wheels.py numpy sounddevice cffi numba llvmlite
-python python/tools/unpack_wheels.py
+python sythsound/tools/fetch_wheels.py numpy sounddevice cffi numba llvmlite
+python sythsound/tools/unpack_wheels.py
 ```
 
 The tools resolve `_libs/` and `_wheels/` by walking up from their own location, so
@@ -61,9 +61,9 @@ into a venv.
 
 ## Layout
 
-This package lives under `python/` in the team repository, alongside the FPGA RTL
-(`top.sv`), the MATLAB reference models (`matlab/`) and the design notes (`docs/`).
-The paths below are relative to `python/`; commands are written to be run from the
+This package lives under `sythsound/` in the team repository, alongside the FPGA RTL
+(`rtl/`) and the modal-synthesis pipeline (`python/`, described in the root `README.md`).
+The paths below are relative to `sythsound/`; commands are written to be run from the
 repository root.
 
 The library is two layers. `core` holds the abstractions and nothing else; `ext`
@@ -167,7 +167,7 @@ delay buffers are ordinary attributes. Nothing is hidden behind a C++ object.
 ## Where to change the algorithm
 
 This is the point of the library, so here is the map of extension points. Each has
-a runnable version in `python/experiments/01_algorithm_swapping.py`.
+a runnable version in `sythsound/experiments/01_algorithm_swapping.py`.
 
 | You want to change | Do this |
 |---|---|
@@ -229,9 +229,9 @@ class HardSync(sl.Oscillator):
 Don't trust your ears alone — every claim in the tests is a measured number.
 
 ```
-python python/tests/test_core.py        # 46 tests
-python python/tests/test_effects.py     # 21 tests
-python python/tests/test_layering.py    #  6 tests (architecture: core must not need ext)
+python sythsound/tests/test_core.py        # 46 tests
+python sythsound/tests/test_effects.py     # 21 tests
+python sythsound/tests/test_layering.py    #  6 tests (architecture: core must not need ext)
 ```
 
 The analysis module is the same toolbox the tests use:
@@ -263,7 +263,7 @@ Concrete findings this workflow produced, as examples of what it catches:
   path). `Biquad` therefore takes coefficients and never redraws itself.
 - **Alias measurement is easy to get wrong.** "Energy not on a harmonic" counts a
   narrow pulse's genuine sinc sidelobes as aliasing, inflating the number by 70x.
-  The metric in `python/tests/test_core.py` excludes each harmonic's own lobe; its
+  The metric in `sythsound/tests/test_core.py` excludes each harmonic's own lobe; its
   docstring records where it still over-reports.
 - **An amplitude range belongs to a shape, not to a mode.** The old `LFO(unipolar=1)`
   mapped `out * 0.5 + 0.5`, which is only right at `depth == 1`; at `depth = 600` a

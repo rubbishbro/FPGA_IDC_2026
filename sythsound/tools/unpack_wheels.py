@@ -4,11 +4,11 @@ Companion to tools/fetch_wheels.py -- see that file for why pip cannot be used
 directly in this environment.
 
 Usage:
-    python python/tools/unpack_wheels.py            # unpack every wheel in <repo>/_wheels/
-    python python/tools/unpack_wheels.py numba      # only wheels whose name contains numba
+    python sythsound/tools/unpack_wheels.py            # unpack every wheel in <repo>/_wheels/
+    python sythsound/tools/unpack_wheels.py numba      # only wheels whose name contains numba
 
 Directories default to `<repo>/_wheels` and `<repo>/_libs`, found by walking up from
-this file (it lives at `python/tools/`, so the repo root is two levels up). Override
+this file (it lives at `sythsound/tools/`, so the repo root is two levels up). Override
 with `SYNTHLAB_WHEELS_DIR` / `SYNTHLAB_LIBS_DIR`.
 """
 
@@ -19,7 +19,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-#: Repository root. `parents[2]` is `python/tools/ -> python/ -> <repo>`.
+#: Repository root. `parents[2]` is `sythsound/tools/ -> sythsound/ -> <repo>`.
 ROOT = Path(os.environ.get("SYNTHLAB_REPO_ROOT") or Path(__file__).resolve().parents[2])
 SRC = Path(os.environ.get("SYNTHLAB_WHEELS_DIR") or (ROOT / "_wheels"))
 DEST = Path(os.environ.get("SYNTHLAB_LIBS_DIR") or (ROOT / "_libs"))

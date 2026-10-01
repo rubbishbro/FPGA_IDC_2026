@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
-# Dependencies live in <repo>/_libs (sibling of python/), and this file sits in
-# python/, so both the repo root and _libs are one level up.
+# Dependencies live in <repo>/_libs (sibling of sythsound/), and this file sits in
+# sythsound/, so both the repo root and _libs are one level up.
 if __package__ in (None, ""):
     _HERE = Path(__file__).resolve().parent
     sys.path.insert(0, str(_HERE.parent / "_libs"))
