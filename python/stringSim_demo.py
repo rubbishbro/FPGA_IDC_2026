@@ -92,15 +92,7 @@ class StringSim(Block):
                  density: float = 0.012, stiffness: float = 0.014,
                  damping: np.ndarray | None = None, mode_num: int = 64,
                  strike_pos: float = 0.01, name: str | None = None):
-        if damping is None:
-            damping = np.exp(np.arange(1, mode_num + 1) * 0.18)
-        damping = np.asarray(damping, dtype=float)
-        if damping.shape != (mode_num,):
-            raise ValueError(
-                f"damping must have one value per mode, got {damping.shape} "
-                f"for mode_num={mode_num}")
-        if damping.min() < 0.0:
-            raise ValueError("damping must be non-negative")
+        assert damping is not None and damping.size == mode_N and damping.min() > 0.0
 
         self.density = float(density)
         self.stiffness = float(stiffness)
@@ -182,7 +174,7 @@ if __name__ == "__main__":
 
     mode_N = 32
     index = np.arange(1, mode_N + 1, 1)
-    damping = np.array(list(map(lambda n: np.exp(n * 0.23), index)))
+    damping = np.array(list(map(lambda n: np.exp(n * 0.14), index)))
 
     def string(length):
         return StringSim(length=length, tension=1600, density=0.013,
@@ -207,10 +199,10 @@ if __name__ == "__main__":
     ]
 
     
-    mix = sum(render(track, SECONDS) for track in tracks)
+    patch = sum(render(track, SECONDS) for track in tracks)
     
     cab = Biquad(*design_lowpass(2500.0, 0.8, 48000))
-    mix = render(cab, SECONDS, input_signal=mix)      # 块 + 数组
+    patch = render(cab, SECONDS, input_signal=patch)      # 块 + 数组
     
-    save_wav(OUT, normalize(mix, peak=0.9))
+    save_wav(OUT, normalize(patch, peak=0.9))
     print(f"wrote {OUT}")

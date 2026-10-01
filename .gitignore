@@ -3,6 +3,11 @@
 _libs/
 _wheels/
 
+# Scratch tools and their artefacts: analysis scripts, generated figures, wav
+# probes. `_analysis/out/` is where every such tool writes, so a one-off run
+# never lands in the library tree. Promote a tool into python/ if it earns it.
+_analysis/
+
 # Rendered audio, from the experiments and tests. Regenerate any time.
 # Not anchored, because the experiments write to python/out/ as well as out/.
 out/
