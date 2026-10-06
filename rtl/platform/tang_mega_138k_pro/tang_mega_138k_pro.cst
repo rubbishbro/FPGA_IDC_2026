@@ -1,0 +1,44 @@
+// -----------------------------------------------------------------------------
+// tang_mega_138k_pro.cst -- full board pin constraints for top.sv.
+//
+// Target: Tang Mega 138K Pro Dock, GW5AST-LV138FPG676A, FPG676.
+//
+// Sources:
+//   * clk/reset electricals: the official TangMega-138KPro example constraint
+//     https://raw.githubusercontent.com/sipeed/TangMega-138KPro-example/main/audio/audio_sinewave/src/audio.cst
+//     (fetched by the parent session), which uses:
+//         IO_LOC rst U4;  IO_PORT rst PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+//         IO_LOC clk P16; IO_PORT clk PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+//     Its project header is GW5AST-LV138FPG676AES, DeviceVersion B.  The full
+//     ES part vs the user's physical board must be confirmed by the user; the
+//     declared target in board_build.json is deliberately left as
+//     GW5AST-LV138FPG676A (do not change the target unilaterally).
+//   * amp_* : PMOD2 / J26 from the parent-owned
+//     rtl/platform/tang_mega_138k_pro/audio_pmod2.cst (unchanged) which cites
+//     TANG_MEGA-138K_Pro-Dock-4071f_Schematics.pdf sheet 17/19:
+//       BCLK = PMOD2_IO0 = C21, LRC = PMOD2_IO1 = B20,
+//       DIN  = PMOD2_IO2 = B19, SD   = PMOD2_IO3 = A17.
+//
+// Connector orientation must still be checked against the physical Pin 1
+// marking; do not infer it from a photo.
+// -----------------------------------------------------------------------------
+
+// 50 MHz board crystal (input, no drive) -- official example
+IO_LOC "clk" P16;
+IO_PORT "clk" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+
+// reset button, active high (input, no drive) -- official example port "rst"
+IO_LOC "reset" U4;
+IO_PORT "reset" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+
+// PMOD2 -> external MAX98357A (Bank 5, LVCMOS33)
+IO_LOC "amp_bclk" C21;
+IO_PORT "amp_bclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_lrc" B20;
+IO_PORT "amp_lrc" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_din" B19;
+IO_PORT "amp_din" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// SD (MAX98357A shutdown / channel select): default LOW is the safe state, so a
+// pull-down is requested; high = left channel, low = shutdown.
+IO_LOC "amp_sd" A17;
+IO_PORT "amp_sd" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;

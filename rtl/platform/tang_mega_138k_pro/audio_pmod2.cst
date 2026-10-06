@@ -1,0 +1,15 @@
+// MAX98357A peripheral-only constraints, Tang Mega 138K Pro Dock Rev 1.2.
+// Source: local TANG_MEGA-138K_Pro-Dock-4071f_Schematics.pdf, sheet 17/19.
+// Requires a board wrapper with these port names and verified clock/reset/SD
+// control. This fragment alone is NOT a complete buildable board project.
+// PMOD2 is J26; connector orientation must be checked before wiring.
+// BCLK = PMOD2_IO0, LRC = PMOD2_IO1, DIN = PMOD2_IO2, SD = PMOD2_IO3.
+
+IO_LOC "amp_bclk" C21;
+IO_PORT "amp_bclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_lrc" B20;
+IO_PORT "amp_lrc" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_din" B19;
+IO_PORT "amp_din" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_sd" A17;
+IO_PORT "amp_sd" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;

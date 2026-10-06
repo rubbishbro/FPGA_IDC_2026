@@ -1,0 +1,298 @@
+{
+  "48|forte": {
+    "offset": 0,
+    "n_modes": 36
+  },
+  "48|piano": {
+    "offset": 36,
+    "n_modes": 30
+  },
+  "49|forte": {
+    "offset": 66,
+    "n_modes": 38
+  },
+  "49|piano": {
+    "offset": 104,
+    "n_modes": 20
+  },
+  "50|forte": {
+    "offset": 124,
+    "n_modes": 39
+  },
+  "50|piano": {
+    "offset": 163,
+    "n_modes": 28
+  },
+  "51|forte": {
+    "offset": 191,
+    "n_modes": 26
+  },
+  "51|piano": {
+    "offset": 217,
+    "n_modes": 34
+  },
+  "52|forte": {
+    "offset": 251,
+    "n_modes": 32
+  },
+  "52|piano": {
+    "offset": 283,
+    "n_modes": 22
+  },
+  "53|forte": {
+    "offset": 305,
+    "n_modes": 28
+  },
+  "53|piano": {
+    "offset": 333,
+    "n_modes": 27
+  },
+  "54|forte": {
+    "offset": 360,
+    "n_modes": 29
+  },
+  "54|piano": {
+    "offset": 389,
+    "n_modes": 30
+  },
+  "55|forte": {
+    "offset": 419,
+    "n_modes": 27
+  },
+  "55|piano": {
+    "offset": 446,
+    "n_modes": 31
+  },
+  "56|forte": {
+    "offset": 477,
+    "n_modes": 30
+  },
+  "56|piano": {
+    "offset": 507,
+    "n_modes": 19
+  },
+  "57|forte": {
+    "offset": 526,
+    "n_modes": 25
+  },
+  "57|piano": {
+    "offset": 551,
+    "n_modes": 24
+  },
+  "58|forte": {
+    "offset": 575,
+    "n_modes": 20
+  },
+  "58|piano": {
+    "offset": 595,
+    "n_modes": 23
+  },
+  "59|forte": {
+    "offset": 618,
+    "n_modes": 20
+  },
+  "59|piano": {
+    "offset": 638,
+    "n_modes": 18
+  },
+  "60|forte": {
+    "offset": 656,
+    "n_modes": 28
+  },
+  "60|piano": {
+    "offset": 684,
+    "n_modes": 21
+  },
+  "61|forte": {
+    "offset": 705,
+    "n_modes": 25
+  },
+  "61|piano": {
+    "offset": 730,
+    "n_modes": 18
+  },
+  "62|forte": {
+    "offset": 748,
+    "n_modes": 47
+  },
+  "62|piano": {
+    "offset": 795,
+    "n_modes": 39
+  },
+  "63|forte": {
+    "offset": 834,
+    "n_modes": 39
+  },
+  "63|piano": {
+    "offset": 873,
+    "n_modes": 38
+  },
+  "64|forte": {
+    "offset": 911,
+    "n_modes": 26
+  },
+  "64|piano": {
+    "offset": 937,
+    "n_modes": 28
+  },
+  "65|forte": {
+    "offset": 965,
+    "n_modes": 27
+  },
+  "65|piano": {
+    "offset": 992,
+    "n_modes": 24
+  },
+  "66|forte": {
+    "offset": 1016,
+    "n_modes": 34
+  },
+  "66|piano": {
+    "offset": 1050,
+    "n_modes": 23
+  },
+  "67|piano": {
+    "offset": 1073,
+    "n_modes": 27
+  },
+  "68|forte": {
+    "offset": 1100,
+    "n_modes": 31
+  },
+  "68|piano": {
+    "offset": 1131,
+    "n_modes": 24
+  },
+  "69|forte": {
+    "offset": 1155,
+    "n_modes": 28
+  },
+  "69|piano": {
+    "offset": 1183,
+    "n_modes": 26
+  },
+  "70|forte": {
+    "offset": 1209,
+    "n_modes": 33
+  },
+  "70|piano": {
+    "offset": 1242,
+    "n_modes": 30
+  },
+  "71|forte": {
+    "offset": 1272,
+    "n_modes": 25
+  },
+  "71|piano": {
+    "offset": 1297,
+    "n_modes": 20
+  },
+  "72|forte": {
+    "offset": 1317,
+    "n_modes": 30
+  },
+  "72|piano": {
+    "offset": 1347,
+    "n_modes": 25
+  },
+  "73|forte": {
+    "offset": 1372,
+    "n_modes": 24
+  },
+  "74|forte": {
+    "offset": 1396,
+    "n_modes": 25
+  },
+  "74|piano": {
+    "offset": 1421,
+    "n_modes": 26
+  },
+  "75|forte": {
+    "offset": 1447,
+    "n_modes": 20
+  },
+  "75|piano": {
+    "offset": 1467,
+    "n_modes": 16
+  },
+  "76|forte": {
+    "offset": 1483,
+    "n_modes": 22
+  },
+  "76|piano": {
+    "offset": 1505,
+    "n_modes": 13
+  },
+  "77|forte": {
+    "offset": 1518,
+    "n_modes": 18
+  },
+  "77|piano": {
+    "offset": 1536,
+    "n_modes": 10
+  },
+  "78|forte": {
+    "offset": 1546,
+    "n_modes": 20
+  },
+  "78|piano": {
+    "offset": 1566,
+    "n_modes": 11
+  },
+  "79|forte": {
+    "offset": 1577,
+    "n_modes": 20
+  },
+  "79|piano": {
+    "offset": 1597,
+    "n_modes": 16
+  },
+  "80|piano": {
+    "offset": 1613,
+    "n_modes": 10
+  },
+  "81|forte": {
+    "offset": 1623,
+    "n_modes": 18
+  },
+  "81|piano": {
+    "offset": 1641,
+    "n_modes": 9
+  },
+  "82|forte": {
+    "offset": 1650,
+    "n_modes": 17
+  },
+  "82|piano": {
+    "offset": 1667,
+    "n_modes": 17
+  },
+  "83|forte": {
+    "offset": 1684,
+    "n_modes": 16
+  },
+  "83|piano": {
+    "offset": 1700,
+    "n_modes": 15
+  },
+  "84|forte": {
+    "offset": 1715,
+    "n_modes": 13
+  },
+  "85|forte": {
+    "offset": 1728,
+    "n_modes": 10
+  },
+  "86|forte": {
+    "offset": 1738,
+    "n_modes": 13
+  },
+  "87|forte": {
+    "offset": 1751,
+    "n_modes": 12
+  },
+  "88|forte": {
+    "offset": 1763,
+    "n_modes": 12
+  }
+}

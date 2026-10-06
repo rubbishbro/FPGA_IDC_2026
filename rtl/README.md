@@ -1,19 +1,42 @@
 # rtl/ — SystemVerilog 实现（本人独立完成）
 
-## 0. 工作约定（重要，勿删）
+## 0. 工作约定（2026-10 更新：AI 实现、作者把关）
 
-本目录下的 RTL **由本人（项目作者）独立编写与优化**。AI 助手的角色是**指导者**，不是代码生成器：
+本目录下的 RTL 改为 **"AI 按冻结规格实现、项目作者审查与判定"** 的方式推进：
 
-| 允许 | 不允许 |
+| 谁 | 做什么 |
 |---|---|
-| 讲解算法、推导公式、指出硬件含义 | 直接给出可综合的 RTL 实现 |
-| 出题/设问检验理解 | 代写模块、代写 testbench |
-| 审查**我自己写的**代码、指出问题 | 把 Python 参考实现逐行翻译成 SV |
-| 给出验证方法与判据、帮我定位差异 | 让我"复制粘贴就能跑" |
+| **AI** | 按 `rtl/DECISIONS.md` 的冻结规格**实现模块** + 写 **cocotb 逐位对拍**；一次只交付一个模块 |
+| **作者** | 审查代码、跑验证、判定通过与否、决定是否进入下一模块、拍板未冻结项 |
 
-**最低要求：完全理解算法。** 标准：能不看代码，从连续方程一路推到每个采样的更新式，并说清每个预计算系数的物理含义。
+规则：
 
-**一般要求：独立写出算法并优化。** 标准：能自己决定模块划分、时序、位宽、资源复用策略，并用 testbench 证明正确。
+* 规格以 `rtl/DECISIONS.md` 为准。遇到未冻结项（§G）先提出，不擅自假设。
+* 每个模块必须附**可判定的验证判据**；优先与 `python/modal_sim/fixed_point.py`（验证链②）**逐位相等**。
+* 模块接口与内部设计由实现方给出并说明，作者负责审查、指出问题、定位差异。
+
+### 模块 2A 文档
+
+* [`module2A_design.md`](module2A_design.md)：单声部四路时分复用阵列的设计规格、接口、周期表与测试判据，以及 2B/2C 的范围边界。
+* [`module2A_delivery_report.md`](module2A_delivery_report.md)：实现模型、独立审查、实际测试结果和未完成的硬件验证；以报告中的状态判断是否已交付。
+
+### 模块2B/2C与音频首阶段
+
+* [`module2BC_design.md`](module2BC_design.md)：系数ROM装载及32声部调度设计/测试规格。
+* [`audio_bringup_design.md`](audio_bringup_design.md)：上板自动歌曲与MAX98357A喇叭播放目标，特别注明PT8211与标准I2S的时序差异及硬件待确认项。
+* [`module2BC_delivery_report.md`](module2BC_delivery_report.md)：实现与独立复测状态；数字链路结果与实物验收分开记录。
+* [`audio_delivery_report.md`](audio_delivery_report.md)：音频实现者的文件、正式测试和限制；父会话复测结论仍以总交付报告为准。
+* [`platform/tang_mega_138k_pro/BOARD_README.md`](platform/tang_mega_138k_pro/BOARD_README.md)：MAX98357A的PMOD2接线、真实PLL生成及板级构建/验收步骤。缺Gowin/IP时不能生成可烧录结果。
+
+父会话音频独立补测入口：`sim/test_audio_chain_review.py`（原始系数黄金→真实引擎→外部I2S，含32声部/整曲循环）和`sim/test_audio_transport_review.py`（复位握手、帧边界清除及一核心拍跨时钟清除）。使用torch312环境，构建/XML默认写入`/tmp/opencode/audio-review/`，不替换`sim/results.xml`。
+
+### 共享箱体首版（独立功能验证通过，硬件构建未验收）
+
+* [`body_design.md`](body_design.md)：4-biquad残余箱体、外部64bit/Q30与内部68bit/Q34、局部数值方案及门槛；首版闭环guitar，四乐器单测，不把混奏分组/噪声/控制迁移算作已完成。
+* [`body_review_report.md`](body_review_report.md)：父会话独立逐位、误差、拒绝路径、歌曲/I2S、生产wrapper及真实DSP/ROM网表结果；生产BODY=1参数已验证，隔离模块STA通过，但完整整机Gowin/实板尚未接受。
+* `sim/test_body_filter_review.py`、`sim/test_body_numeric_review.py`、`sim/test_body_rejection_review.py`：黄金来自原始Patch.sos，覆盖64bit输出/68bit历史、饱和、busy/clear/reset、量化误差、ROM重建及非法输入拒绝。
+* [`hardware_timing_review.md`](hardware_timing_review.md)：真实P&R已保留阵列/箱体，但完整工程100MHz时序未通过，父会话拒收并分配地址/控制优化。箱体流水v3现已亲跑逐位/冻结整机/隔离100MHz及真实DSP/ROM网表功能通过；最终核心版本/整机仍须重新验收。`sim/review_gowin_reports.py --require-body`检查STA/clock/箱体门槛，`sim/review_i2s_pin_delays.py`分清真实快慢角路径和约束保守上界，不因产出bitstream自动放行。
+
 
 ## 1. 硬件上到底要算什么
 

@@ -1,0 +1,33 @@
+// -----------------------------------------------------------------------------
+// tone.cst -- pin constraints for diagnostic_tone_top (standalone tone bring-up).
+//
+// Target: Tang Mega 138K Pro Dock, GW5AST-LV138FPG676A, FPG676.
+//
+// Electricals are REUSED verbatim from the existing production constraints
+// (rtl/platform/tang_mega_138k_pro/tang_mega_138k_pro.cst, which in turn reuses
+// the official TangMega-138KPro audio example for clk and audio_pmod2.cst for
+// the PMOD2 pins).  No new pin facts are introduced here:
+//   * clk      : P16, input, no drive, BANK_VCCIO=3.3 (official example)
+//   * amp_*    : PMOD2 / J26, LVCMOS33, DRIVE=8, BANK_VCCIO=3.3
+//   * amp_sd   : PMOD2 IO3, PULL_MODE=DOWN (safe low = shutdown)
+// There is deliberately no reset/button port in this design.
+//
+// Connector orientation (PMOD2 Pin 1) must still be checked against the physical
+// board before wiring; it is not inferred from a photo.
+// -----------------------------------------------------------------------------
+
+// 50 MHz board crystal (input, no drive) -- official example
+IO_LOC "clk" P16;
+IO_PORT "clk" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+
+// PMOD2 -> external MAX98357A (LVCMOS33, DRIVE=8)
+IO_LOC "amp_bclk" C21;
+IO_PORT "amp_bclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_lrc" B20;
+IO_PORT "amp_lrc" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_din" B19;
+IO_PORT "amp_din" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// SD (MAX98357A shutdown / channel select): default LOW is the safe state, so a
+// pull-down is requested; high = left channel, low = shutdown.
+IO_LOC "amp_sd" A17;
+IO_PORT "amp_sd" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;

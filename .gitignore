@@ -19,3 +19,12 @@ venv/
 # Editor and OS noise
 .DS_Store
 Thumbs.db
+
+# cocotb / iverilog build artifacts
+sim/build/
+sim/results.xml
+*.fst
+__pycache__/
+
+# Gowin / FPGA build outputs (generated; too large for GitHub, 100MB limit).
+/build/
