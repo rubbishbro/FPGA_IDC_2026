@@ -1,19 +1,19 @@
 // -----------------------------------------------------------------------------
-// modal_engine.sv -- module 2B/2C integration.
+// modal_engine.sv -- module 2B/2C 集成。
 //
-// Wires the coefficient loader (2B) to the 32-voice poly bank (2C):
-//   * the external load port is the loader interface
-//   * on a successful load_done the engine stores that voice's mode count and
-//     loaded flag; only loaded voices may be activated in a frame (else error 4)
-//   * loading and sampling are mutually exclusive; while idle a simultaneous
-//     load/sample request resolves in favour of load and never handshakes both
-//   * base allocation (voice n/count/loaded flags) lives here so the frame
-//     sender cannot forge a mode count
-//   * reset cancels compute and load and clears every loaded flag
+// 将 coefficient loader（2B）连接到 32-voice poly bank（2C）：
+//   * 外部 load 端口就是 loader 接口
+//   * 成功 load_done 时 engine 存储该 voice 的 mode 数量和 loaded 标志；
+//     帧中只能激活已加载的 voice（否则 error 4）
+//   * loading 和 sampling 互斥；空闲时同时到达的 load/sample 请求以 load 为准，
+//     绝不两者都握手
+//   * 基础分配（voice n/count/loaded 标志）放在这里，使帧发送方无法伪造
+//     mode 数量
+//   * reset 取消 compute 和 load 并清除每个 loaded 标志
 //
-//   error_code 1..3 = load error (voice OOB / missing entry / illegal ROM meta)
-//              4    = an active voice has not been successfully loaded
-//              5    = internal bank error
+//   error_code 1..3 = load 错误（voice OOB / 缺失 entry / 非法 ROM meta）
+//              4    = 活动 voice 尚未成功加载
+//              5    = 内部 bank 错误
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -32,7 +32,7 @@ module modal_engine #(
     input  logic                   clk,
     input  logic                   rst_n,
 
-    // load request (same as the loader port)
+    // load 请求（与 loader 端口相同）
     input  logic                   load_valid,
     output logic                   load_ready,
     input  logic [VW-1:0]          load_voice,
@@ -44,7 +44,7 @@ module modal_engine #(
     output logic [VW-1:0]          done_voice,
     output logic [MW-1:0]          loaded_n_modes,
 
-    // one-sample frame request
+    // 单采样帧请求
     input  logic                   sample_valid,
     output logic                   sample_ready,
     input  logic [NUM_VOICES-1:0]  active_mask,
@@ -79,10 +79,10 @@ module modal_engine #(
     logic [NUM_VOICES-1:0]    act_r;
     logic [NUM_VOICES*32-1:0] x_r;
 
-    // intake candidate scratch: captured on the sample handshake, consumed by
-    // E_PREP only for a frame whose precheck passed.  A rejected candidate is a
-    // dead token and never reaches the operational payload (no observable side
-    // effect), exactly like the bank's own candidate scratch.
+    // intake 候选暂存：在 sample 握手时捕获，仅对 precheck 通过的帧由
+    // E_PREP 消费。被拒绝的候选是死 token，绝不进入运行负载
+    // （无可观测副作用），与 bank 自身的候选暂存
+    // 完全一样。
     logic [NUM_VOICES-1:0]    act_c;
     logic [NUM_VOICES*32-1:0] x_c;
 
@@ -109,7 +109,7 @@ module modal_engine #(
     logic [1:0]             bk_error_code;
 
     // ------------------------------------------------------------------
-    // load arbitration: loading wins over sampling when both are offered
+    // load 仲裁：当两者同时到达时 load 优先于 sampling
     // ------------------------------------------------------------------
     wire engine_idle = (estate == E_IDLE) && !ld_busy && !bk_busy;
     assign load_ready = engine_idle;
@@ -119,9 +119,9 @@ module modal_engine #(
     wire sample_fire = sample_valid && sample_ready;
 
     logic any_active_unloaded;
-    // A voice is usable if it was captured earlier, or if load_done is being
-    // observed this very cycle (the registered capture lands one cycle later,
-    // so a frame offered on the completion cycle must still see it loaded).
+    // 一个 voice 若之前已被捕获，或本周期正在观察到 load_done，则可用
+    // （寄存的捕获在一个周期后到达，因此在完成周期提供的帧
+    // 仍必须看到它已加载）。
     wire [NUM_VOICES-1:0] loaded_eff = voice_loaded
         | (load_done ? ({{(NUM_VOICES-1){1'b0}}, 1'b1} << done_voice) : '0);
     always_comb begin
@@ -130,13 +130,13 @@ module modal_engine #(
             if (active_mask[v] && !loaded_eff[v]) any_active_unloaded = 1'b1;
     end
 
-    // n_modes vector rebuilt from the engine's own stored metadata.  REGISTERED
-    // (nm_vec_r) so the loader's n_r does not combinationally reach the bank's
-    // legality scan / register enables.  nm_vec_r is captured on the SAME edge
-    // as voice_nm (both update from load_done/done_voice), so it is not "one
-    // cycle late" relative to the metadata; a frame that completes loading is
-    // accepted on the completion edge and the E_DRIVE consumer uses the new n on
-    // the next edge, preserving the load-completion-cycle golden behaviour.
+    // n_modes 向量由 engine 自己存储的 metadata 重建。它是 REGISTERED
+    // （nm_vec_r），因此 loader 的 n_r 不会组合地到达 bank 的合法性扫描 /
+    // 寄存器使能。nm_vec_r 与 voice_nm 在同一拍捕获（两者都由
+    // load_done/done_voice 更新），所以相对于 metadata
+    // 并非“晚一个周期”；完成加载的帧在完成边沿被接受，
+    // E_DRIVE 消费者在下一拍使用新的 n，
+    // 从而保持 load-completion-cycle 的 golden 行为。
     logic [NUM_VOICES*MW-1:0] nm_vec_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -150,7 +150,7 @@ module modal_engine #(
     wire [NUM_VOICES*MW-1:0] nm_vec = nm_vec_r;
 
     // ------------------------------------------------------------------
-    // coefficient loader
+    // 系数 loader
     // ------------------------------------------------------------------
     coeff_loader #(
         .NUM_VOICES(NUM_VOICES),
@@ -226,7 +226,7 @@ module modal_engine #(
     );
 
     // ------------------------------------------------------------------
-    // forwarded outputs
+    // 转发输出
     // ------------------------------------------------------------------
     assign busy         = (estate != E_IDLE) || ld_busy || bk_busy;
     assign out_valid    = bk_out_valid;
@@ -242,18 +242,18 @@ module modal_engine #(
     assign commit_y2    = bk_commit_y2;
     assign commit_sat   = bk_commit_sat;
 
-    // The loader and bank errors are already registered one-cycle pulses, so
-    // forward them in the very cycle they appear (this keeps the error visible
-    // on the same cycle the engine returns to idle / raises sample_ready).
-    // The active-unloaded error is registered because it is derived from a
-    // sample request that is rejected on that same cycle.
+    // loader 和 bank 错误已经是寄存的单周期脉冲，因此在它们出现的
+    // 当拍就转发（这使错误在 engine 返回 idle / 拉高 sample_ready 的
+    // 同一周期保持可见）。active-unloaded 错误是寄存的，因为它
+    // 派生自一个在同一周期被拒绝的
+    // sample 请求。
     assign error_valid = ld_error_valid | bk_error_flag | error4_r;
     assign error_code  = ld_error_valid ? {1'b0, ld_error_code}
                        : bk_error_flag  ? 3'd5
                        : 3'd4;
 
     // ------------------------------------------------------------------
-    // engine metadata + frame sequencer
+    // engine metadata + 帧序列器
     // ------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (!rst_n) begin
@@ -269,17 +269,17 @@ module modal_engine #(
         end else begin
             error4_r <= 1'b0;
 
-            // capture the load result of a successful transaction only
+            // 仅捕获成功事务的 load 结果
             if (load_done) begin
                 voice_loaded[done_voice] <= 1'b1;
                 voice_nm[done_voice]     <= loaded_n_modes;
             end
 
-            // Capture the intake candidate on the shallow sample handshake so the
-            // wide x payload CE does not sit behind any_active_unloaded.  The FSM
-            // below only consumes it via E_PREP when the original legality decode
-            // passed; an illegal frame still raises error4_r on this edge with
-            // busy low and leaves every operational register/history untouched.
+            // 在浅层 sample 握手时捕获 intake 候选，使宽 x 负载的 CE 不位于
+            // any_active_unloaded 之后。下面的 FSM 仅在原始合法性译码
+            // 通过时才通过 E_PREP 消费它；非法帧仍会在该边沿拉高
+            // error4_r，busy 保持低，
+            // 且不触动任何运行寄存器/历史。
             if (sample_fire) begin
                 act_c <= active_mask;
                 x_c   <= x_vec;
@@ -295,9 +295,9 @@ module modal_engine #(
                 end
 
                 E_PREP: begin
-                    // Shallow state decode drives the wide operational payload;
-                    // the bank request follows in E_DRIVE with the metadata that
-                    // landed on the same edge as the sample handshake.
+                    // 浅层状态译码驱动宽运行负载；
+                    // bank 请求随后在 E_DRIVE 中带着与 sample 握手同一拍到达的
+                    // metadata 发出。
                     act_r  <= act_c;
                     x_r    <= x_c;
                     estate <= E_DRIVE;

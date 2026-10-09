@@ -1,22 +1,22 @@
 // -----------------------------------------------------------------------------
-// coeff_loader.sv -- module 2B: index/coefficient ROM loader.
+// coeff_loader.sv -- module 2B：index/coefficient ROM loader。
 //
-// Looks up the dense 1024-entry index ROM for one (instrument, MIDI, dynamic)
-// key, validates the entry, clears the target voice's state, then streams the
-// entry's coefficients into the modal bank through the cfg handshake.  Only the
-// final cfg handshake produces load_done.
+// 为一个 (instrument, MIDI, dynamic) key 查找稠密的 1024-entry
+// index ROM，校验该 entry，清除目标 voice 的状态，然后
+// 通过 cfg 握手将该 entry 的系数流式
+// 写入 modal bank。只有最终的 cfg 握手才会产生 load_done。
 //
-// Contract (rtl/module2BC_design.md sections 3 and 5):
-//   * load inputs are latched only on the load handshake; load_ready=0 while busy
-//   * the whole entry is looked up and range-checked before any clear/cfg
-//   * a missing entry or illegal ROM metadata emits an error pulse and returns
-//     to idle without clear, cfg or load_done
-//   * cfg/clear fields stay stable until the downstream handshake
-//   * arbitrary downstream backpressure never loses or duplicates a word
-//   * reset cancels the transaction and every valid token
+// 契约（rtl/module2BC_design.md 第 3 和 5 节）：
+//   * load 输入仅在 load 握手时锁存；busy 期间 load_ready=0
+//   * 在进行任何 clear/cfg 之前，整个 entry 都被查找并做范围检查
+//   * 缺失的 entry 或非法 ROM metadata 会发出一个 error 脉冲并返回 idle，
+//     不进行 clear、cfg 或 load_done
+//   * cfg/clear 字段保持稳定，直到下游握手
+//   * 任意下游 backpressure 都不会丢失或重复一个 word
+//   * reset 取消事务和每个有效 token
 //
-// The ROMs are synchronous-read, initialised with $readmemh and never parsed at
-// run time.  A 72-bit logical read port is not a physical BSRAM mapping promise.
+// 这些 ROM 为同步读，用 $readmemh 初始化，运行时从不解析。
+// 72-bit 逻辑读端口并不承诺物理 BSRAM 映射。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -36,7 +36,7 @@ module coeff_loader #(
     input  logic                   clk,
     input  logic                   rst_n,
 
-    // load request
+    // 加载请求
     input  logic                   load_valid,
     output logic                   load_ready,
     input  logic [VW-1:0]          load_voice,
@@ -52,12 +52,12 @@ module coeff_loader #(
     output logic                   error_valid,
     output logic [1:0]             error_code,
 
-    // downstream state clear
+    // 下游状态清除
     output logic                   clear_valid,
     input  logic                   clear_ready,
     output logic [VW-1:0]          clear_voice,
 
-    // downstream coefficient write
+    // 下游系数写入
     output logic                   cfg_valid,
     input  logic                   cfg_ready,
     output logic [VW-1:0]          cfg_voice,
@@ -74,7 +74,7 @@ module coeff_loader #(
                            S_DONE  = 3'd6;
 
     // ------------------------------------------------------------------
-    // ROM arrays (synchronous read), initialised from the generated images
+    // ROM 数组（同步读），从生成的映像初始化
     // ------------------------------------------------------------------
     logic [COEFF_BITS-1:0] coeff_rom [0:COEFF_DEPTH-1];
     logic [INDEX_BITS-1:0] index_rom [0:INDEX_DEPTH-1];
@@ -94,7 +94,7 @@ module coeff_loader #(
     end
 
     // ------------------------------------------------------------------
-    // transaction state
+    // 事务状态
     // ------------------------------------------------------------------
     logic [2:0]          st;
     logic [VW-1:0]       voice_r;
@@ -102,19 +102,19 @@ module coeff_loader #(
     logic [6:0]          midi_r;
     logic                dyn_r;
     logic [OFFSET_BITS-1:0] offset_r;
-    logic [MW-1:0]       n_r;          // full entry mode count
-    logic [MW-1:0]       cnt;          // mode being written
+    logic [MW-1:0]       n_r;          // 完整 entry 的 mode 数量
+    logic [MW-1:0]       cnt;          // 正在写入的 mode
 
     wire [9:0] req_addr = {inst_r, midi_r, dyn_r};
 
-    // index word fields
+    // index word 字段
     localparam int N_FIELD_W = INDEX_BITS - 1 - OFFSET_BITS;   // 6
     wire [N_FIELD_W-1:0]   n_field = idx_rdata[INDEX_BITS-2 -: N_FIELD_W];
     wire [OFFSET_BITS-1:0] off_field = idx_rdata[OFFSET_BITS-1:0];
     wire [OFFSET_BITS:0]   entry_end = {1'b0, off_field} + {1'b0, n_field};
     wire n_illegal = (n_field == {N_FIELD_W{1'b0}}) || (n_field > N_MODES);
 
-    // fields presented to the downstream bank; stable while waiting for ready
+    // 呈现给下游 bank 的字段；等待 ready 期间保持稳定
     assign load_ready    = (st == S_IDLE);
     assign busy          = (st != S_IDLE);
     assign clear_valid   = (st == S_CLEAR);
@@ -126,7 +126,7 @@ module coeff_loader #(
     assign done_voice    = voice_r;
     assign loaded_n_modes= n_r;
 
-    // coefficient read address: offset + cnt (extra headroom, then truncated)
+    // 系数读地址：offset + cnt（额外余量，然后截断）
     wire [OFFSET_BITS+MW:0] coff_sum = {1'b0, offset_r} + {{(OFFSET_BITS+1){1'b0}},
                                                            cnt};
 
@@ -152,14 +152,14 @@ module coeff_loader #(
             case (st)
                 S_IDLE: begin
                     if (load_valid) begin
-                        // latch the request
+                        // 锁存请求
                         voice_r <= load_voice;
                         inst_r  <= load_instrument;
                         midi_r  <= load_midi;
                         dyn_r   <= load_dyn;
                         if (load_voice >= NUM_VOICES) begin
                             error_valid <= 1'b1;
-                            error_code  <= 2'd1;        // voice out of range
+                            error_code  <= 2'd1;        // voice 越界
                         end else begin
                             idx_raddr <= {load_instrument, load_midi, load_dyn};
                             st        <= S_IDX;
@@ -168,7 +168,7 @@ module coeff_loader #(
                 end
 
                 S_IDX: begin
-                    // index_rom[req_addr] is on idx_rdata after this edge
+                    // 该边沿后 index_rom[req_addr] 出现在 idx_rdata 上
                     idx_raddr <= req_addr;
                     st        <= S_CHK;
                 end
@@ -176,12 +176,12 @@ module coeff_loader #(
                 S_CHK: begin
                     if (!idx_rdata[INDEX_BITS-1]) begin
                         error_valid <= 1'b1;
-                        error_code  <= 2'd2;            // missing entry
+                        error_code  <= 2'd2;            // 缺失 entry
                         st          <= S_IDLE;
                     end else if (n_illegal ||
                                  (entry_end > (OFFSET_BITS+1)'(COEFF_DEPTH))) begin
                         error_valid <= 1'b1;
-                        error_code  <= 2'd3;            // metadata illegal / > ROM
+                        error_code  <= 2'd3;            // metadata 非法 / 超出 ROM
                         st          <= S_IDLE;
                     end else begin
                         offset_r <= off_field;

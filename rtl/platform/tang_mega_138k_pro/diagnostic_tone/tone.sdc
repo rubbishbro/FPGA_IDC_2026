@@ -1,47 +1,41 @@
 # -----------------------------------------------------------------------------
-# tone.sdc -- standalone diagnostic-tone timing constraints.
+# tone.sdc —— 独立诊断音时序约束。
 #
-# Independent of the production SDC (tang_mega_138k_pro.sdc) and written for the
-# diagnostic_tone_top hierarchy only.  No set_clock_latency is used anywhere.
+# 独立于生产 SDC（tang_mega_138k_pro.sdc），仅针对 diagnostic_tone_top 层次编写。
+# 任何地方都不使用 set_clock_latency。
 #
-# Clock model:
-#   50 MHz crystal   clk        -> 20.000 ns
-#   12.5 MHz audio   clk_audio  -> generated from clk, divide_by 100 multiply_by 25
-#                                 (NOT exact 12.288 MHz; see top.sv header)
+# 时钟模型：
+#   50 MHz 晶振     clk        -> 20.000 ns
+#   12.5 MHz 音频   clk_audio  -> 由 clk 生成，divide_by 100 multiply_by 25
+#                                 （并非精确的 12.288 MHz；见 top.sv 头部）
 #
-# This is a CONSERVATIVE DIAGNOSTIC budget, not a datasheet-signed-off fact:
-#   0.400 ns setup uncertainty is added on clk_audio as extra margin.  The parent
-#   certificate flow explicitly rejects uncertainty overrides, so this SDC is NOT
-#   valid input to sim/review_i2s_pin_delays.py --certified-report; it is only for
-#   the diagnostic bring-up build.
+# 这是保守的诊断预算，不是数据手册签字确认的事实：
+#   在 clk_audio 上额外加入 0.400 ns 的 setup 不确定度作为余量。父级证书流程明确拒绝
+#   不确定度覆盖，因此本 SDC 不是 sim/review_i2s_pin_delays.py --certified-report 的
+#   有效输入；它仅用于诊断 bring-up 构建。
 #
-# External I2S output model (C2O path envelope), copied in form from the
-# production SDC:  launch (clk_audio) -> pad delay bounded to [0, 40] ns.  This is
-# a PATH ENVELOPE, NOT a per-corner measurement, and is NOT a complete external
-# I2S certificate: it must be combined with the RTL edge relation and an
-# independent board/jitter budget, and every endpoint must still show non-negative
-# setup/hold with no ignored constraint.
+# 外部 I2S 输出模型（C2O 路径包络），形式复制自生产 SDC：launch（clk_audio）-> pad
+# 延迟限定在 [0, 40] ns。这是路径包络（PATH ENVELOPE），不是逐 corner 测量，也不是
+# 完整的外部 I2S 证书：它必须与 RTL 边沿关系及独立的板级/抖动预算结合，且每个端点仍
+# 必须显示非负的 setup/hold 且没有被忽略的约束。
 #
-#   d_max <= 40 ns (constraint)  and  d_min >= 0 ns (constraint)
+#   d_max <= 40 ns（约束）  且  d_min >= 0 ns（约束）
 # -----------------------------------------------------------------------------
 
 create_clock -name clk_50m -period 20.000 [get_ports {clk}]
 
-# Generated audio clock.  diagnostic_tone_top instantiates the PLL directly as
-# u_pll_audio, so the pin path carries that prefix (confirmed by pattern; the
-# exact name is re-checked against the P&R netlist by the parent).
+# 生成的音频时钟。diagnostic_tone_top 直接例化 PLL 为 u_pll_audio，因此引脚路径携带
+# 该前缀（已按模式确认；父级会对照 P&R 网表重新核对确切名称）。
 create_generated_clock -name clk_audio -source [get_ports {clk}] -master_clock clk_50m -divide_by 100 -multiply_by 25 [get_pins {u_pll_audio/u_pll/PLL_inst/CLKOUT0}]
 
-# Conservative extra setup margin for the diagnostic build (see header).
-# Gowin TA1030 requires explicit -from/-to endpoints; this is a SAME-DOMAIN
-# clk_audio -> clk_audio reserve, i.e. one launch/capture budget applied to every
-# internal audio-domain setup check.  It deliberately does not bound any
-# cross-domain (lock) transfer.
+# 诊断构建的保守额外 setup 余量（见头部）。Gowin TA1030 要求显式 -from/-to 端点；
+# 这是一个同域 clk_audio -> clk_audio 保留量，即应用于每个内部音频域 setup 检查的一个
+# launch/capture 预算。它刻意不约束任何跨域（lock）传输。
 set_clock_uncertainty -setup 0.400 -from [get_clocks {clk_audio}] -to [get_clocks {clk_audio}]
 
 # -----------------------------------------------------------------------------
-# External I2S outputs: C2O path envelope [0,40] ns relative to clk_audio.
-# (Same form as the production SDC; NOT a full external-I2S certificate.)
+# 外部 I2S 输出：相对于 clk_audio 的 C2O 路径包络 [0,40] ns。
+# （形式与生产 SDC 相同；并非完整的外部 I2S 证书。）
 # -----------------------------------------------------------------------------
 set_output_delay -clock clk_audio  40.000 -max [get_ports {amp_bclk}]
 set_output_delay -clock clk_audio   0.000 -min [get_ports {amp_bclk}]
@@ -51,44 +45,38 @@ set_output_delay -clock clk_audio  40.000 -max [get_ports {amp_lrc}]
 set_output_delay -clock clk_audio   0.000 -min [get_ports {amp_lrc}]
 
 # -----------------------------------------------------------------------------
-# amp_sd is an ASYNCHRONOUS slow configuration/mute output to the MAX98357A, not
-# a clock-sampled data output.  Bound the audio-domain launch-to-pad settle
-# latency (engineering gate 100 ns).  The async PLL-lock -> SD path is a short
-# combinational mute and is not separately constrained here.
+# amp_sd 是到 MAX98357A 的异步慢速配置/静音输出，不是由时钟采样的数据输出。约束
+# 音频域 launch 到 pad 的建立延迟（工程门限 100 ns）。异步 PLL-lock -> SD 路径是一段
+# 短组合静音，此处不单独约束。
 # -----------------------------------------------------------------------------
 set_max_delay -from [get_clocks {clk_audio}] 100.000 -to [get_ports {amp_sd}]
 
 # -----------------------------------------------------------------------------
-# Dedicated 3FF async-assert / sync-release reset synchronizer.
-# The three flops share the SAME asynchronous CLEAR (raw audio_locked deassert);
-# the synchronous release comes from the shift register, so a scoped hold
-# exception is placed on the CLEAR pins of EVERY stage of this dedicated chain
-# ONLY.
-# The reset RELEASE seen by normal logic is rst_sync[2] alone (top.sv:
-# assign rst_n = rst_sync[2]).  The raw lock is NOT combinational into the normal
-# state CLEAR tree, so every ordinary state register is checked normally against
-# the clk_audio-launched last-stage output.  Ordinary state/D registers, the
-# final stage's normal timing, and recovery/removal on those normal CLEARs are
-# NOT touched.  (amp_sd separately keeps raw audio_locked for an immediate mute.)
+# 专用的 3FF 异步置位 / 同步释放复位同步器。
+# 三个触发器共享同一个异步 CLEAR（原始 audio_locked 撤销）；同步释放来自移位寄存器，
+# 因此仅在这条专用链每一级的 CLEAR 引脚上放置一个限定范围的 hold 例外。
+# 普通逻辑看到的复位释放只有 rst_sync[2]（top.sv：
+# assign rst_n = rst_sync[2]）。原始锁定信号不组合进入正常状态 CLEAR 树，因此每个普通
+# 状态寄存器都正常地对照 clk_audio 发起的最后一级输出进行检查。普通 state/D 寄存器、
+# 最后一级的正常时序，以及这些正常 CLEAR 上的 recovery/removal 均不受影响。
+# （amp_sd 单独保留原始 audio_locked 以实现立即静音。）
 #
-# EXACT register names (the `_s0` suffix) and any hierarchy prefix must be
-# confirmed against the real P&R netlist; update these three pins if Gowin names
-# them differently.  If the name does not match, the exception is a no-op and the
-# ordinary hold/recovery/removal checks remain in force.
+# 确切的寄存器名（`_s0` 后缀）以及任何层次前缀都必须对照真实 P&R 网表确认；如果 Gowin
+# 命名不同，请更新这三个引脚。如果名称不匹配，该例外即为空操作，普通
+# hold/recovery/removal 检查仍然有效。
 # -----------------------------------------------------------------------------
 set_false_path -hold -to [get_pins {rst_sync_0_s0/CLEAR}]
 set_false_path -hold -to [get_pins {rst_sync_1_s0/CLEAR}]
 set_false_path -hold -to [get_pins {rst_sync_2_s0/CLEAR}]
 
 # -----------------------------------------------------------------------------
-# Full timing-report capture (SDC reporting context).
-# gw_sh after P&R has no SDC reporting command set (no get_ports), so a
-# pin-filtered report cannot be produced from the build Tcl.  These SDC reporting
-# commands expand the complete setup/hold report WITHOUT a pin filter
-# (-max_paths 300 covers all ~291 reported paths); the flow writes it to
+# 完整时序报告捕获（SDC 报告上下文）。
+# 在 P&R 之后 gw_sh 没有 SDC 报告命令集（没有 get_ports），因此无法从构建 Tcl 生成
+# 按引脚过滤的报告。这些 SDC 报告命令在没有引脚过滤的情况下展开完整的 setup/hold 报告
+# （-max_paths 300 覆盖全部约 291 条被报告路径）；流程将其写入
 #   <BUILD_DIR>/diagnostic_tone/impl/pnr/diagnostic_tone.tr
-# The parent extracts the Slow (setup) / Fast (hold) amp_bclk / amp_din / amp_lrc
-# output-pin extrema from that full report.  No timings are changed here.
+# 父级从该完整报告中提取 Slow（setup）/ Fast（hold）的 amp_bclk / amp_din / amp_lrc
+# 输出引脚极值。此处不改变任何时序。
 # -----------------------------------------------------------------------------
 report_timing -setup -max_paths 300 -max_common_paths 1
 report_timing -hold  -max_paths 300 -max_common_paths 1

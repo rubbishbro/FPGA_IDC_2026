@@ -63,10 +63,10 @@ SRAM下载后设计应自动启动，无需先按S1；先测模块VIN和SD对公
 
 冻结配置：BCLK3.125MHz（320ns），LRC48,828.125Hz（20.48µs），64BCLK/frame；标准I2S、32bit/slot，16bit mono左右复制。无需MCLK，不接I2C SDA/SCL，不接外部50/100MHz时钟。
 
-先拍清楚**模块正反面丝印、板上PMOD2/J26附近Pin1标记与FPGA完整丝印**，核对无误再通电；物理芯片与板卡方向确认不能由本表代替。此次未授权/未执行Programmer，当前时序模型OPEN项见[`../../clock_model_review.md`](../../clock_model_review.md)。以后明确授权并核对构建后，才进行实板启动、多次复位和至少60s播放验收，不以试听证明全温压时序。
+先拍清楚**模块正反面丝印、板上PMOD2/J26附近Pin1标记与FPGA完整丝印**，核对无误再通电；物理芯片与板卡方向确认不能由本表代替。此次未授权/未执行Programmer，当前时序模型OPEN项见[`../../../docs/archive/2026-10/rtl/clock_model_review.md`](../../../docs/archive/2026-10/rtl/clock_model_review.md)。以后明确授权并核对构建后，才进行实板启动、多次复位和至少60s播放验收，不以试听证明全温压时序。
 
 ## 核对来源
 
 - 本地`reference_agent_readfirst/tang_mega_138k_pro_basic_resources/TANG_MEGA-138K_Pro-Dock-4071f_Schematics.pdf`，sheet17/19：J26针号、电源及PMOD2 IO；冻结`audio_pmod2.cst`/完整CST为C21/B20/B19/A17。
 - [Adafruit MAX98357A pinouts](https://learn.adafruit.com/adafruit-max98357-i2s-class-d-mono-amp/pinouts)：VIN范围、SD/channel、GAIN配置、BTL喇叭输出。此资料说明标准器件/其breakout行为，不声称紫色第三方模块电阻完全相同。
-- 冻结输入/时钟核对摘要见[`../../demo_freeze_20261005.md`](../../demo_freeze_20261005.md)。
+- 冻结输入/时钟核对摘要见[`../../../docs/archive/2026-10/rtl/demo_freeze_20261005.md`](../../../docs/archive/2026-10/rtl/demo_freeze_20261005.md)。

@@ -1,20 +1,20 @@
 // -----------------------------------------------------------------------------
-// audio_demo_core.sv -- integration of modal_engine + song_player + audio_transport.
+// audio_demo_core.sv -- modal_engine + song_player + audio_transport 的集成。
 //
-// Two exact clock inputs: clk_core (100 MHz) and clk_audio (12.288 MHz).  Mode is
-// fixed before reset (MODE_SONG=1 default); the datapath is only ever started out
-// of reset, so a MIC start can never see a stale song frame.
+// 两个精确的时钟输入：clk_core（100 MHz）和 clk_audio（12.288 MHz）。模式在
+// 复位前固定（默认 MODE_SONG=1）；数据通路只会在复位之后启动，因此 MIC 启动
+// 永远不会看到陈旧的歌曲帧。
 //
-//   SONG: modal_engine + song_player -> output adapter -> audio_transport TX
-//   MIC : i2s_mic_rx -> audio_transport RX -> output adapter -> TX (no synthesis)
+//   SONG: modal_engine + song_player -> 输出适配器 -> audio_transport TX
+//   MIC : i2s_mic_rx -> audio_transport RX -> 输出适配器 -> TX（无合成）
 //
-// Output adaptation (rtl/audio_bringup_design.md section 3):
-//   sum : Q2.30 signed 64 -> >>3, (+2^14)>>15, saturate int16   (3-bit demo pad)
-//   mic : Q2.23 signed 24 -> >>2, (+2^7)>>8,   saturate int16   (2-bit field pad)
-// Mono is duplicated to both PT8211 channels.
+// 输出适配（rtl/audio_bringup_design.md 第 3 节）：
+//   sum : Q2.30 有符号 64 -> >>3, (+2^14)>>15, 饱和到 int16   （3 位演示填充）
+//   mic : Q2.23 有符号 24 -> >>2, (+2^7)>>8,   饱和到 int16   （2 位字段填充）
+// 单声道复制到两个 PT8211 声道。
 //
-// The engine instance uses the module2BC_design.md section 5 external interface.
-// It is provided by the 2B/2C implementer; this module does not define it.
+// 引擎实例使用 module2BC_design.md 第 5 节的外部接口。
+// 它由 2B/2C 实现者提供；本模块不定义它。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -23,15 +23,15 @@ module audio_demo_core #(
     parameter int N_MODES     = 48,
     parameter int NOTE_GAP    = 12000,
     parameter int PULSE_LEN   = 7,
-    parameter int MODE_SONG   = 1,      // 1 = SONG (default), 0 = MIC
+    parameter int MODE_SONG   = 1,      // 1 = SONG（默认），0 = MIC
     parameter int TX_DEPTH    = 16,
     parameter int RX_DEPTH    = 16,
     parameter int CH_SEL      = 0,
-    parameter int OUT_FORMAT  = 1,      // 1 = standard I2S MAX98357A (default)
-    parameter int SUM_ATT     = 3,      // demo pad before the 15-bit round shift
-    parameter int MIC_ATT     = 2,      // demo pad before the 8-bit round shift
-    parameter int ENABLE_BODY   = 0,    // 0 = bypass (baseline), 1 = insert body
-    parameter int BODY_INSTRUMENT = 0,  // 0..3 guitar/piano/banjo/mandolin
+    parameter int OUT_FORMAT  = 1,      // 1 = 标准 I2S MAX98357A（默认）
+    parameter int SUM_ATT     = 3,      // 15 位舍入移位前的演示填充
+    parameter int MIC_ATT     = 2,      // 8 位舍入移位前的演示填充
+    parameter int ENABLE_BODY   = 0,    // 0 = 旁路（基线），1 = 插入 body
+    parameter int BODY_INSTRUMENT = 0,  // 0..3 吉他/钢琴/班卓琴/曼陀林
     parameter COEFF_FILE = "rtl/rom/modal_coeff.mem",
     parameter INDEX_FILE = "rtl/rom/modal_index.mem",
     parameter BODY_FILE  = "rtl/rom/body_coeff.mem"
@@ -41,7 +41,7 @@ module audio_demo_core #(
     input  logic        rst_n,
     input  logic        diag_clear,
 
-    // serial
+    // 串行
     input  logic        mic_sd,
     output logic        dac_bck,
     output logic        dac_ws,
@@ -49,14 +49,14 @@ module audio_demo_core #(
     output logic        mic_bck,
     output logic        mic_ws,
 
-    // timing / diagnostics
+    // 时序 / 诊断
     output logic        core_sample_tick,
     output logic        core_sample_pulse,
     output logic        underflow_sticky,
-    output logic        overflow_sticky,     // RX FIFO full, mic sample dropped
-    output logic        tx_overflow_sticky,  // adapter could not hand a song frame on
-    output logic        body_overflow_sticky,// body input hold could not keep a frame
-    output logic        playback_ready,      // see below
+    output logic        overflow_sticky,     // RX FIFO 满，麦克风样本被丢弃
+    output logic        tx_overflow_sticky,  // 适配器无法递交歌曲帧
+    output logic        body_overflow_sticky,// body 输入保持无法保留一帧
+    output logic        playback_ready,      // 见下文
     output logic        deadline_error,
     output logic        engine_error_valid,
     output logic [2:0]  engine_error_code,
@@ -69,7 +69,7 @@ module audio_demo_core #(
     wire mode_song = (MODE_SONG != 0);
 
     // ------------------------------------------------------------------
-    // core-domain reset release
+    // core 域复位释放
     // ------------------------------------------------------------------
     logic [1:0] crst_sync;
     always_ff @(posedge clk_core or negedge rst_n)
@@ -80,7 +80,7 @@ module audio_demo_core #(
     wire sp_rst_n = core_rst_n & mode_song;
 
     // ------------------------------------------------------------------
-    // transport
+    // 传输
     // ------------------------------------------------------------------
     logic        core_tx_valid, core_tx_ready;
     logic [31:0] core_tx_data;
@@ -115,7 +115,7 @@ module audio_demo_core #(
     );
 
     // ------------------------------------------------------------------
-    // modal engine (2B/2C interface) + song player
+    // modal 引擎（2B/2C 接口）+ 歌曲播放器
     // ------------------------------------------------------------------
     logic                  sp_load_valid, sp_load_ready;
     logic [VW-1:0]         sp_load_voice;
@@ -203,12 +203,12 @@ module audio_demo_core #(
     );
 
     // ------------------------------------------------------------------
-    // optional shared body filter (guitar by default), inserted between the
-    // real song mix and the output adapter.  A one-deep input hold absorbs the
-    // engine's single-cycle out_valid while the body is busy; a frame that
-    // cannot be held at all sets a sticky diagnostic (never silently dropped).
-    // The body history is cleared by rst_n; the module's own clear port is a
-    // unit-tested feature not driven by this demo.
+    // 可选的共享 body 滤波器（默认吉他），插入在
+    // 真实歌曲混音与输出适配器之间。深度为 1 的输入保持用于吸收
+    // body 忙时引擎的单周期 out_valid；完全无法
+    // 保持的帧会置位粘滞诊断（从不静默丢弃）。
+    // body 历史由 rst_n 清零；模块自身的 clear 端口是一个
+    // 已单元测试的特性，本演示不驱动它。
     // ------------------------------------------------------------------
     logic               body_src_valid;
     logic signed [63:0] body_src_sum;
@@ -278,7 +278,7 @@ module audio_demo_core #(
     endgenerate
 
     // ------------------------------------------------------------------
-    // output adaptation
+    // 输出适配
     // ------------------------------------------------------------------
     function automatic logic signed [15:0] sum_to_i16(input logic signed [63:0] s);
         logic signed [63:0] t;
@@ -320,10 +320,10 @@ module audio_demo_core #(
         end
     end
 
-    wire [31:0] src_pair = {src_i16, src_i16};   // same mono sample on L and R
+    wire [31:0] src_pair = {src_i16, src_i16};   // L 和 R 上相同的单声道样本
 
-    // one-deep hold; a new song frame arriving with no room is flagged, never
-    // overwriting the frame already waiting to be sent.
+    // 深度为 1 的保持；新到的歌曲帧若无空间则被标记，绝不
+    // 覆盖已在等待发送的帧。
     logic        tx_hold_valid;
     logic [31:0] tx_hold;
     logic        tx_overflow_r;
@@ -348,7 +348,7 @@ module audio_demo_core #(
                 tx_hold_valid <= 1'b1;
                 tx_hold       <= src_pair;
             end else if (mode_song && src_valid && !hold_free) begin
-                tx_overflow_r <= 1'b1;          // unsent song frame dropped
+                tx_overflow_r <= 1'b1;          // 未发送的歌曲帧被丢弃
             end
         end
     end
@@ -358,12 +358,12 @@ module audio_demo_core #(
     assign tx_overflow_sticky= tx_overflow_r;
 
     // ------------------------------------------------------------------
-    // playback_ready: sticky once the first real sample has been handed to the
-    // TX FIFO (core_tx_valid & core_tx_ready).  This says "the audio producer
-    // has actually started", NOT that sound has been verified.  It stays 0 if
-    // no sample is ever produced (e.g. a load that never completes), so a board
-    // layer can use it (together with clock lock / frame priming) to avoid
-    // enabling the amplifier on a silent, stuck datapath.  Cleared by reset.
+    // playback_ready：一旦第一个真实样本被交给 TX FIFO
+    //（core_tx_valid & core_tx_ready）即变为粘滞。它表示“音频生产者
+    // 实际上已启动”，而不是声音已被验证。若
+    // 从未产生样本（例如加载永不完成），它保持 0，因此板级
+    // 层可以用它（配合时钟锁定 / 帧预置）来避免
+    // 在静默、卡死的数据通路上使能放大器。由复位清零。
     // ------------------------------------------------------------------
     logic playback_ready_r;
     always_ff @(posedge clk_core or negedge core_rst_n)

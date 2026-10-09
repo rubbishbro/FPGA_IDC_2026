@@ -13,7 +13,7 @@
 
 ## 2. 文件与实现边界
 
-新建 `python/modal_sim/gen_hw_rom.py`、`rtl/core/coeff_loader.sv`、`rtl/core/poly_modal_lane.sv`、`rtl/core/modal_poly_bank.sv`、`rtl/core/modal_engine.sv`、`sim/test_coeff_loader.py`、`sim/test_modal_engine.py`。保留原2A接口和文件，poly lane可以以2A为基础扩展，但不能实例化32套2A或128个乘法器。
+新建 `python/modal_sim/gen_hw_rom.py`、`rtl/core/coeff_loader.sv`、`rtl/core/poly_modal_lane.sv`、`rtl/core/modal_poly_bank.sv`、`rtl/core/modal_engine.sv`，对应测试现位于`sim/unit/core/`（系数装载与引擎）。保留原2A接口和文件，poly lane可以以2A为基础扩展，但不能实例化32套2A或128个乘法器。
 
 生成产物放 `rtl/rom/`：合并系数 `modal_coeff.mem`（5483行×72bit）、稠密索引 `modal_index.mem`（1024行×20bit）、元数据 `modal_manifest.json`。原 `FFT_results/params/` 文件只读，不重写。
 
@@ -72,4 +72,4 @@
 
 ## 7. 交付判定
 
-DS V4.1 Flash实现；父会话独立审查/复测并写`module2BC_delivery_report.md`。分清实现者报告、独立执行、功能周期门槛与尚未执行的板级验收。自动播放和麦克风链路另有验收记录，不能仅依据2B/2C完成而声称上板已打通。
+DS V4.1 Flash实现；父会话独立审查/复测并写`docs/archive/2026-10/rtl/module2BC_delivery_report.md`。分清实现者报告、独立执行、功能周期门槛与尚未执行的板级验收。自动播放和麦克风链路另有验收记录，不能仅依据2B/2C完成而声称上板已打通。

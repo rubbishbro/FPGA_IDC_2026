@@ -1,22 +1,22 @@
 // -----------------------------------------------------------------------------
-// board_audio_core.sv -- platform wrapper around the audio session's
-// audio_demo_core, exposing the playback handshake signal the board needs.
+// board_audio_core.sv -- 围绕音频会话的 audio_demo_core 的平台包装，
+// 对外暴露板级所需的播放握手信号。
 //
-// audio_demo_core is owned by the audio implementer and is consumed read-only.
-// It must provide the public output
+// audio_demo_core 由音频实现者拥有，这里只读使用。
+// 它必须提供以下公共输出
 //
-//   playback_ready : sticky 1 after the first real (core_tx_valid &&
-//                    core_tx_ready) sample is pushed into the TX FIFO, and 0
-//                    while rst_n is low
+//   playback_ready : 首个真实样本（core_tx_valid &&
+//                    core_tx_ready）被推入 TX FIFO 后粘滞为 1，而
+//                    rst_n 为低时保持为 0
 //
-// The board top uses this (not the 48 kHz frame tick) to enable the amplifier,
-// so a voice-load failure or a stuck song cannot leave SD high.  Until the audio
-// session lands the port this wrapper keeps synthesis from silently passing:
-// the missing connection is a compile error, not a fallback.
+// 板级顶层用它（而不是 48 kHz 帧节拍）来使能功放，
+// 这样声部装载失败或歌曲卡死都不会让 SD 保持高电平。在音频会话
+// 落地该端口之前，本包装让综合无法静默通过：
+// 缺失的连接是编译错误，而不是回退。
 //
-// The test-only sim/audio_helpers/board_audio_core_model.sv provides the same
-// module interface by tapping the real core's internal TX handshake; it is used
-// only by sim/test_audio_board.py and is never in sources.f.
+// 仅供测试的 sim/audio_helpers/board_audio_core_model.sv 通过接入真实核心的
+// 内部 TX 握手来提供相同的模块接口；它只被
+// sim/test_audio_board.py 使用，且从不出现在 sources.f 中。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -34,7 +34,7 @@ module board_audio_core #(
     input  logic clk_audio,
     input  logic rst_n,
 
-    output logic playback_ready,   // sticky first TX FIFO handshake, reset 0
+    output logic playback_ready,   // 首次 TX FIFO 握手后粘滞置位，复位为 0
     output logic dac_bck,
     output logic dac_ws,
     output logic dac_din

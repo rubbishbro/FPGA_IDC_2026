@@ -1,57 +1,57 @@
 // -----------------------------------------------------------------------------
-// modal_bank.sv -- single-voice, N-mode, four-lane TDM modal array (module 2A).
+// modal_bank.sv -- 单声部、N 模态、四 lane 的 TDM 模态阵列（module 2A）。
 //
-// Four identical lanes (lane = global mode % 4, local = global mode / 4).  Each
-// lane owns one 72-bit synchronous-read single-port working cache and one shared
-// 26x32 signed multiplier; a mode is processed every 3 clocks (II = 3).
+// 四个完全相同的 lane（lane = global mode % 4，local = global mode / 4）。每个
+// lane 拥有一个 72-bit 同步读单端口工作缓存和一个共享的 26x32 signed 乘法器；
+// 每 3 个时钟处理一个 mode（II = 3）。
 //
-// This module contains only the modal bank and its internal sum.  Excitation
-// generation, voice allocation, the shared body filter and the final I2S output
-// belong to later stages (see rtl/module2A_design.md sections 1 and 7).
+// 本模块只包含 modal bank 及其内部求和。Excitation
+// 生成、voice 分配、共享 body filter 和最终 I2S 输出
+// 属于后续阶段（见 rtl/module2A_design.md 第 1 和 7 节）。
 //
-// Priority while idle: clear > config > sample.  Illegal requests are accepted
-// (handshake) and rejected with error_code, never starting a frame.
+// 空闲时的优先级：clear > config > sample。非法请求会被接受（握手）并以
+// error_code 拒绝，绝不启动一个帧。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
 module modal_bank #(
     parameter int N_MODES = 48,
     parameter int SKIP_ZERO_INPUT = 0,
-    parameter int MW = $clog2(N_MODES + 1),                       // global mode id width
-    parameter int LOCAL_MODES = (N_MODES + 3) / 4,               // slots per lane
+    parameter int MW = $clog2(N_MODES + 1),                       // 全局 mode id 宽度
+    parameter int LOCAL_MODES = (N_MODES + 3) / 4,               // 每个 lane 的 slot 数
     parameter int ADDRW = ($clog2(2 * LOCAL_MODES) < 1) ? 1 : $clog2(2 * LOCAL_MODES)
 ) (
     input  logic               clk,
     input  logic               rst_n,
 
-    // coefficient configuration
+    // 系数配置
     input  logic               cfg_valid,
     output logic               cfg_ready,
     input  logic [MW-1:0]      cfg_mode,
     input  logic [71:0]        cfg_word,
 
-    // logical state clear
+    // 逻辑状态清除
     input  logic               clear_valid,
     output logic               clear_ready,
     output logic               clear_done,
 
-    // one-sample frame request
+    // 单采样帧请求
     input  logic               sample_valid,
     output logic               sample_ready,
     input  logic [MW-1:0]      n_modes,
     input  logic signed [31:0] x_in,
 
-    // frame result
+    // 帧结果
     output logic               busy,
     output logic               out_valid,
     output logic signed [63:0] y_sum,
     output logic [5:0]         sat_count,
 
-    // illegal request report
+    // 非法请求报告
     output logic               error_valid,
     output logic [1:0]         error_code,
 
-    // per-lane write-back observability
+    // 逐 lane 回写可观测性
     output logic [3:0]         commit_valid,
     output logic [4*MW-1:0]    commit_mode,
     output logic [127:0]       commit_y1,
@@ -65,7 +65,7 @@ module modal_bank #(
     logic [N_MODES-1:0] coeff_loaded;
 
     // ------------------------------------------------------------------
-    // handshake arbitration
+    // 握手仲裁
     // ------------------------------------------------------------------
     wire idle = (state == IDLE);
     assign busy         = ~idle;
@@ -77,7 +77,7 @@ module modal_bank #(
     wire cfg_fire    = cfg_valid    && cfg_ready;
     wire sample_fire = sample_valid && sample_ready;
 
-    // every coefficient required by the frame is loaded?
+    // 帧所需的每个系数都加载了吗？
     logic all_loaded;
     always_comb begin
         all_loaded = 1'b1;
@@ -92,12 +92,12 @@ module modal_bank #(
     wire [MW:0]       cfg_addr_full = {1'b0, (cfg_mode >> 2)} << 1;  // 2*local
     wire [ADDRW-1:0]  cfg_addr = cfg_addr_full[ADDRW-1:0];
 
-    // global mode -> lane = k % 4 (works for MW=1 too)
+    // 全局 mode -> lane = k % 4（MW=1 时也可用）
     logic [1:0] cfg_lane;
     always_comb cfg_lane = cfg_mode % 4;
 
     // ------------------------------------------------------------------
-    // four lanes
+    // 四个 lane
     // ------------------------------------------------------------------
     logic [3:0]                lane_done;
     logic [3:0]                lane_cvalid, lane_csat;
@@ -154,7 +154,7 @@ module modal_bank #(
     wire all_done = &lane_done;
 
     // ------------------------------------------------------------------
-    // top frame controller
+    // 顶层帧控制器
     // ------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (!rst_n) begin

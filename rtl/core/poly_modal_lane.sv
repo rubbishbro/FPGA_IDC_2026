@@ -1,22 +1,22 @@
 // -----------------------------------------------------------------------------
-// poly_modal_lane.sv -- one TDM lane of the 32-voice modal bank (module 2C).
+// poly_modal_lane.sv -- 32 声部模态 bank 的一个 TDM lane（module 2C）。
 //
-// Extends the verified module 2A lane (`modal_lane.sv`) with the voice
-// dimension: one signed 26x32 multiplier, one synchronous single-port 72-bit
-// working cache holding NUM_VOICES*LOCAL_MODES modes, and a per-voice state
-// validity bitmap.  A state word is at
+// 在已验证的 module 2A lane（`modal_lane.sv`）基础上扩展 voice 维度：一个
+// signed 26x32 乘法器、一个同步单端口 72-bit 工作缓存（保存
+// NUM_VOICES*LOCAL_MODES 个 mode），以及逐 voice 的状态有效位图。一个状态 word
+// 位于
 //
-//     mem[2*(voice*LOCAL_MODES + local) + 0] = 72-bit coefficient word
+//     mem[2*(voice*LOCAL_MODES + local) + 0] = 72-bit 系数 word
 //     mem[2*(voice*LOCAL_MODES + local) + 1] = {8'b0, y2, y1}
 //
-// All lanes use the same voice slot; global mode k maps to lane k%4, local k/4.
-// The RAM is never reset; clear only drops the target voice's state_valid slice,
-// leaving the coefficients (and every other voice) untouched.
+// 所有 lane 使用相同的 voice slot；全局 mode k 映射到 lane k%4，local k/4。
+// RAM 从不 reset；clear 只丢弃目标 voice 的 state_valid 切片，保留系数
+// （以及所有其他 voice）不变。
 //
-// Arithmetic contract is identical to module 2A (rtl/module2A_design.md s.3):
-//   G Q2.24 signed 26, a1 Q2.20 signed 22 (<<4), a2 UQ0.24 unsigned 24,
-//   x/y Q2.30 signed 32, product signed 58, accumulator 64,
-//   ynew = clamp((acc + 2^23) >>> 24, -2^31, 2^31-1).
+// 算术契约与 module 2A 相同（rtl/module2A_design.md s.3）：
+//   G Q2.24 signed 26，a1 Q2.20 signed 22（<<4），a2 UQ0.24 unsigned 24，
+//   x/y Q2.30 signed 32，乘积 signed 58，累加器 64，
+//   ynew = clamp((acc + 2^23) >>> 24, -2^31, 2^31-1)。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -36,17 +36,17 @@ module poly_modal_lane #(
     input  logic               clk,
     input  logic               rst_n,
 
-    // one-voice frame
+    // 单 voice 帧
     input  logic               start,
     input  logic [MW-1:0]      n_modes,
     input  logic signed [31:0] x_in,
     input  logic [VW-1:0]      voice,
 
-    // per-voice state clear (idle only)
+    // 逐 voice 状态清除（仅空闲时）
     input  logic               clear,
     input  logic [VW-1:0]      clear_voice,
 
-    // coefficient write
+    // 系数写入
     input  logic               cfg_we,
     input  logic [VW-1:0]      cfg_voice,
     input  logic [IDXW-1:0]    cfg_local,
@@ -68,7 +68,7 @@ module poly_modal_lane #(
     localparam logic signed [63:0] ROUND = 64'sd8388608;   // 2^23
 
     // ------------------------------------------------------------------
-    // per-lane mode count: global mode k maps to lane k%4, local k/4
+    // 逐 lane mode 数量：全局 mode k 映射到 lane k%4，local k/4
     // ------------------------------------------------------------------
     function automatic [MW-1:0] count_for(input [MW-1:0] nm);
         integer v;
@@ -80,19 +80,19 @@ module poly_modal_lane #(
     endfunction
 
     // ------------------------------------------------------------------
-    // working cache (no-change synchronous single-port, never reset)
+    // 工作缓存（no-change 同步单端口，从不 reset）
     //
-    // On a write cycle the read is suppressed and `rdata` holds its previous
-    // value; on a read cycle `rdata` captures mem[addr] at the clock edge.  This
-    // avoids the read-first (WRITE_MODE=2'b10) inference that the Gowin SPX9
-    // BSRAM cannot implement.  The datapath never relies on the RAM output
-    // PRODUCED BY a write cycle: a write edge still consumes the state read in
-    // the previous ph1 (its ctx_y2/y1 come from that earlier read), the newly
-    // written value is not needed in the following ph0, and ph0 then reads the
-    // next coefficient for ph1 to consume.  The ph2 write address (odd state
-    // word) never equals the ph0 coeff / ph1 state read address consumed right
-    // after it.  See sim/test_poly_lane_ram_write_mode.py and the parent's
-    // sim/test_poly_lane_ram_equivalence_review.py for the cycle-by-cycle proof.
+    // 在写周期，读被抑制，`rdata` 保持其前一个
+    // 值；在读周期，`rdata` 在时钟边沿
+    // 捕获 mem[addr]。这避免了 Gowin SPX9 BSRAM 无法实现的 read-first
+    // （WRITE_MODE=2'b10）推断。数据通路绝不依赖由写周期产生的 RAM
+    // 输出：写边沿仍然消费前一个 ph1 读取的状态
+    // （其 ctx_y2/y1 来自更早的那次读），新写入的值在接下来的
+    // ph0 不需要，然后 ph0 读取下一个系数供 ph1 消费。
+    // ph2 的写地址（奇状态 word）绝不等于紧随其后被消费的
+    // ph0 系数 / ph1 状态读地址。逐周期证明见
+    // sim/test_poly_lane_ram_write_mode.py 和父级的
+    // sim/test_poly_lane_ram_equivalence_review.py。
     // ------------------------------------------------------------------
     logic [71:0]           mem [0:2*SLOTS-1];
     logic [71:0]           rdata;
@@ -106,18 +106,18 @@ module poly_modal_lane #(
     end
 
     // ------------------------------------------------------------------
-    // state
+    // 状态
     // ------------------------------------------------------------------
     localparam logic [1:0] S_IDLE = 2'd0, S_RUN = 2'd1, S_DONE = 2'd2;
 
     logic [1:0]          st;
     logic [1:0]          ph;
     logic [7:0]          mi;
-    logic [MW-1:0]       lc;             // latched per-lane count
+    logic [MW-1:0]       lc;             // 锁存的逐 lane 数量
     logic signed [31:0]  x_r;
     logic [VW-1:0]       voice_r;
 
-    logic [SLOTS-1:0]    state_valid;    // per (voice,local) bitmap
+    logic [SLOTS-1:0]    state_valid;    // 逐 (voice,local) 位图
     logic signed [63:0]  acc, ps;
     logic signed [57:0]  prod_r;
     logic [5:0]          sat;
@@ -130,16 +130,31 @@ module poly_modal_lane #(
     logic signed [31:0]  pend_ynew, pend_oldy1;
     logic                pend_sat;
 
-    // Registered voice base = voice_r * LOCAL_MODES.  voice_r is latched once at
-    // `start` and constant for the whole frame, so the base is registered at
-    // start instead of being re-multiplied combinationally every phase (the
-    // constant multiply otherwise mapped to a DSP with OREG=BYPASS feeding the
-    // dynamic operand/state_valid select, a long address chain).  Purely an
-    // addressing optimisation: identical indices, no arithmetic change.
-    logic [SVW-1:0]      vb_r;
-    wire [SVW-1:0]       vb_next = voice * LOCAL_MODES;
+    // 常数乘 v*LOCAL_MODES 的纯组合移位/加法：只用编译期常量位移与加法，
+    // 不写 `*` 运算符，避免被综合器识别成 DSP 常数乘法（原
+    // voice*LOCAL_MODES / cfg_voice*LOCAL_MODES 会在关键地址链上生成 DSP）。
+    // 结果 mod 2^SVW，对所有可编码 voice（含可表达的非法 code）低位一致。
+    localparam int LOC_BITS = (LOCAL_MODES < 2) ? 1 : $clog2(LOCAL_MODES + 1);
+    function automatic [SVW-1:0] voice_base(input [VW-1:0] v);
+        integer k;
+        begin
+            voice_base = {SVW{1'b0}};
+            for (k = 0; k < LOC_BITS; k = k + 1)
+                if ((LOCAL_MODES >> k) & 1)
+                    voice_base = voice_base + (SVW'(v) << k);
+        end
+    endfunction
 
-    // clamped local indices (never an out-of-range select)
+    // 寄存的 voice base = voice_r * LOCAL_MODES。voice_r 在 `start` 时锁存
+    // 一次，整个帧期间保持不变，因此 base 在 start 时寄存，而不是
+    // 每个 phase 组合地重新相乘（否则该常数乘法会映射到
+    // OREG=BYPASS 的 DSP，馈入动态 operand/state_valid 选择，
+    // 形成长地址链）。纯粹是寻址优化：索引相同，
+    // 算术不变。
+    logic [SVW-1:0]      vb_r;
+    wire [SVW-1:0]       vb_next = voice_base(voice);
+
+    // 钳位的 local 索引（绝不越界选择）
     wire [IDXW-1:0] mi_cl = (mi < LOCAL_MODES) ? mi[IDXW-1:0] : {IDXW{1'b0}};
     wire [IDXW-1:0] pd_cl = (pend_local < LOCAL_MODES) ? pend_local[IDXW-1:0]
                                                        : {IDXW{1'b0}};
@@ -147,24 +162,24 @@ module poly_modal_lane #(
     wire [SVW-1:0]  sv_pend = vb_r + pd_cl;
 
     // ------------------------------------------------------------------
-    // Split the "mode-index -> valid lookup -> DSP operand" chain across the
-    // phase pipeline (the lane already reads the state word in ph1 and consumes
-    // it in ph2):
-    //   ph0 : prefetch-register the run index sv_run_r = vb_r + mi_cl;
-    //   ph1 : capture ctx_valid <= (S_RUN & mi<lc & state_valid[sv_run_r]) -- the
-    //         lookup now uses the REGISTERED index, off the mi->lookup critical
-    //         path, and the ph1 state read is the data ph2 consumes;
-    //   ph2 : gate rdata's y1/y2 with the REGISTERED ctx_valid.
-    // `mi` is constant across ph0..ph2 of a mode, and `clear` is accepted only
-    // while idle (never during a run), so the registered valid bit stays aligned
-    // with the mode; the pending write/commit path is unchanged.
+    // 将 "mode-index -> valid lookup -> DSP operand" 链拆分到
+    // phase 流水线上（lane 已在 ph1 读取状态 word
+    // 并在 ph2 消费它）：
+    //   ph0 : 预取寄存 run 索引 sv_run_r = vb_r + mi_cl；
+    //   ph1 : 捕获 ctx_valid <= (S_RUN & mi<lc & state_valid[sv_run_r]) ——
+    //         查找现在使用 REGISTERED 索引，脱离 mi->lookup 关键路径，
+    //         且 ph1 状态读就是 ph2 消费的数据；
+    //   ph2 : 用 REGISTERED ctx_valid 对 rdata 的 y1/y2 做门控。
+    // `mi` 在一个 mode 的 ph0..ph2 期间保持不变，且 `clear` 仅在
+    // 空闲时被接受（绝不在 run 期间），因此寄存的有效位与 mode 保持对齐；
+    // pending write/commit 路径不变。
     // ------------------------------------------------------------------
     logic [SVW-1:0] sv_run_r;
     logic           ctx_valid;
     wire            valid_now = (st == S_RUN) && (mi < lc) && state_valid[sv_run_r];
 
     // ------------------------------------------------------------------
-    // multiplier operand select (one logical multiplier)
+    // 乘法器操作数选择（一个逻辑乘法器）
     // ------------------------------------------------------------------
     wire signed [31:0] y1_use = (ctx_valid) ? $signed(rdata[31:0]) : 32'sd0;
     wire signed [31:0] y2_use = (ctx_valid) ? $signed(rdata[63:32]) : 32'sd0;
@@ -176,37 +191,37 @@ module poly_modal_lane #(
         osel = 32'sd0;
         if (st == S_RUN) begin
             case (ph)
-                2'd1: if (mi < lc) begin        // G * x  (rdata = coefficient)
+                2'd1: if (mi < lc) begin        // G * x  （rdata = 系数）
                     csel = $signed(rdata[71:46]);
                     osel = x_r;
                 end
-                2'd2: if (mi < lc) begin        // a1 * y1 (rdata = state)
+                2'd2: if (mi < lc) begin        // a1 * y1（rdata = 状态）
                     csel = ctx_a1;
                     osel = $signed(y1_use);
                 end
                 default: if ((mi >= 8'd1) && (mi <= lc)) begin
-                    csel = ctx_a2;              // a2 * y2 (context of mi-1)
+                    csel = ctx_a2;              // a2 * y2（mi-1 的上下文）
                     osel = ctx_y2;
                 end
             endcase
         end
     end
 
-    // SKIP_ZERO_INPUT: explicitly bypass the G*x product register when the frame
-    // input is zero.  The single multiply point stays in place; only this slot's
-    // result is forced to zero.
+    // SKIP_ZERO_INPUT：当帧输入为零时显式旁路 G*x 乘积寄存器。
+    // 唯一的乘法点保持不变；只有该 slot 的结果
+    // 被强制为零。
     wire skip_g_slot = (SKIP_ZERO_INPUT != 0) && (st == S_RUN) &&
                        (ph == 2'd1) && (mi < lc) && (x_r == 32'sd0);
 
     always_ff @(posedge clk) begin
         if (!rst_n)               prod_r <= 58'sd0;
         else if (skip_g_slot)     prod_r <= 58'sd0;
-        else                      prod_r <= csel * osel;  // signed 58-bit product
+        else                      prod_r <= csel * osel;  // signed 58-bit 乘积
     end
 
     wire signed [63:0] prod64 = {{6{prod_r[57]}}, prod_r};
 
-    // finalise arithmetic for the mode whose products just completed
+    // 为乘积刚完成的 mode 执行 finalise 算术
     wire signed [63:0] shifted = (acc + ROUND) >>> 24;
     wire               sat_now = (shifted > YMAX) || (shifted < YMIN);
     logic signed [31:0] ynew;
@@ -217,13 +232,13 @@ module poly_modal_lane #(
     end
 
     // ------------------------------------------------------------------
-    // phase/mode control
+    // phase/mode 控制
     // ------------------------------------------------------------------
     wire finalize_en = (st == S_RUN) && (ph == 2'd2) && (mi >= 8'd1) && (mi <= lc);
     wire write_en    = (st == S_RUN) && (ph == 2'd2) && pend_valid;
     wire last_cycle  = (st == S_RUN) && (ph == 2'd2) && (mi == (lc + 8'd1));
 
-    // run-port access
+    // run 端口访问
     logic              run_we;
     logic [ADDRW-1:0]  run_addr;
     logic [71:0]       run_wdata;
@@ -246,7 +261,13 @@ module poly_modal_lane #(
     end
     assign run_addr = run_addr_w[ADDRW-1:0];
 
-    wire [31:0] cfg_addr_w = 2 * ((cfg_voice * LOCAL_MODES) + cfg_local);
+    // cfg 地址同样是常数乘：复用 voice_base 的移位/加法，不用 `*`。
+    // cfg_slot = cfg_voice*LOCAL_MODES + cfg_local（mod 2^SVW）；
+    // cfg_addr_w 是 2*cfg_slot 的 32bit 零扩展（低 ADDRW 位等价于旧表达式，
+    // 供旧观测与地址 mux 使用）。纯组合，不注册、不延迟 cfg 写。
+    wire [SVW-1:0]   cfg_base    = voice_base(cfg_voice);
+    wire [SVW-1:0]   cfg_slot    = cfg_base + SVW'(cfg_local);
+    wire [31:0]      cfg_addr_w  = 32'(cfg_slot) << 1;
 
     always_comb begin
         addr  = cfg_we ? cfg_addr_w[ADDRW-1:0] : run_addr;
@@ -260,7 +281,7 @@ module poly_modal_lane #(
     assign commit_voice= voice_r;
 
     // ------------------------------------------------------------------
-    // main sequential process
+    // 主时序过程
     // ------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (!rst_n) begin
@@ -294,11 +315,11 @@ module poly_modal_lane #(
         end else begin
             commit_valid <= 1'b0;
 
-            // Static per-voice clear decoder: the compiler elaborates one
-            // constant slice `v*LOCAL_MODES` per voice, so no voice*LOCAL_MODES
-            // multiply/DSP is generated and an out-of-range clear_voice naturally
-            // matches no slice.  Priority vs the pending write is unchanged
-            // (clear is accepted only while idle, never during a run).
+            // 静态逐 voice clear 译码器：综合器为每个 voice 展开一个常数
+            // 切片 `v*LOCAL_MODES`，因此不会生成 voice*LOCAL_MODES
+            // 乘法/DSP，越界的 clear_voice 自然不会匹配任何切片。
+            // 与 pending 写的优先级不变（clear 仅在空闲时被接受，
+            // 绝不在 run 期间）。
             for (int v = 0; v < NUM_VOICES; v = v + 1)
                 if (clear && (clear_voice == v[VW-1:0]))
                     state_valid[v*LOCAL_MODES +: LOCAL_MODES] <= '0;
@@ -322,9 +343,9 @@ module poly_modal_lane #(
                 end
 
                 S_RUN: begin
-                    // ph0: prefetch the run index for the ph1 valid lookup
+                    // ph0：为 ph1 valid 查找预取 run 索引
                     if (ph == 2'd0) sv_run_r <= sv_run;
-                    // ph1: capture the (registered-index) state-valid for ph2
+                    // ph1：为 ph2 捕获（寄存索引的）state-valid
                     if (ph == 2'd1) ctx_valid <= valid_now;
 
                     if ((ph == 2'd1) && (mi < lc)) begin
@@ -341,8 +362,8 @@ module poly_modal_lane #(
                     else                 acc <= acc - prod64;       // a2*y2
 
                     if (finalize_en) begin
-                        // finalize only fills the pending token (rounded/clamped
-                        // ynew is a registered boundary here)
+                        // finalize 只填充 pending token（舍入/clamp 后的
+                        // ynew 在这里是寄存边界）
                         pend_valid  <= 1'b1;
                         pend_local  <= mi - 8'd1;
                         pend_ynew   <= ynew;
@@ -351,11 +372,11 @@ module poly_modal_lane #(
                     end
 
                     if (write_en) begin
-                        // accumulate the partial sum / saturation from the
-                        // REGISTERED pending token (not from the live acc->ynew
-                        // clamp), so the 64-bit ps adder is off that chain; the
-                        // set of accumulated values and the done-time partial_sum
-                        // are bit-identical.
+                        // 从已寄存（REGISTERED）的 pending token 累加部分和（partial sum）/
+                        // saturation（不是来自实时的 acc->ynew
+                        // clamp），因此 64-bit ps 加法器
+                        // 脱离该链；累加值的集合和 done 时的 partial_sum
+                        // 逐位相同。
                         ps                   <= ps + {{32{pend_ynew[31]}}, pend_ynew};
                         if (pend_sat) sat    <= sat + 6'd1;
                         state_valid[sv_pend] <= 1'b1;

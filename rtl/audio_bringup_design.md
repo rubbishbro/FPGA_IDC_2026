@@ -54,7 +54,7 @@ ADI官方资料确认MAX98357A不需MCLK；SD是关断/声道选择，GAIN设功
 
 核心100MHz；音频参考**精确12.288MHz**，独立PLL/外部参考wrapper后续核定；不能用100MHz整数分频近似48kHz。音频参考/256=48k帧率。
 
-新文件由音频实现任务独占：`rtl/audio/audio_async_fifo.sv`、`i2s_amp_tx.sv`、`pt8211_tx.sv`、`i2s_mic_rx.sv`、`audio_transport.sv`、`song_player.sv`、`audio_demo_core.sv`；`sim/test_audio_transport.py`、`sim/test_song_player.py`、`sim/test_audio_demo.py`。不修改2A/2BC/冻结清单。板级封装独占platform目录，PLL由真实工具生成，不能以test-only模型替代。
+新文件由音频实现任务独占：`rtl/audio/audio_async_fifo.sv`、`i2s_amp_tx.sv`、`pt8211_tx.sv`、`i2s_mic_rx.sv`、`audio_transport.sv`、`song_player.sv`、`audio_demo_core.sv`。传输与歌曲调度测试现位于`sim/unit/audio/`，早期demo隔离测试归档到`sim/archive/bringup_mock/`；运行入口见`sim/README.md`。不修改2A/2BC/冻结清单。板级封装独占platform目录，PLL由真实工具生成，不能以test-only模型替代。
 
 - async_fifo：标准双时钟Gray指针+2FF同步，power-of-two深度>=4；读写valid/ready握手，满不覆盖、空不读取。统一全链路reset，两个域分别同步释放；不声称任意单域reset能保持数据。
 - 标准I2S TX（默认）：BCLK3.072MHz、64BCLK/frame、WS低left高right，WS变更后一BCLK才采样payload MSB；16bit有符号mono复制到两slot，剩余位为0。欠载整帧零，脉冲/sticky报告；clear与新欠载同拍由欠载置位优先，clear与有效帧同拍必须清零。

@@ -1,27 +1,27 @@
 // -----------------------------------------------------------------------------
-// song_player.sv -- automatic public-domain melody front-end for modal_engine.
+// song_player.sv -- 用于 modal_engine 的自动公有领域旋律前端。
 //
-// Drives the engine's load and sample ports and sequences them so that one
-// sample frame is produced per 48 kHz tick.  Offline event->voice assignment:
-// event k is loaded into voice k % NUM_VOICES (a fixed cyclic allocator, *not*
-// the stage-4 automatic allocator).  A slot's tail is kept because loaded voices
-// stay in active_mask; slots are only reassigned when the allocator reaches them
-// again.
+// 驱动引擎的 load 和 sample 端口并对其进行定序，使得每个
+// 48 kHz tick 产生一个样本帧。离线事件->声部分配：
+// 事件 k 被加载到声部 k % NUM_VOICES（一个固定的循环分配器，*不是*
+// 第 4 阶段的自动分配器）。槽位的尾部被保留，因为已加载的声部
+// 仍留在 active_mask 中；只有当分配器再次轮到它们时
+// 槽位才会被重新分配。
 //
-// Timeline:
-//   * one sample is emitted per sample_tick (a core-domain pulse derived from the
-//     audio frame toggle).  A tick that arrives while the previous sample is
-//     still being processed is not lost: it is counted and deadline_error is
-//     set, never silently skipped.
-//   * note gap default NOTE_GAP=12000 samples (250 ms at 48 kHz); the melody
-//     loops after a trailing gap.
-//   * each event first loads its target slot through the engine load handshake;
-//     the 7-sample raised-cosine excitation starts at the next accepted sample.
-//     The pulse position only advances when the sample request is truly accepted
-//     (sample_ready), never on a valid that was not taken.
+// 时间线：
+//   * 每个 sample_tick 发出一个样本（一个由音频帧翻转
+//     导出的 core 域脉冲）。在前一个样本仍在处理时到来的 tick
+//     不会丢失：它会被计数并置位 deadline_error，
+//     从不静默跳过。
+//   * 音符间隔默认 NOTE_GAP=12000 个样本（48 kHz 下 250 ms）；旋律
+//     在尾部间隔之后循环。
+//   * 每个事件首先通过引擎 load 握手加载其目标槽位；
+//     7 样本升余弦激励在下一个被接受的样本处开始。
+//     脉冲位置只有在样本请求真正被接受
+//     （sample_ready）时才推进，绝不在未被接收的 valid 上推进。
 //
-// The 7 pulse values are the integer model's raised-cosine pulse, amplitude 0.2,
-// quantised with the same round-half-up rule as python/modal_sim/fixed_point.py.
+// 这 7 个脉冲值是整数模型的升余弦脉冲，幅度 0.2，
+// 使用与 python/modal_sim/fixed_point.py 相同的四舍五入规则量化。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -37,7 +37,7 @@ module song_player #(
     input  logic                  rst_n,
     input  logic                  diag_clear,
 
-    // engine load port
+    // engine load 端口
     output logic                  load_valid,
     input  logic                  load_ready,
     output logic [VW-1:0]         load_voice,
@@ -48,7 +48,7 @@ module song_player #(
     input  logic [VW-1:0]         done_voice,
     input  logic [MW-1:0]         loaded_n_modes,
 
-    // engine sample port
+    // engine sample 端口
     output logic                  sample_valid,
     input  logic                  sample_ready,
     output logic [NUM_VOICES-1:0] active_mask,
@@ -56,14 +56,14 @@ module song_player #(
     input  logic                  engine_out_valid,
     input  logic signed [63:0]    engine_mix_sum,
 
-    // pacing (one core-domain pulse per 48 kHz audio frame)
+    // 节拍（每个 48 kHz 音频帧一个 core 域脉冲）
     input  logic                  sample_tick,
 
-    // produced sample for the output adapter
+    // 为输出适配器产生的样本
     output logic                  out_valid,
     output logic signed [63:0]    out_sum,
 
-    // diagnostics / observability
+    // 诊断 / 可观测性
     output logic                  deadline_error,
     output logic                  busy,
     output logic [5:0]            event_index
@@ -74,7 +74,7 @@ module song_player #(
     localparam int NUM_EVENTS = 42;
 
     // ------------------------------------------------------------------
-    // public-domain Twinkle-Twinkle melody, guitar (inst=0) forte (dyn=1)
+    // 公有领域 Twinkle-Twinkle 旋律，guitar（inst=0）forte（dyn=1）
     // ------------------------------------------------------------------
     function automatic [EW-1:0] event_at(input [5:0] idx);
         case (idx)
@@ -124,7 +124,7 @@ module song_player #(
         endcase
     endfunction
 
-    // 7-sample raised-cosine pulse, amp 0.2, Q2.30 round-half-up
+    // 7 样本升余弦脉冲，幅度 0.2，Q2.30 四舍五入
     function automatic logic signed [31:0] pulse_val(input [2:0] i);
         case (i)
             3'd0: pulse_val = 32'sd0;
@@ -139,7 +139,7 @@ module song_player #(
     endfunction
 
     // ------------------------------------------------------------------
-    // state
+    // 状态
     // ------------------------------------------------------------------
     localparam logic [2:0] S_IDLE = 3'd0, S_LOAD = 3'd1, S_LOADW = 3'd2,
                            S_SAMPLE = 3'd3, S_SAMPLEW = 3'd4, S_DONE = 3'd5;
@@ -188,12 +188,12 @@ module song_player #(
     end
 
     // ------------------------------------------------------------------
-    // main FSM
+    // 主 FSM
     // ------------------------------------------------------------------
-    // A tick is never lost: it is merged into the pending counter even when it
-    // lands in the same cycle a pending sample starts.  A tick that arrives
-    // while a sample is still being processed (or already pending) raises the
-    // sticky deadline flag.
+    // tick 从不丢失：即使它与一个待处理样本启动落在同一周期，
+    // 也会被合并进 pending 计数器。在一个样本仍在处理（或
+    // 已经待处理）时到来的 tick 会置位
+    // 粘滞 deadline 标志。
     wire        busy_now  = (state != S_IDLE);
     wire        miss_now  = sample_tick & (busy_now | (pending != 8'd0));
     wire [7:0]  pend_inc  = (pending == 8'hFF) ? pending : (pending + 8'd1);
@@ -216,7 +216,7 @@ module song_player #(
             valid_r    <= 1'b0;
             deadline_r <= 1'b0;
             for (int v = 0; v < NUM_VOICES; v = v + 1)
-                pulse_pos[v] <= 3'd7;               // no active pulse
+                pulse_pos[v] <= 3'd7;               // 无活动脉冲
         end else begin
             valid_r <= 1'b0;
             if (diag_clear) deadline_r <= 1'b0;
@@ -246,7 +246,7 @@ module song_player #(
                 S_LOADW: begin
                     if (load_done) begin
                         loaded_mask[done_voice] <= 1'b1;
-                        pulse_pos[done_voice]   <= 3'd0;   // arm pulse
+                        pulse_pos[done_voice]   <= 3'd0;   // 武装脉冲
                         ev_idx <= (ev_idx == (NUM_EVENTS-1)) ? 6'd0
                                                              : (ev_idx + 6'd1);
                         state  <= S_SAMPLE;
@@ -255,7 +255,7 @@ module song_player #(
 
                 S_SAMPLE: begin
                     if (sample_ready) begin
-                        // accepted: advance the pulse positions and the timeline
+                        // 已接受：推进脉冲位置和时间线
                         for (int v = 0; v < NUM_VOICES; v = v + 1)
                             if (pulse_pos[v] < PULSE_LEN)
                                 pulse_pos[v] <= pulse_pos[v] + 3'd1;

@@ -1,48 +1,53 @@
 // -----------------------------------------------------------------------------
-// audio_transport.sv -- core <-> audio serial transport.
+// audio_transport.sv -- core <-> 音频串行传输。
 //
-// Two clock domains, one shared asynchronous-assert reset whose release is
-// synchronised separately in each domain.  The only crossings are:
-//   * the two audio_async_fifo pointers (Gray, 2 FF)
-//   * the 48 kHz frame-toggle and the sticky diagnostic levels (2 FF levels)
-// No data bus is ever directly synchronised.
+// 两个时钟域，一个共享的异步置位复位，其释放在
+// 每个域中分别同步。唯一的跨域信号是：
+//   * 两个 audio_async_fifo 指针（Gray 码，2 级 FF）
+//   * 48 kHz 帧翻转和粘滞诊断电平（2 级 FF 电平）
+// 数据总线从不直接同步。
 //
 //   core --(core_tx_* --> TX FIFO --> pt8211_tx)--> DAC_BCK/WS/DIN
 //   MIC_BCK/WS/SD --> i2s_mic_rx --> RX FIFO -->(core_rx_*)--> core
 //
-// TX FIFO default 16 stereo pairs, RX FIFO default 16 samples.
-// An empty TX FIFO produces a zero frame and a sticky underflow; a full RX FIFO
-// drops the new microphone sample and raises a sticky overflow (old samples are
-// never overwritten).
+// TX FIFO 默认 16 个立体声对，RX FIFO 默认 16 个样本。
+// 空的 TX FIFO 产生零帧和粘滞下溢；满的 RX FIFO
+// 丢弃新的麦克风样本并置位粘滞溢出（旧样本
+// 从不被覆盖）。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
+// 音频数据的搬运和节拍传递
+// 把clk_core内部sample搬运进clk_audio并且发送
+// 把音频域的48khz的帧节拍，诊断状态跨域告诉给核心主控域
+
+// 音频传输模块
 module audio_transport #(
     parameter int TX_DEPTH = 16,
     parameter int RX_DEPTH = 16,
     parameter int CH_SEL   = 0,
-    // static output format: 1 = standard I2S (MAX98357A, default),
-    //                       0 = PT8211 Japanese/LSBJ (explicit opt-in only)
+    // 静态输出格式：1 = 标准 I2S（MAX98357A，默认），
+    //                0 = PT8211 Japanese/LSBJ（仅在显式选择时使用）
     parameter int OUT_FORMAT = 1
 ) (
     input  logic        clk_core,
     input  logic        clk_audio,
-    input  logic        rst_n,          // shared async assert
+    input  logic        rst_n,          // 共享异步置位
 
-    input  logic        mic_en,         // static; 0 in SONG mode
-    input  logic        diag_clear,     // core-domain diagnostic clear
+    input  logic        mic_en,         // 静态；SONG 模式下为 0
+    input  logic        diag_clear,     // core 域诊断清零
 
-    // core-domain DAC producer
+    // core 域 DAC 生产者
     input  logic        core_tx_valid,
     output logic        core_tx_ready,
     input  logic [31:0] core_tx_data,
 
-    // core-domain microphone consumer
+    // core 域麦克风消费者
     output logic        core_rx_valid,
     input  logic        core_rx_ready,
     output logic [23:0] core_rx_data,
 
-    // audio serial
+    // 音频串行
     input  logic        mic_sd,
     output logic        dac_bck,
     output logic        dac_ws,
@@ -50,15 +55,15 @@ module audio_transport #(
     output logic        mic_bck,
     output logic        mic_ws,
 
-    // core-domain timing and sticky diagnostics
-    output logic        core_sample_tick,    // 48 kHz toggle, 2 FF synchronised
-    output logic        core_sample_pulse,   // one core clk per frame
+    // core 域时序与粘滞诊断
+    output logic        core_sample_tick,    // 48 kHz 翻转，2 级 FF 同步
+    output logic        core_sample_pulse,   // 每帧一个 core clk
     output logic        underflow_sticky,
     output logic        overflow_sticky
 );
 
     // ------------------------------------------------------------------
-    // per-domain synchronised reset release
+    // 按域同步的复位释放
     // ------------------------------------------------------------------
     logic [1:0] arst_sync, crst_sync;
     always_ff @(posedge clk_audio or negedge rst_n)
@@ -73,12 +78,12 @@ module audio_transport #(
     wire crst_n = crst_sync[1];
 
     // ------------------------------------------------------------------
-    // diag_clear is a core-domain *event* (one or a few core cycles, never a
-    // held level).  A single core-cycle pulse would be missed by a level 2-FF
-    // synchroniser in the (slower) audio domain, so it is converted to a
-    // toggle, synchronised, and re-detected as a one-clk audio event.  One
-    // event is always delivered regardless of source pulse width; two events
-    // closer than the synchroniser latency (~2 audio clks) would merge.
+    // diag_clear 是 core 域的一个 *事件*（一个或几个 core 周期，从不是
+    // 持续电平）。单个 core 周期脉冲会被（较慢的）音频域中的
+    // 电平 2 级 FF 同步器漏掉，因此把它转换为
+    // 翻转信号，经同步后重新检测为一个 clk 的音频事件。无论
+    // 源脉冲宽度如何，一个事件总会被送达；两个事件
+    // 若间隔小于同步器延迟（约 2 个音频 clk）则会合并。
     // ------------------------------------------------------------------
     logic dc_prev, dc_tgl;
     always_ff @(posedge clk_core or negedge crst_n)
@@ -100,9 +105,9 @@ module audio_transport #(
     wire a_diag_clear = dt_s2 ^ dt_p;
 
     // ------------------------------------------------------------------
-    // TX path: core -> TX FIFO -> selected serial transmitter
-    //   OUT_FORMAT=1 : standard I2S (MAX98357A), the default
-    //   OUT_FORMAT=0 : PT8211 Japanese/LSBJ, explicit opt-in
+    // TX 通路：core -> TX FIFO -> 选定的串行发送器
+    //   OUT_FORMAT=1 : 标准 I2S（MAX98357A），默认
+    //   OUT_FORMAT=0 : PT8211 Japanese/LSBJ，显式选择
     // ------------------------------------------------------------------
     logic        tx_rvalid, tx_rready;
     logic [31:0] tx_rdata;
@@ -157,7 +162,7 @@ module audio_transport #(
     endgenerate
 
     // ------------------------------------------------------------------
-    // RX path: i2s_mic_rx -> RX FIFO -> core
+    // RX 通路：i2s_mic_rx -> RX FIFO -> core
     // ------------------------------------------------------------------
     logic        mic_valid;
     logic [23:0] mic_data;
@@ -190,7 +195,7 @@ module audio_transport #(
     );
 
     // ------------------------------------------------------------------
-    // sticky overflow (audio domain), cleared by the synchronised diag_clear
+    // 粘滞溢出（音频域），由同步后的 diag_clear 清零
     // ------------------------------------------------------------------
     logic rx_overflow;
     always_ff @(posedge clk_audio or negedge arst_n)
@@ -199,7 +204,7 @@ module audio_transport #(
         else if (a_diag_clear)           rx_overflow <= 1'b0;
 
     // ------------------------------------------------------------------
-    // 48 kHz frame toggle (audio domain) -> core
+    // 48 kHz 帧翻转（音频域）-> core
     // ------------------------------------------------------------------
     logic tick_tgl;
     always_ff @(posedge clk_audio or negedge arst_n)
@@ -222,10 +227,10 @@ module audio_transport #(
     assign core_sample_pulse = tgl_s2 ^ tgl_prev;
 
     // ------------------------------------------------------------------
-    // sticky diagnostics synchronised to core (level, not bare pulse).
-    // Exposing the synchronised audio-domain sticky level directly (rather than
-    // latching it in core) means an event-delivered diag_clear really clears the
-    // core-visible flag: when the audio sticky drops, so does this output.
+    // 同步到 core 的粘滞诊断（电平，而非裸脉冲）。
+    // 直接暴露同步后的音频域粘滞电平（而不是在 core 中
+    // 锁存它）意味着事件送达的 diag_clear 能真正清除
+    // core 可见的标志：当音频粘滞下降时，本输出也随之下降。
     // ------------------------------------------------------------------
     logic uf_s1, uf_s2, of_s1, of_s2;
     always_ff @(posedge clk_core or negedge crst_n)

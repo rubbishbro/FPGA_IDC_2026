@@ -1,51 +1,51 @@
 // -----------------------------------------------------------------------------
-// i2s_mic_rx.sv -- conditional standard-I2S digital-mic receiver (master).
+// i2s_mic_rx.sv -- 条件性的标准 I2S 数字麦克风接收器（主机）。
 //
-// STATUS: conditional / unverified against the user's hardware.  The user only
-// described a "7-pin microphone and 2-pin speaker"; the actual module is not
-// identified.  This block implements a *standard* I2S digital microphone input
-// (e.g. INMP441-class) and makes no claim that the physical device matches it.
+// 状态：条件性 / 未针对用户硬件验证。用户只
+// 描述了一个“7 针麦克风和 2 针扬声器”；实际模块未被
+// 识别。本模块实现一个 *标准* I2S 数字麦克风输入
+//（例如 INMP441 类），并不声称物理器件与之匹配。
 //
-// The FPGA is the serial master: it drives MIC_BCK = audio_clk/4 = 3.072 MHz and
-// MIC_WS = 48 kHz (64 BCK per frame, 32-bit slots).  SD is sampled on the BCK
-// rising edge.  Standard I2S one-bit delay: the channel MSB is sampled one BCK
-// after the WS edge.  A 24-bit signed payload is shifted in MSB first; the
-// padding bits after bit 24 are ignored.  CH_SEL picks WS-low (0, left) or
-// WS-high (1, right).
+// FPGA 是串行主机：它驱动 MIC_BCK = audio_clk/4 = 3.072 MHz 和
+// MIC_WS = 48 kHz（每帧 64 个 BCK，32 位时隙）。SD 在 BCK
+// 上升沿采样。标准 I2S 一位延迟：声道 MSB 在 WS 边沿
+// 之后一个 BCK 被采样。24 位有符号载荷以 MSB 在前的方式移入；
+// 第 24 位之后的填充位被忽略。CH_SEL 选择 WS 低（0，左）或
+// WS 高（1，右）。
 //
-// This is not PDM, not TDM, and not an analogue ADC; it never connects to an
-// amplifier output.
+// 这不是 PDM，不是 TDM，也不是模拟 ADC；它从不连接到
+// 放大器输出。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
 module i2s_mic_rx #(
-    parameter int CH_SEL = 0          // 0 = WS-low (left), 1 = WS-high (right)
+    parameter int CH_SEL = 0          // 0 = WS 低（左），1 = WS 高（右）
 ) (
-    input  logic        clk,          // audio_clk (exact 12.288 MHz)
-    input  logic        rst_n,        // reset synchronised to clk
-    input  logic        sd,           // serial data from the microphone
+    input  logic        clk,          // audio_clk（精确 12.288 MHz）
+    input  logic        rst_n,        // 与 clk 同步的复位
+    input  logic        sd,           // 来自麦克风的串行数据
 
     output logic        mic_bck,      // 3.072 MHz
-    output logic        mic_ws,       // 48 kHz, low = left, high = right
-    output logic [23:0] mic_data,     // 24-bit signed, MSB first
-    output logic        mic_valid     // one clk when mic_data is fresh
+    output logic        mic_ws,       // 48 kHz，低 = 左，高 = 右
+    output logic [23:0] mic_data,     // 24 位有符号，MSB 在前
+    output logic        mic_valid     // mic_data 更新时一个 clk
 );
 
-    // t counts audio_clk cycles in one BCK period (4 clk -> BCK = clk/4)
+    // t 计数一个 BCK 周期内的 audio_clk 周期数（4 clk -> BCK = clk/4）
     logic [1:0] t;
-    // bcnt counts BCK periods in one 64-BCK I2S frame
+    // bcnt 计数一个 64-BCK I2S 帧内的 BCK 周期数
     logic [5:0] bcnt;
 
     logic [23:0] sr;
     logic [23:0] data_r;
     logic        valid_r;
 
-    // payload window: MSB at base+1, LSB at base+24
+    // 载荷窗口：MSB 在 base+1，LSB 在 base+24
     localparam logic [5:0] BASE = (CH_SEL == 0) ? 6'd0 : 6'd32;
     localparam logic [5:0] LAST = BASE + 6'd24;
 
-    wire rise = (t == 2'd1);     // clk edge that makes BCK rise
-    wire fall = (t == 2'd3);     // clk edge that makes BCK fall
+    wire rise = (t == 2'd1);     // 使 BCK 上升的 clk 边沿
+    wire fall = (t == 2'd3);     // 使 BCK 下降的 clk 边沿
 
     assign mic_bck = t[1];
     assign mic_ws  = bcnt[5];

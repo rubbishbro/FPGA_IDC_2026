@@ -14,6 +14,12 @@ Three instrument classes:
 | **B** sustained | periodic impulse train | flute, trumpet, cello (violin/oboe extracted too) |
 | **C** percussion | pulse + shaped noise | kick, snare, tom, hat, ride, crash |
 
+## 工程汇报
+
+**当前进度、合成资源、验证结果和实板待办，只读[工程汇报](docs/工程汇报.md)。**各轮重复汇报已移入历史归档，不再作为并列阅读入口。
+
+以下章节是项目结构与Python工具用法，不另行维护板级验收状态。
+
 ## Pipeline
 
 ```
@@ -63,8 +69,8 @@ reference_agent_readfirst/  board + competition docs (start at fpga_platform.md)
 rtl/                        SystemVerilog implementation — see rtl/README.md for the
                             working agreement and the staged roadmap, and
                             rtl/DECISIONS.md for the frozen design decisions
-sim/                        cocotb + Icarus Verilog verification — see sim/README.md
-                            for the environment, the iverilog SV subset, and pitfalls
+sim/                        tests grouped by purpose; sim/run.py is the entry point
+                            — see sim/README.md, or run python sim/run.py --list
 top.sv                      FPGA scratch (matrix keyboard scanner), not the engine
 ```
 

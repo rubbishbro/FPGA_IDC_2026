@@ -1,0 +1,764 @@
+{
+  "schema": 1,
+  "entry": "sim/run.py",
+  "note": "机器可读的 sim 脚本目录。原 flat sim/*.py 已 1:1 归类迁移；origin=moved 为原脚本，origin=new 为本轮新增基础设施。",
+  "root_marker": [
+    "rtl",
+    "sim"
+  ],
+  "categories": [
+    {
+      "id": "core",
+      "dir": "unit/core",
+      "description": "定点算法核心单元（resonator/bank/loader/poly bank/engine）"
+    },
+    {
+      "id": "audio",
+      "dir": "unit/audio",
+      "description": "音频 bring-up 单元与 song_player"
+    },
+    {
+      "id": "body",
+      "dir": "unit/body",
+      "description": "音色 body 滤波单元与纯模型"
+    },
+    {
+      "id": "integration",
+      "dir": "integration",
+      "description": "真实 engine 的整链/板级集成"
+    },
+    {
+      "id": "netlist",
+      "dir": "netlist",
+      "description": "真实 Gowin 综合网表级检查"
+    },
+    {
+      "id": "regression",
+      "dir": "regression",
+      "description": "元数据/地址/RAM 等价与修复回归"
+    },
+    {
+      "id": "checks",
+      "dir": "checks",
+      "description": "预检门禁、报告门禁与合成夹具检查"
+    },
+    {
+      "id": "diagnostics",
+      "dir": "diagnostics",
+      "description": "隔离诊断音调引脚级复核"
+    },
+    {
+      "id": "tools",
+      "dir": "tools",
+      "description": "build/plot/review 工具（非测试）"
+    },
+    {
+      "id": "support",
+      "dir": "support",
+      "description": "共享运行/快照/路径辅助（不可直接运行）"
+    },
+    {
+      "id": "archive",
+      "dir": "archive/bringup_mock",
+      "description": "早期 mock 链路归档（仍有独特隔离覆盖，非被生产完全替代）"
+    }
+  ],
+  "entries": [
+    {
+      "id": "core/resonator",
+      "path": "sim/unit/core/test_resonator.py",
+      "purpose": "resonator 定点递推逐比特对拍：随机/边界系数、低频长尾、静音、运行中重载、负饱和、半 LSB 舍入",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "core/bank",
+      "path": "sim/unit/core/test_modal_bank.py",
+      "purpose": "modal_bank 四 lane 单声部 TDM 定点回归：合成/边界向量与真实 72bit 系数两种参考",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "core/bank_independent",
+      "path": "sim/unit/core/test_modal_bank_independent_review.py",
+      "purpose": "独立复核 modal_bank：不复用实现方 cocotb 辅助，直接对拍整数递推",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": [
+        "core/bank_independent_review"
+      ]
+    },
+    {
+      "id": "core/coeff_loader",
+      "path": "sim/unit/core/test_coeff_loader.py",
+      "purpose": "coeff_loader 回归：250 键/1024 索引组合/背压/复位/错误码与离线生成器可复现性",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point",
+        "gen_hw_rom"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "core/poly_bank",
+      "path": "sim/unit/core/test_modal_poly_bank.py",
+      "purpose": "modal_poly_bank 直接驱动 cfg/clear/sample：逐 commit/逐声部/混音和及饱和计数回归",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "core/poly_bank_independent",
+      "path": "sim/unit/core/test_modal_poly_bank_review.py",
+      "purpose": "独立原始 bank 复核：饱和位宽、模式数变化、原子错误；复用其 cocotb 用例供 netlist/bank",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "test_modal_engine_review",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": [
+        "core/poly_bank_review"
+      ]
+    },
+    {
+      "id": "core/engine",
+      "path": "sim/unit/core/test_modal_engine.py",
+      "purpose": "modal_engine（loader + 32 声部 poly bank）集成回归，逐帧/逐声部对拍 FixedModalSynth",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "numpy",
+        "fixed_point",
+        "_test_runner"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "core/engine_review",
+      "path": "sim/unit/core/test_modal_engine_review.py",
+      "purpose": "独立复核 2B/2C 集成 engine，独立夹具与 golden，导出 ROOT/EngineReview 供 poly_bank_review",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "core",
+      "aliases": []
+    },
+    {
+      "id": "audio/transport",
+      "path": "sim/unit/audio/test_audio_transport.py",
+      "purpose": "audio bring-up 单元（async_fifo/pt8211_tx/i2s_mic_rx/audio_transport）协议与跨时钟回归",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "audio",
+      "aliases": []
+    },
+    {
+      "id": "audio/transport_review",
+      "path": "sim/unit/audio/test_audio_transport_review.py",
+      "purpose": "独立复核复位握手与短 CDC 清零事件",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "audio",
+      "aliases": []
+    },
+    {
+      "id": "audio/song_player",
+      "path": "sim/unit/audio/test_song_player.py",
+      "purpose": "song_player 由 mock engine 驱动：事件→声部映射、7 采样脉冲、note gap、deadline",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "audio",
+      "aliases": []
+    },
+    {
+      "id": "body/filter",
+      "path": "sim/unit/body/test_body_filter.py",
+      "purpose": "body_filter 四 biquad 单元测试：模式/状态/clear/reset/busy，含坏 ROM 与坏 instrument",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "params",
+        "body_fixed_point",
+        "_test_runner"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "body",
+      "aliases": []
+    },
+    {
+      "id": "body/filter_review",
+      "path": "sim/unit/body/test_body_filter_review.py",
+      "purpose": "独立 body 复核：golden 系数取自原始 Patch.sos，独立于实现方模型",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "params",
+        "_test_runner",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "body",
+      "aliases": []
+    },
+    {
+      "id": "body/model",
+      "path": "sim/unit/body/test_body_model.py",
+      "purpose": "纯 Python body 测试：ROM 生成器、整数模型、浮点对比；含真实歌曲链路",
+      "role": "baseline",
+      "kind": "python",
+      "deps": [
+        "numpy",
+        "scipy",
+        "params",
+        "body_fixed_point",
+        "gen_body_rom",
+        "body_helpers"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "body",
+      "aliases": []
+    },
+    {
+      "id": "body/numeric",
+      "path": "sim/unit/body/test_body_numeric_review.py",
+      "purpose": "独立原始 SOS/ROM/浮点复核，不使用实现方模型",
+      "role": "independent",
+      "kind": "python",
+      "deps": [
+        "numpy",
+        "scipy",
+        "params"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "body",
+      "aliases": []
+    },
+    {
+      "id": "body/rejection",
+      "path": "sim/unit/body/test_body_rejection_review.py",
+      "purpose": "独立拒绝测试：非法 body 参数与坏 ROM 镜像",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "_test_runner"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "body",
+      "aliases": []
+    },
+    {
+      "id": "integration/song",
+      "path": "sim/integration/test_audio_chain_review.py",
+      "purpose": "独立真实 engine/标准 I2S 整链复核，无 mock engine",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "integration",
+      "aliases": [
+        "integration/chain"
+      ]
+    },
+    {
+      "id": "integration/body_demo",
+      "path": "sim/integration/test_body_demo.py",
+      "purpose": "端到端 body 集成：真实歌曲→modal_engine→body→输出适配→异步 FIFO→标准 I2S",
+      "role": "baseline",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "_test_runner",
+        "params",
+        "body_fixed_point",
+        "body_helpers"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "integration",
+      "aliases": []
+    },
+    {
+      "id": "integration/board",
+      "path": "sim/integration/test_audio_board_review.py",
+      "purpose": "独立板级顶层复核：真实 engine/ROM，仅用测试用 PLL 时钟模型",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "test_audio_chain_review",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "integration",
+      "aliases": []
+    },
+    {
+      "id": "netlist/bank",
+      "path": "sim/netlist/test_bank_netlist_review.py",
+      "purpose": "独立真实 Gowin 综合网表级隔离 bank 检查（内嵌 public-contract 替代用例）",
+      "role": "independent",
+      "kind": "netlist",
+      "deps": [
+        "cocotb",
+        "test_modal_poly_bank_review",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "netlist",
+      "aliases": []
+    },
+    {
+      "id": "netlist/body",
+      "path": "sim/netlist/test_body_netlist_review.py",
+      "purpose": "原始 SOS golden 对真实 Gowin 综合网表/厂商原语级检查",
+      "role": "independent",
+      "kind": "netlist",
+      "deps": [
+        "cocotb",
+        "test_body_filter_review",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "netlist",
+      "aliases": []
+    },
+    {
+      "id": "netlist/song",
+      "path": "sim/netlist/test_song_netlist_review.py",
+      "purpose": "独立原始参数歌曲门级检查，含厂商原语；导出 reset_connections 供 fixture 复核",
+      "role": "independent",
+      "kind": "netlist",
+      "deps": [],
+      "runnable": true,
+      "origin": "moved",
+      "category": "netlist",
+      "aliases": []
+    },
+    {
+      "id": "regression/coeff_metadata",
+      "path": "sim/regression/test_coeff_metadata_review.py",
+      "purpose": "coeff_loaded/low_unloaded 元数据位图回归（modal_poly_bank）",
+      "role": "regression",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "regression",
+      "aliases": []
+    },
+    {
+      "id": "regression/poly_lane_address",
+      "path": "sim/regression/test_poly_lane_address_review.py",
+      "purpose": "poly_modal_lane 地址常数乘法等价回归（只观察组合地址，不写 RAM）",
+      "role": "regression",
+      "kind": "rtl",
+      "deps": [
+        "cocotb"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "regression",
+      "aliases": []
+    },
+    {
+      "id": "regression/poly_lane_ram_equivalence",
+      "path": "sim/regression/test_poly_lane_ram_equivalence_review.py",
+      "purpose": "独立缓存模板与原始 read-first lane 等价性复核",
+      "role": "regression",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "_test_runner",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "regression",
+      "aliases": []
+    },
+    {
+      "id": "regression/poly_lane_ram_write",
+      "path": "sim/regression/test_poly_lane_ram_write_mode.py",
+      "purpose": "poly_modal_lane 工作缓存 write-mode 修复的 cocotb 证明",
+      "role": "regression",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "fixed_point",
+        "_test_runner"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "regression",
+      "aliases": []
+    },
+    {
+      "id": "checks/audio_board_preflight",
+      "path": "sim/checks/test_audio_board_preflight.py",
+      "purpose": "板级 platform preflight 门禁端到端测试，合成 IP 夹具校验检查器",
+      "role": "baseline",
+      "kind": "build",
+      "deps": [],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/audio_board_preflight_review",
+      "path": "sim/checks/test_audio_board_preflight_review.py",
+      "purpose": "独立对抗式 preflight 复核，仅改临时夹具",
+      "role": "independent",
+      "kind": "python",
+      "deps": [],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/gowin_report_gate",
+      "path": "sim/checks/test_gowin_report_gate_review.py",
+      "purpose": "Gowin 报告门禁单元测试（全部为合成夹具）",
+      "role": "independent",
+      "kind": "reports",
+      "deps": [
+        "review_gowin_reports"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/i2s_delay",
+      "path": "sim/checks/test_i2s_delay_review.py",
+      "purpose": "I2S 引脚输出延迟包络检查（仅合成夹具）",
+      "role": "independent",
+      "kind": "reports",
+      "deps": [
+        "review_i2s_pin_delays"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/cdc",
+      "path": "sim/checks/test_song_cdc_review.py",
+      "purpose": "CDC 复核门禁单元夹具（非物理验收）",
+      "role": "independent",
+      "kind": "reports",
+      "deps": [
+        "review_song_cdc"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/song_fixture",
+      "path": "sim/checks/test_song_fixture_review.py",
+      "purpose": "门级测试复位绑定单元检查（非 FPGA 功能测试）",
+      "role": "independent",
+      "kind": "python",
+      "deps": [
+        "test_song_netlist_review"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "checks/plot_song_placement",
+      "path": "sim/checks/test_plot_song_placement_review.py",
+      "purpose": "版图导出解析器纯单元检查（合成夹具，非版图证据）",
+      "role": "independent",
+      "kind": "python",
+      "deps": [
+        "plot_song_placement_review"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "checks",
+      "aliases": []
+    },
+    {
+      "id": "diagnostics/diagnostic_tone",
+      "path": "sim/diagnostics/test_diagnostic_tone_review.py",
+      "purpose": "隔离且连续重复 I2S 音调的引脚级复核",
+      "role": "independent",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "diagnostics",
+      "aliases": []
+    },
+    {
+      "id": "tools/build_diagnostic_tone",
+      "path": "sim/tools/build_diagnostic_tone_review.py",
+      "purpose": "冻结并仅用真实 Gowin 综合/P&R 构建隔离音调（不调用 Programmer，拒绝覆盖已有构建）",
+      "role": "tool",
+      "kind": "build",
+      "deps": [
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "tools/build_song",
+      "path": "sim/tools/build_song_metadata_review.py",
+      "purpose": "冻结并真实 Gowin 工具链构建歌曲元数据修复",
+      "role": "tool",
+      "kind": "build",
+      "deps": [
+        "_review_source_snapshot"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": [
+        "tools/build_song_metadata"
+      ]
+    },
+    {
+      "id": "tools/plot_song_placement",
+      "path": "sim/tools/plot_song_placement_review.py",
+      "purpose": "只读 Matplotlib 版图视图（读取已有 Gowin 时序报告）",
+      "role": "tool",
+      "kind": "plot",
+      "deps": [
+        "matplotlib"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "tools/review_diagnostic_tone",
+      "path": "sim/tools/review_diagnostic_tone_reports.py",
+      "purpose": "隔离诊断音调的父级 STA 筛查（非歌曲核心）",
+      "role": "tool",
+      "kind": "reports",
+      "deps": [
+        "review_gowin_reports",
+        "review_i2s_pin_delays"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "tools/review_gowin",
+      "path": "sim/tools/review_gowin_reports.py",
+      "purpose": "接受构建前只读 Gowin 报告筛查",
+      "role": "tool",
+      "kind": "reports",
+      "deps": [],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "tools/review_i2s_delay",
+      "path": "sim/tools/review_i2s_pin_delays.py",
+      "purpose": "专用 Gowin setup/hold 报告的引脚级 I2S 包络检查",
+      "role": "tool",
+      "kind": "reports",
+      "deps": [
+        "review_gowin_reports"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "tools/review_song_cdc",
+      "path": "sim/tools/review_song_cdc.py",
+      "purpose": "生产歌曲精确一级 hold 例外的只读复核",
+      "role": "tool",
+      "kind": "reports",
+      "deps": [],
+      "runnable": true,
+      "origin": "moved",
+      "category": "tools",
+      "aliases": []
+    },
+    {
+      "id": "support/runner",
+      "path": "sim/support/_test_runner.py",
+      "purpose": "共享 cocotb/Icarus 运行辅助：-g2012/-Wall、绝对路径、解析 XML、失败非零",
+      "role": "support",
+      "kind": "python",
+      "deps": [],
+      "runnable": false,
+      "origin": "moved",
+      "category": "support",
+      "aliases": []
+    },
+    {
+      "id": "support/source_snapshot",
+      "path": "sim/support/_review_source_snapshot.py",
+      "purpose": "父级不可变源码快照，保证独立构建可复现",
+      "role": "support",
+      "kind": "python",
+      "deps": [],
+      "runnable": false,
+      "origin": "moved",
+      "category": "support",
+      "aliases": []
+    },
+    {
+      "id": "support/body_helpers",
+      "path": "sim/support/body_helpers.py",
+      "purpose": "body 测试共享辅助：整数歌曲/模态参考链（不导入 cocotb）",
+      "role": "support",
+      "kind": "python",
+      "deps": [],
+      "runnable": false,
+      "origin": "moved",
+      "category": "support",
+      "aliases": []
+    },
+    {
+      "id": "support/sim_paths",
+      "path": "sim/support/_sim_paths.py",
+      "purpose": "仓储根定位与 sim 导入路径/PYTHONPATH 引导（run.py 使用）",
+      "role": "support",
+      "kind": "python",
+      "deps": [],
+      "runnable": false,
+      "origin": "new",
+      "category": "support",
+      "aliases": []
+    },
+    {
+      "id": "archive/mock_board",
+      "path": "sim/archive/bringup_mock/test_audio_board.py",
+      "purpose": "早期板级 mock 链路 cocotb 测试；完整保留，隔离覆盖 mock engine/PLL 下顶层+时钟复位",
+      "role": "archive",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "test_audio_transport"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "archive",
+      "aliases": []
+    },
+    {
+      "id": "archive/mock_demo",
+      "path": "sim/archive/bringup_mock/test_audio_demo.py",
+      "purpose": "早期 audio_demo mock 端到端；完整保留，隔离覆盖 mock engine 下 song/mic/播放就绪路径",
+      "role": "archive",
+      "kind": "rtl",
+      "deps": [
+        "cocotb",
+        "test_audio_transport",
+        "fixed_point"
+      ],
+      "runnable": true,
+      "origin": "moved",
+      "category": "archive",
+      "aliases": []
+    }
+  ]
+}

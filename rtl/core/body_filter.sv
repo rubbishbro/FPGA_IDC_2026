@@ -1,86 +1,86 @@
 // -----------------------------------------------------------------------------
-// body_filter.sv -- shared 4-section (8th-order) body-filter accelerator.
+// body_filter.sv -- 共享 4-section（8 阶）body-filter 加速器。
 //
-// Pipelined version.  The arithmetic and all state values are bit-identical to
-// the earlier single-cycle implementation; only the schedule changed.  The
-// 100 MHz failure was the path
+// 流水线版本。算术运算和所有状态值与先前的
+// 单周期实现逐位相同；只有调度改变了。
+// 100 MHz 的失败路径是
 //     operand mux -> (sec*5 address MULT) -> coefficient mux -> 68x32 multiply
 //     -> 100-bit product -> 104-bit accumulate -> round/clamp -> state
-// all in one cycle.  It is now split:
+// 全在一个周期内。现在被拆分：
 //
-//   * the section*5 dynamic address multiplier is removed: a registered
-//     `tap_idx` counter (0..19) selects the coefficient, and a separate
-//     registered `tap` (0..4) selects the operand.  No arithmetic address.
-//   * three registered stages per tap: S_OP (latch op_s/op_c), S_MUL (register
-//     the exact (64+G)+32-bit product), S_ACC (add/subtract the sign-extended
-//     product into the 104-bit accumulator).  The multiply and the 104-bit add
-//     are never in the same cycle.
-//   * the per-section round is also pipelined so the clamp/compare chain is not
-//     in the accumulator cycle: S_RNDA registers (acc+2**29)>>30, S_RNDB
-//     registers the signed(64+G) clamp, S_UPD updates the section history, and
-//     (last section only) S_FIN does the Q(30+G)->Q30 fold and signed64 clamp.
-//     Then S_OUT.
+//   * 移除了 section*5 动态地址乘法器：一个寄存的
+//     `tap_idx` 计数器（0..19）选择系数，一个独立的
+//     寄存 `tap`（0..4）选择操作数。没有算术地址。
+//   * 每个 tap 三个寄存级：S_OP（锁存 op_s/op_c）、S_MUL（寄存
+//     精确的 (64+G)+32 位乘积）、S_ACC（将符号扩展后的
+//     乘积加/减到 104 位累加器）。乘法和 104 位加法
+//     绝不在同一周期。
+//   * 逐 section 的舍入也被流水化，因此 clamp/compare 链不
+//     在累加器周期内：S_RNDA 寄存 (acc+2**29)>>30，S_RNDB
+//     寄存 signed(64+G) clamp，S_UPD 更新 section 历史，并且
+//     （仅最后一个 section）S_FIN 完成 Q(30+G)->Q30 折叠和 signed64 clamp。
+//     然后是 S_OUT。
 //
 // 20 taps * 3 cycles + 4 * (3 round/update stages) + final + output = ~74
-// cycles (< 128).  No intermediate rounding, clamping or wrapping is
-// introduced between stages: the product and accumulator are exact wide
-// integers, so the frame result equals the DFI golden bit for bit.
+// cycles（< 128）。各级之间不引入中间舍入、clamp 或
+// 回绕：乘积和累加器是精确的宽
+// 整数，因此帧结果与 DFI golden 逐位相同。
 //
-// Numerical contract (rtl/body_design.md section 2, guard-bit variant):
-//   * coefficients    : signed Q2.30, 32 bit
-//   * external x / y  : signed 64 bit, Q30 (same scale as modal mix_sum)
-//   * internal state  : signed (64+G) bit, Q(30+G); G = GUARD_BITS (default 4)
-//   * product         : (64+G)+32 bit, sign extended into a >= 104-bit acc
-//   * Direct Form I, sections in SOS order, one order-2 section at a time:
+// 数值契约（rtl/body_design.md 第 2 节，guard-bit 变体）：
+//   * coefficients    : signed Q2.30，32 位
+//   * external x / y  : signed 64 位，Q30（与 modal mix_sum 同标度）
+//   * internal state  : signed (64+G) 位，Q(30+G)；G = GUARD_BITS（默认 4）
+//   * product         : (64+G)+32 位，符号扩展进 >= 104 位的 acc
+//   * Direct Form I，sections 按 SOS 顺序，一次一个 order-2 section：
 //         xin = in_sum << G
 //         acc = b0*x + b1*x1 + b2*x2 - a1*y1 - a2*y2
 //         y   = clamp_s(64+G)( (acc + 2**29) >>> 30 )          # Q(30+G)
-//     only the last section folds back to the pins:
+//     只有最后一个 section 折回引脚：
 //         raw = (y + 2**(G-1)) >>> G
-//         out = clamp_s64(raw);  its saturation is OR-ed into out_sat[3]
+//         out = clamp_s64(raw);  其饱和值 OR 进 out_sat[3]
 //
-// Handshake / priority (unchanged):
-//   * reset (rst_n, asynchronous) cancels any in-flight frame at any pipeline
-//     stage, clears every history register and re-runs the ROM preload; no
-//     ghost out_valid can survive it.
-//   * clear_valid/clear_ready clears only the history (and the saturation
-//     record) and keeps the coefficients; accepted only while idle and wins
-//     over a coincident in_valid.
-//   * in_valid/in_ready accepts a sample only in the idle state; while a frame
-//     is in flight in_ready is low, so a held in_valid is not a second input.
-//   * out_valid is a single cycle with no backpressure.
+// 握手 / 优先级（未变）：
+//   * reset（rst_n，异步）在任何流水线级取消进行中的帧
+//     清除每个历史寄存器并重新运行 ROM preload；
+//     没有幽灵 out_valid 能存活。
+//   * clear_valid/clear_ready 只清除历史（和饱和
+//     记录）并保留系数；仅在空闲时被接受，并优先
+//     于同时出现的 in_valid。
+//   * in_valid/in_ready 仅在 idle 状态接受一个采样；当帧
+//     在途时 in_ready 为低，因此保持的 in_valid 不会成为第二个输入。
+//   * out_valid 是单周期，无 backpressure。
 //
-// The synchronous ROM preload only raises coeff_ready after all 20 words of
-// the selected instrument have been captured.  If the init file is missing or
-// short, iverilog leaves X in the ROM; the preload detects that and stays in
-// S_ERR (coeff_error=1, coeff_ready=0) instead of faking a valid zero filter.
+// 同步 ROM preload 仅在选择乐器的全部 20 个字
+// 都被捕获后才拉高 coeff_ready。如果 init 文件缺失或
+// 过短，iverilog 会在 ROM 中留下 X；preload 检测到它并停留在
+// S_ERR（coeff_error=1，coeff_ready=0），而不是伪造一个有效的全零滤波器。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
 module body_filter #(
-    parameter int BODY_INSTRUMENT = 0,             // 0..3 guitar/piano/banjo/mandolin
+    parameter int BODY_INSTRUMENT = 0,             // 0..3 吉他/钢琴/班卓琴/曼陀林
     parameter BODY_FILE = "rtl/rom/body_coeff.mem",
-    parameter int GUARD_BITS = 4                   // internal extra fractional bits (>=1)
+    parameter int GUARD_BITS = 4                   // 内部额外小数位（>=1）
 ) (
     input  logic               clk,
     input  logic               rst_n,
 
-    // synchronous history clear (accepted only while idle, keeps coefficients)
+    // 同步历史清除（仅在空闲时接受，保留系数）
     input  logic               clear_valid,
     output logic               clear_ready,
 
-    // sample input
+    // 采样输入
     input  logic               in_valid,
     output logic               in_ready,
     input  logic signed [63:0] in_sum,
 
-    // sample output (single cycle, no backpressure)
+    // 采样输出（单周期，无 backpressure）
     output logic               out_valid,
     output logic signed [63:0] out_sum,
     output logic [3:0]         out_sat,
     output logic [2:0]         sat_count,
 
-    // ROM / coefficient diagnostics
+    // ROM / 系数诊断
     output logic               coeff_ready,
     output logic               coeff_error
 );
@@ -90,12 +90,12 @@ module body_filter #(
     localparam int ROM_WORDS = 80;
     localparam int COEFF_FRAC = 30;
 
-    localparam int SW     = 64 + GUARD_BITS;       // internal state / interstage width
-    localparam int ACC_W  = SW + 36;               // 104 for SW=68 (>= 100 required)
-    localparam int FSW    = SW + 1;                // room for the final +2**(G-1)
+    localparam int SW     = 64 + GUARD_BITS;       // 内部状态 / 级间宽度
+    localparam int ACC_W  = SW + 36;               // SW=68 时为 104（要求 >= 100）
+    localparam int FSW    = SW + 1;                // 为最终 +2**(G-1) 留出的空间
 
-    // mask the (static) instrument so an illegal parameter cannot index past
-    // the ROM; the error is still reported below.
+    // 对（静态）instrument 做掩码，使非法参数无法越界索引 ROM；
+    // 错误仍会在下方报告。
     localparam int BASE = (BODY_INSTRUMENT & 3) * (NSEC * NTAP);
 
     localparam logic [3:0] S_PRE  = 4'd0,
@@ -111,7 +111,7 @@ module body_filter #(
                            S_ERR  = 4'd10;
 
     // ------------------------------------------------------------------
-    // coefficient ROM + captured coefficients
+    // 系数 ROM + 捕获的系数
     // ------------------------------------------------------------------
     logic [31:0]        rom [0:ROM_WORDS-1];
     logic signed [31:0] coef [0:NSEC*NTAP-1];
@@ -123,9 +123,9 @@ module body_filter #(
     logic [4:0] pre_idx;
     logic [3:0] state;
 
-    // X detection is a simulation guard: a missing/short init file must not
-    // masquerade as a valid all-zero filter.  Real synthesis has no X, so the
-    // guard compiles out.
+    // X 检测是仿真保护：缺失/过短的 init 文件不能
+    // 伪装成有效的全零滤波器。真实综合没有 X，因此
+    // 该保护会被编译消除。
 `ifdef SYNTHESIS
     wire pre_bad = 1'b0;
 `else
@@ -133,20 +133,20 @@ module body_filter #(
 `endif
 
     // ------------------------------------------------------------------
-    // history state (per section), internal Q(30+GUARD_BITS)
+    // 历史状态（逐 section），内部 Q(30+GUARD_BITS)
     // ------------------------------------------------------------------
     logic signed [SW-1:0] x1 [0:NSEC-1];
     logic signed [SW-1:0] x2 [0:NSEC-1];
     logic signed [SW-1:0] y1 [0:NSEC-1];
     logic signed [SW-1:0] y2 [0:NSEC-1];
 
-    // per-section saturation record, shifted one section at a time (removes the
-    // sec==N clock-enable comparator from the critical control path; bit s ends
-    // up holding section s's flag after the four S_UPD stages)
+    // 逐 section 饱和记录，一次移位一个 section（从关键控制路径中
+    // 移除 sec==N 时钟使能比较器；经过四个 S_UPD 级后
+    // bit s 最终保存 section s 的标志）
     logic [NSEC-1:0] sat_sr;
 
     // ------------------------------------------------------------------
-    // pipeline control
+    // 流水线控制
     // ------------------------------------------------------------------
     logic [1:0]           sec;
     logic [2:0]           tap;
@@ -160,10 +160,10 @@ module body_filter #(
     logic signed [SW-1:0]  op_s_r;
     logic signed [31:0]    op_c_r;
     logic                  op_sub_r;
-    logic signed [SW+31:0] prod_r;                 // 100 bit for SW=68
+    logic signed [SW+31:0] prod_r;                 // SW=68 时为 100 位
     logic signed [ACC_W-1:0] acc;
 
-    // operand select: registered tap/sec only, no address arithmetic
+    // 操作数选择：仅使用寄存的 tap/sec，无地址算术
     always_comb begin
         op_c   = coef[tap_idx];
         op_s   = sec_x;
@@ -183,7 +183,7 @@ module body_filter #(
     assign acc_nxt = op_sub_r ? (acc - prodx_r) : (acc + prodx_r);
 
     // ------------------------------------------------------------------
-    // round / clamp pipeline (exact, unchanged arithmetic)
+    // 舍入 / clamp 流水线（精确，算术未变）
     // ------------------------------------------------------------------
     localparam logic signed [ACC_W-1:0] ROUND_C =
         {{(ACC_W-30){1'b0}}, 30'd536870912};                 // 2**29
@@ -194,12 +194,12 @@ module body_filter #(
     localparam logic signed [SW-1:0] STATE_MAX = {1'b0, {(SW-1){1'b1}}};
     localparam logic signed [SW-1:0] STATE_MIN = {1'b1, {(SW-1){1'b0}}};
 
-    // stage A: rounding add (combinational from acc, registered in S_RNDA)
+    // stage A：舍入加法（由 acc 组合，在 S_RNDA 寄存）
     logic signed [ACC_W-1:0] rounded_c;
     assign rounded_c = (acc + ROUND_C) >>> COEFF_FRAC;
     logic signed [ACC_W-1:0] rounded_r;
 
-    // stage B: signed(64+G) clamp (combinational from rounded_r)
+    // stage B：signed(64+G) clamp（由 rounded_r 组合）
     logic                 sat68_c;
     logic signed [SW-1:0] y_state_c;
     always_comb begin
@@ -217,7 +217,7 @@ module body_filter #(
     logic                 sat68_r;
     logic signed [SW-1:0] y_state_r;
 
-    // stage C: last-section Q(30+G) -> Q30 fold (combinational from y_state_r)
+    // stage C：最后 section 的 Q(30+G) -> Q30 折叠（由 y_state_r 组合）
     localparam logic signed [FSW-1:0] FINAL_RND =
         {{(FSW-GUARD_BITS){1'b0}}, {1'b1, {(GUARD_BITS-1){1'b0}}}};
     localparam logic signed [FSW-1:0] TWO63_F =
@@ -244,17 +244,17 @@ module body_filter #(
         end
     end
 
-    // output staging
+    // 输出暂存
     logic signed [63:0] yout;
 
     // ------------------------------------------------------------------
-    // handshake
+    // 握手
     // ------------------------------------------------------------------
     assign clear_ready = (state == S_IDLE) && coeff_ready;
     assign in_ready    = (state == S_IDLE) && coeff_ready && !clear_valid;
 
     // ------------------------------------------------------------------
-    // sequencer
+    // 序列器
     // ------------------------------------------------------------------
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -323,8 +323,8 @@ module body_filter #(
                         end
                         sat_sr <= {NSEC{1'b0}};
                     end else if (in_valid) begin
-                        // explicit (64+G)-bit sign extension before the guard
-                        // shift, so full signed64 inputs are not truncated
+                        // 在 guard 移位前显式进行 (64+G) 位符号扩展，
+                        // 这样完整的 signed64 输入不会被截断
                         sec_x    <= {{GUARD_BITS{in_sum[63]}}, in_sum}
                                     <<< GUARD_BITS;
                         sec      <= 2'd0;
@@ -354,8 +354,8 @@ module body_filter #(
                 // ------------------------------------------------
                 S_ACC: begin
                     acc     <= acc_nxt;
-                    // keep the coefficient index in 0..19: never form sec*5 and
-                    // never read past the coefficient array
+                    // 将系数索引保持在 0..19：绝不形成 sec*5，
+                    // 也绝不越界读取系数数组
                     tap_idx <= (tap_idx == (NSEC * NTAP - 1)) ? 5'd0
                                                               : tap_idx + 5'd1;
                     if (tap == (NTAP - 1)) begin
@@ -385,8 +385,8 @@ module body_filter #(
                     x1[sec]    <= sec_x;
                     y2[sec]    <= y1[sec];
                     y1[sec]    <= y_state_r;
-                    // shift the section's saturation flag into place; the CE no
-                    // longer depends on the section counter
+                    // 将 section 的饱和标志移位到位；CE 不再依赖
+                    // section 计数器
                     sat_sr     <= {sat68_r, sat_sr[NSEC-1:1]};
                     if (sec == (NSEC - 1)) begin
                         state    <= S_FIN;

@@ -1,5 +1,7 @@
 # 代码衔接架构与阅读路线
 
+本文是开发者的代码导读，不维护资源或验收状态；当前进度统一见[工程汇报](docs/工程汇报.md)。
+
 核对日期：2026-10-06。面向项目作者阅读现有代码；按工作区实际模块实例、参数和文件依赖整理，不把规划当成已实现功能。
 
 **本次只新增这份说明，不修改RTL、参数、ROM、PLL、约束或下载文件。**
@@ -312,46 +314,19 @@ i2s_amp_tx.in_ready            → tone_source.ready
 ## 8. 验证代码如何接到实现
 
 ```text
-sim/test_*.py
+sim/run.py：按短名称选择测试或工具，不默认运行全套
+    ↓ 分类测试
     ├─ 驱动RTL输入：时钟、复位、load、sample等
-    ├─ 用独立黄金计算预期数据
+    ├─ 用黄金模型计算预期数据
     └─ 读取RTL输出/提交历史/外部I2S引脚 → assert比较
 
-sim/_test_runner.py：编译并启动cocotb/Icarus
-sim/_review_source_snapshot.py：冻结待测输入，避免测到另一份源码
+sim/support/：公共runner、待测输入冻结、箱体参考辅助
+sim/audio_helpers/：只用于测试的SV封装和行为模型
 ```
 
-以下测试均在`sim/`；不同测试是互补证据，不是板上实例树。
+测试分类、目的和推荐命令只维护在[测试说明](sim/README.md)，完整清单由`python sim/run.py --list`列出，本文不再复制一份文件表。单元测试、真实链路整合、真实综合网表、报告解析夹具和构建工具是不同验证层次；基础用例与独立原参数黄金也不能只因对象相同而合并删除。
 
-| 验证对象 | 对应测试 |
-|---|---|
-| 单谐振器 | `test_resonator.py` |
-| 单声部四lane | `test_modal_bank.py`、`test_modal_bank_independent_review.py` |
-| ROM loader | `test_coeff_loader.py` |
-| 多声部bank | `test_modal_poly_bank.py`、`test_modal_poly_bank_review.py` |
-| engine整合 | `test_modal_engine.py`、`test_modal_engine_review.py` |
-| 生产lane RAM模板 | `test_poly_lane_ram_write_mode.py`、`test_poly_lane_ram_equivalence_review.py` |
-| 曲谱/激励调度 | `test_song_player.py`，使用mock engine，不证明真实合成正确 |
-| 音频传输/CDC | `test_audio_transport.py`、`test_audio_transport_review.py` |
-| 初期音频整合 | `test_audio_demo.py`，要检查其源列表和mock范围，不替代真实整链 |
-| 真实engine→外部I2S | `test_audio_chain_review.py` |
-| 板级基础/真实链路 | `test_audio_board.py`、`test_audio_board_review.py`，注意前者与后者的替身范围不同 |
-| body模型/模块/整合 | `test_body_model.py`、`test_body_filter.py`、`test_body_demo.py` |
-| body独立功能/数值/拒绝 | `test_body_filter_review.py`、`test_body_numeric_review.py`、`test_body_rejection_review.py` |
-| body真实综合网表 | `test_body_netlist_review.py` |
-| 独立测试音引脚 | `test_diagnostic_tone_review.py` |
-| 构建前检查门槛 | `test_audio_board_preflight.py`、`test_audio_board_preflight_review.py` |
-| 报告解析门槛本身 | `test_gowin_report_gate_review.py`、`test_i2s_delay_review.py`；使用合成测试报告，不是新硬件验收 |
-
-验证辅助文件：
-
-- `sim/body_helpers.py`：箱体测试公共工具。
-- `sim/audio_helpers/mock_modal_engine.sv`、`song_player_harness.sv`：调度/音频整合替身或测试封装。
-- `sim/audio_helpers/board_pll_model.sv`：仿真时钟/锁定模型，不是物理PLL模型或抖动证明。
-- `sim/audio_helpers/board_audio_core_model.sv`：初期板级测试辅助封装，不是生产wrapper。
-- `sim/audio_helpers/body_netlist_review_top.sv`：箱体真实网表测试顶层。
-
-`*_review.py`多为独立审查入口；是否用了真实engine、原始参数、vendor库或mock，仍应看测试代码，不能只凭名字判断。
+`audio_helpers/`中的mock engine用于隔离歌曲调度，行为PLL用于数字时钟/锁定控制，不证明物理PLL或抖动。早期音频/板级替身测试已移入`sim/archive/`，生产真实链路验证在`sim/integration/`。分类依据实际源列表与覆盖范围，不依据`*_review.py`后缀。
 
 ## 9. 构建文件、ROM文件和报告
 
@@ -387,10 +362,10 @@ sim/_review_source_snapshot.py：冻结待测输入，避免测到另一份源�
 
 - `gowin_build.tcl`：选择独立`diagnostic_tone_top`。
 - `tone.cst`、`tone.sdc`：自己的管脚/时序约束。
-- `README.md`、`PARENT_REVIEW.md`：接线、数字验证、真实构建和范围限制。
-- `sim/build_diagnostic_tone_review.py`：冻结输入并做隔离真实构建。
-- `sim/review_diagnostic_tone_reports.py`：诊断工程的报告门槛。
-- 主工程报告工具：`sim/review_gowin_reports.py`、`sim/review_i2s_pin_delays.py`。
+- `README.md`：诊断操作；当轮数字验证和真实构建记录已移到[测试音历史验收](docs/archive/2026-10/rtl/platform/tang_mega_138k_pro/diagnostic_tone/PARENT_REVIEW.md)。
+- `sim/tools/build_diagnostic_tone_review.py`：冻结输入并做隔离真实构建。
+- `sim/tools/review_diagnostic_tone_reports.py`：诊断工程的报告门槛。
+- 主工程报告工具：`sim/tools/review_gowin_reports.py`、`sim/tools/review_i2s_pin_delays.py`。
 
 现有脚本中有旧阻塞注释或特定工具版本的报告调用限制；**本阅读图不是对所有旧构建入口“现在都能直接执行”的承诺**。运行构建前应按对应验收文档确认入口，不要为了读代码覆盖现有产物。
 
@@ -420,14 +395,14 @@ USB键盘  → USB Host/桥接 → MIDI解析 → 音符/力度事件 ───�
 1. `rtl/platform/tang_mega_138k_pro/diagnostic_tone/tone_source.sv`：一个样本是什么，ready为何推进相位。
 2. `rtl/audio/i2s_amp_tx.sv`：t/bcnt/nxt怎样把样本变成引脚波形。
 3. `rtl/platform/tang_mega_138k_pro/diagnostic_tone/top.sv`：PLL、复位和两模块怎样接线。
-4. `sim/test_diagnostic_tone_review.py`：从外部引脚读回左右数据，如何证明标准I2S。
+4. `sim/diagnostics/test_diagnostic_tone_review.py`：从外部引脚读回左右数据，如何证明标准I2S。
 
 读完能画出一帧BCLK/LRC/DIN，并解释并行`{left16,right16}`与串行32bit时隙的区别。
 
 ### 第二轮：声音算法与硬件共享计算
 
 5. `python/MATH.md`、`rtl/DECISIONS.md`：公式、定点尺度与舍入约定。
-6. `rtl/core/resonator.sv` + `sim/test_resonator.py`：手算一个模态的三个样本。
+6. `rtl/core/resonator.sv` + `sim/unit/core/test_resonator.py`：手算一个模态的三个样本。
 7. `rtl/core/modal_lane.sv`、`modal_bank.sv`：理解四lane/II3；这是单声部学习台阶。
 8. `rtl/core/poly_modal_lane.sv`、`modal_poly_bank.sv`：增加voice地址和多声部调度。
 9. `rtl/core/coeff_loader.sv`、`modal_engine.sv`：ROM如何变成当前声部的工作系数。
@@ -439,7 +414,7 @@ USB键盘  → USB Host/桥接 → MIDI解析 → 音符/力度事件 ───�
 12. `rtl/audio/audio_demo_core.sv`：跟踪`sp_out_sum→body_src_sum→src_i16→tx_hold`。
 13. `rtl/audio/audio_async_fifo.sv`、`audio_transport.sv`：跨时钟数据与反向采样节拍。
 14. 平台`board_top.sv→top.sv→board_audio_core.sv`及`clock_reset.sv`：实际参数、时钟、管脚。
-15. `sim/test_audio_chain_review.py`、`test_audio_board_review.py`：从真实系数/引擎到外部引脚的整链检查。
+15. `sim/integration/test_audio_chain_review.py`、`test_audio_board_review.py`：从真实系数/引擎到外部引脚的整链检查。
 
 ### 第四轮：追溯参数为什么这样取
 
@@ -453,10 +428,10 @@ USB键盘  → USB Host/桥接 → MIDI解析 → 音符/力度事件 ───�
 2. **默认参数≠实际参数。** 必须追上一层实例化覆盖，特别是声部数和BODY使能。
 3. **valid≠已经接收。** 有ready的接口只在`valid && ready`同拍为真时接收；bank/body的结果out_valid是单拍且没有输出ready，需要整合层暂存接住。
 4. **时钟周期≠音频样本周期。** 核心10ns、音频参考80ns、BCLK320ns、音频帧20.48µs；许多核心周期共同完成一个样本。
-5. **仿真通过≠实板出声/完整时序签核。** 当前实板仍无声；主工程MPW/PLL模型等未闭环，诊断工程的通过不能替代歌曲工程验收。
+5. **仿真通过≠实板出声/完整时序签核。** 测试音、歌曲、PLL的验收范围不能混用；最新结果见统一工程汇报，不在本文重复更新。
 
 旧README/文件头中还出现24bit输出、精确12.288MHz、旧结果路径、已经不存在的根目录`top.sv`或`legacy_sythsound/`等历史描述。阅读本版本以实际实例和参数为准：**生产输出16bit PCM、12.5MHz音频参考；当前旧库实际目录是`sythsound/`。**
 
-设计/验收状态入口：`rtl/module2A_design.md`、`rtl/module2BC_design.md`、`rtl/body_design.md`、`rtl/hardware_timing_review.md`、`rtl/clock_model_review.md`、`rtl/demo_freeze_20261005.md`。`BOARD_TASK.md`等任务文件不是当前通过证明，旧`reports/`中的失败/临时报告也不能误当最终交付。
+开发规格入口：`rtl/module2A_design.md`、`rtl/module2BC_design.md`、`rtl/body_design.md`。验收状态只看[工程汇报](docs/工程汇报.md)；历史任务和旧`reports/`中的失败/临时报告不是当前通过证明。
 
 读一个RTL文件时，建议在纸上只记五项：**它的时钟、输入数据、接收条件、内部状态、输出完成条件**，再沿实例名和信号名跳到上下游。这比先逐行看所有always块更容易建立全局理解。

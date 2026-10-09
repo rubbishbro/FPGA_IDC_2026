@@ -1,23 +1,23 @@
 // -----------------------------------------------------------------------------
-// modal_poly_bank.sv -- module 2C: 32-voice, four-lane TDM modal bank.
+// modal_poly_bank.sv -- module 2C：32 声部、四 lane 的 TDM 模态 bank。
 //
-// Four poly_modal_lane instances, one per lane.  Every lane owns one signed
-// 26x32 multiplier and one synchronous single-port 72-bit working cache holding
-// all NUM_VOICES*LOCAL_MODES modes.  A frame is processed voice by voice: the
-// four lanes run one voice in parallel, are drained, then the next active voice
-// starts.  This is the "run one voice and drain" schedule permitted by
-// rtl/module2BC_design.md section 4; it must be measured on 32x48 frames, not
-// argued from the theoretical lower bound.
+// 四个 poly_modal_lane 实例，每个 lane 一个。每个 lane 拥有一个 signed
+// 26x32 乘法器和一个同步单端口 72-bit 工作缓存，保存
+// 所有 NUM_VOICES*LOCAL_MODES 个 mode。一个帧逐 voice 处理：
+// 四个 lane 并行运行一个 voice，被排空，然后下一个活动 voice
+// 开始。这是 rtl/module2BC_design.md 第 4 节允许的
+// “run one voice and drain”调度；必须在
+// 32x48 帧上实测，而不是从理论下界推断。
 //
-// Frame contract:
-//   * priority reset > clear > cfg > sample; all three ready are 0 while busy
-//   * an illegal request is accepted and rejected with error, no side effect
-//   * the whole frame is range-checked before any state is updated, so an
-//     illegal later voice cannot leave the earlier voices committed
-//   * inactive voices are frozen; an active voice with n_modes=0 is legal and
-//     produces a zero voice sum
-//   * one voice_valid per active voice, then a single out_valid once every
-//     state write-back has completed; outputs have no backpressure
+// 帧契约：
+//   * 优先级 reset > clear > cfg > sample；busy 时三个 ready 都为 0
+//   * 非法请求会被接受并以 error 拒绝，无副作用
+//   * 在任何状态被更新之前对整个帧做范围检查，因此
+//     后面一个非法 voice 不会让前面的 voice 已提交
+//   * 非活动 voice 被冻结；n_modes=0 的活动 voice 合法
+//     并产生零 voice 和
+//   * 每个活动 voice 一个 voice_valid，然后在所有状态回写完成后
+//     一个 out_valid；输出无 backpressure
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -34,20 +34,20 @@ module modal_poly_bank #(
     input  logic                   clk,
     input  logic                   rst_n,
 
-    // coefficient configuration
+    // 系数配置
     input  logic                   cfg_valid,
     output logic                   cfg_ready,
     input  logic [VW-1:0]          cfg_voice,
     input  logic [MW-1:0]          cfg_mode,
     input  logic [71:0]            cfg_word,
 
-    // per-voice logical state clear
+    // 逐 voice 逻辑状态清除
     input  logic                   clear_valid,
     output logic                   clear_ready,
     input  logic [VW-1:0]          clear_voice,
     output logic                   clear_done,
 
-    // one-sample frame request
+    // 单采样帧请求
     input  logic                   sample_valid,
     output logic                   sample_ready,
     input  logic [NUM_VOICES-1:0]  active_mask,
@@ -66,7 +66,7 @@ module modal_poly_bank #(
     output logic                   error_valid,
     output logic [1:0]             error_code,
 
-    // per-lane write-back observability
+    // 逐 lane 回写可观测性
     output logic [3:0]             commit_valid,
     output logic [4*VW-1:0]        commit_voice,
     output logic [4*MW-1:0]        commit_mode,
@@ -79,24 +79,24 @@ module modal_poly_bank #(
                            VRUN = 3'd2, VEMIT = 3'd3, VNEXT = 3'd4, FINISH = 3'd5;
 
     logic [2:0] state;
-    logic [N_MODES-1:0] coeff_loaded [0:NUM_VOICES-1];   // keeps state on clear
+    logic [N_MODES-1:0] coeff_loaded [0:NUM_VOICES-1];   // clear 时保留状态
     localparam logic [N_MODES-1:0] MODE_ONE = {{(N_MODES-1){1'b0}}, 1'b1};
 
-    // latched operational frame (drives the run; only written on PREP)
+    // 锁存的运行帧（驱动 run；仅在 PREP 写入）
     logic [NUM_VOICES-1:0]    act_r;
     logic [NUM_VOICES*MW-1:0] nm_r;
     logic [NUM_VOICES*32-1:0] x_r;
     logic [VW-1:0]            vcur;
 
-    // intake candidate scratch: captured on the sample handshake, consumed by
-    // PREP only if the precheck passed.  A rejected candidate never reaches the
-    // operational frame (dead token), so it has no observable side effect.
+    // intake 候选暂存：在 sample 握手时捕获，仅当 precheck 通过时才由
+    // PREP 消费。被拒绝的候选绝不进入运行帧（死 token），因此没有可观测
+    // 副作用。
     logic [NUM_VOICES-1:0]    act_c;
     logic [NUM_VOICES*MW-1:0] nm_c;
     logic [NUM_VOICES*32-1:0] x_c;
 
-    // registered per-voice selection (VSELECT) so the wide vcur-muxed
-    // run_n/run_x/voice do not sit combinationally on the lane start path
+    // 寄存的逐 voice 选择（VSELECT），使宽 vcur-muxed 的
+    // run_n/run_x/voice 不组合地位于 lane start 路径上
     logic [MW-1:0]            run_n_r;
     logic signed [31:0]       run_x_r;
     logic [VW-1:0]            vcur_r;
@@ -106,7 +106,7 @@ module modal_poly_bank #(
     logic [5:0]         voice_sat_r;
 
     // ------------------------------------------------------------------
-    // helpers
+    // 辅助函数
     // ------------------------------------------------------------------
     function automatic [VW-1:0] first_act(input [NUM_VOICES-1:0] m);
         integer i;
@@ -137,12 +137,12 @@ module modal_poly_bank #(
         end
     endfunction
 
-    // Lowest mode index that is not loaded for a voice (N_MODES when the whole
-    // row is present).  A voice is fully loaded for n modes iff n <= this value,
-    // which is logically identical to ((~coeff_loaded & mask(n)) != 0) but lets
-    // the whole-frame precheck use a short width-MW comparison instead of a
-    // variable-width mask shift.  Updated register-resident so the long n_modes
-    // vector does not reach a wide barrel shifter on the same-edge reject path.
+    // 一个 voice 未加载的最低 mode 索引（整行都存在时为 N_MODES）。一个 voice
+    // 对 n 个 mode 完全加载当且仅当 n <= 该值，这在逻辑上等同于
+    // ((~coeff_loaded & mask(n)) != 0)，但让整帧 precheck 使用短的
+    // width-MW 比较，而不是可变宽度的 mask 移位。更新保持在寄存器中，
+    // 使长的 n_modes 向量不会在同边沿拒绝路径上
+    // 到达宽桶形移位器。
     function automatic [MW-1:0] lowest_missing(input [N_MODES-1:0] loaded);
         integer k;
         begin
@@ -156,7 +156,7 @@ module modal_poly_bank #(
     wire has_next   = has_next_act(act_r, vcur);
 
     // ------------------------------------------------------------------
-    // handshake arbitration
+    // 握手仲裁
     // ------------------------------------------------------------------
     wire idle = (state == IDLE);
     assign busy         = ~idle;
@@ -174,12 +174,12 @@ module modal_poly_bank #(
     wire [1:0] cfg_lane = cfg_mode % 4;
     wire [IDXW-1:0] cfg_local_w = cfg_mode >> 2;
 
-    // Whole-frame legality: checked before any state is touched (same-cycle
-    // reject is part of the external contract: error_valid is asserted on the
-    // handshake cycle and busy stays low).  A voice is not loaded iff its mode
-    // count exceeds lowest_missing[v], the registered lowest unconfigured mode
-    // index; this is logically identical to (~coeff_loaded[v] & mask(nv)) != 0
-    // but replaces the wide variable shift with a shallow MW-bit compare.
+    // 整帧合法性：在触动任何状态之前检查（同周期拒绝是外部契约的一部分：
+    // error_valid 在握手周期拉高，busy 保持低）。一个 voice 未加载当且仅当
+    // 其 mode 数量超过 low_unloaded[v]（寄存的最低未配置 mode
+    // 索引）；这在逻辑上等同于 (~coeff_loaded[v] & mask(nv)) != 0，
+    // 但用浅的 MW-bit 比较替代了
+    // 宽的可变移位。
     logic [MW-1:0] low_unloaded [0:NUM_VOICES-1];
     logic pre_n_oob, pre_not_loaded;
     logic [MW-1:0]       ck_nv;
@@ -197,11 +197,50 @@ module modal_poly_bank #(
     end
 
     // ------------------------------------------------------------------
-    // four lanes
+    // 逐 voice 元数据寄存器：coeff_loaded / low_unloaded
+    //
+    // 每个 voice 使用常量索引下的 packed loaded_r/prefix_r 寄存器，消除
+    // coeff_loaded[cfg_voice] 动态索引读-改-写的 RAM 推断模式。旧生产网表
+    // 在 mode17 后从 RAM 读回到最低缺失索引的计算不等价；这里明确使用
+    // 本 voice 寄存器自反馈，修复后仍须检查真实综合映射和网表功能。
+    //
+    // 语义与原实现保持一致：
+    //   * 同步 reset 清 0（reset 优先）
+    //   * clear 不触碰本块（clear 只清 lane 历史，不擦系数存在位）
+    //   * 仅在合法 cfg 握手 cfg_ok（= cfg_fire && mode<N_MODES && voice<NUM_VOICES）
+    //     且命中本 voice 时置位，任意顺序/重复写都合法
+    //   * 同一 cfg 边沿就以“含本次 mode 的行”更新 prefix，因此紧接的下一拍
+    //     sample 立即看到新前缀
+    // 顶层 coeff_loaded/low_unloaded 仍按原数组形式保留，由本块的寄存器
+    // assign 驱动，供测试/审查观测。
+    // ------------------------------------------------------------------
+    genvar gv;
+    generate
+        for (gv = 0; gv < NUM_VOICES; gv = gv + 1) begin : g_meta
+            logic [N_MODES-1:0] loaded_r;
+            logic [MW-1:0]      prefix_r;
+
+            always_ff @(posedge clk) begin
+                if (!rst_n) begin
+                    loaded_r <= '0;
+                    prefix_r <= {MW{1'b0}};
+                end else if (cfg_ok && (cfg_voice == gv[VW-1:0])) begin
+                    loaded_r <= loaded_r | (MODE_ONE << cfg_mode);
+                    prefix_r <= lowest_missing(loaded_r | (MODE_ONE << cfg_mode));
+                end
+            end
+
+            assign coeff_loaded[gv] = loaded_r;
+            assign low_unloaded[gv] = prefix_r;
+        end
+    endgenerate
+
+    // ------------------------------------------------------------------
+    // 四个 lane
     // ------------------------------------------------------------------
     wire start_lane = (state == VSTART);
-    // lane inputs come from the VSELECT-registered selection (not a live mux off
-    // vcur/nm_r/x_r), so the wide per-voice mux is off the lane start/CE path.
+    // lane 输入来自 VSELECT 寄存的选择（不是从 vcur/nm_r/x_r 实时 mux），
+    // 因此宽的逐 voice mux 不在 lane start/CE 路径上。
     wire [MW-1:0] run_n   = run_n_r;
     wire signed [31:0] run_x = run_x_r;
 
@@ -268,7 +307,7 @@ module modal_poly_bank #(
     wire all_done = &lane_done;
 
     // ------------------------------------------------------------------
-    // frame controller
+    // 帧控制器
     // ------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (!rst_n) begin
@@ -296,10 +335,6 @@ module modal_poly_bank #(
             voice_sum    <= 64'sd0;
             error_valid  <= 1'b0;
             error_code   <= 2'd0;
-            for (int v = 0; v < NUM_VOICES; v = v + 1) begin
-                coeff_loaded[v] <= '0;
-                low_unloaded[v] <= {MW{1'b0}};
-            end
         end else begin
             clear_done  <= 1'b0;
             out_valid   <= 1'b0;
@@ -319,20 +354,15 @@ module modal_poly_bank #(
                         if ((cfg_mode >= N_MODES) || (cfg_voice >= NUM_VOICES)) begin
                             error_valid <= 1'b1;
                             error_code  <= 2'd1;
-                        end else begin
-                            coeff_loaded[cfg_voice][cfg_mode] <= 1'b1;
-                            // Same-edge prefix update from the row value the
-                            // register will hold after this edge, so a sample on
-                            // the very next edge sees the just-configured mode.
-                            low_unloaded[cfg_voice] <=
-                                lowest_missing(coeff_loaded[cfg_voice]
-                                               | (MODE_ONE << cfg_mode));
                         end
+                        // 合法 cfg 的元数据由独立的逐 voice g_meta 块更新；
+                        // 此处不再写 coeff_loaded/low_unloaded，避免多驱动，
+                        // 也避免动态索引读-改-写被推断成 RAM。
                     end else if (sample_fire) begin
-                        // Capture the candidate (scratch) and, only if the
-                        // same-edge precheck passes, enter PREP.  The reject path
-                        // keeps error_valid on this handshake edge with busy low
-                        // and NEVER writes act_r/nm_r/x_r/mix_acc or any history.
+                        // 捕获候选（暂存），并且仅当同边沿 precheck 通过时才
+                        // 进入 PREP。拒绝路径在该握手边沿保持 error_valid 且
+                        // busy 为低，且绝不写入 act_r/nm_r/x_r/mix_acc
+                        // 或任何历史。
                         act_c <= active_mask;
                         nm_c  <= n_modes_vec;
                         x_c   <= x_vec;
@@ -349,10 +379,10 @@ module modal_poly_bank #(
                 end
 
                 PREP: begin
-                    // Accepted frame: copy the scratch candidate into the
-                    // operational payload and initialise the accumulators.  The
-                    // wide act_r/nm_r/x_r enables are driven by this shallow
-                    // state decode, off the precheck/scan path.
+                    // 已接受的帧：将暂存候选复制到运行负载并
+                    // 初始化累加器。宽的 act_r/nm_r/x_r 使能由这个
+                    // 浅层状态译码驱动，
+                    // 不在 precheck/scan 路径上。
                     act_r   <= act_c;
                     nm_r    <= nm_c;
                     x_r     <= x_c;
@@ -367,8 +397,8 @@ module modal_poly_bank #(
                 end
 
                 VSELECT: begin
-                    // Register the vcur-muxed per-voice inputs, then start the
-                    // lanes from the registered copy.
+                    // 寄存 vcur-muxed 的逐 voice 输入，然后从寄存的副本
+                    // 启动各 lane。
                     run_n_r <= nm_r[vcur*MW +: MW];
                     run_x_r <= x_r[vcur*32 +: 32];
                     vcur_r  <= vcur;

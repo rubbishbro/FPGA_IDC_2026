@@ -1,0 +1,92 @@
+{
+  "max_delay_setup_witnesses": [
+    {
+      "constraint": "set_max_delay -from [get_clocks {clk_audio}] 10.000 -to [get_clocks {clk_core}]",
+      "destination": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_0_s0",
+      "source": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_0_s0"
+    },
+    {
+      "constraint": "set_max_delay -from [get_clocks {clk_core}] 10.000 -to [get_clocks {clk_audio}]",
+      "destination": "u_top/u_audio/u_core/u_transport/g_i2s_amp.u_tx/mono_13_s0",
+      "source": "u_top/u_audio/u_core/u_transport/u_tx_fifo/mem_mem_RAMREG_7_G[13]_s0"
+    }
+  ],
+  "scope": "CDC structure/model subset only; MPW/PVT not signed off",
+  "setup_hold_counters": [
+    0,
+    0
+  ],
+  "sha256": {
+    "/tmp/opencode/song-control-core100-v5-20261007/build/song_metadata_core100/impl/gwsynthesis/song_metadata_core100.vg": "7d7565e702c4c6251e5bbe0243b4e079a70dc636fcb12257b998332d7ee93f76",
+    "/tmp/opencode/song-control-core100-v5-20261007/build/song_metadata_core100/impl/pnr/song_metadata_core100.tr": "4e894e14447c4d0bad4bf82283b8dc379a51395e70c38ffc49f387acc1957ee5",
+    "/tmp/opencode/song-control-core100-v5-20261007/parent_source_snapshot/rtl/platform/tang_mega_138k_pro/tang_mega_138k_pro.sdc": "b72dda0753be5af822d6ad5f95b5026d9f66830aac473e16d827bce6150cb6aa"
+  },
+  "stage_one_hold_pins": [
+    {
+      "capture_clock": "clk_audio",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/wgray_s1_0_s0/D",
+      "registered_source": "wgray[0]",
+      "source_clock": "clk_core"
+    },
+    {
+      "capture_clock": "clk_audio",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/wgray_s1_1_s0/D",
+      "registered_source": "wgray[1]",
+      "source_clock": "clk_core"
+    },
+    {
+      "capture_clock": "clk_audio",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/wgray_s1_2_s0/D",
+      "registered_source": "wgray[2]",
+      "source_clock": "clk_core"
+    },
+    {
+      "capture_clock": "clk_audio",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/wgray_s1_3_s0/D",
+      "registered_source": "wgray[3]",
+      "source_clock": "clk_core"
+    },
+    {
+      "capture_clock": "clk_audio",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/wgray_s1_4_s0/D",
+      "registered_source": "wbin[4]",
+      "source_clock": "clk_core"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_0_s0/D",
+      "registered_source": "rgray[0]",
+      "source_clock": "clk_audio"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_1_s0/D",
+      "registered_source": "rgray[1]",
+      "source_clock": "clk_audio"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_2_s0/D",
+      "registered_source": "rgray[2]",
+      "source_clock": "clk_audio"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_3_s0/D",
+      "registered_source": "rgray[3]",
+      "source_clock": "clk_audio"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/u_tx_fifo/rgray_s1_4_s0/D",
+      "registered_source": "rbin[4]",
+      "source_clock": "clk_audio"
+    },
+    {
+      "capture_clock": "clk_core",
+      "pin": "u_top/u_audio/u_core/u_transport/tgl_s1_s0/D",
+      "registered_source": "tick_tgl",
+      "source_clock": "clk_audio"
+    }
+  ]
+}

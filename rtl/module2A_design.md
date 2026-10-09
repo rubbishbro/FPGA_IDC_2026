@@ -22,8 +22,8 @@
 |---|---|
 | `rtl/core/modal_lane.sv` | 一条 lane：单端口缓存、流水共享乘法、量化、状态提交、部分和 |
 | `rtl/core/modal_bank.sv` | 单声部 top：四 lane、配置路由、握手仲裁、完成汇合、求和 |
-| `sim/test_modal_bank.py` | cocotb 回归与命令行 runner |
-| `rtl/module2A_delivery_report.md` | 实际实现、审查、测试结果和硬件验证限制 |
+| `sim/unit/core/test_modal_bank.py` | 单声部bank基础回归；统一入口见`sim/README.md` |
+| `docs/archive/2026-10/rtl/module2A_delivery_report.md` | 实际实现、审查、测试结果和硬件验证限制 |
 
 禁止直接实例化 48 个 `resonator`。模块 1 的算术规则是依据，不复用其每模态三乘法器结构。
 
@@ -178,16 +178,16 @@ Gowin DSP 映射、B-SRAM 推断、器件适配和 Fmax 必须另做综合/布�
 
 基础真实音回归建议每音至少 2048 样本；低音长尾为可选慢测试，至少检查单模态 MIDI21 的已知固定点范围在 Q2.30 下低于 2e-4，不能宣称这证明了整个声部必定回收。长音频/全表行为沿用 `limit_cycle_check.py`，属于数值链检查而非 2A 的回收功能。
 
-父会话独立补测入口为 `sim/test_modal_bank_independent_review.py`，不复用实现者的驱动和 commit 收集函数。包含全模态计数升降扫描、每一流水 offset 的 reset、确定性非零反馈/优先级/错误副作用，以及原始 `.mem` **全部250表项各32采样**直接对拍 FixedModalSynth。小结构参数检查每个表项的前缀；N_MODES=48 检查完整模态集。最终测试统计见交付报告。
+父会话独立补测入口为 `sim/unit/core/test_modal_bank_independent_review.py`，不复用实现者的驱动和 commit 收集函数。包含全模态计数升降扫描、每一流水 offset 的 reset、确定性非零反馈/优先级/错误副作用，以及原始 `.mem` **全部250表项各32采样**直接对拍 FixedModalSynth。小结构参数检查每个表项的前缀；N_MODES=48 检查完整模态集。最终测试统计见交付报告。
 
 运行入口示例（实际参数以脚本 --help 为准）：
 
 ```bash
 export PATH="$HOME/micromamba/envs/torch312/bin:$PATH"
-python sim/test_modal_bank.py
-python sim/test_modal_bank.py --n-modes 7 --skip-zero-input 0
-python sim/test_modal_bank.py --matrix
-python sim/test_modal_bank_independent_review.py
+python sim/run.py core/bank
+python sim/run.py core/bank --n-modes 7 --skip-zero-input 0
+python sim/run.py core/bank --matrix
+python sim/run.py core/bank_independent
 ```
 
 默认 build、XML、日志输出到 `sim/build/modal_bank/` 或显式 --build-dir；不要覆盖已有 `sim/results.xml`，不要修改已有系数文件。构建与测试产物不加入版本控制。

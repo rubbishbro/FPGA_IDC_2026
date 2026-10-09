@@ -6,7 +6,7 @@
 /home/rubbishbro/Desktop/FPGA_IDC_2026/build/diagnostic_tone_20261005/diagnostic_tone.fs
 ```
 
-SHA256：`4d5276bb3737ad51862bb97e105224845564c33310efffb799ecf1c3304e93a0`（34,668,942bytes）。只用于持续测试音：Programmer选`GW5AST-138B → SRAM Mode → SRAM Program`，不写Flash、不按RECONFIG；无需按键启动。原歌曲版保持冻结，父会话未执行下载/Programmer。验收边界与证据见[`PARENT_REVIEW.md`](PARENT_REVIEW.md)。
+SHA256：`4d5276bb3737ad51862bb97e105224845564c33310efffb799ecf1c3304e93a0`（34,668,942bytes）。只用于持续测试音：Programmer选`GW5AST-138B → SRAM Mode → SRAM Program`，不写Flash、不按RECONFIG；无需按键启动。原歌曲版保持冻结，父会话未执行下载/Programmer。验收边界与证据见[`PARENT_REVIEW.md`](../../../../docs/archive/2026-10/rtl/platform/tang_mega_138k_pro/diagnostic_tone/PARENT_REVIEW.md)。
 
 本目录是一套**独立、最小化**的板级诊断工程，用于在**不经过歌曲/core**的情况下，
 从 Tang Mega 138K Pro 的 PMOD2 输出一个稳定的已知方波，经由外部 MAX98357A
