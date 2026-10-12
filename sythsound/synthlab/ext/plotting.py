@@ -458,7 +458,7 @@ def spectrogram(
         spec_db,
         shading="auto",
         cmap="magma",
-        vmin=-120.0,
+        vmin=-60.0,
         vmax=0.0,
     )
     cbar = fig.colorbar(mesh, ax=ax)

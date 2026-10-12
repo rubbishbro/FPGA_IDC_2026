@@ -1,5 +1,6 @@
 # Locally unpacked wheels -- the sandbox cannot use pip's install path.
 # Kept at the repository root because python/tools/ resolves them from there.
+_analysis/
 _libs/
 _wheels/
 
