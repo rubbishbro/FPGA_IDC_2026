@@ -8,7 +8,8 @@ foreach top {fmax_seq fmax_ram} {
     create_project -name ${top}_pnr -dir $build -pn GW5AST-LV138FPG676AES -device_version B -force
     set_option -verilog_std sysv2017
     set_option -top_module $top
-    add_file "$here/modal_step_pkg.sv"
+    add_file "$here/../math/pkg/fxp_pkg.sv"
+add_file "$here/modal_step_pkg.sv"
     add_file "$here/coeff_loader.sv"
     add_file "$here/modal_bank_seq.sv"
     add_file "$here/modal_bank_ram.sv"

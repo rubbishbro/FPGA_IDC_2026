@@ -104,5 +104,61 @@ package fxp_pkg;
         fx_iw_needed = n;
     endfunction
 
+    // =====================================================================
+    //  Rounding variants (round-half-up, ties toward +inf).
+    //
+    //  fx_* (above) FLOOR to match hand-written RTL that predates them.
+    //  The modal recursion in rtl/simsynth must ROUND: with floor, the
+    //  decay-rate error of a 22-bit coefficient rises from 0.03% to 1.44%,
+    //  i.e. the resonators lose their poles' precision.  These variants exist
+    //  so both sides can share one arithmetic source without changing the
+    //  numerics of either.
+    //
+    //  fx_shift_rnd(a, d)  == (a + 2^(d-1)) >>> d   (d > 0)
+    //                     == fx_shift(a, d)         (d <= 0, exact)
+    // =====================================================================
+    function automatic logic signed [CW-1:0] fx_shift_rnd(input logic signed [CW-1:0] a,
+                                                          input int d);
+        if (d <= 0) fx_shift_rnd = fx_shift(a, d);
+        else        fx_shift_rnd = (a + (64'sd1 <<< (d - 1))) >>> d;
+    endfunction
+
+    // product rounded onto the fout grid:  r = round(a*b * 2^(fout-fa-fb))
+    function automatic logic signed [CW-1:0] fx_mul_rnd(input logic signed [CW-1:0] a,
+                                                        input logic signed [CW-1:0] b,
+                                                        input int fa, input int fb,
+                                                        input int fout);
+        fx_mul_rnd = fx_shift_rnd(a * b, fa + fb - fout);
+    endfunction
+
+    // multiply-accumulate with a SINGLE rounding on the product: this is
+    // exactly "qn += round(term)" of the modal recursion.
+    function automatic logic signed [CW-1:0] fx_mac_rnd(input logic signed [CW-1:0] a,
+                                                        input logic signed [CW-1:0] b,
+                                                        input logic signed [CW-1:0] c,
+                                                        input int fa, input int fb,
+                                                        input int fc, input int fout);
+        fx_mac_rnd = fx_mul_rnd(a, b, fa, fb, fout) + fx_shift(c, fc - fout);
+    endfunction
+
+    // ---- unsigned saturation (ufp datapath) --------------------------------
+    //  Clamp into [0, 2^wo - 1];  pair with fx_clip_u() for the flag.
+    function automatic logic [CW-1:0] fx_sat_u(input logic [CW-1:0] a,
+                                               input int qi, input int qo,
+                                               input int wo);
+        logic [CW-1:0] w, hi;
+        w       = fx_shift(a, qi - qo);            // floor is fine for unsigned
+        hi      = (64'd1 <<< wo) - 1'd1;
+        fx_sat_u = (w > hi) ? hi : w;
+    endfunction
+
+    function automatic logic fx_clip_u(input logic [CW-1:0] a,
+                                       input int qi, input int qo, input int wo);
+        logic [CW-1:0] w, hi;
+        w        = fx_shift(a, qi - qo);
+        hi       = (64'd1 <<< wo) - 1'd1;
+        fx_clip_u = (w > hi);
+    endfunction
+
 endpackage
 `endif

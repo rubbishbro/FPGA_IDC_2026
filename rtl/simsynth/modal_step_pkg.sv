@@ -39,6 +39,15 @@ package modal_step_pkg;
     localparam int AW = 64;         // 乘加累加器
     localparam int YW = 64;         // 输出（本模态的琴桥力项；由 bank 求和后统一移位）
 
+    // ---- 二进制点（与 gen_golden.py 的 QF/XF/YF 一致）-----------------------
+    // 以前这些数字只存在于 Python 系数生成器里；改用 rtl/math 的 sfp 接口声明
+    // 静态格式信号后，必须在这里显式写出来，否则"格式"就又变成隐式约定。
+    //   q / q' : s(32-24).24 = s8.24
+    //   x      : s(32-28).28 = s4.28
+    //   y      : s(64-40).40 = s24.40
+    localparam int QF = 24;
+    localparam int YF = 40;
+
     // ---- 每模态系数（一个 packed 结构体 = 一个模态的常数记录）-----------------
     // 命名：aXY 是 2x2 矩阵元，sXY 是它的移位；gq/gv 是输入增益，wo 是输出权重。
     typedef struct packed {
@@ -57,35 +66,40 @@ package modal_step_pkg;
     } mode_state_t;
 
     // ---- 算术（放在包里，保证"并行一步"与"时分复用 bank"逐位一致）-------------
-
-    // (a * m) >> s，移位前四舍五入；s = 0 时不加偏置。
     //
-    // 注意：两个操作数**先扩展到累加器宽度再相乘**。SV 里 `a * m` 的结果宽度是操作数
-    // 宽度的最大值（不是 LHS 宽度），32 位状态乘 24 位系数会被截成 32 位，高位全丢 ——
-    // 这是本目录第一版被 xsim 抓到的真实 bug。
+    // 舍入与饱和**直接用 rtl/math 的 fxp_pkg**：那份算术与 CORDIC/坐标变换共用，
+    // 由 rtl/math/tb/tb_fp_ops.sv 证明与本文件原实现逐位一致（4060 项随机＋定点平局）。
+    //
+    // 注意两点：
+    //  1. 这里只借用 fx_shift_rnd / fx_sat，**没有**用 fxp_pkg::fx_mul_rnd —— 后者的
+    //     操作数是 64 位载体，两个信号相乘会变成 64×64 乘法器；我们保持 32×24 的窄乘法器。
+    //  2. 不能 `import fxp_pkg::*`：它内部也有 CW（=64），会与本包的 CW（=24）冲突，
+    //     所以一律用 `fxp_pkg::` 限定调用。
+
+    // (a * m) >> s，移位前四舍五入（round-half-up，平局向 +∞）。
+    //
+    // 乘法前两个操作数先扩展到累加器宽度：SV 里 `a * m` 的结果宽度是操作数宽度的最大值
+    // （不是 LHS 宽度），32 位状态乘 24 位系数会被截成 32 位，高位全丢。
+    //
+    // 这里整段都交给 rtl/math：fx_mul_rnd 的 64 位只是**载体**，实际操作数是 32/24 位，
+    // 综合器会把未用到的位裁掉（本包此前用窄乘法 + fx_shift_rnd，两种写法的综合结果
+    // 见 README 的对照表）。
     function automatic logic signed [AW-1:0] term(
         input logic signed [XW-1:0] a,
         input logic signed [CW-1:0] m,
         input logic        [SW-1:0] s
     );
-        logic signed [AW-1:0] aa, mm, prod, half;
-        aa   = a;
-        mm   = m;
-        prod = aa * mm;
-        half = (s == 0) ? '0 : ({{(AW-1){1'b0}}, 1'b1} <<< (s - 6'd1));
-        term = (prod + half) >>> s;
+        // 值 = a·m·2^-s；fx_mul_rnd 的 (fa,fb,fout) 放在整数标度上：0+0-(-s) = s
+        term = fxp_pkg::fx_mul_rnd(a, m, 0, 0, -int'(s));
     endfunction
 
+    // 饱和到 QW / VW 位有符号（fx_sat 的 qi=qo=0 即"不换小数点，只钳位"）
     function automatic logic signed [QW-1:0] sat_q(input logic signed [AW-1:0] v);
-        if (v > $signed({1'b0, {(QW-1){1'b1}}}))       sat_q = {1'b0, {(QW-1){1'b1}}};
-        else if (v < $signed({1'b1, {(QW-1){1'b0}}}))  sat_q = {1'b1, {(QW-1){1'b0}}};
-        else                                          sat_q = v[QW-1:0];
+        sat_q = fxp_pkg::fx_sat(v, 0, 0, QW);
     endfunction
 
     function automatic logic signed [VW-1:0] sat_v(input logic signed [AW-1:0] v);
-        if (v > $signed({1'b0, {(VW-1){1'b1}}}))       sat_v = {1'b0, {(VW-1){1'b1}}};
-        else if (v < $signed({1'b1, {(VW-1){1'b0}}}))  sat_v = {1'b1, {(VW-1){1'b0}}};
-        else                                          sat_v = v[VW-1:0];
+        sat_v = fxp_pkg::fx_sat(v, 0, 0, VW);
     endfunction
 
 endpackage

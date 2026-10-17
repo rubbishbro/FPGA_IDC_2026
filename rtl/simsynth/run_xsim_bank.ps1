@@ -16,11 +16,11 @@ try {
     }
 
     Write-Output '--- xvlog ---'
-    & (Join-Path $VivadoBin 'xvlog.bat') -sv modal_step_pkg.sv modal_bank_seq.sv tb_modal_bank_seq.sv
+    & (Join-Path $VivadoBin 'xvlog.bat') -sv (Join-Path $PSScriptRoot '..\math\pkg\fxp_pkg.sv') modal_step_pkg.sv modal_bank_seq.sv tb_modal_bank_seq.sv
     if ($LASTEXITCODE -ne 0) { throw "xvlog failed ($LASTEXITCODE)" }
 
     Write-Output '--- xelab ---'
-    & (Join-Path $VivadoBin 'xelab.bat') tb_modal_bank_seq -s tb_bank --debug typical
+    & (Join-Path $VivadoBin 'xelab.bat') tb_modal_bank_seq -s tb_bank --debug typical -timescale 1ns/1ps
     if ($LASTEXITCODE -ne 0) { throw "xelab failed ($LASTEXITCODE)" }
 
     Write-Output '--- xsim ---'

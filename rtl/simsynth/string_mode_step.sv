@@ -28,13 +28,15 @@ module string_mode_step #(
     // 但硬件里留这个保护比绕回（wrap）安全得多。
     parameter logic SATURATE = 1'b1
 ) (
-    input  modal_step_pkg::coeff_t       c,        // 本模态 7 个常量（尾数 + 移位）
-    input  logic signed [modal_step_pkg::QW-1:0] q,
-    input  logic signed [modal_step_pkg::VW-1:0] qdot,
-    input  logic signed [modal_step_pkg::XW-1:0] x,
-    output logic signed [modal_step_pkg::QW-1:0] q_next,
-    output logic signed [modal_step_pkg::VW-1:0] qdot_next,
-    output logic signed [modal_step_pkg::YW-1:0] y
+    input  modal_step_pkg::coeff_t  c,        // 本模态 7 个常量（尾数 + 移位）
+    // 静态格式的信号用 rtl/math 的 sfp 接口声明：格式由实例参数给出，移位全部常量化。
+    // 格式取值来自 modal_step_pkg：q/q' = s(32-24).24、x = s(32-28).28、y = s(64-40).40
+    sfp.in                          q,
+    sfp.in                          qdot,
+    sfp.in                          x,
+    sfp.out                         q_next,
+    sfp.out                         qdot_next,
+    sfp.out                         y
 );
 
     import modal_step_pkg::*;
@@ -45,16 +47,19 @@ module string_mode_step #(
     logic signed [AW-1:0] qn, vn;
 
     always_comb begin
-        qn = term(q, c.a11, c.s11) + term(qdot, c.a12, c.s12) + term(x, c.gq, c.sgq);
-        vn = term(q, c.a21, c.s21) + term(qdot, c.a22, c.s22) + term(x, c.gv, c.sgv);
-        y  = term(q, c.wo, c.swo);
+        // 接口实例的 .val 就是原来的定点整数；格式由上层 sfp #(.iw,.qw) 参数决定
+        qn = term(q.val, c.a11, c.s11) + term(qdot.val, c.a12, c.s12)
+                                        + term(x.val, c.gq, c.sgq);
+        vn = term(q.val, c.a21, c.s21) + term(qdot.val, c.a22, c.s22)
+                                        + term(x.val, c.gv, c.sgv);
+        y.val = term(q.val, c.wo, c.swo);
 
         if (SATURATE) begin
-            q_next    = sat_q(qn);
-            qdot_next = sat_v(vn);
+            q_next.val    = sat_q(qn);
+            qdot_next.val = sat_v(vn);
         end else begin
-            q_next    = qn[QW-1:0];
-            qdot_next = vn[VW-1:0];
+            q_next.val    = qn[QW-1:0];
+            qdot_next.val = vn[VW-1:0];
         end
     end
 

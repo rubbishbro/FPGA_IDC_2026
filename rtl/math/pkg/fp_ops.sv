@@ -100,4 +100,110 @@ module sfp_mac_ind (sfp.in a, sfp.in b, sfp.in c, sfp.out y, output logic clip);
     assign clip  = fxp_pkg::fx_clip(s, `add_qw(y, c), `fp_qw(y), `fp_wl(y));
 endmodule
 
+// ===========================================================================
+//  ROUNDING variants (round-half-up, ties toward +inf)
+//
+//  The *floor* modules above are kept unchanged for the existing datapaths
+//  (the CORDIC chain is verified against them).  These variants exist for the
+//  modal recursion in rtl/simsynth, which must round: with floor, a 22-bit
+//  coefficient's decay-rate error grows from 0.03% to 1.44%.
+// ===========================================================================
+module sfp_mul_rnd (sfp.in a, sfp.in b, sfp.out y);
+    logic signed [63:0] t;
+    assign t     = fxp_pkg::fx_mul_rnd(a.val, b.val, `fp_qw(a), `fp_qw(b), `fp_qw(y));
+    assign y.val = t[`fp_wl(y)-1:0];
+endmodule
+
+module sfp_mac_rnd (sfp.in a, sfp.in b, sfp.in c, sfp.out y);
+    logic signed [63:0] t;
+    assign t     = fxp_pkg::fx_mac_rnd(a.val, b.val, c.val,
+                                       `fp_qw(a), `fp_qw(b), `fp_qw(c), `fp_qw(y));
+    assign y.val = t[`fp_wl(y)-1:0];
+endmodule
+
+// ===========================================================================
+//  UNSIGNED (ufp) datapath.
+//
+//  The ufp interface existed but had no operators; these mirror the sfp set.
+//  Implementation note: the fxp_pkg functions take a SIGNED 64-bit carrier, so
+//  every operand is zero-extended ({0..0, val}) before the call.  A ufp value
+//  never has the sign bit set, so arithmetic and logical shifts coincide and
+//  the conversion is exact.
+// ===========================================================================
+module ufp_resize (ufp.in in, ufp.out out);
+    logic [63:0] t;
+    assign t       = fxp_pkg::fx_shift({{(64-`fp_wl(in)){1'b0}}, in.val},
+                                       `fp_qw(in) - `fp_qw(out));
+    assign out.val = t[`fp_wl(out)-1:0];
+endmodule
+
+module ufp_add (ufp.in a, ufp.in b, ufp.out y);
+    logic [63:0] t;
+    assign t = fxp_pkg::fx_add({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `add_qw(a, b));
+    assign y.val = t[`fp_wl(y)-1:0];
+endmodule
+
+//  a - b, clamped at 0;  borrow = 1 when a < b (nothing valid to output)
+module ufp_sub (ufp.in a, ufp.in b, ufp.out y, output logic borrow);
+    logic signed [63:0] d;
+    assign d       = fxp_pkg::fx_sub({{(64-`fp_wl(a)){1'b0}}, a.val},
+                                     {{(64-`fp_wl(b)){1'b0}}, b.val},
+                                     `fp_qw(a), `fp_qw(b), `add_qw(a, b));
+    assign borrow  = (d < 0);
+    assign y.val   = borrow ? '0 : d[`fp_wl(y)-1:0];
+endmodule
+
+module ufp_mul (ufp.in a, ufp.in b, ufp.out y);
+    logic [63:0] t;
+    assign t = fxp_pkg::fx_mul({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `mult_qw(a, b));
+    assign y.val = t[`fp_wl(y)-1:0];
+endmodule
+
+module ufp_mac (ufp.in a, ufp.in b, ufp.in c, ufp.out y);
+    logic [63:0] p, s;
+    assign p = fxp_pkg::fx_mul({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `mult_qw(a, b));
+    assign s = p + fxp_pkg::fx_shift({{(64-`fp_wl(c)){1'b0}}, c.val},
+                                     `fp_qw(c) - `fp_qw(y));
+    assign y.val = s[`fp_wl(y)-1:0];
+endmodule
+
+// ---- saturating (clamp to [0, 2^wl-1]) ------------------------------------
+module ufp_add_ind (ufp.in a, ufp.in b, ufp.out y, output logic clip);
+    logic [63:0] s, t;
+    assign s = fxp_pkg::fx_add({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `add_qw(a, b));
+    assign t    = fxp_pkg::fx_sat_u(s[63:0], `add_qw(a, b), `fp_qw(y), `fp_wl(y));
+    assign y.val = t[`fp_wl(y)-1:0];
+    assign clip  = fxp_pkg::fx_clip_u(s[63:0], `add_qw(a, b), `fp_qw(y), `fp_wl(y));
+endmodule
+
+module ufp_mul_ind (ufp.in a, ufp.in b, ufp.out y, output logic clip);
+    logic [63:0] p, t;
+    assign p = fxp_pkg::fx_mul({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `mult_qw(a, b));
+    assign t    = fxp_pkg::fx_sat_u(p, `mult_qw(a, b), `fp_qw(y), `fp_wl(y));
+    assign y.val = t[`fp_wl(y)-1:0];
+    assign clip  = fxp_pkg::fx_clip_u(p, `mult_qw(a, b), `fp_qw(y), `fp_wl(y));
+endmodule
+
+module ufp_mac_ind (ufp.in a, ufp.in b, ufp.in c, ufp.out y, output logic clip);
+    logic [63:0] p, s, t;
+    assign p = fxp_pkg::fx_mul({{(64-`fp_wl(a)){1'b0}}, a.val},
+                               {{(64-`fp_wl(b)){1'b0}}, b.val},
+                               `fp_qw(a), `fp_qw(b), `mult_qw(a, b));
+    assign s = p + fxp_pkg::fx_shift({{(64-`fp_wl(c)){1'b0}}, c.val},
+                                     `fp_qw(c) - `fp_qw(y));
+    assign t    = fxp_pkg::fx_sat_u(s, `mult_qw(a, b), `fp_qw(y), `fp_wl(y));
+    assign y.val = t[`fp_wl(y)-1:0];
+    assign clip  = fxp_pkg::fx_clip_u(s, `mult_qw(a, b), `fp_qw(y), `fp_wl(y));
+endmodule
+
 `endif

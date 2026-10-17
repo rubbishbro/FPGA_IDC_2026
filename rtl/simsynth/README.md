@@ -184,3 +184,21 @@ pwsh -File rtl/simsynth/run_gwsh.ps1 -Only bank   # 或 all / step / probe
 | `rtl/core/resonator.sv` | (a1,a2,G) 二阶 IIR，状态是隐藏的 (y1,y2) | **不能**：我们的算法需要**物理 (q,q̇)**（拨弦是 q 的初始条件、琴桥力是 Σwo·q、输入有两条增益） |
 | `rtl/core/modal_lane.sv` | (a1,a2,G) 三系数的 TDM lane（三相调度） | 调度思想可借鉴；接口风格已刻意对齐 |
 | `rtl/core/body_filter.sv` | **DF-I 4 段级联**（b0..b2/a1/a2、valid-ready、GUARD_BITS、饱和标志） | **结构上与我们的腔体同构，最有望直接复用**：3 段系数可直接喂（第 4 段置零或按 4 段重拟合） |
+
+## 与 rtl/math（定点/浮点工具包）的关系
+
+modal_step_pkg 的舍入与饱和已改为调用 
+tl/math/pkg/fxp_pkg.sv：
+
+- 	erm() = xp_pkg::fx_mul_rnd(a, m, 0, 0, -s) —— 乘法与四舍五入移位都在包里；
+  xp_pkg 的 64 位只是载体，综合器按实际位宽裁剪（实测同一 bank：+11 LUT，
+  MULT27X36 仍为 1）。
+- sat_q/sat_v = xp_pkg::fx_sat(v, 0, 0, QW/VW)。
+- 等价性由 
+tl/math/tb/tb_fp_ops.sv 证明（5660 项检查，含 4060 项
+  x_mul_rnd ↔ 	erm 随机/定点平局比对）。
+- string_mode_step 的端口已改用 
+tl/math 的 sfp interface 声明
+  （q/q' = s8.24、x = s4.28、y = s24.40），64 例黄金向量逐位不变。
+
+两套定点约定的完整差异与合并方案见 [FORMAT_ALIGNMENT.md](FORMAT_ALIGNMENT.md)。

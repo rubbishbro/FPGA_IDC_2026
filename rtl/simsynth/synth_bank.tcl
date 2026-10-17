@@ -15,6 +15,7 @@ create_project -name modal_bank_syn -dir $build -pn GW5AST-LV138FPG676AES -devic
 set_option -verilog_std sysv2017
 set_option -top_module modal_bank_seq
 
+add_file "$here/../math/pkg/fxp_pkg.sv"
 add_file "$here/modal_step_pkg.sv"
 add_file "$here/modal_bank_seq.sv"
 

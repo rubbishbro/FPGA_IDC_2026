@@ -17,13 +17,14 @@ module tb_string_mode_step;
 
     import modal_step_pkg::*;
 
-    logic signed [QW-1:0] q;
-    logic signed [VW-1:0] qdot;
-    logic signed [XW-1:0] x;
-    logic signed [QW-1:0] q_next;
-    logic signed [VW-1:0] qdot_next;
-    logic signed [YW-1:0] y;
-    coeff_t               c;
+    // 静态格式信号改用 rtl/math 的 sfp 接口（格式与 modal_step_pkg 的常量一致）
+    sfp #(.iw(QW-QF), .qw(QF)) q();
+    sfp #(.iw(VW-QF), .qw(QF)) qdot();
+    sfp #(.iw(XW-XF), .qw(XF)) x();
+    sfp #(.iw(QW-QF), .qw(QF)) q_next();
+    sfp #(.iw(VW-QF), .qw(QF)) qdot_next();
+    sfp #(.iw(YW-YF), .qw(YF)) y();
+    coeff_t                    c;
 
     string_mode_step dut (
         .c(c), .q(q), .qdot(qdot), .x(x),
@@ -56,21 +57,21 @@ module tb_string_mode_step;
         c.gq  = gq;  c.sgq = sgq[SW-1:0];
         c.gv  = gv;  c.sgv = sgv[SW-1:0];
         c.wo  = wo;  c.swo = swo[SW-1:0];
-        q     = qi;
-        qdot  = vi;
-        x     = xi;
+        q.val    = qi;
+        qdot.val = vi;
+        x.val    = xi;
         #1;                                     // 组合逻辑稳定
 
         n_total++;
-        if ((q_next !== qe) || (qdot_next !== ve) || (y !== ye)) begin
+        if ((q_next.val !== qe) || (qdot_next.val !== ve) || (y.val !== ye)) begin
             n_bad++;
             if (n_shown < 8) begin
                 n_shown++;
                 $display("MISMATCH %s", src);
                 $display("  got  q_next=%0d qdot_next=%0d y=%0d",
-                         q_next, qdot_next, y);
+                         q_next.val, qdot_next.val, y.val);
                 $display("  want q_next=%0d qdot_next=%0d y=%0d", qe, ve, ye);
-                $display("  (q=%0d v=%0d x=%0d)", q, qdot, x);
+                $display("  (q=%0d v=%0d x=%0d)", q.val, qdot.val, x.val);
             end
         end
     endtask

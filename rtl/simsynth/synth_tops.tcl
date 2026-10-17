@@ -3,8 +3,8 @@ set root [pwd]
 set here [file dirname [file normalize [info script]]]
 
 foreach {name files} {
-    top_seq_syn {modal_step_pkg.sv coeff_loader.sv modal_bank_seq.sv top_seq.sv}
-    top_ram_syn {modal_step_pkg.sv coeff_loader.sv modal_bank_ram.sv top_ram.sv}
+    top_seq_syn {../math/pkg/fxp_pkg.sv modal_step_pkg.sv coeff_loader.sv modal_bank_seq.sv top_seq.sv}
+    top_ram_syn {../math/pkg/fxp_pkg.sv modal_step_pkg.sv coeff_loader.sv modal_bank_ram.sv top_ram.sv}
 } {
     set build "$root/build/$name"
     file mkdir $build
