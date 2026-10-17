@@ -231,7 +231,7 @@ def piano_generator(midi: int):
 
     beat_hz = f0 * 0.0005777895 # f0 * 2 ** (1/1200) - 1
     
-    banks = [bank(0.8, 0), bank(0.2, beat_hz)]
+    banks = [bank(0.7, 0), bank(0.3, beat_hz)]
     return Parallel(*banks, op="sum")
 
 # The soundboard. Three sections, fitted to the recorded/model partial ratio over MIDI
