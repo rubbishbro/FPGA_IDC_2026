@@ -83,8 +83,15 @@ The drive gain is derived, not tuned: a mode whose frequency is a drive harmonic
 at `gain_k / (1 - r_k^T)`, so `gain_k = w_k / A_unit(gamma_k, f_k, f0)` with `A_unit`
 computed exactly from the resonator's impulse response (`steady_amp_unit`).
 
-Verified steady-state partial error: **flute 0.28 dB, trumpet 0.02 dB, cello 0.02 dB**
-(median; see `sustained/verify_*.png`).
+Verified steady-state partial error (`verify()`): **flute median 0.03 dB, max 0.22 dB**
+against the extracted `a_k`, with vibrato/AM/roughness and the noise branch **switched
+off** so the number measures the static drive calibration only. The earlier
+"flute 0.28 / trumpet 0.02 / cello 0.02 dB" line was not valid for the modulated
+default — with vibrato on, a partial is a Bessel sideband comb and a fixed-frequency
+coherent sum reads only its carrier, inflating the apparent error to ~15 dB median.
+That is modeller/measurement scope, not a calibration failure; it is a static
+calibration bound, not an audible-fidelity verdict. `sustained/verify_*.png` are older
+artifacts and are not regenerated here.
 
 **Vibrato** — a control-rate LFO scales the drive *and every partial* by the same ratio
 (so the modes stay on the drive harmonics and the calibration holds), plus a small
@@ -102,6 +109,12 @@ Known limits: the noise *shape* is measured between partials, so it is contamina
 partial leakage and only gets a mild HF rolloff (-3 dB at 12 kHz) where the real breath
 noise falls more; and the model has no room/reverb, so the recordings' low-frequency
 rumble is absent.
+
+**Decision (2026-10-16): noise is OFF by default** — `noise_gain = 0.0` both in the
+`SustainSynth` constructor **and** in the demo `VOICE`. A no-noise render is
+perceptually close, so the RTL path is omitted to save resources.
+The implementation is kept (`sustain_engine.py`: `noise_gain`, `noise_db_cap`, velocity
+scaling); set `noise_gain > 0` to re-enable. Recorded in `rtl/DECISIONS.md` (G6).
 
 ## Drum kit (Class C — percussion)
 

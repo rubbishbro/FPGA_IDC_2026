@@ -40,13 +40,21 @@ BAR = 4.0 * BEAT
 #: `noise_gain` is the residual between the reference band (2-8 kHz, where the level is
 #: measured) and the instrument's actual noise shape; trumpet/cello land within 1 dB of
 #: unity, the flute's breath noise is concentrated higher and needs ~8 dB more.
+# Per-instrument expression.  Decision (2026-10-16, user): bow/breath noise is OFF by
+# default.  A no-noise render is perceptually close, and dropping it saves RTL resources
+# (the shared 257-tap noise FIR + gain path).  The noise implementation and the tuned
+# parameters are KEPT so it can be re-enabled by setting `noise_gain > 0`.
+# See rtl/DECISIONS.md (G6) and FFT_results/sim/README.md.
 VOICE = {
-    "flute": dict(vibrato_hz=5.4, vibrato_cents=26, vibrato_am=0.16,
-                  noise_gain=2.6, noise_hp_hz=600.0, noise_lp_hz=12000.0),
-    "trumpet": dict(vibrato_hz=4.8, vibrato_cents=15, vibrato_am=0.10,
-                    noise_gain=0.95, noise_hp_hz=800.0, noise_lp_hz=9000.0),
-    "cello": dict(vibrato_hz=5.8, vibrato_cents=24, vibrato_am=0.12,
-                  noise_gain=0.95, noise_hp_hz=250.0, noise_lp_hz=8000.0),
+    "flute": dict(vibrato_hz=5.4, vibrato_cents=13, vibrato_am=0.08,
+                  noise_gain=0.0, noise_hp_hz=600.0, noise_lp_hz=12000.0,
+                  noise_db_cap=-70.0, roughness=0.12, rough_hz=6.0),
+    "trumpet": dict(vibrato_hz=4.8, vibrato_cents=9, vibrato_am=0.06,
+                    noise_gain=0.0, noise_hp_hz=800.0, noise_lp_hz=9000.0,
+                    noise_db_cap=-70.0, roughness=0.15, rough_hz=6.0),
+    "cello": dict(vibrato_hz=5.8, vibrato_cents=12, vibrato_am=0.06,
+                  noise_gain=0.0, noise_hp_hz=250.0, noise_lp_hz=8000.0,
+                  noise_db_cap=-74.0, roughness=0.30, rough_hz=6.0),
 }
 
 

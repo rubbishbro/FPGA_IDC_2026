@@ -30,7 +30,7 @@ python sim/run.py core/bank --testcase t01_reset_preconfig --build-dir /tmp/open
 | `unit/body/` | body 四 biquad 单元、纯模型、数值/拒绝 review |
 | `integration/` | 真实 engine 的整链 / 板级集成与 body 端到端 |
 | `netlist/` | 真实 Gowin 综合网表级检查（bank / body / song） |
-| `regression/` | 元数据位图、lane 地址、RAM 等价与 write-mode 修复回归 |
+| `regression/` | 元数据位图、lane 地址、RAM 等价、write-mode 修复与持续性引擎控制率/收尾残留回归 |
 | `checks/` | preflight 门禁、Gowin 报告门禁、合成夹具检查 |
 | `diagnostics/` | 隔离诊断音调引脚级复核 |
 | `tools/` | 报告检查、绘图与真实Gowin构建工具；不是测试，build类会执行综合/P&R |
@@ -41,7 +41,7 @@ python sim/run.py core/bank --testcase t01_reset_preconfig --build-dir /tmp/open
 （baseline / independent / regression / tool / archive / support）、`kind`
 （rtl / python / netlist / reports / build / plot）和简单 `deps`。
 
-## 3. 精选入口（完整 47 条请 `--list --filter`）
+## 3. 精选入口（完整 48 条请 `--list --filter`）
 
 | id | 用途 |
 |---|---|
@@ -54,6 +54,7 @@ python sim/run.py core/bank --testcase t01_reset_preconfig --build-dir /tmp/open
 | `netlist/bank` | 真实 Gowin 综合网表级隔离 bank 检查 |
 | `checks/gowin_report_gate` | 综合/布局报告门禁单元测试（合成夹具） |
 | `regression/coeff_metadata` | coeff_loaded / low_unloaded 元数据位图回归 |
+| `regression/sustain_control` | 持续性引擎 LFO 逐采样推进 / verify 静态校准 / 收尾噪声残留 / 静音回收相位独立模态 quadrature 包络 / 软抢占槽位绑定与 pending Note Off / 键回退 / release 提取 / 默认噪声（纯 Python，合成 Patch + 真实入口） |
 | `archive/mock_board` | 早期 mock 板级链路（归档，仍有隔离覆盖） |
 
 ## 4. 归档：`archive/bringup_mock/`

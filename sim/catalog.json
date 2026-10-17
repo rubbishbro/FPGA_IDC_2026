@@ -35,7 +35,7 @@
     {
       "id": "regression",
       "dir": "regression",
-      "description": "元数据/地址/RAM 等价与修复回归"
+      "description": "元数据/地址/RAM 等价、修复回归与持续性引擎控制率/收尾回归"
     },
     {
       "id": "checks",
@@ -472,6 +472,24 @@
       ],
       "runnable": true,
       "origin": "moved",
+      "category": "regression",
+      "aliases": []
+    },
+    {
+      "id": "regression/sustain_control",
+      "path": "sim/regression/test_sustain_control_regression.py",
+      "purpose": "持续性引擎控制率/收尾残留/生命周期回归（纯 Python，多数用合成 Patch；有参数时补真实 flute/violin 入口）：LFO 每采样推进（coef_interval=1/7/96/257、正确 Hz、AM-only）、verify 7 项解包与静态校准定量门槛、最后声部回收即清 last_env/last_nz、静音回收相位独立模态 quadrature 包络（任意相位/低频/未用模态/调制无 NaN）、满池软抢占槽位绑定/超池突发不饥饿/错序取消、裸 midi Note Off 取消 pending、键回退同音高优先、release 90%->10% 提取、默认噪声关闭；关调制保持原递推与其它语义",
+      "role": "regression",
+      "kind": "python",
+      "deps": [
+        "numpy",
+        "scipy",
+        "sustain_engine",
+        "sustain",
+        "core"
+      ],
+      "runnable": true,
+      "origin": "new",
       "category": "regression",
       "aliases": []
     },

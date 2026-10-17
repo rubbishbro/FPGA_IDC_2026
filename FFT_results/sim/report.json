@@ -12,7 +12,7 @@
     "release_factor": 1.0,
     "melody": {
       "seconds": 15.45,
-      "render_s": 17.7,
+      "render_s": 18.1,
       "kills": 0,
       "hard": 0
     },
@@ -21,6 +21,99 @@
       "n_modes": 19,
       "partial_err_median_db": 0.18,
       "partial_err_p90_db": 0.26,
+      "gamma_err_median_db": 0.0
+    },
+    "stress": {
+      "kills": 8,
+      "hard": 0,
+      "max_active": 5,
+      "kill_jump": 0.0
+    }
+  },
+  "piano": {
+    "body_rmse_db": 0.22,
+    "body_range_db": [
+      -0.69,
+      0.9
+    ],
+    "max_modes": 64,
+    "band_hz": 20000.0,
+    "noise_amp": 0.08,
+    "noise_lp_hz": 4500.0,
+    "release_factor": 9.0,
+    "melody": {
+      "seconds": 15.45,
+      "render_s": 19.9,
+      "kills": 0,
+      "hard": 0
+    },
+    "synthesis": {
+      "midi": 66,
+      "n_modes": 14,
+      "partial_err_median_db": 0.02,
+      "partial_err_p90_db": 0.3,
+      "gamma_err_median_db": 0.0
+    },
+    "stress": {
+      "kills": 8,
+      "hard": 0,
+      "max_active": 5,
+      "kill_jump": 3.598457772374435e-07
+    }
+  },
+  "banjo": {
+    "body_rmse_db": 0.27,
+    "body_range_db": [
+      -2.59,
+      1.0
+    ],
+    "max_modes": 64,
+    "band_hz": 16000.0,
+    "noise_amp": 0.16,
+    "noise_lp_hz": 4000.0,
+    "release_factor": 1.0,
+    "melody": {
+      "seconds": 15.45,
+      "render_s": 18.0,
+      "kills": 0,
+      "hard": 0
+    },
+    "synthesis": {
+      "midi": 68,
+      "n_modes": 31,
+      "partial_err_median_db": 0.35,
+      "partial_err_p90_db": 0.65,
+      "gamma_err_median_db": 0.0
+    },
+    "stress": {
+      "kills": 8,
+      "hard": 0,
+      "max_active": 5,
+      "kill_jump": 3.0588114575274876e-07
+    }
+  },
+  "mandolin": {
+    "body_rmse_db": 0.11,
+    "body_range_db": [
+      -3.03,
+      1.04
+    ],
+    "max_modes": 64,
+    "band_hz": 16000.0,
+    "noise_amp": 0.16,
+    "noise_lp_hz": 4000.0,
+    "release_factor": 1.0,
+    "melody": {
+      "seconds": 15.45,
+      "render_s": 18.0,
+      "kills": 0,
+      "hard": 0
+    },
+    "synthesis": {
+      "midi": 74,
+      "n_modes": 22,
+      "partial_err_median_db": 0.38,
+      "partial_err_p90_db": 0.49,
       "gamma_err_median_db": 0.0
     },
     "stress": {

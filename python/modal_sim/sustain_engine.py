@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import time
 
@@ -83,11 +84,19 @@ class SustainPatch:
         self.band_hz = band_hz
         self.gamma_scale = gamma_scale
         d = np.load(paths.param(name, "sustain"), allow_pickle=True)
+        # The extractor stores midi/dynamic as fields (same contract as the pitched
+        # <inst>_partials.npz that Patch reads). Older tables only carry the filename,
+        # so fall back to parsing the note/dynamic tokens out of it.
+        has_key = "midi" in d.files and "dynamic" in d.files
         self.by_key = {}
         for i in range(d["f0"].size):
             m = d["note_id"] == i
             note = str(d["notes"][i])
-            key = (self._midi(note), self._dyn(note))
+            if has_key:
+                midi, dyn = int(d["midi"][i]), str(d["dynamic"][i])
+            else:
+                midi, dyn = self._midi(note), self._dyn(note)
+            key = (midi, dyn)
             self.by_key.setdefault(key, []).append(dict(
                 k=d["k"][m].astype(float), f=d["f_k"][m].astype(float),
                 g=d["gamma"][m].astype(float), a=d["a"][m].astype(float),
@@ -96,6 +105,7 @@ class SustainPatch:
                 noise_db=float(d["noise_db"][i]),
                 noise_win=float(d["noise_win"][i]), note=note))
         self.keys = sorted(self.by_key)
+        self.midis = sorted({k[0] for k in self.by_key})
         # one noise shape per instrument (the per-note curves are nearly identical)
         self.noise_shape_db = (d["noise_shape_db"].mean(axis=0)
                                if "noise_shape_db" in d.files else None)
@@ -116,20 +126,46 @@ class SustainPatch:
 
     @staticmethod
     def _midi(note: str) -> int:
-        import re
         mm = re.search(r"_([A-G]s?\d)_", note)
         return CORE.note_to_midi(mm.group(1).replace("s", "#")) if mm else 60
 
     @staticmethod
     def _dyn(note: str) -> str:
-        return "piano" if "piano" in note and "mezzo" not in note[:60].split("_")[-2:] else "forte"
+        """Fallback for tables without a ``dynamic`` field: read the dynamic token
+        (``<inst>_<note>_<dur>_<dyn>_<art>``) instead of substring-matching 'piano',
+        which used to fold mezzo-piano / mezzo-forte into 'forte'."""
+        mm = re.search(r"_[A-G]s?\d_[^_]+_([^_]+)_", note)
+        return mm.group(1) if mm else "forte"
 
-    def _pick(self, midi):
-        near = min(self.keys, key=lambda k: abs(k[0] - midi))
-        return self.by_key[near][0]
+    def _pick_key(self, midi, dynamic):
+        """Key for (midi, dynamic); fall back to *any* recorded dynamic of the same
+        pitch first, then to a dynamic of the nearest recorded pitch.
 
-    def modes(self, midi: int):
-        src = self._pick(midi)
+        Python deliberately allows this fallback (the hardware path is the one that
+        must reject a missing key), but it must never jump to an unrelated first pitch:
+        if a pitch is recorded only at ``mezzo-forte``, a ``forte`` request stays on
+        that same pitch instead of landing on whatever key was inserted first.  Both
+        levels use the dynamic preference (requested, then forte, then piano, then any
+        recorded dynamic of that pitch)."""
+        def at(m):
+            avail = [k for k in self.keys if k[0] == m]
+            if not avail:
+                return None
+            for dyn in (dynamic, "forte", "piano"):
+                if (m, dyn) in self.by_key:
+                    return (m, dyn)
+            return avail[0]                       # any other legal dynamic, deterministic
+        same = at(midi)
+        if same is not None:
+            return same
+        near = min(self.midis, key=lambda m: (abs(m - midi), m))
+        return at(near)                           # by_key non-empty => midis non-empty
+
+    def _pick(self, midi, dynamic="forte"):
+        return self.by_key[self._pick_key(midi, dynamic)][0]
+
+    def modes(self, midi: int, dynamic: str = "forte"):
+        src = self._pick(midi, dynamic)
         # Harmonic partials on purpose: the drive is one impulse train at f0, so a mode
         # only sits exactly at resonance if it is an integer multiple of f0. With the
         # measured (slightly detuned) frequencies the steady response lands on the drive
@@ -154,10 +190,13 @@ class SustainPatch:
 
 class SustainSynth:
     def __init__(self, patch: SustainPatch, sr: int = SR, max_poly: int = 16,
-                 high_water: int | None = None, noise_gain: float = 1.0,
+                 high_water: int | None = None, noise_gain: float = 0.0,
                  noise_hp_hz: float = 400.0, noise_lp_hz: float = 9000.0,
+                 noise_db_cap: float = 0.0,
                  vibrato_hz: float = 5.2, vibrato_cents: float = 22.0,
                  vibrato_am: float = 0.14, drift_cents: float = 0.0,
+                 roughness: float = 0.0, rough_hz: float = 3.5,
+                 steal_fade: float = 0.008,
                  coef_interval: int = 96, seed: int = 0):
         self.patch = patch
         self.sr = sr
@@ -167,12 +206,32 @@ class SustainSynth:
         self.noise_gain = noise_gain
         self.noise_hp_hz = noise_hp_hz
         self.noise_lp_hz = noise_lp_hz
+        self.noise_db_cap = noise_db_cap
         self.vibrato_hz = vibrato_hz
         self.vibrato_cents = vibrato_cents
         self.vibrato_am = vibrato_am
         self.drift_cents = drift_cents
         self.coef_interval = max(1, int(coef_interval))
+        self.steal_fade = max(float(steal_fade), 1e-4)   # s, voice-steal fade-out time
         self.rng = np.random.default_rng(seed)
+        # Bow roughness: a slow amplitude modulation of the whole voice.  A bowed note is
+        # not steady: bow pressure / contact make it breathe.  Measured on the recording,
+        # every partial's envelope correlates with the *common* (mean) envelope at r=0.74
+        # ..0.97, i.e. the fluctuation is almost entirely common-mode -- so modulating each
+        # mode independently would cancel out in the mix (central limit) and barely change
+        # the note.  Use a per-voice sum of a few random low-frequency sinusoids (discrete
+        # spectrum -> no broadband sideband skirt); amplitude std = `roughness`.
+        self.roughness = float(roughness)
+        self.rough_hz = float(rough_hz)
+        if self.roughness:
+            _V, _K = max_poly, 10
+            _rng = self.rng
+            _fr = max(self.rough_hz, 1e-3) * (0.15 + 0.85 * _rng.random((_K, _V)))
+            _ph = 2.0 * np.pi * _rng.random((_K, _V))
+            _cdt = self.coef_interval / float(sr)
+            self._rough_z = np.exp(1j * _ph)
+            self._rough_inc = np.exp(1j * 2.0 * np.pi * _fr * _cdt)
+            self._rough_norm = 1.0 / np.sqrt(_K / 2.0)     # unit-variance sum
         from scipy.signal import butter
         ny = sr / 2.0
         self.noise_sos = butter(2, [max(noise_hp_hz / ny, 1e-3),
@@ -197,23 +256,82 @@ class SustainSynth:
         self.gate = np.zeros(V, dtype=bool)
         self.vel = np.zeros(V); self.nz = np.zeros(V)
         self.active = np.zeros(V, dtype=bool); self.key = -np.ones(V, dtype=int)
+        # Note identity: every note_on takes a unique id; note_off(note_id=...) releases
+        # exactly that event, so overlapping same-pitch notes stay independent.
+        self.note_id = -np.ones(V, dtype=int)
+        self.fade = np.ones(V)                         # steal fade-out gain (1 = normal)
+        self.pending = []                              # note-ons waiting for a slot
+        self._next_note_id = 1
+        self.last_note_id = 0
         self.kill_count = 0; self.hard_count = 0
         self.active_hist = []
         self.last_env = 0.0
         self.last_nz = 0.0
+        self.rough = np.zeros(V)                       # per-voice bow-roughness AM
         self.n = 0
 
     # ------------------------------------------------------------------
-    def note_on(self, midi, vel=1.0):
-        kk, g, w, atk, rel, noise_db, noise_win = self.patch.modes(midi)
-        n = kk.size
+    def note_on(self, midi, vel=1.0, dynamic="forte"):
+        """Start a note.
+
+        Returns the integer voice slot assigned to this note, which is one of:
+
+        * a free slot -- the note starts immediately;
+        * a slot that is being faded out (``fade < 1``) to make room for it -- the
+          note is queued in ``self.pending`` and **bound** to that slot: it starts
+          there once the fade reaches zero, and cancelling another queued note first
+          never moves it to a different slot;
+        * ``None`` -- the pool is full and every slot is already reserved by an
+          earlier pending note.  This note is queued without a slot yet; it will get
+          one within a bounded number of steal cycles (see ``step``).
+
+        The unique identity of this note event is always written to
+        ``self.last_note_id``.  ``self.note_id[slot]`` only carries that id once the
+        note actually starts; while it is queued, ``note_id[slot]`` still holds the
+        voice being faded out and ``voice_of(last_note_id)`` returns ``None``.
+        ``note_off(note_id=...)`` cancels a queued note by removing it from
+        ``pending`` even before it starts.  All pending entries are stored as
+        ``(midi, vel, dynamic, note_id, bound_slot_or_None)``.
+        """
+        nid = self._next_note_id
+        self._next_note_id += 1
+        self.last_note_id = nid
         free = np.nonzero(~self.active)[0]
         if free.size == 0:
-            v = int(np.argmin(self.env))
-            self.active[v] = False; self.y1[v] = 0.0; self.y2[v] = 0.0
-            self.hard_count += 1
-            free = np.array([v])
-        v = int(free[0])
+            # Pool full: validate the note, reserve a victim and fade it out; the new
+            # note waits in `pending` and starts once that slot is free (never a hard
+            # reset).  A slot already fading is reserved for an earlier pending note
+            # and is never picked again.
+            self.patch.modes(midi, dynamic)
+            v = self._pick_victim()
+            if v is not None:
+                self.gate[v] = False
+                self.fade[v] = min(self.fade[v], 1.0 - self.dt / self.steal_fade)
+                self.hard_count += 1
+            self.pending.append((int(midi), float(vel), dynamic, nid, v))
+            return v
+        self._start(int(free[0]), midi, vel, dynamic, nid)
+        return int(free[0])
+
+    def _pick_victim(self):
+        """Slot to steal: a released voice closest to dying, else the oldest note.
+
+        Slots that are already fading (``fade < 1``) are reserved for a pending
+        note-on and are skipped, so repeated note-ons cannot all target the same
+        faded slot.  Returns ``None`` when every active slot is already reserved.
+        A just-started note is never chosen (its id is the newest)."""
+        active = np.nonzero(self.active)[0]
+        avail = active[self.fade[active] >= 1.0]
+        if avail.size == 0:
+            return None
+        released = avail[~self.gate[avail]]
+        if released.size:
+            return int(released[np.argmin(self.env[released])])
+        return int(avail[np.argmin(self.note_id[avail])])
+
+    def _start(self, v, midi, vel, dynamic, nid):
+        kk, g, w, atk, rel, noise_db, noise_win = self.patch.modes(midi, dynamic)
+        n = kk.size
         f0 = max(CORE.midi_to_hz(midi), 1e-6)
         period = max(2, int(round(self.sr / f0)))
         f_drive = self.sr / period
@@ -249,17 +367,46 @@ class SustainSynth:
         #                        = (2 sigma / A) * sqrt(3 / (2 N))
         # so the time-domain amplitude ratio is what follows. One global NOISE_CAL
         # covers the residual (filter gain, window details), not a per-instrument fudge.
-        sigma = (10.0 ** (noise_db / 20.0)
+        # Cap the loudest notes (the extracted bow-noise level of a few notes is up to
+        # 10x the median) and scale with velocity, so a forte note does not get an
+        # outsized noise burst and softer notes stay proportionally cleaner.
+        ndb = min(noise_db, self.noise_db_cap)
+        sigma = (10.0 ** (ndb / 20.0)
                  / max(2.0 * np.sqrt(3.0 / (2.0 * max(noise_win, 1.0))), 1e-12))
-        self.nz[v] = sigma * NOISE_CAL
+        self.nz[v] = sigma * NOISE_CAL * float(np.clip(vel, 0.0, 1.0))
         self.gate[v] = True
         self.active[v] = True
         self.key[v] = int(midi)
         self.y1[v] = 0.0; self.y2[v] = 0.0
+        self.rough[v] = 0.0
+        self.note_id[v] = int(nid)
+        self.fade[v] = 1.0
         return v
 
-    def note_off(self, midi):
+    def voice_of(self, note_id):
+        """Voice slot currently holding ``note_id``, or None."""
+        hit = np.nonzero(self.active & (self.note_id == int(note_id)))[0]
+        return int(hit[0]) if hit.size else None
+
+    def note_off(self, midi=None, *, note_id=None):
+        """Release a note.
+
+        With ``note_id`` only that exact event is released, so overlapping same-pitch
+        notes no longer collide.  With a bare ``midi`` every still-held voice of that
+        pitch is released -- kept for callers and regressions that predate note ids.
+        """
+        if note_id is not None:
+            self.pending = [p for p in self.pending if p[3] != int(note_id)]
+            v = self.voice_of(note_id)
+            if v is not None:
+                self.gate[v] = False
+            return
+        # Bare midi: release every held voice of that pitch AND cancel any queued
+        # (pending) note-ons of it that have not started yet.  Without the pending
+        # sweep a note that was stolen into the queue kept sounding after its
+        # Note Off arrived.
         self.gate[self.active & (self.key == midi)] = False
+        self.pending = [p for p in self.pending if p[0] != int(midi)]
 
     def _update_coeffs(self):
         """Control-rate pitch update (vibrato).
@@ -267,8 +414,12 @@ class SustainSynth:
         Vibrato must move the drive and every partial by the *same* ratio so the modes
         stay on the drive harmonics; that also keeps the drive calibration valid.
         Recomputed at control rate (vibrato is ~5 Hz), not per sample.
+
+        This routine only *samples* the per-voice LFO phase onto the resonators; the
+        phase itself is advanced once per sample in ``step`` (see there).  It therefore
+        reflects the true LFO value at the current sample, not a once-per-interval
+        approximation.
         """
-        self.lfo_phase = (self.lfo_phase + self.vibrato_hz * self.dt) % 1.0
         self.cents = self.drift_cents + self.vibrato_cents * np.sin(2.0 * np.pi * self.lfo_phase)
         ratio = 2.0 ** (self.cents / 1200.0)
         f = self.base_f * ratio[:, None]
@@ -280,8 +431,13 @@ class SustainSynth:
 
     def step(self):
         V = self.max_poly
-        if (self.vibrato_cents or self.drift_cents) and self.n % self.coef_interval == 0:
+        pitch_mod = bool(self.vibrato_cents) or bool(self.drift_cents)
+        lfo_on = pitch_mod or bool(self.vibrato_am)
+        if pitch_mod and self.n % self.coef_interval == 0:
             self._update_coeffs()
+        if self.roughness and self.n % self.coef_interval == 0:
+            self._rough_z *= self._rough_inc
+            self.rough = self._rough_norm * self._rough_z.real.sum(axis=0)
         # player envelope: exp approach to 1 while gated, to 0 when released
         rise = np.exp(-self.dt / np.maximum(self.attack, 1e-3))
         fall = np.exp(-self.dt / np.maximum(self.release, 1e-3))
@@ -301,18 +457,115 @@ class SustainSynth:
         drive = imp * self.env * self.vel * amp
         y = self.gain * drive[:, None] - self.a1 * self.y1 - self.a2 * self.y2
         self.y2[:] = self.y1; self.y1[:] = y
-        out = float(y[self.active].sum())
+        # Steal fade: a stolen voice is ramped to zero *before* its slot is reused, so
+        # the mix never jumps (no click).  When the ramp reaches zero the slot is freed
+        # and any pending note-on starts there.
+        fading = self.fade < 1.0
+        if fading.any():
+            self.fade[fading] = np.maximum(
+                self.fade[fading] - self.dt / self.steal_fade, 0.0)
+        yout = y
+        if self.roughness:
+            mod = np.exp(self.roughness * self.rough - 0.5 * self.roughness ** 2)
+            yout = y * mod[:, None]
+        if fading.any():
+            yout = yout * self.fade[:, None]
+        out = float(yout[self.active].sum())
+        dead = self.active & (self.fade <= 0.0)
+        if dead.any():
+            self.active[dead] = False
+            self.y1[dead] = 0.0; self.y2[dead] = 0.0
+            self.key[dead] = -1; self.note_id[dead] = -1; self.fade[dead] = 1.0
         if self.active.any():
             self.last_env = float(self.env[self.active].max())
             self.last_nz = float((self.nz * self.env)[self.active].max())
-        # free a voice once it is silent *and released*: during the attack env starts at
+        # Free a voice once it is silent *and released*: during the attack env starts at
         # 0, so testing the level alone recycled the voice on its first sample.
+        # A couple of small *samples* are NOT silence: at low frequency two consecutive
+        # samples near a zero crossing can both be tiny while the mode's amplitude is
+        # still large -- a 2-sample max(|y[n]|,|y[n-1]|) under-reads by ~sin(theta/2).
+        # Recover the phase-independent modal amplitude E from the two state samples and
+        # the pole actually in use: a free mode is y[m] = E r^m sin(theta m + phi), and
+        #     E^2 = y[n]^2 + ((y[n] cos(theta) - r y[n-1]) / sin(theta))^2
+        # For fixed stable poles, E bounds every future |y| of that mode, independent
+        # of phase.  With vibrato this is an instantaneous amplitude estimate using
+        # this sample's coefficients, not a bound on future time-varying amplification.
+        # Modes with r==0 are unused/padding and contribute 0; theta~0/pi (out-of-band
+        # or Nyquist) falls back to the 2-sample check (not an amplitude bound at a
+        # repeated pole); finite in-band states use the guarded quadrature division.
+        r_now = np.sqrt(np.maximum(self.a2, 0.0))
+        cos_t = np.clip(
+            np.where(r_now > 1e-12, -self.a1 / (2.0 * np.maximum(r_now, 1e-12)), 1.0),
+            -1.0, 1.0)
+        sin_t = np.sqrt(np.maximum(1.0 - cos_t * cos_t, 0.0))
+        quad = np.abs(self.y1 * cos_t - r_now * self.y2)
+        two_sample = np.maximum(np.abs(self.y1), np.abs(self.y2))
+        env_mode = np.where(
+            sin_t > 1e-6,
+            np.sqrt(self.y1 * self.y1 + (quad / np.maximum(sin_t, 1e-12)) ** 2),
+            two_sample)
+        env_mode = np.where(r_now > 1e-12, env_mode, 0.0)   # unused/padding modes
         quiet = (self.active & ~self.gate & (self.env < 1e-3)
-                 & (np.abs(y).sum(axis=1) < 2e-4))
+                 & (env_mode.sum(axis=1) < 2e-4))
         if quiet.any():
             self.active[quiet] = False
             self.y1[quiet] = 0.0; self.y2[quiet] = 0.0
-            self.key[quiet] = -1
+            self.key[quiet] = -1; self.note_id[quiet] = -1
+        # Start note-ons that were waiting for a stolen slot to finish fading.  Each
+        # queued note that was promised a slot is *bound* to it (pending entry field 4),
+        # so it starts exactly there: cancelling another queued note can never move it
+        # to a different slot.  Entries with no slot yet wait for the free-slot and
+        # reservation logic below.  FIFO order is kept within each phase.
+        if self.pending:
+            still = []
+            for p in self.pending:
+                if p[4] is not None and not self.active[p[4]]:
+                    self._start(p[4], p[0], p[1], p[2], p[3])
+                else:
+                    still.append(p)
+            self.pending = still
+            # Unbound queued notes fill any slot that is free now, in arrival order.
+            if self.pending:
+                free = np.nonzero(~self.active)[0]
+                if free.size:
+                    still = []
+                    fi = 0
+                    for p in self.pending:
+                        if p[4] is None and fi < free.size:
+                            self._start(int(free[fi]), p[0], p[1], p[2], p[3])
+                            fi += 1
+                        else:
+                            still.append(p)
+                    self.pending = still
+            # Still queued without a slot: reserve a fading victim for each and bind it,
+            # so a burst larger than the pool keeps making progress instead of starving
+            # behind sustained voices.  `fade<1` marks reserved slots; `_pick_victim`
+            # skips them, so one slot is never reserved twice.  Same click-free fade.
+            if self.pending:
+                for i, p in enumerate(self.pending):
+                    if p[4] is not None:
+                        continue
+                    v = self._pick_victim()
+                    if v is None:
+                        break
+                    self.gate[v] = False
+                    self.fade[v] = min(self.fade[v], 1.0 - self.dt / self.steal_fade)
+                    self.hard_count += 1
+                    self.pending[i] = (p[0], p[1], p[2], p[3], v)
+        # No active voice left: clear the residual noise envelope on this very sample so
+        # render's envt/nzt (and thus the breath/bow noise) stop the moment the last voice
+        # is recycled, instead of holding its last value forever.  While any voice remains
+        # the original max(env) / max(nz*env) rule is untouched.
+        if not self.active.any():
+            self.last_env = 0.0
+            self.last_nz = 0.0
+        # Advance the per-voice LFO by exactly one sample.  The pitch coefficients and the
+        # AM factor used *this* sample were sampled from the pre-advance phase, so a note's
+        # first sample uses the phase it was initialised with in note_on: there is no jump
+        # by a whole coef_interval on the first control tick.  Phase advances whenever any
+        # modulation is enabled, so AM-only (cents=drift=0, am!=0) runs at the right rate.
+        if lfo_on:
+            self.lfo_phase = (self.lfo_phase + self.vibrato_hz * self.dt) % 1.0
         self.n += 1
         self.active_hist.append(int(self.active.sum()))
         return out
@@ -320,20 +573,29 @@ class SustainSynth:
     def render(self, events, seconds: float):
         n = int(seconds * self.sr)
         onsets, offs = {}, {}
-        for t, midi, dur, vel in events:
-            onsets.setdefault(int(round(t * self.sr)), []).append((int(midi), float(vel)))
-            offs.setdefault(int(round((t + dur) * self.sr)), []).append(int(midi))
+        for ev in events:
+            t, midi, dur, vel = ev[:4]
+            dyn = ev[4] if len(ev) > 4 else "forte"
+            onsets.setdefault(int(round(t * self.sr)), []).append(
+                (int(midi), float(vel), dyn, int(round((t + dur) * self.sr))))
         buf = np.zeros(n)
         envt = np.zeros(n)
         nzt = np.zeros(n)
         for i in range(n):
-            for midi, vel in onsets.get(i, ()):
-                self.note_on(midi, vel)
-            for midi in offs.get(i, ()):
-                self.note_off(midi)
+            # Note Off is matched to the exact note that was started (by id), so a new
+            # same-pitch note that begins on this very sample is not swept up with the
+            # old one that ends here.
+            for midi, vel, dyn, i_off in onsets.get(i, ()):
+                self.note_on(midi, vel, dyn)
+                offs.setdefault(i_off, []).append(self.last_note_id)
+            for nid in offs.get(i, ()):
+                self.note_off(note_id=nid)
             buf[i] = self.step()
             envt[i] = self.last_env
             nzt[i] = self.last_nz
+        # Bow / breath noise.  KEPT but DISABLED by default (noise_gain defaults to
+        # 0.0): a no-noise render is perceptually close and the RTL omits this path.
+        # Set noise_gain>0 to re-enable.  See rtl/DECISIONS.md (G6).
         if self.noise_gain > 0:
             w = self.rng.standard_normal(n + 256)
             if self.noise_fir is not None:
@@ -352,27 +614,60 @@ class SustainSynth:
 # ---------------------------------------------------------------------------
 
 def verify(inst: str, midi: int = 69, seconds: float = 3.0):
-    """Measure the synthesised steady-state partials against the extracted a_k."""
+    """Static-calibration check: synthesised steady partials vs the extracted ``a_k``.
+
+    Scope: this measures the **static** gain calibration only.  Vibrato, amplitude
+    modulation and roughness are switched off and the noise branch is disabled, so
+    the measured partials are the drive calibration itself.  With modulation left on
+    (the previous behaviour) a phase-modulated partial is a Bessel sideband comb and a
+    fixed-frequency coherent sum reads only its carrier, so the evaluated error was
+    dominated by the sideband energy and not by a calibration mistake.  The verify
+    number is therefore a static calibration bound, not an audible-fidelity verdict.
+
+    ``seconds`` is the whole render length; the note is held from 0.2 s to
+    ``seconds - 0.2``.  The analysis window defaults to 1.5..2.8 s and is shrunk to
+    fit a shorter render; a render too short to contain a usable steady segment
+    raises ``ValueError`` instead of silently measuring an empty (NaN) segment.
+    """
     p = SustainPatch(inst)
-    s = SustainSynth(p, max_poly=2)
-    kk, g, w, atk, rel, ndb = p.modes(midi)
+    s = SustainSynth(p, max_poly=2, vibrato_cents=0.0, vibrato_am=0.0,
+                     drift_cents=0.0, noise_gain=0.0, roughness=0.0)
+    kk, g, w, atk, rel, ndb, nwin = p.modes(midi)  # modes() returns 7 fields
     sr = s.sr
+    note_end = seconds - 0.2                       # release starts here
+    t0, t1 = 1.5, 2.8
+    if note_end <= t1:                             # short render: shrink the window
+        t1 = max(0.0, note_end - 0.02)
+        t0 = min(t0, 0.6 * t1)
     period = max(2, int(round(sr / CORE.midi_to_hz(midi))))
     f = kk * (sr / period)                    # same rule the engine uses
     y = s.render([(0.2, midi, seconds - 0.4, 1.0)], seconds)
-    t0, t1 = 1.5, 2.8
-    seg = y[int(t0 * sr):int(t1 * sr)]
+    seg = y[max(0, int(t0 * sr)):max(0, int(t1 * sr))]
+    if seg.size < int(0.2 * sr):
+        raise ValueError(
+            f"verify({inst!r}): seconds={seconds} is too short to hold a steady "
+            f"segment (note ends at {note_end:.3f}s, window {t0:.3f}..{t1:.3f}s, "
+            f"{seg.size} samples)")
     n = np.arange(seg.size)
     wnd = np.hanning(seg.size)
     meas = np.array([abs(np.sum(seg * wnd * np.exp(-2j * np.pi * fk * n / sr)))
                      for fk in f])
+    if not np.all(np.isfinite(meas)):
+        raise ValueError(f"verify({inst!r}): non-finite partial magnitude")
     meas = meas / (meas.max() + 1e-30)
     target = w / w.max()
     err = 20 * np.log10((meas + 1e-12) / (target + 1e-12))
+    stats = dict(inst=inst, midi=int(midi), modes=int(f.size), seconds=float(seconds),
+                 window=(float(t0), float(t1)), samples=int(seg.size),
+                 attack_s=float(atk), release_s=float(rel),
+                 median_db=float(np.median(np.abs(err))),
+                 p90_db=float(np.percentile(np.abs(err), 90)),
+                 max_db=float(np.abs(err).max()))
     print(f"{inst} midi {midi}: modes {f.size}  attack {atk * 1e3:.0f} ms  "
-          f"release {rel * 1e3:.0f} ms")
-    print(f"  steady partial dB error: median {np.median(np.abs(err)):.2f}  "
-          f"p90 {np.percentile(np.abs(err), 90):.2f}  max {np.abs(err).max():.2f}")
+          f"release {rel * 1e3:.0f} ms  (static: vib/noise/roughness off)")
+    print(f"  steady partial dB error: median {stats['median_db']:.2f}  "
+          f"p90 {stats['p90_db']:.2f}  max {stats['max_db']:.2f}")
+    return stats
 
 
 def main(argv=None):

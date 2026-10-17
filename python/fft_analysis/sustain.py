@@ -62,6 +62,7 @@ def scan_sustained(root: str, instrument: str,
         if variations is not None and m.group("art") not in variations:
             continue
         out.append(dict(path=path, instrument=instrument, note=m.group("note"),
+                        midi=core.note_to_midi(m.group("note")),
                         duration=m.group("dur"), dynamic=m.group("dyn"),
                         articulation=m.group("art")))
     return out
@@ -95,7 +96,45 @@ def half_power_gamma(freqs, X, j):
     return float(np.pi * (hi - lo) * df), (hi - lo) * df
 
 
-def analyze_sustain(path: str, sr: int = core.SR, max_modes: int = 48,
+def _vibrato_sweep(x, sr, f0, fks, amps, nfft: int = 4096, hop: int = 256):
+    """Peak fractional frequency deviation (vibrato depth) of the tone.
+
+    Vibrato phase-modulates the source, so *every* partial becomes a Bessel sideband
+    comb of half-width ~ delta * f_k (delta constant in cents, so the absolute sweep
+    grows with the harmonic).  Reading a single spectral peak therefore returns
+    ``a_k * |J0(beta_k)|`` with ``beta_k ~ k``, which darkens the upper harmonics; we
+    need delta to integrate the sidebands instead (see ``analyze_sustain``).
+
+    Track a well-resolved mid partial (strongest with 600 Hz <= f_k <= 3.5 kHz) over
+    short frames and take a high percentile of |f/f_med - 1|.
+    """
+    band = [i for i, fk in enumerate(fks) if 600.0 <= fk <= 3500.0]
+    if not band:
+        return 0.0
+    fk0 = float(fks[max(band, key=lambda i: amps[i])])
+    win = np.hanning(nfft)
+    ff = np.fft.rfftfreq(nfft, 1.0 / sr)
+    df = float(ff[1] - ff[0])
+    dev = []
+    for i in range(0, len(x) - nfft, hop):
+        Xf = np.abs(np.fft.rfft(x[i:i + nfft] * win))
+        m = np.abs(ff - fk0) < 0.03 * fk0
+        if not m.any():
+            continue
+        j = int(np.flatnonzero(m)[np.argmax(Xf[m])])
+        if 0 < j < Xf.size - 1:                      # parabolic peak refinement
+            la, lb, lc = np.log(Xf[j - 1] + 1e-20), np.log(Xf[j] + 1e-20), np.log(Xf[j + 1] + 1e-20)
+            d = 0.5 * (la - lc) / (la - 2.0 * lb + lc) if (la - 2.0 * lb + lc) != 0 else 0.0
+            dev.append((j + d) * df)
+    if len(dev) < 8:
+        return 0.0
+    dev = np.asarray(dev)
+    frac = np.abs(dev / np.median(dev) - 1.0)
+    return float(min(np.percentile(frac, 98), 0.08))
+
+
+def analyze_sustain(path: str, midi: int | None = None, dynamic: str = "",
+                    sr: int = core.SR, max_modes: int = 48,
                     band_hz: float = core.MP3_BAND_HZ) -> dict:
     x = core.load_audio(path, sr)
     on, off = note_region(x, sr)
@@ -112,8 +151,10 @@ def analyze_sustain(path: str, sr: int = core.SR, max_modes: int = 48,
     segn = seg / peak
 
     freqs, X = core._spectrum(segn, sr)
-    nominal = core.midi_to_hz(core.note_to_midi(
-        re.sub(r"s", "#", re.search(r"([A-G]s?\d)", os.path.basename(path)).group(1))))
+    if midi is None:
+        midi = core.note_to_midi(re.sub(
+            r"s", "#", re.search(r"([A-G]s?\d)", os.path.basename(path)).group(1)))
+    nominal = core.midi_to_hz(midi)
     f0 = core.estimate_f0(segn, sr, nominal, band_hz=band_hz, span=0.08)
     part = core.find_partials(segn, sr, f0, band_hz, max_modes=max_modes)
     ks, fks, amps = part["k"], part["f_k"], part["amp_k"]
@@ -147,8 +188,22 @@ def analyze_sustain(path: str, sr: int = core.SR, max_modes: int = 48,
         i90 = np.where(e[on:off] > thr90)[0]
         if i90.size:
             atk = float((i90[0] - i10) / sr)
-    rel = np.where(e[off:] < thr10)[0] if off < len(e) else np.array([])
-    rlx = float(rel[0] / sr) if rel.size else 0.0
+    # Release: the 90 % -> 10 % time of the *decay*, not "the first sample below 10 %
+    # after the note region ends".  `off` is the last sample above 10 % of the peak, so
+    # it already sits at the 10 % point and scanning past it returned ~0.5 ms for every
+    # note.  Take the last sample still at/above 90 % of the steady level as the top of
+    # the release, then the first sample after it that falls to 10 %.  This is the
+    # measured 90->10 *duration*; the synthesiser uses it as the release time constant,
+    # which is a deliberate envelope model choice, not an identity with a true tau.
+    # A tail that is truncated (never reaches 10 %) or has no decay has no measurable
+    # descent and falls back to 0.0, the historical "no release" value.
+    above90 = np.where(e[max(0, on):] >= thr90)[0]
+    rlx = 0.0
+    if above90.size:
+        i90 = int(above90[-1]) + max(0, on)
+        below10 = np.where(e[i90:] <= thr10)[0]
+        if below10.size:
+            rlx = float(below10[0] / sr)
 
     # Noise floor, measured in a *fixed reference band* (2-8 kHz) between the partials
     # and relative to the strongest peak. Measuring over the whole band made the number
@@ -163,21 +218,47 @@ def analyze_sustain(path: str, sr: int = core.SR, max_modes: int = 48,
         if mask.any() else -120.0
     win_len = int(t1 - t0)
 
-    # Shape of the noise: 8 log bands from 200 Hz to 14 kHz, relative to the reference
-    # band (2-8 kHz) so it multiplies the scalar level without changing it. Without
-    # this the model's noise was flat while a flute's breath noise falls with frequency.
-    edges = np.geomspace(200.0, 14000.0, 9)
+    # Shape of the noise: 1/3-octave bands from 150 Hz to 16 kHz, relative to the
+    # reference band (2-8 kHz) so it multiplies the scalar level without changing it.
+    # A *low percentile* (not the median) is taken between the partials: the median is
+    # inflated by the skirt of the neighbouring partials, which made the model's noise
+    # too loud in the low-mid band (measured +5..8 dB vs the recording); finer bands let
+    # the FIR follow the real tilt instead of 8 coarse steps.
+    edges = np.geomspace(150.0, 16000.0, 25)
+
+    def _stat(v):
+        return float(np.percentile(v, 25)) if v.size else ref
+
+    ref = _stat(X[mask]) if mask.any() else 1e-12
     shape = []
-    ref = np.median(X[mask]) if mask.any() else 1e-12
     for lo, hi in zip(edges[:-1], edges[1:]):
         m = (freqs >= lo) & (freqs < hi)
         for fk in fks:
             m &= np.abs(freqs - fk) > max(10.0, 0.02 * fk)
-        shape.append(float(np.median(X[m])) if m.any() else ref)
+        shape.append(_stat(X[m]))
     shape_db = 20 * np.log10((np.array(shape) + 1e-30) / (ref + 1e-30))
+    # Below the 2-8 kHz reference band, the "between partials" level is dominated by the
+    # skirt of the neighbouring partials, not by noise (that is why it reads up to +25 dB
+    # there). Trusting it made the model's bow noise boom at low frequencies. Cap the
+    # shape at the reference so the noise is never boosted below it.
+    shape_db = np.minimum(shape_db, 0.0)
 
-    a = amps / (amps.max() + 1e-30)
-    return dict(note=os.path.basename(path), f0=f0, ks=ks, fks=fks, a=a, gamma=g,
+    # Partial amplitude: integrate the power over each partial's vibrato sidebands
+    # instead of reading the spectral peak.  A phase-modulated partial is a Bessel
+    # comb a_k * sum_n J_n(beta_k) with sum_n J_n^2 == 1 for any beta, so the band sum
+    # recovers a_k unbiased; the peak returns a_k * |J0(beta_k)| with beta_k ~ k, which
+    # is what systematically darkened the upper harmonics.  The band is the measured
+    # sweep plus a margin, capped below half the partial spacing so it cannot swallow a
+    # neighbour (needs k < 1/(2*delta), fine for delta <= ~25 cents up to k ~ 30).
+    delta = _vibrato_sweep(segn, sr, f0, fks, amps)
+    a_raw = np.empty(ks.size)
+    for i, fk in enumerate(fks):
+        bw = min(delta * fk * 1.3 + 5.0, 0.45 * f0)
+        m = np.abs(freqs - fk) < bw
+        a_raw[i] = np.sqrt(float(np.sum(X[m] ** 2))) if m.any() else 1e-30
+    a = a_raw / (a_raw.max() + 1e-30)
+    return dict(note=os.path.basename(path), midi=int(midi), dynamic=dynamic,
+                f0=f0, ks=ks, fks=fks, a=a, gamma=g,
                 fwhm_hz=fwhm, attack_s=atk, release_s=rlx, noise_db=noise_db,
                 noise_win=win_len, noise_shape_db=shape_db, noise_edges=edges,
                 seconds=len(x) / sr, steady_s=(t1 - t0) / sr, span_s=span / sr,
@@ -189,7 +270,8 @@ def build(instrument: str, max_modes: int = 48):
     out = []
     for e in entries:
         try:
-            out.append(analyze_sustain(e["path"], max_modes=max_modes))
+            out.append(analyze_sustain(e["path"], midi=e["midi"],
+                                       dynamic=e["dynamic"], max_modes=max_modes))
         except Exception as exc:                       # noqa: BLE001
             print("  !", e["path"], exc)
     return out
@@ -214,6 +296,8 @@ def main(argv=None):
                              modes_median=int(np.median([r["ks"].size for r in res])))
         np.savez_compressed(paths.param(name, "sustain"),
                             notes=np.array([r["note"] for r in res]),
+                            midi=np.array([r["midi"] for r in res], dtype=int),
+                            dynamic=np.array([r["dynamic"] for r in res]),
                             f0=np.array([r["f0"] for r in res]),
                             k=np.concatenate([r["ks"] for r in res]),
                             f_k=np.concatenate([r["fks"] for r in res]),
