@@ -1,13 +1,5 @@
-# Runtime dependencies. The library itself needs only the first two.
+# Dependencies of the modal-synthesis pipeline (python/fft_analysis + python/modal_sim).
 numpy>=2.0
 scipy>=1.11
-
-# Optional: speaker playback and recording (synthlab.io.play / .record).
-sounddevice>=0.5
-
-# Optional: figures (synthlab.plotting).
 matplotlib>=3.8
-
-# Optional: JIT acceleration for hot custom per-sample loops (synthlab.jit).
-# numba>=0.67
-# llvmlite>=0.49
+soundfile>=0.12
