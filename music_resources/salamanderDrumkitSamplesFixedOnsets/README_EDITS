@@ -1,0 +1,43 @@
+
+Salamander Drumkit samples
+
+Original Author: Alexander Holm
+In the public domain as of 4.3.2022
+
+The closed-hat has no less than 20 samples per velocity... only two velocity layers tho, so that makes 40 in total..
+I've actually built the drumkit myself(in 2009) It's built out of birch staves and
+has _very_ thick shells(couldn't lathe the insides) It also features an unusual one of a kind ropetuning system, 
+the 12" tomtom is a prototype of another kind tho tuning system.. 
+
+12x7" racktom, Aquarian modern vintage (not the one in the picture...)
+14x14" floortom, Remo emperor or evans g2 can't remember for shure.
+18x18" kick, Remo pinstripe, Coated Ambassador on the resonant side.
+
+14x5" snare birchstaves with thin mahogany stripes, Evans power center reverse dot, Coated
+14x6" snare2 birch and mahogany staves, Evans genera dry Coated, with most of the muffling ring ripped off.. 
+
+Cymbals
+
+Paiste 18" Innovations china (china2)
+Paiste 18" Innovations medium crash (crash1)
+Paiste 20" Rude thin crash (crash2)
+Paiste 20" pst5 medium ride (ride1)
+Paiste 8"  pst5 splash 
+Paiste 6"  accent
+
+Stagg 20" SH medium ride (ride 1)
+Stagg 14" SH hihat
+Stagg 16" SH crash (crash3)
+
+Masterworks 20" Custom china (china1)
+
+==============================
+
+Salamander Drums Edits
+
+The original audio files included some silent audio before the drum hits in almost all samples, 
+causing unnecessary latency. These files (in OH folder) are an edited set of the original audio files with the extra 
+silence trimmed from them, so that no changes are necessary to existing SFZ files to account for it. 
+They also correct some end of sample issues.
+
+

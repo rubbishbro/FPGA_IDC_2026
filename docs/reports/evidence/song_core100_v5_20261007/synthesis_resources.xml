@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="board_top" T_Register="8911(0)" T_Alu="1463(0)" T_Lut="13869(0)" T_MULT27X36="7(0)" T_Bsram="50(0)">
+ <SubModule name="u_top" Lut="1" T_Register="8911(0)" T_Alu="1463(0)" T_Lut="13869(1)" T_MULT27X36="7(0)" T_Bsram="50(0)">
+  <SubModule name="u_clock_reset" Register="3" Lut="2" T_Register="79(3)" T_Alu="32(0)" T_Lut="109(2)">
+   <SubModule name="u_pll_core" T_Register="39(0)" T_Alu="16(0)" T_Lut="54(0)">
+    <SubModule name="u_pll"/>
+    <SubModule name="u_pll_init" Register="39" Alu="16" Lut="54" T_Register="39(39)" T_Alu="16(16)" T_Lut="54(54)"/>
+   </SubModule>
+   <SubModule name="u_pll_audio" T_Register="37(0)" T_Alu="16(0)" T_Lut="53(0)">
+    <SubModule name="u_pll"/>
+    <SubModule name="u_pll_init" Register="37" Alu="16" Lut="53" T_Register="37(37)" T_Alu="16(16)" T_Lut="53(53)"/>
+   </SubModule>
+  </SubModule>
+  <SubModule name="u_audio" T_Register="8832(0)" T_Alu="1431(0)" T_Lut="13759(0)" T_MULT27X36="7(0)" T_Bsram="50(0)">
+   <SubModule name="u_core" Register="85" Lut="61" T_Register="8832(85)" T_Alu="1431(0)" T_Lut="13759(61)" T_MULT27X36="7(0)" T_Bsram="50(0)">
+    <SubModule name="u_transport" Register="6" Lut="2" T_Register="328(6)" T_Alu="4(0)" T_Lut="215(2)">
+     <SubModule name="u_tx_fifo" Register="296" Alu="4" Lut="175" T_Register="296(296)" T_Alu="4(4)" T_Lut="175(175)"/>
+     <SubModule name="g_i2s_amp.u_tx" Register="26" Lut="38" T_Register="26(26)" T_Lut="38(38)"/>
+    </SubModule>
+    <SubModule name="u_song" Register="237" Lut="556" T_Register="237(237)" T_Lut="556(556)"/>
+    <SubModule name="u_engine" Register="738" Lut="44" T_Register="6664(738)" T_Alu="1123(0)" T_Lut="11646(44)" T_MULT27X36="4(0)" T_Bsram="49(0)">
+     <SubModule name="u_loader" Register="64" Alu="26" Lut="71" Bsram="33" T_Register="64(64)" T_Alu="26(26)" T_Lut="71(71)" T_Bsram="33(33)"/>
+     <SubModule name="u_bank" Register="2859" Alu="447" Lut="5220" T_Register="5862(2859)" T_Alu="1097(447)" T_Lut="11531(5220)" T_MULT27X36="4(0)" T_Bsram="16(0)">
+      <SubModule name="g_lane[0].u_lane" Register="751" Alu="174" Lut="1603" MULT27X36="1" Bsram="4" T_Register="751(751)" T_Alu="174(174)" T_Lut="1603(1603)" T_MULT27X36="1(1)" T_Bsram="4(4)"/>
+      <SubModule name="g_lane[1].u_lane" Register="751" Alu="159" Lut="1568" MULT27X36="1" Bsram="4" T_Register="751(751)" T_Alu="159(159)" T_Lut="1568(1568)" T_MULT27X36="1(1)" T_Bsram="4(4)"/>
+      <SubModule name="g_lane[2].u_lane" Register="751" Alu="158" Lut="1578" MULT27X36="1" Bsram="4" T_Register="751(751)" T_Alu="158(158)" T_Lut="1578(1578)" T_MULT27X36="1(1)" T_Bsram="4(4)"/>
+      <SubModule name="g_lane[3].u_lane" Register="750" Alu="159" Lut="1562" MULT27X36="1" Bsram="4" T_Register="750(750)" T_Alu="159(159)" T_Lut="1562(1562)" T_MULT27X36="1(1)" T_Bsram="4(4)"/>
+     </SubModule>
+    </SubModule>
+    <SubModule name="g_body.u_body" Register="1518" Alu="304" Lut="1281" MULT27X36="3" Bsram="1" T_Register="1518(1518)" T_Alu="304(304)" T_Lut="1281(1281)" T_MULT27X36="3(3)" T_Bsram="1(1)"/>
+   </SubModule>
+  </SubModule>
+ </SubModule>
+</Module>

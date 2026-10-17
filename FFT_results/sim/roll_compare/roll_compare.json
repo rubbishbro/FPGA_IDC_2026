@@ -1,0 +1,47 @@
+{
+  "snare_roll": {
+    "file": "snare drum/snare-drum__very-long_cresc-decresc_roll.mp3",
+    "seconds": 6.93,
+    "roll_rate_hz": 8.26,
+    "strokes": 58,
+    "band_err_median_db": 10.3,
+    "band_err_max_db": 70.2,
+    "env_err_median_db": 12.4
+  },
+  "cymbal_roll": {
+    "file": "suspended cymbal/suspended-cymbal__very-long_cresc-decresc_roll.mp3",
+    "seconds": 13.09,
+    "roll_rate_hz": 20.0,
+    "strokes": 262,
+    "band_err_median_db": 14.4,
+    "band_err_max_db": 84.1,
+    "env_err_median_db": 11.6
+  },
+  "triangle_roll": {
+    "file": "triangle/triangle__very-long_mezzo-forte_roll.mp3",
+    "seconds": 7.12,
+    "roll_rate_hz": 20.0,
+    "strokes": 143,
+    "band_err_median_db": 15.8,
+    "band_err_max_db": 38.5,
+    "env_err_median_db": 4.7
+  },
+  "cabasa_phrase": {
+    "file": "cabasa/cabasa__phrase_mezzo-forte_effect.mp3",
+    "seconds": 7.22,
+    "roll_rate_hz": 6.9,
+    "strokes": 50,
+    "band_err_median_db": 5.5,
+    "band_err_max_db": 20.5,
+    "env_err_median_db": 14.5
+  },
+  "chin_rhythm": {
+    "file": "Chinese hand cymbals/Chinese-hand-cymbals__very-long_mezzo-forte_rhythm.mp3",
+    "seconds": 6.07,
+    "roll_rate_hz": 20.0,
+    "strokes": 122,
+    "band_err_median_db": 5.8,
+    "band_err_max_db": 25.4,
+    "env_err_median_db": 13.6
+  }
+}

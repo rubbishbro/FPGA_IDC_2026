@@ -1,0 +1,11 @@
+{
+  "status": "PASS_ISOLATED_BANK_FUNCTIONAL_ONLY",
+  "cases": 3,
+  "cyclemax": 1506,
+  "xml_sha256": "c40dc939875414614e1fd02f62a6325a570368d302d8054e2f48ef239a6e7c2e",
+  "log_sha256": "4ab820085fbc6ccd773bab3d42f4cc3da10eedee27fd3d5d613cab9b3f242b60",
+  "netlist_sha256": "dde1453c06d74d44ebaaf79055c2312f763e32aedca88af6f405724550be2e33",
+  "vendor_sha256": "7109c2568188627465d218bc099cf72f12e90807c21d4d862d2335b499043544",
+  "test_file_sha256": "a486917fb2f3b99d62a59947692ee96c938ef0e6751332ce16521b5f48debc13",
+  "scope": "Independent frozen isolated bank synthesis + full unmodified vendor simulation; no PNR/STA/board, no parallel-decoder candidate implemented."
+}

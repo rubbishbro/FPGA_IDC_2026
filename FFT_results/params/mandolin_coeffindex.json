@@ -1,0 +1,158 @@
+{
+  "55|piano": {
+    "offset": 0,
+    "n_modes": 28
+  },
+  "56|piano": {
+    "offset": 28,
+    "n_modes": 34
+  },
+  "57|piano": {
+    "offset": 62,
+    "n_modes": 32
+  },
+  "58|piano": {
+    "offset": 94,
+    "n_modes": 42
+  },
+  "59|piano": {
+    "offset": 136,
+    "n_modes": 29
+  },
+  "60|piano": {
+    "offset": 165,
+    "n_modes": 25
+  },
+  "61|piano": {
+    "offset": 190,
+    "n_modes": 30
+  },
+  "62|piano": {
+    "offset": 220,
+    "n_modes": 27
+  },
+  "63|piano": {
+    "offset": 247,
+    "n_modes": 26
+  },
+  "64|piano": {
+    "offset": 273,
+    "n_modes": 22
+  },
+  "65|piano": {
+    "offset": 295,
+    "n_modes": 22
+  },
+  "66|piano": {
+    "offset": 317,
+    "n_modes": 23
+  },
+  "67|piano": {
+    "offset": 340,
+    "n_modes": 23
+  },
+  "68|piano": {
+    "offset": 363,
+    "n_modes": 17
+  },
+  "69|piano": {
+    "offset": 380,
+    "n_modes": 33
+  },
+  "70|piano": {
+    "offset": 413,
+    "n_modes": 25
+  },
+  "71|piano": {
+    "offset": 438,
+    "n_modes": 26
+  },
+  "72|piano": {
+    "offset": 464,
+    "n_modes": 26
+  },
+  "73|piano": {
+    "offset": 490,
+    "n_modes": 21
+  },
+  "74|piano": {
+    "offset": 511,
+    "n_modes": 22
+  },
+  "75|piano": {
+    "offset": 533,
+    "n_modes": 23
+  },
+  "76|piano": {
+    "offset": 556,
+    "n_modes": 24
+  },
+  "77|piano": {
+    "offset": 580,
+    "n_modes": 20
+  },
+  "78|piano": {
+    "offset": 600,
+    "n_modes": 21
+  },
+  "79|piano": {
+    "offset": 621,
+    "n_modes": 20
+  },
+  "80|piano": {
+    "offset": 641,
+    "n_modes": 12
+  },
+  "81|piano": {
+    "offset": 653,
+    "n_modes": 16
+  },
+  "82|piano": {
+    "offset": 669,
+    "n_modes": 17
+  },
+  "83|piano": {
+    "offset": 686,
+    "n_modes": 15
+  },
+  "84|piano": {
+    "offset": 701,
+    "n_modes": 9
+  },
+  "85|piano": {
+    "offset": 710,
+    "n_modes": 8
+  },
+  "86|piano": {
+    "offset": 718,
+    "n_modes": 6
+  },
+  "87|piano": {
+    "offset": 724,
+    "n_modes": 12
+  },
+  "88|piano": {
+    "offset": 736,
+    "n_modes": 12
+  },
+  "89|piano": {
+    "offset": 748,
+    "n_modes": 11
+  },
+  "90|piano": {
+    "offset": 759,
+    "n_modes": 9
+  },
+  "91|piano": {
+    "offset": 768,
+    "n_modes": 9
+  },
+  "92|piano": {
+    "offset": 777,
+    "n_modes": 9
+  },
+  "93|piano": {
+    "offset": 786,
+    "n_modes": 9
+  }
+}

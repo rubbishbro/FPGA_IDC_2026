@@ -1,0 +1,7 @@
+module,Lut,Alu,Register,MULT27X36,Bsram
+u_top/u_clock_reset,109,32,79,0,0
+u_top/u_audio/u_core/u_transport,215,4,328,0,0
+u_top/u_audio/u_core/u_song,556,0,237,0,0
+u_top/u_audio/u_core/u_engine,11646,1123,6664,4,49
+u_top/u_audio/u_core/g_body.u_body,1281,304,1518,3,1
+board/top/core glue outside the five subtrees,62,0,85,0,0
