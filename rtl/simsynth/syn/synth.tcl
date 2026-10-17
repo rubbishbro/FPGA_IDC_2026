@@ -13,8 +13,8 @@
 # 输出目录在 <repo>/build/modal_step_syn（build/ 已被 .gitignore 忽略）。
 # -----------------------------------------------------------------------------
 
-set root [pwd]
 set here [file dirname [file normalize [info script]]]
+set root [file normalize "$here/../../.."]
 set build "$root/build/modal_step_syn"
 
 file mkdir $build
@@ -23,10 +23,10 @@ create_project -name modal_step_syn -dir $build -pn GW5AST-LV138FPG676AES -devic
 set_option -verilog_std sysv2017
 set_option -top_module string_mode_step
 
-add_file "$here/../math/pkg/fp_intf.sv"
-add_file "$here/../math/pkg/fxp_pkg.sv"
-add_file "$here/modal_step_pkg.sv"
-add_file "$here/string_mode_step.sv"
+add_file "$here/../../math/pkg/fp_intf.sv"
+add_file "$here/../../math/pkg/fxp_pkg.sv"
+add_file "$here/../modal_step_pkg.sv"
+add_file "$here/../string_mode_step.sv"
 
 puts "FILES_ADDED"
 run syn

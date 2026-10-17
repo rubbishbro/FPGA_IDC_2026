@@ -9,6 +9,23 @@ v' = a21·q + a22·v + gv·x
 y  = wo·q            （用更新前的 q，与模型一致）
 ```
 
+```
+rtl/simsynth/
+  modal_step_pkg.sv     定点格式 + coeff_t + 算术（唯一算术来源）
+  string_mode_step.sv   单模态并联一步（参考实现）
+  modal_bank_seq.sv     方案 A（系数在外部 ROM）
+  modal_bank_ram.sv     方案 B（RAM 中心化）
+  modal_engine7.sv      7 乘法器并联引擎（只算不存）
+  modal_voice_top.sv    声部层（双份 bank × 8 声部 + ping-pong）
+  coeff_loader.sv       窄口系数装载
+  top_seq.sv top_ram.sv 方案 A/B 的公平对比顶层
+  fmax_probe.sv         只有 clk/rst_n/led 的时序探针（fmax_seq / fmax_ram / fmax_e7）
+  dsp_probe*.sv         DSP 映射试验
+  tb/                   测试台 + 黄金向量 + 运行脚本 + 生成器
+  constr/               时序与引脚约束（fmax.sdc / fmax200.sdc / fmax.cst）
+  syn/                  综合与 PnR 脚本（synth*.tcl、run_gwsh.ps1）
+```
+
 三份实现、同一个算术、三种集成方式：
 
 | 文件 | 是什么 | 用途 |
@@ -27,12 +44,12 @@ y  = wo·q            （用更新前的 q，与模型一致）
 
 | 项目 | 命令 | 结果 |
 |---|---|---|
-| `string_mode_step` 逐位 | `pwsh run_xsim.ps1` | **64 例（钢琴 32 + 吉他 32）、0 失配 → PASS** |
-| `modal_bank_seq` 逐位 | `pwsh run_xsim_bank.ps1` | **16 帧、80 项检查、0 失配 → PASS** |
-| `modal_bank_ram` 作业级 | `pwsh run_xsim_ram.ps1` | **4 个作业（钢琴/吉他 × 单帧/48 帧）、0 失配 → PASS** |
-| `modal_voice_top` 作业级 + 多声部 + ping-pong | `pwsh run_xsim_engine7.ps1` | **8 个作业（4 条黄金向量 + 多声部 + 3 次 A/B 交换）、0 失配 → PASS** |
-| Gowin 综合 | `synth*.tcl` | 全部 `GowinSynthesis finish` |
-| Gowin PnR（100 MHz 约束） | `synth_pnr_one.tcl`（TOP / SDC 环境变量） | 跑通；**Fmax：A 76.107 / B 71.798 / 7 乘法器引擎 104 MHz** |
+| `string_mode_step` 逐位 | `pwsh tb/run_xsim.ps1` | **64 例（钢琴 32 + 吉他 32）、0 失配 → PASS** |
+| `modal_bank_seq` 逐位 | `pwsh tb/run_xsim_bank.ps1` | **16 帧、80 项检查、0 失配 → PASS** |
+| `modal_bank_ram` 作业级 | `pwsh tb/run_xsim_ram.ps1` | **4 个作业（钢琴/吉他 × 单帧/48 帧）、0 失配 → PASS** |
+| `modal_voice_top` 作业级 + 多声部 + ping-pong | `pwsh tb/run_xsim_engine7.ps1` | **8 个作业（4 条黄金向量 + 多声部 + 3 次 A/B 交换）、0 失配 → PASS** |
+| Gowin 综合 | `syn/synth*.tcl` | 全部 `GowinSynthesis finish` |
+| Gowin PnR（100 MHz 约束） | `syn/synth_pnr_one.tcl`（TOP / SDC 环境变量） | 跑通；**Fmax：A 76.107 / B 71.798 / 7 乘法器引擎 104 MHz** |
 
 黄金向量由 `gen_golden.py` 从**真实模型**生成（钢琴走 `sim_piano` 的表、吉他走
 `sim_guitar` 的拨弦初值），不是手算的期望值。
@@ -244,18 +261,24 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 ## 怎么跑
 
 ```powershell
-# 逐位验证（Vivado xsim）
-pwsh -File rtl/simsynth/run_xsim.ps1        # 单模态一步：64 例
-pwsh -File rtl/simsynth/run_xsim_bank.ps1   # 方案 A：16 帧
-pwsh -File rtl/simsynth/run_xsim_ram.ps1    # 方案 B：4 作业（流水版）
+# 全套四套仿真（Vivado xsim），最后汇总 PASS/FAIL
+pwsh -File rtl/simsynth/tb/run_all.ps1
 
-# 重新生成黄金向量（会覆盖 golden_*.txt）
-python rtl/simsynth/gen_golden.py
+# 或者单跑
+pwsh -File rtl/simsynth/tb/run_xsim.ps1        # 单模态一步：64 例
+pwsh -File rtl/simsynth/tb/run_xsim_bank.ps1   # 方案 A：16 帧
+pwsh -File rtl/simsynth/tb/run_xsim_ram.ps1    # 方案 B：4 作业（流水版）
+pwsh -File rtl/simsynth/tb/run_xsim_engine7.ps1 # 7 乘法器 + 声部层：8 作业
 
-# Gowin 综合
-pwsh -File rtl/simsynth/run_gwsh.ps1 -Only bank   # 或 all / step / probe
-# 两个顶层公平对比 + PnR 拿 Fmax（约 10 分钟）
-'source rtl/simsynth/synth_pnr_fmax.tcl' | & 'E:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe' -nocomp
+# 重新生成黄金向量（会覆盖 tb/golden_*.txt；需要 _analysis/ 里的模型工具）
+python rtl/simsynth/tb/gen_golden.py
+
+# Gowin 综合（run_gwsh.ps1 里的三个顶层）
+pwsh -File rtl/simsynth/syn/run_gwsh.ps1 -Only bank   # 或 all / step / probe
+# A/B/7 乘法器三个顶层各做一次 syn+PnR 拿 Fmax（约 15 分钟）
+'source rtl/simsynth/syn/synth_pnr_fmax.tcl' | & 'E:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe' -nocomp
+# 只跑一个顶层、并且换约束（SDC=fmax200.sdc 探真实 Fmax）
+$env:TOP='fmax_e7'; $env:SDC='fmax.sdc'; 'source rtl/simsynth/syn/synth_pnr_one.tcl' | & 'E:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe' -nocomp
 ```
 
 工具版本：Vivado 2017.4（xsim）、Gowin V1.9.12（`sysv2017`），器件

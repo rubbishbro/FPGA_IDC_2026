@@ -16,15 +16,15 @@
 每个非注释行 20 个十进制数：
     a11 s11 a12 s12 a21 s21 a22 s22 gq sgq gv sgv wo swo q v x q_exp v_exp y_exp
 
-Run: python _analysis/rtl_modal/gen_golden.py
+Run: python rtl/simsynth/tb/gen_golden.py   （需要 _analysis/ 里的模型工具）
 """
 
 import sys
 from pathlib import Path
 
-HERE = Path(__file__).resolve().parent
-REPO = HERE.parent.parent
-sys.path.insert(0, str(HERE.parent))                 # _analysis
+HERE = Path(__file__).resolve().parent           # rtl/simsynth/tb
+REPO = HERE.parents[2]                           # 仓库根
+sys.path.insert(0, str(REPO / "_analysis"))      # 模型工具（本地分析目录，不在版本库里）
 sys.path.insert(0, str(REPO / "sythsound"))
 
 import numpy as np                                              # noqa: E402
@@ -36,7 +36,11 @@ import _piano_model as pm                                       # noqa: E402
 import sim_guitar as guitar                                     # noqa: E402
 
 SR = 48000
-CW = 24          # 系数尾数位（与 modal_step_pkg::CW 一致）
+CW = 32          # 系数尾数位（32x32=64，正好装满 fxp_pkg 的载体）（与 modal_step_pkg::CW 一致）
+
+#: 逐字段 Q（小数位），必须与 modal_step_pkg 的 SH_* 完全一致。
+#: 定标依据 _analysis/_field_q_sizing.py（全音域 40-80、缩放后域、留 3 位余量）。
+SH = {'a11': 28, 'a12': 30, 'a21': 23, 'a22': 28, 'gq': 31, 'gv': 27, 'wo': 15}
 XF = 28          # 激励小数位（与 modal_step_pkg::XF 一致）
 QF = 24          # 状态名义小数位（每模态再按峰值归一化）
 YF = 40          # 输出共同指数（bank 级；本测试逐模态取同一值）
@@ -45,7 +49,7 @@ N_MODES = 4               # 每音取前 4 个模态
 N_STEPS = 4800            # 参考跑的步数（0.1 s）
 
 
-def quant(c):
+def quant(c, sh):
     """(mant, shift)：值 = mant * 2^-shift，CW 位**有符号**，即 |mant| <= 2^(CW-1)-1。
 
     注意不能直接用 fp.quant(c, CW)：它把幅值占满 CW 位（|mant| ∈ [2^(CW-1), 2^CW)），
@@ -53,13 +57,10 @@ def quant(c):
     这里用 CW-1 位幅值（多留一位符号位），零值单独处理（否则 shift 会溢出 SW 位）。
     """
     v = float(c)
-    if v == 0.0:
-        return 0, 0
-    m, s = fp.quant(np.asarray([v]), CW - 1)
-    m, s = int(m[0]), int(s[0])
-    assert 0 <= s <= 63, f"shift {s} does not fit SW=6 bits (coefficient {v:g})"
-    assert abs(m) < (1 << (CW - 1)), f"mantissa {m} does not fit CW signed"
-    return m, s
+    mant = int(round(v * 2.0 ** sh))
+    assert abs(mant) < (1 << (CW - 1)), (
+        f'mantissa {mant} overflows CW={CW} signed (value {v:g}, Q={sh})')
+    return mant, sh
 
 
 def mac(a, m, s):
@@ -147,13 +148,13 @@ def emit(path, modes, x, traj):
             sq = (2.0 ** QF) / max(m["pq"] if m["pq"] else tr["pq"], 1e-30)
             sv = (2.0 ** QF) / max(m["pv"] if m["pv"] else tr["pv"], 1e-30)
             c = {
-                "a11": quant(m["a11"]),
-                "a12": quant(m["a12"] * sq / sv),
-                "a21": quant(m["a21"] * sv / sq),
-                "a22": quant(m["a22"]),
-                "gq":  quant(m["b1"] * sq / 2.0 ** XF),
-                "gv":  quant(m["b2"] * sv / 2.0 ** XF),
-                "wo":  quant(m["sw"] * 2.0 ** YF / sq),
+                "a11": quant(m["a11"], SH["a11"]),
+                "a12": quant(m["a12"] * sq / sv, SH["a12"]),
+                "a21": quant(m["a21"] * sv / sq, SH["a21"]),
+                "a22": quant(m["a22"], SH["a22"]),
+                "gq":  quant(m["b1"] * sq / 2.0 ** XF, SH["gq"]),
+                "gv":  quant(m["b2"] * sv / 2.0 ** XF, SH["gv"]),
+                "wo":  quant(m["sw"] * 2.0 ** YF / sq, SH["wo"]),
             }
             fh.write(f"# {m['label']}: float a11={m['a11']:.9f} a12={m['a12']:.3e} "
                      f"a21={m['a21']:.6g} a22={m['a22']:.9f} b1={m['b1']:.3e} "
@@ -212,13 +213,13 @@ def emit_seq(path, modes, traj, x_seq, n_modes, n_samples):
     coeffs = []
     for m, sq, sv in zip(modes, sq_of, sv_of):
         coeffs.append({
-            "a11": quant(m["a11"]),
-            "a12": quant(m["a12"] * sq / sv),
-            "a21": quant(m["a21"] * sv / sq),
-            "a22": quant(m["a22"]),
-            "gq":  quant(m["b1"] * sq / 2.0 ** XF),
-            "gv":  quant(m["b2"] * sv / 2.0 ** XF),
-            "wo":  quant(m["sw"] * 2.0 ** YF / sq),
+            "a11": quant(m["a11"], SH["a11"]),
+            "a12": quant(m["a12"] * sq / sv, SH["a12"]),
+            "a21": quant(m["a21"] * sv / sq, SH["a21"]),
+            "a22": quant(m["a22"], SH["a22"]),
+            "gq":  quant(m["b1"] * sq / 2.0 ** XF, SH["gq"]),
+            "gv":  quant(m["b2"] * sv / 2.0 ** XF, SH["gv"]),
+            "wo":  quant(m["sw"] * 2.0 ** YF / sq, SH["wo"]),
         })
 
     # 与硬件逐位相同的整数递推（先算 qn/vn/y，再写回；y 用更新前的 q）

@@ -5,8 +5,8 @@
 # 输出：<repo>/build/modal_bank_syn（build/ 已 gitignore）
 # -----------------------------------------------------------------------------
 
-set root [pwd]
 set here [file dirname [file normalize [info script]]]
+set root [file normalize "$here/../../.."]
 set build "$root/build/modal_bank_syn"
 
 file mkdir $build
@@ -15,9 +15,9 @@ create_project -name modal_bank_syn -dir $build -pn GW5AST-LV138FPG676AES -devic
 set_option -verilog_std sysv2017
 set_option -top_module modal_bank_seq
 
-add_file "$here/../math/pkg/fxp_pkg.sv"
-add_file "$here/modal_step_pkg.sv"
-add_file "$here/modal_bank_seq.sv"
+add_file "$here/../../math/pkg/fxp_pkg.sv"
+add_file "$here/../modal_step_pkg.sv"
+add_file "$here/../modal_bank_seq.sv"
 
 puts "FILES_ADDED"
 run syn

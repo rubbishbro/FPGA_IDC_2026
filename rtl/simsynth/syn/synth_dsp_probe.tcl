@@ -5,8 +5,8 @@
 # 输出：<repo>/build/dsp_probe_syn
 # -----------------------------------------------------------------------------
 
-set root [pwd]
 set here [file dirname [file normalize [info script]]]
+set root [file normalize "$here/../../.."]
 set build "$root/build/dsp_probe_syn"
 
 file mkdir $build
@@ -15,9 +15,9 @@ create_project -name dsp_probe_syn -dir $build -pn GW5AST-LV138FPG676AES -device
 set_option -verilog_std sysv2017
 set_option -top_module dsp_probe
 
-add_file "$here/../math/pkg/fxp_pkg.sv"
-add_file "$here/modal_step_pkg.sv"
-add_file "$here/dsp_probe.sv"
+add_file "$here/../../math/pkg/fxp_pkg.sv"
+add_file "$here/../modal_step_pkg.sv"
+add_file "$here/../dsp_probe.sv"
 
 puts "FILES_ADDED"
 run syn
