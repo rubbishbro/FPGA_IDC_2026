@@ -25,9 +25,22 @@
 package modal_step_pkg;
 
     // ---- 定点格式（v1 冻结值）------------------------------------------------
-    // 系数：尾数 CW 位有符号（|mant| < 2^(CW-1)），移位 SW 位无符号（0..63）
-    localparam int CW = 24;
-    localparam int SW = 6;
+    // 系数：尾数 CW 位有符号（|mant| < 2^(CW-1)）。小数点由**字段**决定（编译期常量），
+    // 所以系数记录里没有移位字段 —— 7 个字段各一个 Q，见下面的 SH_*。
+    localparam int CW = 32;
+
+    // 注意：尾数上限由 fxp_pkg 的 64 位载体决定 —— 32 位状态 x 32 位尾数 = 64 位
+    // 正好装满；36 位尾数会得到 68 位乘积而被截断（实测会导致数值不符）。
+    // 逐字段 Q（小数位）。定标依据 `_analysis/_field_q_sizing.py`：全音域 40-80、
+    // 每音 80 个模态、**缩放后**（硬件实际存储）域的最大值，再留 3 位整数余量。
+    // 定 Q 的误差是绝对误差 2^-Q，所以跨度大的字段（a12 92 dB）也不会失真。
+    localparam int SH_A11 = 28;
+    localparam int SH_A12 = 30;
+    localparam int SH_A21 = 23;
+    localparam int SH_A22 = 28;
+    localparam int SH_GQ  = 31;
+    localparam int SH_GV  = 27;
+    localparam int SH_WO  = 15;
 
     // 状态与激励：32 位有符号。状态的小数点由**生成系数时**决定（每模态归一化，
     // sq = 2^QF/peak_q），模块本身与格式无关，只做整数运算。
@@ -51,13 +64,13 @@ package modal_step_pkg;
     // ---- 每模态系数（一个 packed 结构体 = 一个模态的常数记录）-----------------
     // 命名：aXY 是 2x2 矩阵元，sXY 是它的移位；gq/gv 是输入增益，wo 是输出权重。
     typedef struct packed {
-        logic signed [CW-1:0] a11;  logic [SW-1:0] s11;
-        logic signed [CW-1:0] a12;  logic [SW-1:0] s12;
-        logic signed [CW-1:0] a21;  logic [SW-1:0] s21;
-        logic signed [CW-1:0] a22;  logic [SW-1:0] s22;
-        logic signed [CW-1:0] gq;   logic [SW-1:0] sgq;
-        logic signed [CW-1:0] gv;   logic [SW-1:0] sgv;
-        logic signed [CW-1:0] wo;   logic [SW-1:0] swo;
+        logic signed [CW-1:0] a11;
+        logic signed [CW-1:0] a12;
+        logic signed [CW-1:0] a21;
+        logic signed [CW-1:0] a22;
+        logic signed [CW-1:0] gq;
+        logic signed [CW-1:0] gv;
+        logic signed [CW-1:0] wo;
     } coeff_t;
 
     typedef struct packed {
@@ -84,13 +97,19 @@ package modal_step_pkg;
     // 这里整段都交给 rtl/math：fx_mul_rnd 的 64 位只是**载体**，实际操作数是 32/24 位，
     // 综合器会把未用到的位裁掉（本包此前用窄乘法 + fx_shift_rnd，两种写法的综合结果
     // 见 README 的对照表）。
+    // 舍入 + 算术右移。**不直接**用 fxp_pkg::fx_shift_rnd 吃 int：它的 d 是 int，
+    // 会把 6 位移位量拓宽成 32 位，综合出更宽的桶形移位器（实测 Fmax 掉约 13%）。
+    // 语义与 fx_shift_rnd 完全一致（见 rtl/math/tb/tb_fp_ops.sv 的逐位比对）。
     function automatic logic signed [AW-1:0] term(
         input logic signed [XW-1:0] a,
         input logic signed [CW-1:0] m,
-        input logic        [SW-1:0] s
+        input logic        [5:0]    s          // 字段 Q（6 位：TDM 里 k 是运行量）
     );
-        // 值 = a·m·2^-s；fx_mul_rnd 的 (fa,fb,fout) 放在整数标度上：0+0-(-s) = s
-        term = fxp_pkg::fx_mul_rnd(a, m, 0, 0, -int'(s));
+        logic signed [AW-1:0] aa, mm, prod;
+        aa   = a;
+        mm   = m;
+        prod = aa * mm;
+        term = (prod + ((s == 0) ? 64'sd0 : (64'sd1 <<< (s - 1)))) >>> s;
     endfunction
 
     // 饱和到 QW / VW 位有符号（fx_sat 的 qi=qo=0 即"不换小数点，只钳位"）

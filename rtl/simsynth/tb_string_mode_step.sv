@@ -50,13 +50,13 @@ module tb_string_mode_step;
         input longint signed qe,  input longint signed ve, input longint signed ye,
         input string         src
     );
-        c.a11 = a11; c.s11 = s11[SW-1:0];
-        c.a12 = a12; c.s12 = s12[SW-1:0];
-        c.a21 = a21; c.s21 = s21[SW-1:0];
-        c.a22 = a22; c.s22 = s22[SW-1:0];
-        c.gq  = gq;  c.sgq = sgq[SW-1:0];
-        c.gv  = gv;  c.sgv = sgv[SW-1:0];
-        c.wo  = wo;  c.swo = swo[SW-1:0];
+        c.a11 = a11;
+        c.a12 = a12;
+        c.a21 = a21;
+        c.a22 = a22;
+        c.gq  = gq;
+        c.gv  = gv;
+        c.wo  = wo;
         q.val    = qi;
         qdot.val = vi;
         x.val    = xi;

@@ -22,7 +22,7 @@ module top_ram #(
     input  logic                                 co_we,
     input  logic [$clog2(N_MODES)-1:0]           co_addr,
     input  logic [2:0]                           co_sel,
-    input  logic [31:0]                          co_wdata,
+    input  logic [35:0]                          co_wdata,
 
     input  logic                                 x_valid,
     input  logic signed [modal_step_pkg::XW-1:0] x_data,

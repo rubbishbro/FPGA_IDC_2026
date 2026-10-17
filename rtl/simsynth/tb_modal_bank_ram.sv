@@ -114,13 +114,13 @@ module tb_modal_bank_ram;
         // 装载系数：地址与数据都要在时钟沿**之前**就位（顺序错了会整体错位一格）
         co_we = 1'b1;
         for (m = 0; m < nm; m++) begin
-            rd_int(fd, v); co_data.a11 = v; rd_int(fd, v); co_data.s11 = v[SW-1:0];
-            rd_int(fd, v); co_data.a12 = v; rd_int(fd, v); co_data.s12 = v[SW-1:0];
-            rd_int(fd, v); co_data.a21 = v; rd_int(fd, v); co_data.s21 = v[SW-1:0];
-            rd_int(fd, v); co_data.a22 = v; rd_int(fd, v); co_data.s22 = v[SW-1:0];
-            rd_int(fd, v); co_data.gq  = v; rd_int(fd, v); co_data.sgq = v[SW-1:0];
-            rd_int(fd, v); co_data.gv  = v; rd_int(fd, v); co_data.sgv = v[SW-1:0];
-            rd_int(fd, v); co_data.wo  = v; rd_int(fd, v); co_data.swo = v[SW-1:0];
+            rd_int(fd, v); co_data.a11 = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.a12 = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.a21 = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.a22 = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.gq  = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.gv  = v; rd_int(fd, v); /* shift: fixed by field Q */
+            rd_int(fd, v); co_data.wo  = v; rd_int(fd, v); /* shift: fixed by field Q */
             co_addr = m[($clog2(N_MODES)-1):0];
             @(negedge clk);
         end

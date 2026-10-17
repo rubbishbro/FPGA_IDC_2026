@@ -48,11 +48,11 @@ module string_mode_step #(
 
     always_comb begin
         // 接口实例的 .val 就是原来的定点整数；格式由上层 sfp #(.iw,.qw) 参数决定
-        qn = term(q.val, c.a11, c.s11) + term(qdot.val, c.a12, c.s12)
-                                        + term(x.val, c.gq, c.sgq);
-        vn = term(q.val, c.a21, c.s21) + term(qdot.val, c.a22, c.s22)
-                                        + term(x.val, c.gv, c.sgv);
-        y.val = term(q.val, c.wo, c.swo);
+        qn = term(q.val, c.a11, SH_A11) + term(qdot.val, c.a12, SH_A12)
+                                        + term(x.val, c.gq, SH_GQ);
+        vn = term(q.val, c.a21, SH_A21) + term(qdot.val, c.a22, SH_A22)
+                                        + term(x.val, c.gv, SH_GV);
+        y.val = term(q.val, c.wo, SH_WO);
 
         if (SATURATE) begin
             q_next.val    = sat_q(qn);

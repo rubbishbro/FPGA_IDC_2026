@@ -112,19 +112,12 @@ module tb_modal_bank_seq;
         // 系数进 ROM
         for (int m = 0; m < MODES_PER_NOTE; m++) begin
             rom[m].a11 = rows[base + m * ROWS_PER_MODE][0];
-            rom[m].s11 = rows[base + m * ROWS_PER_MODE][1][SW-1:0];
             rom[m].a12 = rows[base + m * ROWS_PER_MODE][2];
-            rom[m].s12 = rows[base + m * ROWS_PER_MODE][3][SW-1:0];
             rom[m].a21 = rows[base + m * ROWS_PER_MODE][4];
-            rom[m].s21 = rows[base + m * ROWS_PER_MODE][5][SW-1:0];
             rom[m].a22 = rows[base + m * ROWS_PER_MODE][6];
-            rom[m].s22 = rows[base + m * ROWS_PER_MODE][7][SW-1:0];
             rom[m].gq  = rows[base + m * ROWS_PER_MODE][8];
-            rom[m].sgq = rows[base + m * ROWS_PER_MODE][9][SW-1:0];
             rom[m].gv  = rows[base + m * ROWS_PER_MODE][10];
-            rom[m].sgv = rows[base + m * ROWS_PER_MODE][11][SW-1:0];
             rom[m].wo  = rows[base + m * ROWS_PER_MODE][12];
-            rom[m].swo = rows[base + m * ROWS_PER_MODE][13][SW-1:0];
         end
 
         // 状态初值来自向量行本身

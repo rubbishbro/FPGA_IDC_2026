@@ -27,7 +27,7 @@ module fmax_probe #(
     logic                 co_we;
     logic [IW-1:0]        co_addr;
     logic [2:0]           co_sel;
-    logic [31:0]          co_wdata;
+    logic [35:0]          co_wdata;
     logic                 x_valid;
     logic signed [XW-1:0] x_data;
     logic                 y_valid;
@@ -75,7 +75,7 @@ module fmax_probe #(
             if (!init_done) begin
                 // 逐字段写系数：尾数取 LFSR、移位取 8..15，保证不越界也不退化
                 co_we    <= 1'b1;
-                co_wdata <= {2'b00, (6'd8 + lfsr[2:0]), lfsr[23:0]};
+                co_wdata <= {lfsr[3:0], lfsr[31:0]};   // 36 位尾数，随机即可（只测时序）
                 if (co_sel == 3'd6) begin
                     co_sel <= '0;
                     if (co_addr == N_MODES[IW-1:0] - 1'b1) begin

@@ -132,7 +132,7 @@ module modal_bank_ram #(
     typedef enum logic [1:0] { DST_QN, DST_VN, DST_Y } dst_t;
     logic signed [XW-1:0] op_a;
     logic signed [CW-1:0] op_m;
-    logic        [SW-1:0] op_s;
+    logic        [5:0]    op_s;   // 6 位：移位量是编译期常量，窄一点综合出的移位器更小
     dst_t                 op_dst;
 
     // ---- 三级流水 ---------------------------------------------------------
@@ -144,7 +144,7 @@ module modal_bank_ram #(
     // 所以把"选择/乘/累加"拆成三级、晚两拍累加，结果完全不变（黄金向量不用改）。
     logic signed [XW-1:0] op_a_q;
     logic signed [CW-1:0] op_m_q;
-    logic        [SW-1:0] op_s_q;
+    logic        [5:0]    op_s_q;
     dst_t                 op_dst_q;
     logic signed [AW-1:0] term_q;
     dst_t                 dst_q;
@@ -159,13 +159,13 @@ module modal_bank_ram #(
         sel_en  = (state == S_MAC) && (k <= 4'd6);
         mult_en = (state == S_MAC) && (k >= 4'd1) && (k <= 4'd7);
         case (k)
-            3'd0: begin op_a = q_rdata; op_m = co_rdata.a11; op_s = co_rdata.s11; op_dst = DST_QN; end
-            3'd1: begin op_a = v_rdata; op_m = co_rdata.a12; op_s = co_rdata.s12; op_dst = DST_QN; end
-            3'd2: begin op_a = x_rdata; op_m = co_rdata.gq;  op_s = co_rdata.sgq; op_dst = DST_QN; end
-            3'd3: begin op_a = q_rdata; op_m = co_rdata.a21; op_s = co_rdata.s21; op_dst = DST_VN; end
-            3'd4: begin op_a = v_rdata; op_m = co_rdata.a22; op_s = co_rdata.s22; op_dst = DST_VN; end
-            3'd5: begin op_a = x_rdata; op_m = co_rdata.gv;  op_s = co_rdata.sgv; op_dst = DST_VN; end
-            default: begin op_a = q_rdata; op_m = co_rdata.wo; op_s = co_rdata.swo; op_dst = DST_Y; end
+            3'd0: begin op_a = q_rdata; op_m = co_rdata.a11; op_s = SH_A11; op_dst = DST_QN; end
+            3'd1: begin op_a = v_rdata; op_m = co_rdata.a12; op_s = SH_A12; op_dst = DST_QN; end
+            3'd2: begin op_a = x_rdata; op_m = co_rdata.gq;  op_s = SH_GQ; op_dst = DST_QN; end
+            3'd3: begin op_a = q_rdata; op_m = co_rdata.a21; op_s = SH_A21; op_dst = DST_VN; end
+            3'd4: begin op_a = v_rdata; op_m = co_rdata.a22; op_s = SH_A22; op_dst = DST_VN; end
+            3'd5: begin op_a = x_rdata; op_m = co_rdata.gv;  op_s = SH_GV; op_dst = DST_VN; end
+            default: begin op_a = q_rdata; op_m = co_rdata.wo; op_s = SH_WO; op_dst = DST_Y; end
         endcase
     end
 

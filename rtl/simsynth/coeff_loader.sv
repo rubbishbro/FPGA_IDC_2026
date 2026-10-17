@@ -27,7 +27,7 @@ module coeff_loader #(
     input  logic                        we,
     input  logic [$clog2(N_MODES)-1:0]  addr,
     input  logic [2:0]                  sel,
-    input  logic [31:0]                 wdata,
+    input  logic [35:0]                 wdata,
 
     output logic                        ld_we,
     output logic [$clog2(N_MODES)-1:0]  ld_addr,
@@ -37,10 +37,8 @@ module coeff_loader #(
     import modal_step_pkg::*;
 
     logic signed [CW-1:0] mant_in;
-    logic        [SW-1:0] shift_in;
 
-    assign mant_in  = wdata[CW-1:0];
-    assign shift_in = wdata[CW+SW-1:CW];
+    assign mant_in  = wdata[CW-1:0];      // 只有尾数；小数点由字段 Q 决定
 
     coeff_t co_acc;
     coeff_t co_next;
@@ -49,13 +47,13 @@ module coeff_loader #(
     always_comb begin
         co_next = co_acc;
         case (sel)
-            3'd0: begin co_next.a11 = mant_in; co_next.s11 = shift_in; end
-            3'd1: begin co_next.a12 = mant_in; co_next.s12 = shift_in; end
-            3'd2: begin co_next.a21 = mant_in; co_next.s21 = shift_in; end
-            3'd3: begin co_next.a22 = mant_in; co_next.s22 = shift_in; end
-            3'd4: begin co_next.gq  = mant_in; co_next.sgq = shift_in; end
-            3'd5: begin co_next.gv  = mant_in; co_next.sgv = shift_in; end
-            default: begin co_next.wo = mant_in; co_next.swo = shift_in; end
+            3'd0: begin co_next.a11 = mant_in; end
+            3'd1: begin co_next.a12 = mant_in; end
+            3'd2: begin co_next.a21 = mant_in; end
+            3'd3: begin co_next.a22 = mant_in; end
+            3'd4: begin co_next.gq  = mant_in; end
+            3'd5: begin co_next.gv  = mant_in; end
+            default: begin co_next.wo = mant_in; end
         endcase
     end
 
