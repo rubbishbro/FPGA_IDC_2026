@@ -2,7 +2,7 @@
 set root [pwd]
 set here [file dirname [file normalize [info script]]]
 
-foreach top {fmax_seq fmax_ram} {
+foreach top {fmax_seq fmax_ram fmax_e7} {
     set build "$root/build/${top}_pnr"
     file mkdir $build
     create_project -name ${top}_pnr -dir $build -pn GW5AST-LV138FPG676AES -device_version B -force
@@ -13,6 +13,8 @@ add_file "$here/modal_step_pkg.sv"
     add_file "$here/coeff_loader.sv"
     add_file "$here/modal_bank_seq.sv"
     add_file "$here/modal_bank_ram.sv"
+    add_file "$here/modal_engine7.sv"
+    add_file "$here/modal_voice_top.sv"
     add_file "$here/top_seq.sv"
     add_file "$here/top_ram.sv"
     add_file "$here/fmax_probe.sv"

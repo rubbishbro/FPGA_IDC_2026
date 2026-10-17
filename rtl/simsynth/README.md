@@ -17,6 +17,8 @@ y  = wo·q            （用更新前的 q，与模型一致）
 | `string_mode_step.sv` | 单模态"并联一步"，纯组合、无状态 | 参考实现 / 逐位基准 |
 | `modal_bank_seq.sv` | 时分复用 bank（系数在外部 ROM、状态走旁路口） | **方案 A** |
 | `modal_bank_ram.sv` | RAM 中心化 bank（系数/状态/激励/结果全在模块内，作业式） | **方案 B** |
+| `modal_engine7.sv` | **7 乘法器并联**的纯计算引擎（五级流水；数据面只有 SRAM 式读写口，**不含存储**） | ARCH_PARALLEL7 §8A |
+| `modal_voice_top.sv` | 声部层：双份 bank（A/B）× 8 声部 + 声部调度 + ping-pong，持有全部存储 | ARCH_PARALLEL7 §8B |
 | `coeff_loader.sv` | 窄口系数装载：32 位字 × 7 字段 = 一个模态 | A/B 顶层共用 |
 | `top_seq.sv` / `top_ram.sv` | 两个方案的**公平对比顶层**（端口完全相同） | 资源/Fmax 实测 |
 | `fmax_probe.sv` | 只有 clk/rst_n/led 的时序探针（内部 LFSR 激励） | 拿真实 Fmax |
@@ -28,8 +30,9 @@ y  = wo·q            （用更新前的 q，与模型一致）
 | `string_mode_step` 逐位 | `pwsh run_xsim.ps1` | **64 例（钢琴 32 + 吉他 32）、0 失配 → PASS** |
 | `modal_bank_seq` 逐位 | `pwsh run_xsim_bank.ps1` | **16 帧、80 项检查、0 失配 → PASS** |
 | `modal_bank_ram` 作业级 | `pwsh run_xsim_ram.ps1` | **4 个作业（钢琴/吉他 × 单帧/48 帧）、0 失配 → PASS** |
+| `modal_voice_top` 作业级 + 多声部 + ping-pong | `pwsh run_xsim_engine7.ps1` | **8 个作业（4 条黄金向量 + 多声部 + 3 次 A/B 交换）、0 失配 → PASS** |
 | Gowin 综合 | `synth*.tcl` | 全部 `GowinSynthesis finish` |
-| Gowin PnR（100 MHz 约束） | `synth_pnr_one.tcl`（TOP 环境变量） | 跑通；**Fmax：A 76.107 MHz / B 71.798 MHz** |
+| Gowin PnR（100 MHz 约束） | `synth_pnr_one.tcl`（TOP / SDC 环境变量） | 跑通；**Fmax：A 76.107 / B 71.798 / 7 乘法器引擎 104 MHz** |
 
 黄金向量由 `gen_golden.py` 从**真实模型**生成（钢琴走 `sim_piano` 的表、吉他走
 `sim_guitar` 的拨弦初值），不是手算的期望值。
@@ -133,6 +136,91 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 一个 bank 只用约 2 个。**"要不要用 DSP"不是面积问题，而是时序问题**：寄存器化（流水线）
 才是提高 Fmax 的手段，而它恰好就是 DSP 友好的写法。
 
+## 7 乘法器引擎 + 声部层（ARCH_PARALLEL7 第 8 节的实施）
+
+`modal_bank_ram` 的 7 个乘积是**一个乘法器轮转**算的：一个模态要 11 拍，"移几位"还得由运行时的
+`k` 选出来 ⇒ 逐字段 Q 只能省掉系数里的移位字段，桶形移位器仍留在关键路径上（A/B 两个顶层的最差
+路径都是 `LUT → term_q`，13.1 / 13.9 ns）。
+
+把 7 个乘积**并联**，每个字段的移位量 `SH_*` 就成了编译期常量（`>>> SH_A11` 退化成连线），
+舍入偏置 `1<<(SH-1)` 也是常数。7 个乘法器的成本由 8 个声部分摊。
+
+### 分工：引擎只算，存储和声部在顶层
+
+| 模块 | 职责 | 有没有存储 |
+|---|---|---|
+| `modal_engine7.sv` | 7 乘法器 + 五级流水；对外只有 `start/n_samples/n_modes/done/busy` 和 5 组 SRAM 口（本声部内的**偏移**地址） | **没有** |
+| `modal_voice_top.sv` | 双份 bank（A/B）× 8 声部、地址拼接 `{bank, 声部号, 偏移}`、声部调度、ping-pong | **全部** |
+
+引擎不知道有几个声部、也不知道哪一份在跑；换声部只是顶层换地址高位。
+
+### 五级流水（吞吐 1 模态/拍）
+
+| 级 | 内容 | 序号 |
+|---|---|---|
+| R | 给 co/st 读地址（同步 RAM） | `ri` |
+| M | 7 个 32×32 乘法 → `p_*` | `ri−1` |
+| N | `(p + 2^(SH−1)) >>> SH` → `t_*` | `ri−2` |
+| S | 三路相加 → `qn_q/vn_q`（`t_wo` 也过一级） | `ri−3` |
+| W | 饱和 → 写回状态；`y_acc += two_q` | `ri−4` |
+
+一帧 = `1 + 1 + (N+4) + 1 + 1 = N + 8` 拍；N=48 时 **56 拍**（`modal_bank_ram` 是 530 拍）。
+8 声部 × 48 模态 + 声部切换 ≈ 480 拍/采样，占 48 kHz / 100 MHz 预算（2083 拍）的 **23%**。
+
+**为什么必须切五级**：第一版把 M/N/S/W 挤在一拍，PnR 实测最差路径 **16.0 ns（64 MHz）** ——
+一条路径穿过 乘法 → 64 位舍入加 → 常数移位 → 三路 64 位加 → 饱和 → RAM 写口。
+切开后每级 2–4 ns，瓶颈换成了"RAM 读出 → bank 2 选 1 → 乘法器输入"。
+
+### 声部 ping-pong
+
+- 一份 bank 放 8 个常驻声部，A/B 两份共 16 个槽位；装载口地址自带 bank 位，顶层装**非活动**的一份；
+- 两份阵列各有自己的写口 ⇒ "引擎写回状态"与"装载另一份"可以同拍发生（单份阵列只有一个写口，
+  那样装载会被写回吃掉 —— 这是拆成两份物理阵列的真正原因，测试台专门验证了运行中装载）；
+- `start` 时 `swap_en=1` ⇒ 整个作业换到另一份上跑，`run_bank` 全程指向它。
+
+### 踩到的两个综合陷阱（都已修）
+
+1. **`coeff_t` 结构体阵列不进 BSRAM**：224 位一个字的阵列，综合日志里只有 q/v/x/y 有
+   "Extracting RAM"，`co_ram_*` 没有 ⇒ 直接退回 FF（实测 +25k 寄存器、布线报 6530 条布不通）。
+   改成**按字段拆成 7 个 32 位阵列**（`ca_a11..ca_wo` / `cb_*`）后 22 个阵列全部进 BSRAM。
+2. **7 个系数写成同一个值会被 CSE 合并**：探针原来写 `co_data <= {7{lfsr}}`，综合器认为 7 个乘法
+   是公共子表达式，只留 3 个（`MULT27X36` 从 14 掉到 6），那样量出来的 Fmax 不可信。
+   改成 7 个不同的循环移位后恢复 14 个。
+
+### 实测（`fmax_e7` 探针：VOICES=8、N_MODES=48、X_DEPTH=64、DEBUG_PORT=0）
+
+| 项 | 1 引擎 + 8 声部 + A/B 双份 bank | 摊到每声部 |
+|---|---|---|
+| Logic | **1823**（1323 LUT + 500 ALU） | 228 |
+| Register | **816** | 102 |
+| BSRAM | **48** | 6 |
+| DSP | **28**（14 × `MULT27X36`） | 3.5 |
+| 存储 | 22 个阵列**全部**进 BSRAM（不再有 FF 回退） | — |
+| 每采样拍数（8 声部 × 48 模态） | 8 × (56 + 4) ≈ **480** = 预算 23% | 60 |
+| **PnR Fmax（100 MHz 约束）** | **101.0 MHz**（slack +0.097 ns，**收敛**） | — |
+| PnR Fmax（改用 5 ns 约束重跑） | 最差路径 **9.58 ns ⇒ ≈104 MHz** | — |
+
+关键路径变成 **`bank_r` → 状态读数据 2 选 1 → 乘法器输入**（约 9.6 ns），
+不再是"乘 → 64 位舍入 → 桶形移位"。
+
+**16 声部怎么摊**：一个引擎 8 声部 × 2 个引擎 = 16 声部 ⇒
+逻辑 ≈ 3.6k、寄存器 ≈ 1.6k、BSRAM ≈ 96、DSP 56（298 的 19%）、
+每采样 2 × 480 = 960 拍（预算 46%）。
+
+**和"每声部一个 TDM bank"比**（16 声部）：
+
+| 16 声部 | TDM bank（`modal_bank_ram`） | **7 乘法器引擎 ×2** |
+|---|---|---|
+| 实例数 | **5 个 bank**（16 × 530 = 8480 拍/采样 > 预算 2083，必须并行摊） | **2 个引擎** |
+| Logic | ≈ 8.5k | ≈ **3.6k** |
+| Register | ≈ 2k | ≈ **1.6k** |
+| DSP | 10 × `MULT27X36` | 28 × `MULT27X36` |
+| 每声部每采样拍数 | **530** | **60**（快 8.8 倍） |
+| Fmax | 71.8 MHz | **104 MHz** |
+
+⇒ 逻辑省 2.4 倍、拍数省 8.8 倍、Fmax 高 45%；代价是 DSP 从 10 个涨到 28 个
+（器件有 298 个，占 9%，其余留给腔体滤波/激励）。
+
 ## 踩过的坑（都是被仿真或综合抓到的真 bug）
 
 1. **SV 乘法宽度**：`a * m` 的结果宽度是操作数最大宽度、不是 LHS 宽度。32 位状态 × 24 位系数
@@ -179,7 +267,8 @@ pwsh -File rtl/simsynth/run_gwsh.ps1 -Only bank   # 或 all / step / probe
 - 系数 ROM 的**真实内容**（每个音每个模态的定点系数表，由 `gen_golden.py` 那套工具批量导出）
   与 note-on 装载流程。
 - 腔体滤波器（CAD）与激励发生器；与队友 `clk_rst_pkg` / 顶层的接入。
-- 多声部（当前一个 bank = 一个音）。
+- 声部**分配器**（note-on/note-off → 声部槽位）与真实系数表装载。`modal_voice_top` 现在
+  只会"按 `n_voices` 顺序跑一遍"，还没有"哪个键占哪个声部、哪个声部在响"的逻辑。
 
 ## 与队友 RTL 的关系
 
@@ -191,18 +280,16 @@ pwsh -File rtl/simsynth/run_gwsh.ps1 -Only bank   # 或 all / step / probe
 
 ## 与 rtl/math（定点/浮点工具包）的关系
 
-modal_step_pkg 的舍入与饱和已改为调用 
-tl/math/pkg/fxp_pkg.sv：
+modal_step_pkg 的乘法、舍入与饱和都建立在 `rtl/math/pkg/fxp_pkg.sv` 的算术上：
 
-- 	erm() = xp_pkg::fx_mul_rnd(a, m, 0, 0, -s) —— 乘法与四舍五入移位都在包里；
-  xp_pkg 的 64 位只是载体，综合器按实际位宽裁剪（实测同一 bank：+11 LUT，
-  MULT27X36 仍为 1）。
-- sat_q/sat_v = xp_pkg::fx_sat(v, 0, 0, QW/VW)。
-- 等价性由 
-tl/math/tb/tb_fp_ops.sv 证明（5660 项检查，含 4060 项
-  x_mul_rnd ↔ 	erm 随机/定点平局比对）。
-- string_mode_step 的端口已改用 
-tl/math 的 sfp interface 声明
+- `term()` 的"乘 + 四舍五入右移"是包内联实现的，语义与 `fxp_pkg::fx_shift_rnd` 逐位一致；
+  不直接调 `fx_shift_rnd` 是因为它的 `d` 是 `int`，会把 6 位移位量拓宽成 32 位、综合出更宽的
+  桶形移位器（实测 Fmax 掉约 13%）。`fxp_pkg` 的 64 位只是**载体**，综合器按实际位宽裁剪
+  （实测同一 bank：+11 LUT，`MULT27X36` 仍为 1）。
+- `sat_q/sat_v` = `fxp_pkg::fx_sat(v, 0, 0, QW/VW)`。
+- 等价性由 `rtl/math/tb/tb_fp_ops.sv` 证明（**9680 项检查**，含 `fx_mul_rnd` 与 `term` 的
+  随机/定点平局比对，以及 floor 版与四舍五入版的 `sfp`/`ufp` 全套比对）。
+- `string_mode_step` 的端口已改用 `rtl/math` 的 `sfp` interface 声明
   （q/q' = s8.24、x = s4.28、y = s24.40），64 例黄金向量逐位不变。
 
 两套定点约定的完整差异与合并方案见 [FORMAT_ALIGNMENT.md](FORMAT_ALIGNMENT.md)。
