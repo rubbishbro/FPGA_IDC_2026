@@ -48,3 +48,6 @@ vivado.jou
 vivado.log
 vivado_pid*.str
 *.btree
+
+# 本地脚本/临时产物（可复用 RTL、TB、约束、黄金向量都在上一级，已跟踪）
+rtl/simsynth/local/

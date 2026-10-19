@@ -1,19 +1,19 @@
 // -----------------------------------------------------------------------------
-// tb_modal_voice_top.sv -- 顶层（引擎 + 双份 bank + 声部调度）的整段作业验证（xsim）
+// tb_modal_voice_top.sv -- 顶层（引擎 + 多槽存储 + 状态 ping-pong）的整段作业验证
 //
-// 三组测试：
+// 四组测试：
 //   A. 单声部逐位对拍 —— 复用 modal_bank_ram 的黄金向量，证明"7 路并联 + 常数移位 +
-//      五级流水"与原 TDM bank **逐位相同**；
-//   B. 多声部 —— 同一次 start 里跑 2 个声部（钢琴/吉他各一），结果必须各归各位；
-//   C. ping-pong —— 引擎跑 bank0 的 2 个声部时，把**另一组**声部装进 bank1（测试台检查
-//      此时 busy 仍为 1，即装载真的发生在运行期间），再 `swap` 跑 bank1；两次结果都必须
-//      与各自单跑一致，且不串声部。
+//      五级流水 + 每帧 ping-pong"与原 TDM bank **逐位相同**；
+//   B. 多声部 —— 同一次 start 里跑 2 个槽（钢琴/吉他各一），结果必须各归各位；
+//   C. 运行中装载 —— 引擎跑槽 0 的时候把另一组系数装进槽 1（测试台检查 busy 仍为 1），
+//      槽 0 的结果不能受影响；
+//   D. 换音色重刷 —— 停机后整块刷系数再跑一遍，结果必须与"新开一次作业"完全一致。
 //
 // 向量格式同 gen_golden.py 的 emit_seq：
 //     n_modes n_samples / <14>×n_modes 系数 / <n_samples> 激励 /
 //     <n_samples> 期望 Σ wo·q / <2>×n_modes 末态
 //
-// 运行：pwsh -File rtl/simsynth/run_xsim_engine7.ps1
+// 运行：pwsh -File rtl/simsynth/tb/run_xsim_engine7.ps1
 // -----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -24,66 +24,57 @@ module tb_modal_voice_top;
 
     localparam int N_MODES = 8;
     localparam int X_DEPTH = 64;
-    localparam int VOICES  = 2;
+    localparam int SLOTS   = 2;
 
-    localparam int CO_SLOT = $clog2(VOICES * N_MODES);   // 每份 bank 的地址位数（voice+mode）
-    localparam int X_SLOT  = $clog2(VOICES * X_DEPTH);
-    localparam int TB      = CO_SLOT + 1;                // 再加 bank 位
-    localparam int XB      = X_SLOT + 1;
+    localparam int CO_SLOT = $clog2(SLOTS * N_MODES);    // {槽号, 模态号}
+    localparam int X_SLOT  = $clog2(SLOTS * X_DEPTH);
 
     logic clk = 1'b0;
     logic rst_n = 1'b0;
 
     logic                          co_we;
-    logic [TB-1:0]                 co_addr;
+    logic [CO_SLOT-1:0]            co_addr;
     coeff_t                        co_data;
 
-    logic                          st_we;
-    logic [TB-1:0]                 st_addr;
-    logic signed [QW-1:0]          st_q;
-    logic signed [VW-1:0]          st_v;
-
     logic                          x_we;
-    logic [XB-1:0]                 x_addr;
+    logic [X_SLOT-1:0]             x_addr;
     logic signed [XW-1:0]          x_data;
 
     logic                          start;
-    logic [$clog2(VOICES+1)-1:0]   n_voices;
+    logic [$clog2(SLOTS+1)-1:0]    n_voices;
     logic [$clog2(X_DEPTH+1)-1:0]  n_samples;
     logic [$clog2(N_MODES+1)-1:0]  n_modes;
-    logic                          swap_en;
-    logic                          run_bank;
+    logic [SLOTS-1:0]              st_zero_mask;
     logic                          done;
     logic                          busy;
 
     logic                          rd_en;
-    logic [XB-1:0]                 rd_addr;
+    logic [$clog2(X_DEPTH)-1:0]    rd_addr;
     logic signed [YW-1:0]          rd_data;
     logic                          rd_valid;
 
-    logic                          st_rd_en;
-    logic [TB-1:0]                 st_rd_addr;
-    logic                          st_rd_sel;
-    logic signed [31:0]            st_rd_data;
-    logic                          st_rd_valid;
+    logic                          ns_rd_en;
+    logic [CO_SLOT-1:0]            ns_rd_addr;
+    logic                          ns_rd_sel;
+    logic signed [31:0]            ns_rd_data;
+    logic                          ns_rd_valid;
 
     always #5 clk = ~clk;        // 100 MHz
 
-    modal_voice_top #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .VOICES(VOICES)) dut (
+    modal_voice_top #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .SLOTS(SLOTS)) dut (
         .clk(clk), .rst_n(rst_n),
         .co_we(co_we), .co_addr(co_addr), .co_data(co_data),
-        .st_we(st_we), .st_addr(st_addr), .st_q(st_q), .st_v(st_v),
         .x_we(x_we), .x_addr(x_addr), .x_data(x_data),
         .start(start), .n_voices(n_voices), .n_samples(n_samples), .n_modes(n_modes),
-        .swap_en(swap_en), .run_bank(run_bank), .done(done), .busy(busy),
+        .st_zero_mask(st_zero_mask),
+        .done(done), .busy(busy),
         .rd_en(rd_en), .rd_addr(rd_addr), .rd_data(rd_data), .rd_valid(rd_valid),
-        .st_rd_en(st_rd_en), .st_rd_addr(st_rd_addr), .st_rd_sel(st_rd_sel),
-        .st_rd_data(st_rd_data), .st_rd_valid(st_rd_valid)
+        .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
+        .ns_rd_data(ns_rd_data), .ns_rd_valid(ns_rd_valid)
     );
 
     int            n_bad;
     int            n_jobs;
-    // 作业拍数统计（一帧应该是 N+8 拍）
     int            cyc_cnt;
     logic          cyc_en;
 
@@ -107,7 +98,6 @@ module tb_modal_voice_top;
         end
     endtask
 
-    // 把黄金向量读进 slot 号内存
     task automatic parse_file(input string path, input int slot);
         int            fd;
         longint signed v;
@@ -128,7 +118,6 @@ module tb_modal_voice_top;
             $fclose(fd);
             return;
         end
-
         for (m = 0; m < nm[slot]; m++) begin
             rd_int(fd, v); cf[slot][m].a11 = v; rd_int(fd, v);
             rd_int(fd, v); cf[slot][m].a12 = v; rd_int(fd, v);
@@ -147,30 +136,20 @@ module tb_modal_voice_top;
         $fclose(fd);
     endtask
 
-    // 把 slot 的系数/初值/激励装进 (bank, voice) 那个槽位
-    task automatic load_slot(input int bank, input int voice, input int slot);
+    // 把 slot 的系数/初值/激励装进 voice 号槽位
+    task automatic load_slot(input int voice, input int slot);
         int i, m;
-        // 地址与数据必须在时钟沿之前就位（顺序错了会整体错位一格）
         co_we = 1'b1;
         for (m = 0; m < nm[slot]; m++) begin
-            co_addr = TB'(bank * (VOICES*N_MODES) + voice * N_MODES + m);
+            co_addr = CO_SLOT'(voice * N_MODES + m);
             co_data = cf[slot][m];
             @(negedge clk);
         end
         co_we = 1'b0;
 
-        st_we = 1'b1;
-        for (m = 0; m < nm[slot]; m++) begin
-            st_addr = TB'(bank * (VOICES*N_MODES) + voice * N_MODES + m);
-            st_q    = '0;
-            st_v    = '0;
-            @(negedge clk);
-        end
-        st_we = 1'b0;
-
         x_we = 1'b1;
         for (i = 0; i < ns[slot]; i++) begin
-            x_addr = XB'(bank * (VOICES*X_DEPTH) + voice * X_DEPTH + i);
+            x_addr = X_SLOT'(voice * X_DEPTH + i);
             x_data = xv[slot][i][XW-1:0];
             @(negedge clk);
         end
@@ -178,17 +157,16 @@ module tb_modal_voice_top;
         @(negedge clk);
     endtask
 
-    task automatic start_job(input logic sw, input int nv);
-        start     = 1'b1;
-        swap_en   = sw;
-        n_voices  = nv;
-        n_samples = ns[0];
-        n_modes   = nm[0];
+    task automatic start_job(input int nv, input int nfr, input logic [SLOTS-1:0] mask);
+        start        = 1'b1;
+        n_voices     = nv;
+        n_samples    = nfr;
+        n_modes      = nm[0];
+        st_zero_mask = mask;
         cyc_cnt   = 0;
         cyc_en    = 1'b1;
         @(negedge clk);
-        start   = 1'b0;
-        swap_en = 1'b0;
+        start = 1'b0;
     endtask
 
     task automatic wait_done;
@@ -198,39 +176,47 @@ module tb_modal_voice_top;
         n_jobs++;
     endtask
 
-    // 读回结果 RAM 与末态，与 (bank, voice, slot) 的期望逐项比对
-    task automatic check_slot(input int bank, input int voice, input int slot,
-                              input string tag);
-        int            i, m, k;
+    // 读回结果（每采样一个和）与末态（走"新状态读口"）
+    task automatic check_y(input int s0, input int s1, input int two, input string tag);
+        int            i;
+        longint signed got, want;
+        int            bad0;
+
+        bad0  = n_bad;
+        rd_en = 1'b1;
+        for (i = 0; i < ns[s0]; i++) begin
+            @(negedge clk);
+            rd_addr = i[$clog2(X_DEPTH)-1:0];
+            @(negedge clk);
+            got  = rd_data;
+            want = two ? (yv[s0][i] + yv[s1][i]) : yv[s0][i];
+            if (got !== want) begin
+                n_bad++;
+                if (n_bad <= 8)
+                    $display("MISMATCH %s y[%0d]: got %0d want %0d", tag, i, got, want);
+            end
+        end
+        rd_en = 1'b0;
+        $display("  %-10s y[0..%0d] (%0d 声部和) -> %s",
+                 tag, ns[s0]-1, two ? 2 : 1, (n_bad == bad0) ? "ok" : "FAILED");
+    endtask
+
+    task automatic check_state(input int voice, input int slot, input string tag);
+        int            m, k;
         longint signed got;
         int            bad0;
 
         bad0 = n_bad;
-
-        rd_en = 1'b1;
-        for (i = 0; i < ns[slot]; i++) begin
-            @(negedge clk);
-            rd_addr = XB'(bank * (VOICES*X_DEPTH) + voice * X_DEPTH + i);
-            @(negedge clk);
-            got = rd_data;
-            if (got !== yv[slot][i]) begin
-                n_bad++;
-                if (n_bad <= 8)
-                    $display("MISMATCH %s y[%0d]: got %0d want %0d", tag, i, got, yv[slot][i]);
-            end
-        end
-        rd_en = 1'b0;
-
         for (m = 0; m < nm[slot]; m++) begin
             for (k = 0; k < 2; k++) begin
                 @(negedge clk);
-                st_rd_addr = TB'(bank * (VOICES*N_MODES) + voice * N_MODES + m);
-                st_rd_sel  = k[0];
-                st_rd_en   = 1'b1;
-                wait (st_rd_valid === 1'b1);
-                got = st_rd_data;
+                ns_rd_addr = CO_SLOT'(voice * N_MODES + m);
+                ns_rd_sel  = k[0];
+                ns_rd_en   = 1'b1;
+                wait (ns_rd_valid === 1'b1);
+                got = ns_rd_data;
                 @(negedge clk);
-                st_rd_en = 1'b0;
+                ns_rd_en = 1'b0;
                 if (got !== ((k == 0) ? fq[slot][m] : fv[slot][m])) begin
                     n_bad++;
                     if (n_bad <= 8)
@@ -241,17 +227,17 @@ module tb_modal_voice_top;
             end
         end
         @(negedge clk);
-        $display("  %-10s bank%0d voice%0d slot%0d: %0d modes x %0d samples -> %s",
-                 tag, bank, voice, slot, nm[slot], ns[slot], (n_bad == bad0) ? "ok" : "FAILED");
+        $display("  %-10s voice%0d slot%0d state (%0d modes) -> %s",
+                 tag, voice, slot, nm[slot], (n_bad == bad0) ? "ok" : "FAILED");
     endtask
 
-    // 完整跑一个作业（装载 + 起跑 + 等 done + 校验），单声部路径
     task automatic run_one(input string path, input string tag);
         parse_file(path, 0);
-        load_slot(0, 0, 0);
-        start_job(1'b0, 1);
+        load_slot(0, 0);
+        start_job(1, ns[0], 1'b1);
         wait_done;
-        check_slot(0, 0, 0, tag);
+        check_y(0, 0, 0, tag);
+        check_state(0, 0, tag);
     endtask
 
     initial begin
@@ -260,11 +246,10 @@ module tb_modal_voice_top;
         cyc_cnt = 0;
         cyc_en  = 1'b0;
         co_we = 1'b0; co_addr = '0; co_data = '0;
-        st_we = 1'b0; st_addr = '0; st_q = '0; st_v = '0;
         x_we  = 1'b0; x_addr  = '0; x_data = '0;
-        start = 1'b0; n_voices = 1; n_samples = '0; n_modes = '0; swap_en = 1'b0;
+        start = 1'b0; n_voices = 1; n_samples = '0; n_modes = '0; st_zero_mask = '0;
         rd_en = 1'b0; rd_addr = '0;
-        st_rd_en = 1'b0; st_rd_addr = '0; st_rd_sel = 1'b0;
+        ns_rd_en = 1'b0; ns_rd_addr = '0; ns_rd_sel = 1'b0;
 
         $display("=== modal_voice_top: job-level golden check ===");
         rst_n = 1'b0;
@@ -278,58 +263,42 @@ module tb_modal_voice_top;
         run_one("golden_seq_piano.txt",    "piano_48");
         run_one("golden_seq_guitar.txt",   "guitar_48");
 
-        $display("-- B. 多声部：一次 start 跑 2 个声部（钢琴 + 吉他）--");
+        $display("-- B. 多声部：一次 start 跑 2 个槽（钢琴 + 吉他）--");
         parse_file("golden_seq_piano_1.txt",  0);
         parse_file("golden_seq_guitar_1.txt", 1);
-        load_slot(0, 0, 0);          // bank0 voice0 = 钢琴
-        load_slot(0, 1, 1);          // bank0 voice1 = 吉他
-        start_job(1'b0, 2);
+        load_slot(0, 0);
+        load_slot(1, 1);
+        start_job(2, ns[0], 2'b11);
         wait_done;
-        check_slot(0, 0, 0, "multi");
-        check_slot(0, 1, 1, "multi");
+        check_y(0, 1, 1, "multi");
+        check_state(0, 0, "multi");
+        check_state(1, 1, "multi");
 
-        $display("-- C. ping-pong：跑 bank0 时把另一组声部装进 bank1，再交换 --");
-        // bank0: voice0=钢琴, voice1=吉他（原位重装，状态复位）
-        load_slot(0, 0, 0);
-        load_slot(0, 1, 1);
-        start_job(1'b0, 2);
-        // 引擎正在跑 bank0 的这段时间里，把**交换过顺序**的一组装进 bank1
-        load_slot(1, 0, 1);          // bank1 voice0 = 吉他
-        load_slot(1, 1, 0);          // bank1 voice1 = 钢琴
+        $display("-- C. 运行中装载：跑槽 0 时把另一组装进槽 1 --");
+        parse_file("golden_seq_piano.txt",    0);   // 48 帧，作业够长
+        parse_file("golden_seq_guitar_1.txt", 1);
+        load_slot(0, 0);
+        start_job(1, ns[0], 1'b1);
+        load_slot(1, 1);                            // 引擎还在跑槽 0
         if (busy !== 1'b1) begin
             n_bad++;
-            $display("FAIL: bank1 装载结束时引擎已停（没有验证到运行中装载）");
+            $display("FAIL: 槽 1 装载结束时引擎已停（没有验证到运行中装载）");
         end
         wait_done;
-        if (run_bank !== 1'b0) begin
-            n_bad++;
-            $display("MISMATCH ping-pong: run_bank=%0d want 0 after job A", run_bank);
-        end
-        check_slot(0, 0, 0, "pong-A");
-        check_slot(0, 1, 1, "pong-A");
+        check_y(0, 0, 0, "live-ld");
+        check_state(0, 0, "live-ld");
 
-        // 交换：这次跑 bank1（内容与 bank0 交换过 ⇒ 能抓出 bank/voice 混线）
-        start_job(1'b1, 2);
-        if (run_bank !== 1'b1) begin
-            n_bad++;
-            $display("MISMATCH ping-pong: run_bank=%0d want 1 after swap", run_bank);
-        end
+        $display("-- D. 换音色重刷：停机后整块刷系数，再跑一遍 --");
+        parse_file("golden_seq_guitar.txt", 0);     // 48 帧吉他
+        parse_file("golden_seq_piano.txt",  1);     // 48 帧钢琴
+        // 两个槽整块换掉（换音色时本来也不弹，直接停机刷）
+        load_slot(0, 0);                            // 槽 0 <- 吉他
+        load_slot(1, 1);                            // 槽 1 <- 钢琴
+        start_job(2, ns[0], 2'b11);
         wait_done;
-        check_slot(1, 0, 1, "pong-B");
-        check_slot(1, 1, 0, "pong-B");
-
-        // 再交换回去：bank0 重装一次（状态复位），验证 A/B 交替不串数据
-        load_slot(0, 0, 0);
-        load_slot(0, 1, 1);
-        start_job(1'b1, 2);
-        if (run_bank !== 1'b0) begin
-            n_bad++;
-            $display("MISMATCH ping-pong: run_bank=%0d want 0 after 2nd swap", run_bank);
-        end
-        wait_done;
-        check_slot(0, 0, 0, "pong-A2");
-        check_slot(0, 1, 1, "pong-A2");
-        $display("  最后一个作业 %0d 拍（2 声部 x (%0d+8) 拍 + 声部切换开销）", cyc_cnt, nm[0]);
+        check_y(0, 1, 1, "reload");
+        check_state(0, 0, "reload");
+        check_state(1, 1, "reload");
 
         $display("=== %0d jobs, %0d mismatches ===", n_jobs, n_bad);
         if (n_bad == 0) $display("RESULT: PASS");
