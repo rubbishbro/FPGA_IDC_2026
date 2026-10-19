@@ -118,14 +118,14 @@ endmodule
 
 
 
-// ---- 声部层（引擎 + 双份 bank）的时序探针 ------------------------------
+// ---- 声部层（引擎 + 多槽存储 + 状态 ping-pong）的时序探针 --------------
 // 与上面两个探针同口径：只有 clk/rst_n/led，装载数据与作业调度全部由内部 LFSR/计数器
 // 产生（系数写进 RAM，综合器不会把它们当常数折叠），结果异或进累加器驱动 LED。
-// 配置用"生产尺寸"：N_MODES=48、X_DEPTH=256、VOICES=8（每份 bank 8 声部，A/B 两份），
-// DEBUG_PORT=0（生产配置）。
+// 配置用"生产尺寸"：N_MODES=48、X_DEPTH=64、SLOTS=8（8 声部）、DEBUG_PORT=0。
 module fmax_e7 #(
     parameter int N_MODES = 48,
-    parameter int X_DEPTH = 64          // 块处理 64 采样（x/y 阵列缩小 4 倍，便于布线）
+    parameter int X_DEPTH = 64,
+    parameter int SLOTS   = 8
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -134,11 +134,10 @@ module fmax_e7 #(
 
     import modal_step_pkg::*;
 
-    localparam int VOICES = 8;
-    localparam int NCO    = VOICES * N_MODES;          // 每份 bank 的系数/状态条数
-    localparam int NX     = VOICES * X_DEPTH;          // 每份 bank 的激励/结果条数
-    localparam int TB     = $clog2(2*NCO);
-    localparam int XB     = $clog2(2*NX);
+    localparam int NCO = SLOTS * N_MODES;
+    localparam int NX  = SLOTS * X_DEPTH;
+    localparam int TB  = $clog2(NCO);
+    localparam int XB  = $clog2(NX);
 
     logic                          co_we;
     logic [TB-1:0]                 co_addr;
@@ -146,35 +145,34 @@ module fmax_e7 #(
     logic                          st_we;
     logic [TB-1:0]                 st_addr;
     logic signed [QW-1:0]          st_q;
-    logic signed [VW-1:0]          st_v;
+    logic signed [VW-1:0]          st_qdot;
     logic                          x_we;
     logic [XB-1:0]                 x_addr;
     logic signed [XW-1:0]          x_data;
     logic                          start;
-    logic [$clog2(VOICES+1)-1:0]   n_voices;
+    logic [$clog2(SLOTS+1)-1:0]    n_voices;
     logic [$clog2(X_DEPTH+1)-1:0]  n_samples;
     logic [$clog2(N_MODES+1)-1:0]  n_modes;
-    logic                          swap_en;
-    logic                          run_bank;
     logic                          done;
     logic                          busy;
+    logic                          pp;
     logic                          rd_en;
     logic [XB-1:0]                 rd_addr;
     logic signed [YW-1:0]          rd_data;
     logic                          rd_valid;
 
     modal_voice_top #(
-        .N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .VOICES(VOICES), .DEBUG_PORT(1'b0)
+        .N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .SLOTS(SLOTS), .DEBUG_PORT(1'b0)
     ) u_vt (
         .clk(clk), .rst_n(rst_n),
         .co_we(co_we), .co_addr(co_addr), .co_data(co_data),
-        .st_we(st_we), .st_addr(st_addr), .st_q(st_q), .st_v(st_v),
+        .st_we(st_we), .st_addr(st_addr), .st_q(st_q), .st_qdot(st_qdot),
         .x_we(x_we), .x_addr(x_addr), .x_data(x_data),
         .start(start), .n_voices(n_voices), .n_samples(n_samples), .n_modes(n_modes),
-        .swap_en(swap_en), .run_bank(run_bank), .done(done), .busy(busy),
+        .done(done), .busy(busy), .pp(pp),
         .rd_en(rd_en), .rd_addr(rd_addr), .rd_data(rd_data), .rd_valid(rd_valid),
-        .st_rd_en(1'b0), .st_rd_addr('0), .st_rd_sel(1'b0),
-        .st_rd_data(), .st_rd_valid()
+        .ns_rd_en(1'b0), .ns_rd_addr('0), .ns_rd_sel(1'b0),
+        .ns_rd_data(), .ns_rd_valid()
     );
 
     localparam int NCO_LAST = NCO - 1;
@@ -183,7 +181,7 @@ module fmax_e7 #(
     logic [31:0]   lfsr;
     logic [TB-1:0] ci;
     logic [XB-1:0] xi;
-    logic [1:0]    ph;            // 0=装系数 1=装状态 2=装激励 3=循环跑
+    logic [1:0]    ph;            // 0=装系数 1=清状态 2=装激励 3=循环跑
     logic [63:0]   acc;
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -200,11 +198,10 @@ module fmax_e7 #(
             x_addr    <= '0;
             co_data   <= '0;
             st_q      <= '0;
-            st_v      <= '0;
+            st_qdot   <= '0;
             x_data    <= '0;
             start     <= 1'b0;
-            swap_en   <= 1'b0;
-            n_voices  <= VOICES[$clog2(VOICES+1)-1:0];
+            n_voices  <= SLOTS[$clog2(SLOTS+1)-1:0];
             n_samples <= '0;
             n_modes   <= '0;
             rd_en     <= 1'b0;
@@ -220,8 +217,8 @@ module fmax_e7 #(
                 2'd0: begin                                   // 系数（整条记录一次写）
                     co_we   <= 1'b1;
                     co_addr <= ci;
-                    // 7 个字段必须是**互不相同**的表达式：写成 {7{lfsr}} 会被综合器当成公共子表达式，
-                    // 7 个乘法合并成 3 个（实测 DSP 从 14 个 MULT27X36 掉到 6 个，Fmax 也就不可信了）。
+                    // 7 个字段必须是**互不相同**的表达式：写成 {7{lfsr}} 会被综合器当成
+                    // 公共子表达式，7 个乘法合并成 3 个（实测 MULT27X36 从 14 掉到 6）。
                     co_data.a11 <= lfsr;
                     co_data.a12 <= {lfsr[4:0],  lfsr[31:5]};
                     co_data.a21 <= {lfsr[8:0],  lfsr[31:9]};
@@ -238,11 +235,11 @@ module fmax_e7 #(
                     end
                 end
 
-                2'd1: begin                                   // 状态初值
+                2'd1: begin                                   // 旧状态清零
                     st_we   <= 1'b1;
                     st_addr <= ci;
-                    st_q    <= lfsr;
-                    st_v    <= {lfsr[15:0], lfsr[31:16]};
+                    st_q    <= '0;
+                    st_qdot <= '0;
                     if (ci == TB'(NCO_LAST)) begin
                         st_we <= 1'b0;
                         ci    <= '0;
@@ -265,13 +262,12 @@ module fmax_e7 #(
                     end
                 end
 
-                default: begin                                // 循环跑作业（8 声部 x 2 帧）
+                default: begin                                // 循环跑作业（8 声部 x 8 帧）
                     if (!busy) begin
                         start     <= 1'b1;
-                        swap_en   <= ~swap_en;
-                        n_voices  <= VOICES[$clog2(VOICES+1)-1:0];
+                        n_voices  <= SLOTS[$clog2(SLOTS+1)-1:0];
                         n_modes   <= N_MODES[$clog2(N_MODES+1)-1:0];
-                        n_samples <= 2'd2;
+                        n_samples <= 4'd8;
                         rd_en     <= 1'b1;
                         rd_addr   <= rd_addr + 1'b1;
                     end
@@ -282,6 +278,7 @@ module fmax_e7 #(
     end
 
 endmodule
+
 
 // ---- 方案 B 的 8 声部配置：8 个 top_ram 并联 -------------------------------
 // `modal_bank_ram` 是"一声部一个 bank"的作业式引擎，多声部只能靠多实例；

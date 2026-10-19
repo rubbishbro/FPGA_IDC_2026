@@ -16,7 +16,7 @@ rtl/simsynth/
   modal_bank_seq.sv     方案 A（系数在外部 ROM）
   modal_bank_ram.sv     方案 B（RAM 中心化）
   modal_engine7.sv      7 乘法器并联引擎（只算不存）
-  modal_voice_top.sv    声部层（双份 bank × 8 声部 + ping-pong）
+  modal_voice_top.sv    声部层（8 槽存储 + 状态 ping-pong + 声部调度）
   coeff_loader.sv       窄口系数装载
   top_seq.sv top_ram.sv 方案 A/B 的公平对比顶层
   fmax_probe.sv         只有 clk/rst_n/led 的时序探针（fmax_seq / fmax_ram / fmax_e7）
@@ -39,7 +39,7 @@ rtl/simsynth/
 | `modal_bank_seq.sv` | 时分复用 bank（系数在外部 ROM、状态走旁路口） | **方案 A** |
 | `modal_bank_ram.sv` | RAM 中心化 bank（系数/状态/激励/结果全在模块内，作业式） | **方案 B** |
 | `modal_engine7.sv` | **7 乘法器并联**的纯计算引擎（五级流水；数据面只有 SRAM 式读写口，**不含存储**） | ARCH_PARALLEL7 §8A |
-| `modal_voice_top.sv` | 声部层：双份 bank（A/B）× 8 声部 + 声部调度 + ping-pong，持有全部存储 | ARCH_PARALLEL7 §8B |
+| `modal_voice_top.sv` | 声部层：**多槽存储**（8 槽 × 系数/状态/激励/结果）+ 状态 ping-pong + 声部调度，持有全部存储 | ARCH_PARALLEL7 §8B |
 | `coeff_loader.sv` | 窄口系数装载：32 位字 × 7 字段 = 一个模态 | A/B 顶层共用 |
 | `top_seq.sv` / `top_ram.sv` | 两个方案的**公平对比顶层**（端口完全相同） | 资源/Fmax 实测 |
 | `fmax_probe.sv` | 只有 clk/rst_n/led 的时序探针（内部 LFSR 激励） | 拿真实 Fmax |
@@ -51,9 +51,9 @@ rtl/simsynth/
 | `string_mode_step` 逐位 | `pwsh tb/run_xsim.ps1` | **64 例（钢琴 32 + 吉他 32）、0 失配 → PASS** |
 | `modal_bank_seq` 逐位 | `pwsh tb/run_xsim_bank.ps1` | **16 帧、80 项检查、0 失配 → PASS** |
 | `modal_bank_ram` 作业级 | `pwsh tb/run_xsim_ram.ps1` | **4 个作业（钢琴/吉他 × 单帧/48 帧）、0 失配 → PASS** |
-| `modal_voice_top` 作业级 + 多声部 + ping-pong | `pwsh tb/run_xsim_engine7.ps1` | **8 个作业（4 条黄金向量 + 多声部 + 3 次 A/B 交换）、0 失配 → PASS** |
+| `modal_voice_top` 作业级 + 多声部 + 运行中装载 + 换音色重刷 | `pwsh tb/run_xsim_engine7.ps1` | **7 个作业（4 条黄金向量 + 多声部 + 运行中装载 + 停机重刷）、0 失配 → PASS** |
 | Gowin 综合 | `syn/synth*.tcl` | 全部 `GowinSynthesis finish` |
-| Gowin PnR（100 MHz 约束） | `syn/synth_pnr_one.tcl`（TOP / SDC 环境变量） | 跑通；**Fmax：A 72.8 / B 73.7 / 7 乘法器引擎 104 MHz** |
+| Gowin PnR（100 MHz 约束） | `syn/synth_pnr_one.tcl`（TOP / SDC 环境变量） | 跑通；**Fmax：A 72.8 / B 73.7 / 7 乘法器引擎 104.8 MHz（收敛）** |
 
 黄金向量由 `gen_golden.py` 从**真实模型**生成（钢琴走 `sim_piano` 的表、吉他走
 `sim_guitar` 的拨弦初值），不是手算的期望值。
@@ -172,7 +172,7 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 | 模块 | 职责 | 有没有存储 |
 |---|---|---|
 | `modal_engine7.sv` | 7 乘法器 + 五级流水；对外只有 `start/n_samples/n_modes/done/busy` 和 5 组 SRAM 口（本声部内的**偏移**地址） | **没有** |
-| `modal_voice_top.sv` | 双份 bank（A/B）× 8 声部、地址拼接 `{bank, 声部号, 偏移}`、声部调度、ping-pong | **全部** |
+| `modal_voice_top.sv` | 8 槽 × 系数/状态/激励/结果、地址拼接 `{槽号, 偏移}`、声部调度、状态 ping-pong | **全部** |
 
 引擎不知道有几个声部、也不知道哪一份在跑；换声部只是顶层换地址高位。
 
@@ -193,12 +193,15 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 一条路径穿过 乘法 → 64 位舍入加 → 常数移位 → 三路 64 位加 → 饱和 → RAM 写口。
 切开后每级 2–4 ns，瓶颈换成了"RAM 读出 → bank 2 选 1 → 乘法器输入"。
 
-### 声部 ping-pong
+### 状态 ping-pong
 
-- 一份 bank 放 8 个常驻声部，A/B 两份共 16 个槽位；装载口地址自带 bank 位，顶层装**非活动**的一份；
-- 两份阵列各有自己的写口 ⇒ "引擎写回状态"与"装载另一份"可以同拍发生（单份阵列只有一个写口，
-  那样装载会被写回吃掉 —— 这是拆成两份物理阵列的真正原因，测试台专门验证了运行中装载）；
-- `start` 时 `swap_en=1` ⇒ 整个作业换到另一份上跑，`run_bank` 全程指向它。
+- 8 个槽位常驻；装载口地址 = `{槽号, 偏移}`，写的是**引擎下一帧要读的那一份状态块**；
+- 系数/激励/状态三块阵列各自 1R1W：引擎读系数、顶层写系数，两者同拍也不冲突；
+  测试台专门验证了"引擎在跑槽 0 时装载槽 1"（检查 busy 仍为 1）；
+- 状态 A/B 每帧末交换一次（`pp` 翻转）：引擎永远读"旧"写"新"，所以顶层可以随时写旧状态
+  （note-on 清零、直接往 q 上加激励，正合 `sim_guitar.py` 的 `self.q += K`），而引擎不会写自己正在读的阵列；
+- 代价是状态 RAM ×2（64 位/模态，相对系数的 224 位是小头），换来的是三块阵列**全是 1R1W**、
+  不需要任何写口仲裁。
 
 ### 踩到的两个综合陷阱（都已修）
 
@@ -211,22 +214,21 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 
 ### 实测（`fmax_e7` 探针：VOICES=8、N_MODES=48、X_DEPTH=64、DEBUG_PORT=0）
 
-| 项 | 1 引擎 + 8 声部 + A/B 双份 bank | 摊到每声部 |
+| 项 | 1 引擎 + 8 个槽位（状态 ping-pong） | 摊到每声部 |
 |---|---|---|
-| Logic | **1823**（1323 LUT + 500 ALU） | 228 |
-| Register | **816** | 102 |
-| BSRAM | **48** | 6 |
+| Logic | **1531** | 191 |
+| Register | **785** | 98 |
+| BSRAM | **28** | 3.5 |
 | DSP | **28**（14 × `MULT27X36`） | 3.5 |
-| 存储 | 22 个阵列**全部**进 BSRAM（不再有 FF 回退） | — |
+| 存储 | 13 个阵列**全部**进 BSRAM（不再有 FF 回退） | — |
 | 每采样拍数（8 声部 × 48 模态） | 8 × (56 + 4) ≈ **480** = 预算 23% | 60 |
-| **PnR Fmax（100 MHz 约束）** | **101.0 MHz**（slack +0.097 ns，**收敛**） | — |
-| PnR Fmax（改用 5 ns 约束重跑） | 最差路径 **9.58 ns ⇒ ≈104 MHz** | — |
+| **PnR Fmax（100 MHz 约束）** | **104.8 MHz**（slack +0.458 ns，**收敛**） | — |
 
-关键路径变成 **`bank_r` → 状态读数据 2 选 1 → 乘法器输入**（约 9.6 ns），
+关键路径变成 **`bank` → 状态读数据 2 选 1 → 乘法器输入**（约 9.5 ns），
 不再是"乘 → 64 位舍入 → 桶形移位"。
 
-**16 声部怎么摊**：一个引擎 8 声部 × 2 个引擎 = 16 声部 ⇒
-逻辑 ≈ 3.6k、寄存器 ≈ 1.6k、BSRAM ≈ 96、DSP 56（298 的 19%）、
+**16 声部怎么摊**：一个引擎 8 槽 × 2 个引擎 = 16 声部 ⇒
+逻辑 ≈ 3.1k、寄存器 ≈ 1.6k、BSRAM ≈ 56、DSP 56（298 的 19%）、
 每采样 2 × 480 = 960 拍（预算 46%）。
 
 **和"每声部一个 TDM bank"比**（16 声部）：
@@ -234,11 +236,11 @@ N=48 时 529 拍/采样，100 MHz / 48 kHz 预算 2083 拍（余量 3.9×）。
 | 16 声部 | TDM bank（`modal_bank_ram`） | **7 乘法器引擎 ×2** |
 |---|---|---|
 | 实例数 | **5 个 bank**（16 × 530 = 8480 拍/采样 > 预算 2083，必须并行摊） | **2 个引擎** |
-| Logic | ≈ 8.5k | ≈ **3.6k** |
+| Logic | ≈ 8.5k | ≈ **3.1k** |
 | Register | ≈ 2k | ≈ **1.6k** |
 | DSP | 10 × `MULT27X36` | 28 × `MULT27X36` |
 | 每声部每采样拍数 | **530** | **60**（快 8.8 倍） |
-| Fmax | 73.7 MHz | **104 MHz** |
+| Fmax | 73.7 MHz | **104.8 MHz** |
 
 ⇒ 逻辑省 2.4 倍、拍数省 8.8 倍、Fmax 高 41%；代价是 DSP 从 10 个涨到 28 个
 （器件有 298 个，占 9%，其余留给腔体滤波/激励）。
