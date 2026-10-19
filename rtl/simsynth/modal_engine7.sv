@@ -6,7 +6,7 @@
 //     modal_voice_top.sv）；
 //   * 引擎对外的数据面是 5 组 SRAM 式端口（1 读 / 1 写），地址都是**本声部内的偏移**
 //     （模态号 / 采样号），顶层把 {bank, 声部号} 拼到地址高位；
-//   * 控制面与 modal_bank_ram 同义：`start / n_samples / n_modes / done / busy`。
+//   * 控制面只要 `start / st_zero / n_samples / n_modes / done`（done 是单拍脉冲）。
 //
 // 与 modal_bank_ram 的差别只有数据通路：
 //   原来 1 个乘法器轮转 7 个乘积、移位量由运行时的 `k` 选 ⇒ 必须用桶形移位器；
@@ -49,13 +49,13 @@ module modal_engine7 #(
     input  logic                                     clk,
     input  logic                                     rst_n,
 
-    // ---- 作业口（与 modal_bank_ram 同义）----
+    // ---- 作业口 ----
+    //   start（脉冲）-> done（脉冲）；没有 busy：消费者（声部层）自己知道作业在跑
     input  logic                                     start,
     input  logic                                     st_zero,      // 1 = 本作业先把状态清零（note-on）
     input  logic [$clog2(X_DEPTH+1)-1:0]             n_samples,
     input  logic [$clog2(N_MODES+1)-1:0]             n_modes,
-    output logic                                     done,
-    output logic                                     busy,
+    output logic                                     done,      // 单拍脉冲：本作业结束
 
     // ---- 系数读口（同步读：地址这拍给，数据下一拍有效）----
     output logic                                     co_re,
@@ -223,7 +223,6 @@ module modal_engine7 #(
             y_sum      <= '0;
             x_lat      <= '0;
             done       <= 1'b0;
-            busy       <= 1'b0;
         end else begin
             done <= 1'b0;
 
@@ -235,7 +234,6 @@ module modal_engine7 #(
 
             case (state)
                 S_IDLE: begin
-                    busy <= 1'b0;
                     if (start) begin
                         n_samp_lat <= n_samples;
                         n_mod_lat  <= n_modes;
@@ -245,7 +243,6 @@ module modal_engine7 #(
                         y_sum      <= '0;
                         zi         <= '0;
                         state      <= st_zero ? S_ZERO : S_X;
-                        busy       <= 1'b1;
                     end
                 end
 
@@ -293,7 +290,6 @@ module modal_engine7 #(
 
                 S_DONE: begin
                     done  <= 1'b1;
-                    busy  <= 1'b0;
                     state <= S_IDLE;
                 end
 

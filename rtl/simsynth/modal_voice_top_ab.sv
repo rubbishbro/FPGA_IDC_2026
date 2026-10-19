@@ -87,7 +87,7 @@ module modal_voice_top_ab #(
     // ---- 引擎（5 个乘法器）------------------------------------------------
     localparam logic [$clog2(X_DEPTH+1)-1:0] ONE_SAMPLE = 1;
 
-    logic                 e_start, e_done, e_busy;
+    logic                 e_start, e_done;
     logic                 e_co_re;
     logic [IW-1:0]        e_co_addr;
     coeff_t               e_co_data;
@@ -111,7 +111,7 @@ module modal_voice_top_ab #(
         .st_zero(1'b0),                          // 清零由顶层的初始化搬运负责
         .n_samples(ONE_SAMPLE),
         .n_modes(n_modes),
-        .done(e_done), .busy(e_busy),
+        .done(e_done),
         .co_re(e_co_re), .co_addr(e_co_addr), .co_data(e_co_data),
         .st_re(e_st_re), .st_addr(e_st_addr),
         .st_q(e_st_q), .st_qdot(e_st_qdot),

@@ -91,7 +91,7 @@ module modal_voice_top #(
     // ---- 引擎实例 ---------------------------------------------------------
     localparam logic [$clog2(X_DEPTH+1)-1:0] ONE_SAMPLE = 1;
 
-    logic                 e_start, e_done, e_busy, e_st_zero;
+    logic                 e_start, e_done, e_st_zero;
     logic                 e_co_re;
     logic [IW-1:0]        e_co_addr;
     coeff_t               e_co_data;
@@ -115,7 +115,7 @@ module modal_voice_top #(
         .st_zero(e_st_zero),
         .n_samples(ONE_SAMPLE),                 // 每声部每帧一个作业
         .n_modes(n_modes),
-        .done(e_done), .busy(e_busy),
+        .done(e_done),
         .co_re(e_co_re), .co_addr(e_co_addr), .co_data(e_co_data),
         .st_re(e_st_re), .st_addr(e_st_addr),
         .st_q(e_st_q), .st_qdot(e_st_qdot),
