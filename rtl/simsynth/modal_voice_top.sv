@@ -89,9 +89,7 @@ module modal_voice_top #(
     (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_out [0:X_DEPTH-1];
 
     // ---- 引擎实例 ---------------------------------------------------------
-    localparam logic [$clog2(X_DEPTH+1)-1:0] ONE_SAMPLE = 1;
-
-    logic                 e_start, e_done, e_st_zero;
+    logic                 e_start, e_st_zero;
     logic                 e_co_re;
     logic [IW-1:0]        e_co_addr;
     coeff_t               e_co_data;
@@ -113,9 +111,7 @@ module modal_voice_top #(
         .clk(clk), .rst_n(rst_n),
         .start(e_start),
         .st_zero(e_st_zero),
-        .n_samples(ONE_SAMPLE),                 // 每声部每帧一个作业
         .n_modes(n_modes),
-        .done(e_done),
         .co_re(e_co_re), .co_addr(e_co_addr), .co_data(e_co_data),
         .st_re(e_st_re), .st_addr(e_st_addr),
         .st_q(e_st_q), .st_qdot(e_st_qdot),
@@ -180,7 +176,9 @@ module modal_voice_top #(
     logic signed [AW-1:0] y_sum_acc;
     logic                 y_frame_we;
 
-    assign y_frame_we = (tstate == T_JOB) && e_done && (voi + 1'b1 >= nv_lat);
+    assign y_frame_we = (tstate == T_JOB) && e_y_valid && (voi + 1'b1 >= nv_lat);
+    // y_valid 那一拍既是"本声部结果有效"也是"作业结束"，所以写出去的和要把本拍这一路也算进去
+    wire signed [AW-1:0] y_now = (voi == '0) ? e_y_data : (y_sum_acc + e_y_data);
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) y_sum_acc <= '0;
@@ -220,7 +218,7 @@ module modal_voice_top #(
         if (e_x_re) e_x_data_r <= x_ram[x_idx];
 
         // 结果：引擎给流，顶层每帧写一次和
-        if (y_frame_we) y_out[fidx[JW-1:0]] <= y_sum_acc;
+        if (y_frame_we) y_out[fidx[JW-1:0]] <= y_now;
         if (rd_en)      y_rdata <= y_out[rd_addr];
 
         // 状态：唯一的写口在引擎侧；读口在"引擎读"和"顶层读回"之间分时
@@ -270,7 +268,7 @@ module modal_voice_top #(
                 end
 
                 T_JOB: begin
-                    if (e_done) begin
+                    if (e_y_valid) begin
                         if (voi + 1'b1 >= nv_lat) begin
                             voi <= '0;
                             if (fidx + 1'b1 >= nsamp_lat) begin

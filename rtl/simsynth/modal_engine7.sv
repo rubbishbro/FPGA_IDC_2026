@@ -50,12 +50,11 @@ module modal_engine7 #(
     input  logic                                     rst_n,
 
     // ---- 作业口 ----
-    //   start（脉冲）-> done（脉冲）；没有 busy：消费者（声部层）自己知道作业在跑
+    //   一次 start = 递推**一个采样**：y_valid 那一拍既是结果有效，也是本作业结束。
+    //   时间维的循环交给声部层（它本来就按"采样 × 声部"调度）。
     input  logic                                     start,
     input  logic                                     st_zero,      // 1 = 本作业先把状态清零（note-on）
-    input  logic [$clog2(X_DEPTH+1)-1:0]             n_samples,
     input  logic [$clog2(N_MODES+1)-1:0]             n_modes,
-    output logic                                     done,      // 单拍脉冲：本作业结束
 
     // ---- 系数读口（同步读：地址这拍给，数据下一拍有效）----
     output logic                                     co_re,
@@ -112,15 +111,12 @@ module modal_engine7 #(
     localparam logic signed [AW-1:0] R_WO  = 64'sd1 <<< (SH_WO  - 1);
 
     // ---- 作业状态 ---------------------------------------------------------
-    typedef enum logic [2:0] { S_IDLE, S_ZERO, S_X, S_SETUP, S_RUN, S_WB, S_YWR, S_DONE } state_t;
+    typedef enum logic [2:0] { S_IDLE, S_ZERO, S_X, S_SETUP, S_RUN, S_WB, S_YWR } state_t;
     state_t               state;
     logic [IW:0]          ri;            // 读指针 = 流水序号
     logic [IW:0]          si;            // 写回序号 = ri - 4
     logic [IW:0]          zi;            // 清零 pass 的计数
-    logic [JW:0]          fidx;
-    logic [JW:0]          n_samp_lat;
     logic [IW:0]          n_mod_lat;
-    logic                 last_f;
     logic signed [AW-1:0] y_acc, y_sum;
     logic signed [XW-1:0] x_lat;
 
@@ -204,8 +200,9 @@ module modal_engine7 #(
         st_qdot_wdata = (state == S_ZERO) ? '0 : (SATURATE ? sat_v(vn_q) : vn_q[VW-1:0]);
 
         x_re   = (state == S_X);
-        x_addr = fidx[JW-1:0];
+        x_addr = '0;                       // 一次 start 只跑一个采样；帧号由顶层补进地址
 
+        // 这一拍：结果有效，同时就是本作业的最后一拍
         y_valid = (state == S_YWR);
         y_data  = y_sum[YW-1:0];
     end
@@ -215,16 +212,11 @@ module modal_engine7 #(
         if (!rst_n) begin
             state      <= S_IDLE;
             ri         <= '0;
-            fidx       <= '0;
-            n_samp_lat <= '0;
             n_mod_lat  <= '0;
-            last_f     <= 1'b0;
             y_acc      <= '0;
             y_sum      <= '0;
             x_lat      <= '0;
-            done       <= 1'b0;
         end else begin
-            done <= 1'b0;
 
             // W 级：串行累加本帧的 y（每模态一次，与 bank_ram 的 y_acc 一致）
             if (wb_en) begin
@@ -235,9 +227,7 @@ module modal_engine7 #(
             case (state)
                 S_IDLE: begin
                     if (start) begin
-                        n_samp_lat <= n_samples;
                         n_mod_lat  <= n_modes;
-                        fidx       <= '0;
                         ri         <= '0;
                         y_acc      <= '0;
                         y_sum      <= '0;
@@ -271,25 +261,13 @@ module modal_engine7 #(
                 end
 
                 S_WB: begin
-                    // y_acc 已经是"本帧全部模态"的和，所以这里**不是**累加而是取用；
-                    // 与 bank_ram 的 `y_sum <= (midx==0) ? y_acc : y_sum+y_acc` 等价
-                    // （那边 S_WB 每模态跑一次，这里每帧只跑一次）。
-                    y_sum  <= y_acc;
-                    last_f <= ((fidx + 1'b1) >= n_samp_lat);
-                    state  <= S_YWR;
+                    // y_acc 已经是"本帧全部模态"的和，这里取用而不是累加
+                    y_sum <= y_acc;
+                    state <= S_YWR;
                 end
 
                 S_YWR: begin
-                    // 本拍 y_we 把 y_sum 交给顶层写进结果 RAM 的第 fidx 个采样
-                    if (last_f) state <= S_DONE;
-                    else begin
-                        fidx  <= fidx + 1'b1;
-                        state <= S_X;
-                    end
-                end
-
-                S_DONE: begin
-                    done  <= 1'b1;
+                    // 这一拍 y_valid=1、y_data=y_sum；下一拍照样回到 IDLE 等下一次 start
                     state <= S_IDLE;
                 end
 
