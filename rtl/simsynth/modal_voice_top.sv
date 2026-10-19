@@ -58,9 +58,9 @@ module modal_voice_top #(
     output logic                                     busy,
     output logic                                     pp,           // 0 = 引擎读 A，1 = 读 B
 
-    // ---- 结果读口（每声部每采样一个 Σ wo·q）----
+    // ---- 结果读口（**每采样一个**：各声部 Σ wo·q 的和，已由顶层累加）----
     input  logic                                     rd_en,
-    input  logic [$clog2(SLOTS*X_DEPTH)-1:0]         rd_addr,
+    input  logic [$clog2(X_DEPTH)-1:0]               rd_addr,
     output logic signed [modal_step_pkg::YW-1:0]     rd_data,
     output logic                                     rd_valid,
 
@@ -97,7 +97,8 @@ module modal_voice_top #(
     (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] vb_ram [0:SLOTS*N_MODES-1];
 
     (* syn_ramstyle = "block_ram" *) logic signed [XW-1:0] x_ram  [0:SLOTS*X_DEPTH-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_ram  [0:SLOTS*X_DEPTH-1];
+    // 结果不分声部存：每帧把各声部的 Σ wo·q 加起来，只存"这一个采样"的和
+    (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_out  [0:X_DEPTH-1];
 
     // ---- 引擎实例 ---------------------------------------------------------
     logic                 e_start, e_done, e_busy;
@@ -115,14 +116,16 @@ module modal_voice_top #(
     logic                 e_x_re;
     logic [JW-1:0]        e_x_addr;
     logic signed [XW-1:0] e_x_data;
-    logic                 e_y_we;
-    logic [JW-1:0]        e_y_addr;
+    logic                 e_y_valid;
     logic signed [YW-1:0] e_y_data;
+
+    // 每声部每帧一个作业（ping-pong 要在一帧的所有声部算完后才能换块）
+    localparam logic [$clog2(X_DEPTH+1)-1:0] ONE_SAMPLE = 1;
 
     modal_engine7 #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH)) u_eng (
         .clk(clk), .rst_n(rst_n),
         .start(e_start),
-        .n_samples(1'b1),                       // 每声部每帧一个作业（见文件头）
+        .n_samples(ONE_SAMPLE),
         .n_modes(n_modes),
         .done(e_done), .busy(e_busy),
         .co_re(e_co_re), .co_addr(e_co_addr), .co_data(e_co_data),
@@ -131,7 +134,7 @@ module modal_voice_top #(
         .st_we(e_st_we), .st_waddr(e_st_waddr),
         .st_q_wdata(e_st_q_wdata), .st_qdot_wdata(e_st_qdot_wdata),
         .x_re(e_x_re), .x_addr(e_x_addr), .x_data(e_x_data),
-        .y_we(e_y_we), .y_addr(e_y_addr), .y_data(e_y_data)
+        .y_valid(e_y_valid), .y_data(e_y_data)
     );
 
     // ---- 调度状态 ---------------------------------------------------------
@@ -141,27 +144,50 @@ module modal_voice_top #(
     assign pp = bank;
 
     logic [CO_SLOT-1:0] co_idx, st_rd_idx, st_wr_idx;
-    logic [X_SLOT-1:0]  x_idx, y_idx;
-    logic [JW-1:0]      x_off, y_off;
+    logic [X_SLOT-1:0]  x_idx;
+    logic [JW-1:0]      x_off;
     assign co_idx    = {voi[VWID-1:0], e_co_addr};
     assign st_rd_idx = {voi[VWID-1:0], e_st_addr};
     assign st_wr_idx = {voi[VWID-1:0], e_st_waddr};
     // 每声部每帧一个作业（ping-pong 要在帧末换块），所以引擎给的 x/y 偏移只是
     // "作业内第几个采样"；帧号由顶层补上，否则每帧都会读写第 0 个采样。
     assign x_off     = fidx[JW-1:0] + e_x_addr;
-    assign y_off     = fidx[JW-1:0] + e_y_addr;
     assign x_idx     = {voi[VWID-1:0], x_off};
-    assign y_idx     = {voi[VWID-1:0], y_off};
+
+    // ---- 调度状态 -------------------------------------------------------
+    typedef enum logic [1:0] { T_IDLE, T_JOB, T_DONE } tstate_t;
+    tstate_t         tstate;
+    logic [VWID:0]   nv_lat;
+    logic [JW:0]     nsamp_lat;
+
+    // ---- 结果累加：每帧把各声部的 Σ wo·q 加起来（顶层"闲着"的时候干这件事）----
+    logic signed [AW-1:0] y_sum_acc;
+    logic                 y_frame_we;
+
+    // 一帧的最后一个声部跑完那一拍，把本帧的和写进输出缓冲
+    assign y_frame_we = (tstate == T_JOB) && e_done && (voi + 1'b1 >= nv_lat);
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) y_sum_acc <= '0;
+        else if (e_y_valid) begin
+            if (voi == '0) y_sum_acc <= e_y_data;      // 每帧第一个声部：重置
+            else           y_sum_acc <= y_sum_acc + e_y_data;
+        end
+    end
 
     // ---- 读数据 -----------------------------------------------------------
     logic signed [CW-1:0] ca_a11_r, ca_a12_r, ca_a21_r, ca_a22_r, ca_gq_r, ca_gv_r, ca_wo_r;
     logic signed [QW-1:0] qa_r, qb_r;
     logic signed [VW-1:0] va_r, vb_r;
     logic [31:0]          ns_a_r, ns_b_r;
+    logic signed [XW-1:0] e_x_data_r;
+    logic signed [YW-1:0] y_rdata;
     logic                 rd_valid_r, ns_rd_valid_r;
 
     assign rd_valid     = rd_valid_r;
     assign ns_rd_valid  = ns_rd_valid_r;
+    assign e_x_data     = e_x_data_r;
+    assign rd_data      = y_rdata;
 
     // 7 个字段拼回 coeff_t（纯连线）
     always_comb begin
@@ -206,8 +232,8 @@ module modal_voice_top #(
         // 激励 / 结果
         if (x_we)  x_ram[x_addr] <= x_data;
         if (e_x_re) e_x_data_r <= x_ram[x_idx];   // 见下方 assign
-        if (e_y_we) y_ram[y_idx] <= e_y_data;
-        if (rd_en)  y_rdata <= y_ram[rd_addr];
+        if (y_frame_we) y_out[fidx[JW-1:0]] <= y_sum_acc;
+        if (rd_en)      y_rdata <= y_out[rd_addr];
 
         // ---- 状态 A：pp=0 引擎读，pp=1 引擎写 ----
         if (!bank) begin
@@ -248,20 +274,11 @@ module modal_voice_top #(
         end
     end
 
-    logic signed [XW-1:0] e_x_data_r;
-    logic signed [YW-1:0] y_rdata;
-    assign e_x_data = e_x_data_r;
-    assign rd_data  = y_rdata;
 
     // 新状态数据：pp=1 时 A 是刚写完的那份，pp=0 时是 B
     assign ns_rd_data = DEBUG_PORT ? (bank ? ns_a_r : ns_b_r) : 32'sd0;
 
     // ---- 声部/帧调度；每帧结束翻转 ping-pong ----
-    typedef enum logic [1:0] { T_IDLE, T_JOB, T_DONE } tstate_t;
-    tstate_t         tstate;
-    logic [VWID:0]   nv_lat;
-    logic [JW:0]     nsamp_lat;
-
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             tstate    <= T_IDLE;

@@ -157,7 +157,7 @@ module fmax_e7 #(
     logic                          busy;
     logic                          pp;
     logic                          rd_en;
-    logic [XB-1:0]                 rd_addr;
+    logic [$clog2(X_DEPTH)-1:0]    rd_addr;
     logic signed [YW-1:0]          rd_data;
     logic                          rd_valid;
 
@@ -269,7 +269,7 @@ module fmax_e7 #(
                         n_modes   <= N_MODES[$clog2(N_MODES+1)-1:0];
                         n_samples <= 4'd8;
                         rd_en     <= 1'b1;
-                        rd_addr   <= rd_addr + 1'b1;
+                        rd_addr   <= rd_addr + 1'b1;   // 结果每采样一个，地址只有块长那么宽
                     end
                     if (rd_valid) acc <= acc ^ rd_data;
                 end

@@ -76,9 +76,8 @@ module modal_engine7 #(
     output logic [$clog2(X_DEPTH)-1:0]               x_addr,
     input  logic signed [modal_step_pkg::XW-1:0]     x_data,
 
-    // ---- 结果写口（每采样一个 Σ wo·q）----
-    output logic                                     y_we,
-    output logic [$clog2(X_DEPTH)-1:0]               y_addr,
+    // ---- 结果流口（每帧一个 Σ wo·q；没有地址：由顶层按"第几个声部"累加）----
+    output logic                                     y_valid,
     output logic signed [modal_step_pkg::YW-1:0]     y_data
 );
 
@@ -202,9 +201,8 @@ module modal_engine7 #(
         x_re   = (state == S_X);
         x_addr = fidx[JW-1:0];
 
-        y_we   = (state == S_YWR);
-        y_addr = fidx[JW-1:0];
-        y_data = y_sum[YW-1:0];
+        y_valid = (state == S_YWR);
+        y_data  = y_sum[YW-1:0];
     end
 
     // ---- 作业状态机 -------------------------------------------------------

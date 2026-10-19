@@ -54,7 +54,7 @@ module tb_modal_voice_top;
     logic                          pp;
 
     logic                          rd_en;
-    logic [X_SLOT-1:0]             rd_addr;
+    logic [$clog2(X_DEPTH)-1:0]    rd_addr;
     logic signed [YW-1:0]          rd_data;
     logic                          rd_valid;
 
@@ -190,28 +190,37 @@ module tb_modal_voice_top;
         n_jobs++;
     endtask
 
-    // 读回结果与末态（末态走"新状态读口"）
-    task automatic check_slot(input int voice, input int slot, input string tag);
-        int            i, m, k;
+    // 读回结果（每采样一个和）与末态（走"新状态读口"）
+    task automatic check_y(input int s0, input int s1, input int two, input string tag);
+        int            i;
+        longint signed got, want;
+        int            bad0;
+
+        bad0  = n_bad;
+        rd_en = 1'b1;
+        for (i = 0; i < ns[s0]; i++) begin
+            @(negedge clk);
+            rd_addr = i[$clog2(X_DEPTH)-1:0];
+            @(negedge clk);
+            got  = rd_data;
+            want = two ? (yv[s0][i] + yv[s1][i]) : yv[s0][i];
+            if (got !== want) begin
+                n_bad++;
+                if (n_bad <= 8)
+                    $display("MISMATCH %s y[%0d]: got %0d want %0d", tag, i, got, want);
+            end
+        end
+        rd_en = 1'b0;
+        $display("  %-10s y[0..%0d] (%0d 声部和) -> %s",
+                 tag, ns[s0]-1, two ? 2 : 1, (n_bad == bad0) ? "ok" : "FAILED");
+    endtask
+
+    task automatic check_state(input int voice, input int slot, input string tag);
+        int            m, k;
         longint signed got;
         int            bad0;
 
         bad0 = n_bad;
-
-        rd_en = 1'b1;
-        for (i = 0; i < ns[slot]; i++) begin
-            @(negedge clk);
-            rd_addr = X_SLOT'(voice * X_DEPTH + i);
-            @(negedge clk);
-            got = rd_data;
-            if (got !== yv[slot][i]) begin
-                n_bad++;
-                if (n_bad <= 8)
-                    $display("MISMATCH %s y[%0d]: got %0d want %0d", tag, i, got, yv[slot][i]);
-            end
-        end
-        rd_en = 1'b0;
-
         for (m = 0; m < nm[slot]; m++) begin
             for (k = 0; k < 2; k++) begin
                 @(negedge clk);
@@ -232,8 +241,8 @@ module tb_modal_voice_top;
             end
         end
         @(negedge clk);
-        $display("  %-10s voice%0d slot%0d: %0d modes x %0d samples -> %s",
-                 tag, voice, slot, nm[slot], ns[slot], (n_bad == bad0) ? "ok" : "FAILED");
+        $display("  %-10s voice%0d slot%0d state (%0d modes) -> %s",
+                 tag, voice, slot, nm[slot], (n_bad == bad0) ? "ok" : "FAILED");
     endtask
 
     task automatic run_one(input string path, input string tag);
@@ -241,7 +250,8 @@ module tb_modal_voice_top;
         load_slot(0, 0);
         start_job(1, ns[0]);
         wait_done;
-        check_slot(0, 0, tag);
+        check_y(0, 0, 0, tag);
+        check_state(0, 0, tag);
     endtask
 
     initial begin
@@ -275,8 +285,9 @@ module tb_modal_voice_top;
         load_slot(1, 1);
         start_job(2, ns[0]);
         wait_done;
-        check_slot(0, 0, "multi");
-        check_slot(1, 1, "multi");
+        check_y(0, 1, 1, "multi");
+        check_state(0, 0, "multi");
+        check_state(1, 1, "multi");
 
         $display("-- C. 运行中装载：跑槽 0 时把另一组装进槽 1 --");
         parse_file("golden_seq_piano.txt",    0);   // 48 帧，作业够长
@@ -289,7 +300,8 @@ module tb_modal_voice_top;
             $display("FAIL: 槽 1 装载结束时引擎已停（没有验证到运行中装载）");
         end
         wait_done;
-        check_slot(0, 0, "live-ld");
+        check_y(0, 0, 0, "live-ld");
+        check_state(0, 0, "live-ld");
 
         $display("-- D. 换音色重刷：停机后整块刷系数，再跑一遍 --");
         parse_file("golden_seq_guitar.txt", 0);     // 48 帧吉他
@@ -299,8 +311,9 @@ module tb_modal_voice_top;
         load_slot(1, 1);                            // 槽 1 <- 钢琴
         start_job(2, ns[0]);
         wait_done;
-        check_slot(0, 0, "reload");
-        check_slot(1, 1, "reload");
+        check_y(0, 1, 1, "reload");
+        check_state(0, 0, "reload");
+        check_state(1, 1, "reload");
 
         $display("=== %0d jobs, %0d mismatches ===", n_jobs, n_bad);
         if (n_bad == 0) $display("RESULT: PASS");
