@@ -78,8 +78,22 @@ module modal_bank_ram #(
     localparam int JW = $clog2(X_DEPTH);
 
     // ---- 内部 RAM ---------------------------------------------------------
+    // 系数按字段拆成 7 个 32 位阵列：`coeff_t` 结构体阵列（224 位一个字）Gowin 不认，
+    // 会退回 FF（实测 48 模态 = 10752 个寄存器，比整条数据通路还贵）。
     (* syn_ramstyle = "block_ram" *)
-    coeff_t               co_ram [0:N_MODES-1];
+    logic signed [CW-1:0] co_a11 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_a12 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_a21 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_a22 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_gq  [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_gv  [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *)
+    logic signed [CW-1:0] co_wo  [0:N_MODES-1];
     // 状态拆成两个纯向量阵列（结构体阵列 Gowin 不认，会退回 FF）
     (* syn_ramstyle = "block_ram" *)
     logic signed [QW-1:0] q_ram  [0:N_MODES-1];
@@ -94,6 +108,18 @@ module modal_bank_ram #(
     logic                 co_re;
     logic [IW-1:0]        co_raddr;
     coeff_t               co_rdata;
+    logic signed [CW-1:0] co_a11_r, co_a12_r, co_a21_r, co_a22_r, co_gq_r, co_gv_r, co_wo_r;
+
+    // 7 个字段拼回 coeff_t（纯连线；数据通路的算术不用改）
+    always_comb begin
+        co_rdata.a11 = co_a11_r;
+        co_rdata.a12 = co_a12_r;
+        co_rdata.a21 = co_a21_r;
+        co_rdata.a22 = co_a22_r;
+        co_rdata.gq  = co_gq_r;
+        co_rdata.gv  = co_gv_r;
+        co_rdata.wo  = co_wo_r;
+    end
 
     logic                 st_re;
     logic [IW-1:0]        st_raddr;
@@ -222,7 +248,15 @@ module modal_bank_ram #(
     always_ff @(posedge clk) rd_valid_r <= y_re;
 
     always_ff @(posedge clk) begin
-        if (co_we) co_ram[co_addr] <= co_data;
+        if (co_we) begin
+            co_a11[co_addr] <= co_data.a11;
+            co_a12[co_addr] <= co_data.a12;
+            co_a21[co_addr] <= co_data.a21;
+            co_a22[co_addr] <= co_data.a22;
+            co_gq [co_addr] <= co_data.gq;
+            co_gv [co_addr] <= co_data.gv;
+            co_wo [co_addr] <= co_data.wo;
+        end
         // 状态有两个写源：帧内的写回（st_wen）优先，其次是顶层装载初值
         if (st_wen) begin
             q_ram[st_waddr] <= q_wdata;
@@ -234,7 +268,15 @@ module modal_bank_ram #(
         if (x_we)  x_ram[x_addr]   <= x_data;
         if (y_wen) y_ram[y_waddr]  <= y_wdata;
 
-        if (co_re) co_rdata <= co_ram[co_raddr];
+        if (co_re) begin
+            co_a11_r <= co_a11[co_raddr];
+            co_a12_r <= co_a12[co_raddr];
+            co_a21_r <= co_a21[co_raddr];
+            co_a22_r <= co_a22[co_raddr];
+            co_gq_r  <= co_gq [co_raddr];
+            co_gv_r  <= co_gv [co_raddr];
+            co_wo_r  <= co_wo [co_raddr];
+        end
         if (st_re) begin
             q_rdata <= q_ram[st_raddr];
             v_rdata <= v_ram[st_raddr];

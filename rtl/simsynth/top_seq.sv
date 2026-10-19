@@ -46,16 +46,39 @@ module top_seq #(
     );
 
     // ---- 系数 ROM（A 方案必须外挂的部分）---------------------------------
-    (* syn_ramstyle = "block_ram" *)
-    coeff_t co_rom [0:N_MODES-1];
+    // 按字段拆成 7 个 32 位阵列：`coeff_t` 结构体阵列（224 位一个字）Gowin 不认，
+    // 会退回 FF（48 模态 = 10752 个寄存器）。
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_a11 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_a12 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_a21 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_a22 [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_gq  [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_gv  [0:N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] co_wo  [0:N_MODES-1];
 
     logic          co_re;
     logic [IW-1:0] co_raddr;
     coeff_t        co_rdata;
 
     always_ff @(posedge clk) begin
-        if (ld_we) co_rom[ld_addr] <= ld_data;
-        if (co_re) co_rdata <= co_rom[co_raddr];
+        if (ld_we) begin
+            co_a11[ld_addr] <= ld_data.a11;
+            co_a12[ld_addr] <= ld_data.a12;
+            co_a21[ld_addr] <= ld_data.a21;
+            co_a22[ld_addr] <= ld_data.a22;
+            co_gq [ld_addr] <= ld_data.gq;
+            co_gv [ld_addr] <= ld_data.gv;
+            co_wo [ld_addr] <= ld_data.wo;
+        end
+        if (co_re) begin
+            co_rdata.a11 <= co_a11[co_raddr];
+            co_rdata.a12 <= co_a12[co_raddr];
+            co_rdata.a21 <= co_a21[co_raddr];
+            co_rdata.a22 <= co_a22[co_raddr];
+            co_rdata.gq  <= co_gq [co_raddr];
+            co_rdata.gv  <= co_gv [co_raddr];
+            co_rdata.wo  <= co_wo [co_raddr];
+        end
     end
     assign co_re = 1'b1;          // ROM 每拍跟着 c_addr 读（1 拍延迟正是 bank 需要的）
 

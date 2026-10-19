@@ -43,3 +43,8 @@ webtalk*.jou
 webtalk*.log
 *.backup.jou
 *.backup.log
+.Xil/
+vivado.jou
+vivado.log
+vivado_pid*.str
+*.btree

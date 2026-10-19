@@ -282,3 +282,100 @@ module fmax_e7 #(
     end
 
 endmodule
+
+// ---- 方案 B 的 8 声部配置：8 个 top_ram 并联 -------------------------------
+// `modal_bank_ram` 是"一声部一个 bank"的作业式引擎，多声部只能靠多实例；
+// 这里放 8 份，与 7 乘法器引擎的"1 个引擎 8 声部"在同一工况下比面积/时序。
+// 每份的激励/系数都掺了不同的常数，避免综合器把 8 份当成公共子表达式合并。
+module fmax_ram8 #(
+    parameter int N_MODES = 48
+) (
+    input  logic clk,
+    input  logic rst_n,
+    output logic led
+);
+
+    import modal_step_pkg::*;
+
+    localparam int IW = $clog2(N_MODES);
+    localparam int NV = 8;
+
+    logic [NV-1:0]       x_valid;
+    logic [NV-1:0]       y_valid;
+    logic [NV-1:0]       co_we;
+    logic signed [XW-1:0] x_data [0:NV-1];
+    logic signed [YW-1:0] y_data [0:NV-1];
+    logic [IW-1:0]        co_addr [0:NV-1];
+    logic [2:0]           co_sel  [0:NV-1];
+    logic [35:0]          co_wdata[0:NV-1];
+
+    genvar gi;
+    generate
+        for (gi = 0; gi < NV; gi++) begin : g_voice
+            top_ram #(.N_MODES(N_MODES)) u_top (
+                .clk(clk), .rst_n(rst_n),
+                .co_we(co_we[gi]), .co_addr(co_addr[gi]),
+                .co_sel(co_sel[gi]), .co_wdata(co_wdata[gi]),
+                .x_valid(x_valid[gi]), .x_data(x_data[gi]),
+                .y_valid(y_valid[gi]), .y_data(y_data[gi])
+            );
+        end
+    endgenerate
+
+    logic [31:0]  lfsr;
+    logic [IW-1:0] ci;
+    logic [2:0]   cs;
+    logic [63:0]  acc;
+    logic         init_done;
+    int           v;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            lfsr      <= 32'h1234_5678;
+            ci        <= '0;
+            cs        <= '0;
+            acc       <= '0;
+            led       <= 1'b0;
+            init_done <= 1'b0;
+            for (v = 0; v < NV; v++) begin
+                co_we[v]    <= 1'b0;
+                co_addr[v]  <= '0;
+                co_sel[v]   <= '0;
+                co_wdata[v] <= '0;
+                x_valid[v]  <= 1'b0;
+                x_data[v]   <= '0;
+            end
+        end else begin
+            lfsr <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
+            led  <= ^acc;
+
+            if (!init_done) begin
+                for (v = 0; v < NV; v++) begin
+                    co_we[v]    <= 1'b1;
+                    co_addr[v]  <= ci;
+                    co_sel[v]   <= cs;
+                    co_wdata[v] <= {lfsr[3:0] ^ 4'(v),
+                                    lfsr ^ (32'h9E37_79B9 * (v + 1))};
+                end
+                if (cs == 3'd6) begin
+                    cs <= '0;
+                    if (ci == N_MODES[IW-1:0] - 1'b1) begin
+                        for (v = 0; v < NV; v++) co_we[v] <= 1'b0;
+                        init_done <= 1'b1;
+                    end else begin
+                        ci <= ci + 1'b1;
+                    end
+                end else begin
+                    cs <= cs + 1'b1;
+                end
+            end else begin
+                for (v = 0; v < NV; v++) begin
+                    x_valid[v] <= 1'b1;
+                    x_data[v]  <= lfsr ^ (32'h9E37_79B9 * (v + 1));
+                    if (y_valid[v]) acc <= acc ^ y_data[v];
+                end
+            end
+        end
+    end
+
+endmodule
