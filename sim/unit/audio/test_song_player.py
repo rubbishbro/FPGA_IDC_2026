@@ -100,7 +100,7 @@ async def _reset(dut):
 class Trace:
     def __init__(self):
         self.samples = []      # list of (sample_index, x_vec list)
-        self.loads = []        # list of (sample_index, voice, inst, midi, dyn)
+        self.loads = []        # (sample_index, voice, inst, midi, dyn, vel)
         self.done = False
 
 
@@ -117,7 +117,8 @@ async def _monitor(dut, tr):
         if lv and lr:
             tr.loads.append((len(tr.samples), int(dut.load_voice.value),
                              int(dut.load_instrument.value),
-                             int(dut.load_midi.value), int(dut.load_dyn.value)))
+                             int(dut.load_midi.value), int(dut.load_dyn.value),
+                             int(dut.load_vel.value)))
 
 
 async def _ticker(dut, period, count):
@@ -158,9 +159,10 @@ def _check_score(tr, n_events, where=""):
     assert len(tr.loads) >= n_events, \
         f"{where}: only {len(tr.loads)} loads for {n_events} events"
     for k in range(n_events):
-        _, voice, inst, midi, dyn = tr.loads[k]
+        _, voice, inst, midi, dyn, vel = tr.loads[k]
         assert inst == 0, f"{where}: event {k} instrument {inst} != guitar(0)"
         assert dyn == 1, f"{where}: event {k} dyn {dyn} != forte(1)"
+        assert vel == 255, f"{where}: event {k} vel {vel} != full-scale(255)"
         assert midi == SONG[k % len(SONG)], \
             f"{where}: event {k} midi {midi} != {SONG[k % len(SONG)]}"
         assert voice == _voice_of(k), \
@@ -208,7 +210,7 @@ async def t01_sequence(dut):
     # once all voices have been touched, active_mask must be all ones
     if n_events >= NUM_VOICES:
         assert len(tr.samples) > 0
-    dut._log.info(f"T01 {n_events} events in order, pulses exact, "
+    dut._log.info(f"T01 {n_events} events in order, pulses exact, vel=255, "
                   f"{len(tr.samples)} samples, gap {NOTE_GAP}")
 
 

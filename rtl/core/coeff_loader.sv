@@ -42,7 +42,8 @@ module coeff_loader #(
     input  logic [VW-1:0]          load_voice,
     input  logic [1:0]             load_instrument,
     input  logic [6:0]             load_midi,
-    input  logic                   load_dyn,
+    input  logic                   load_dyn,       // 采样层：0=piano，1=forte
+    input  logic [7:0]             load_vel,       // 8-bit 压力力度，0..255
 
     output logic                   busy,
     output logic                   load_done,
@@ -101,6 +102,8 @@ module coeff_loader #(
     logic [1:0]          inst_r;
     logic [6:0]          midi_r;
     logic                dyn_r;
+    logic [7:0]          vel_r;        // 本次装载锁存的 8-bit 力度
+    wire  [15:0]         vel_q;        // UQ1.15，32768 = 1.0
     logic [OFFSET_BITS-1:0] offset_r;
     logic [MW-1:0]       n_r;          // 完整 entry 的 mode 数量
     logic [MW-1:0]       cnt;          // 正在写入的 mode
@@ -114,7 +117,39 @@ module coeff_loader #(
     wire [OFFSET_BITS:0]   entry_end = {1'b0, off_field} + {1'b0, n_field};
     wire n_illegal = (n_field == {N_FIELD_W{1'b0}}) || (n_field > N_MODES);
 
-    // 呈现给下游 bank 的字段；等待 ready 期间保持稳定
+    // vel_q = round(vel * 32768 / 255) = (vel*257 + 1) >> 1。
+    // 255 -> 32768 (1.0)，0 -> 0；不引入除法器，只有 8-bit 常乘 257。
+    wire [16:0] vel_q_sum = {1'b0, vel_r, 8'b0} + {9'b0, vel_r} + 17'd1;
+    assign vel_q = vel_q_sum[16:1];
+
+    // 冲激幅度缩放：把 G 乘 vel_q 等价于把 x 乘 vel_q（线性递推）。
+    // 在装载时做一次，省掉 32 个 x 乘法器；vel=255 时走旁路，保证逐位不变。
+    function automatic [71:0] scale_word(input [71:0] w, input [15:0] vq);
+        logic signed [25:0] g;
+        logic signed [42:0] prod, rnd;
+        logic signed [25:0] gs;
+        begin
+            g    = $signed(w[71:46]);
+            prod = g * $signed({1'b0, vq});
+            rnd  = (prod + 43'sd16384) >>> 15;
+            if (vq == 16'd32768)
+                gs = g;
+            else if (rnd > 43'sd33554431)
+                gs = 26'sd33554431;
+            else if (rnd < -43'sd33554432)
+                gs = 26'sh2000000;          // -2^25, 26-bit signed minimum
+            else
+                gs = rnd[25:0];
+            scale_word = {gs, w[45:0]};
+        end
+    endfunction
+
+    // 呈现给下游 bank 的字段；等待 ready 期间保持稳定。
+    // 注意：scale_word 必须在 S_CFG 当拍对 coeff_rdata 组合求值；
+    // 若改成寄存器，需要额外一拍（S_CRD 当拍 rdata 还是上一地址）。
+    // 这把 26×17 乘法位于 ROM 输出→cfg_word 的组合路径；综合/P&R 时必须
+    // 单独检查这条路径。若 setup 不够，增加 S_SCALE 级（每词多 1 拍）或把
+    // 缩放移到 bank 的 cfg 写端。
     assign load_ready    = (st == S_IDLE);
     assign busy          = (st != S_IDLE);
     assign clear_valid   = (st == S_CLEAR);
@@ -122,7 +157,7 @@ module coeff_loader #(
     assign cfg_valid     = (st == S_CFG);
     assign cfg_voice     = voice_r;
     assign cfg_mode      = cnt;
-    assign cfg_word      = coeff_rdata;
+    assign cfg_word      = scale_word(coeff_rdata, vel_q);
     assign done_voice    = voice_r;
     assign loaded_n_modes= n_r;
 
@@ -137,6 +172,7 @@ module coeff_loader #(
             inst_r       <= 2'd0;
             midi_r       <= 7'd0;
             dyn_r        <= 1'b0;
+            vel_r        <= 8'd255;
             offset_r     <= {OFFSET_BITS{1'b0}};
             n_r          <= {MW{1'b0}};
             cnt          <= {MW{1'b0}};
@@ -157,6 +193,7 @@ module coeff_loader #(
                         inst_r  <= load_instrument;
                         midi_r  <= load_midi;
                         dyn_r   <= load_dyn;
+                        vel_r   <= load_vel;
                         if (load_voice >= NUM_VOICES) begin
                             error_valid <= 1'b1;
                             error_code  <= 2'd1;        // voice 越界

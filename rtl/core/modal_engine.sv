@@ -38,7 +38,8 @@ module modal_engine #(
     input  logic [VW-1:0]          load_voice,
     input  logic [1:0]             load_instrument,
     input  logic [6:0]             load_midi,
-    input  logic                   load_dyn,
+    input  logic                   load_dyn,       // 采样层
+    input  logic [7:0]             load_vel,       // 8-bit 压力力度
     output logic                   busy,
     output logic                   load_done,
     output logic [VW-1:0]          done_voice,
@@ -168,6 +169,7 @@ module modal_engine #(
         .load_instrument(load_instrument),
         .load_midi    (load_midi),
         .load_dyn     (load_dyn),
+        .load_vel     (load_vel),
         .busy         (ld_busy),
         .load_done    (load_done),
         .done_voice   (done_voice),

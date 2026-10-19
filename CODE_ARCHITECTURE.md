@@ -96,7 +96,7 @@ P/board_top.sv  [module board_top，仓库Gowin构建顶层]
 
 ```text
 song_player.event_at()：42个《小星星》事件，guitar forte
-    ↓ load_voice / load_instrument / load_midi / load_dyn
+    ↓ load_voice / load_instrument / load_midi / load_dyn / load_vel
 modal_engine：装载与计算仲裁、保存voice_loaded/voice_nm
     ↓
 coeff_loader：查modal_index.mem → 检查条目元数据

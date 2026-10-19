@@ -162,6 +162,7 @@
 | G4 | 状态字存储块数 | **64 位 → 2 × 32 位** BSRAM（随 C5 更新） |
 | G5 | 主平台 Gowin 工具链 | 本机没有（V1.9.9+ 需 License），综合/时序只能在你那边出 |
 | G6 | 弓噪/气息噪声（B 类） | **默认关闭（2026-10-16 本人决定）**：与无噪声渲染相比听感差异小，省掉 257-tap 噪声 FIR + 增益通路。**保留 Python 实现**（`python/modal_sim/sustain_engine.py` 的 `noise_gain`/`noise_db_cap`，置 `noise_gain>0` 即开）；RTL 迁移时**省略该通路**。详见 `FFT_results/sim/README.md` Class B |
+| G7 | 压力力度（2026-10-19 用户要求） | `load_vel[7:0]` 接压力传感器，0..255；装载时按 `vel_q=round(vel*32768/255)` 缩放 G（等价缩放 x），`vel=255` 旁路。1-bit `load_dyn` 保留为采样层/选表，不与力度合并；是否由 vel 阈值自动选层待后续冻结 | 实现中，待冻结 |
 
 ---
 

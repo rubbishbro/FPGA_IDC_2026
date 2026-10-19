@@ -22,6 +22,12 @@
 //
 // 这 7 个脉冲值是整数模型的升余弦脉冲，幅度 0.2，
 // 使用与 python/modal_sim/fixed_point.py 相同的四舍五入规则量化。
+//
+// 力度：输出 load_vel[7:0]（0..255）。固定曲谱固定用 255（满力度），
+// 压力传感器前端以后把每个事件的 8-bit 值接到 load_vel；真正的幅度缩放
+// 在 coeff_loader 装载时完成（按 vel_q 缩放 G），本模块不增加乘法器。
+// load_dyn[0] 仍是采样层/选表位，不承载连续力度。
+// 注意：piano 档（load_dyn=0）仍要求 12 样本脉冲；当前固定曲谱只用 forte。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 
@@ -30,6 +36,7 @@ module song_player #(
     parameter int N_MODES    = 48,
     parameter int NOTE_GAP   = 12000,
     parameter int PULSE_LEN  = 7,
+    parameter logic [7:0] SCORE_VEL = 8'd255,
     parameter int VW = (NUM_VOICES < 2) ? 1 : $clog2(NUM_VOICES),
     parameter int MW = (N_MODES < 1) ? 1 : $clog2(N_MODES + 1)
 ) (
@@ -43,7 +50,8 @@ module song_player #(
     output logic [VW-1:0]         load_voice,
     output logic [1:0]            load_instrument,
     output logic [6:0]            load_midi,
-    output logic                  load_dyn,
+    output logic                  load_dyn,        // 采样层：0=piano，1=forte
+    output logic [7:0]            load_vel,        // 8-bit 力度，0..255
     input  logic                  load_done,
     input  logic [VW-1:0]         done_voice,
     input  logic [MW-1:0]         loaded_n_modes,
@@ -70,57 +78,58 @@ module song_player #(
 );
 
     localparam int CW = (NOTE_GAP < 2) ? 1 : $clog2(NOTE_GAP);
-    localparam int EW = 10;                         // {dyn, midi[6:0], inst[1:0]}
+    localparam int EW = 17;                         // {vel[7:0], midi[6:0], inst[1:0]}
     localparam int NUM_EVENTS = 42;
+    // 固定曲谱先用满力度；压力传感器前端以后把这里换成每个事件的 8-bit 值。
 
     // ------------------------------------------------------------------
     // 公有领域 Twinkle-Twinkle 旋律，guitar（inst=0）forte（dyn=1）
     // ------------------------------------------------------------------
     function automatic [EW-1:0] event_at(input [5:0] idx);
         case (idx)
-            6'd0 : event_at = {1'b1, 7'd60, 2'd0};
-            6'd1 : event_at = {1'b1, 7'd60, 2'd0};
-            6'd2 : event_at = {1'b1, 7'd67, 2'd0};
-            6'd3 : event_at = {1'b1, 7'd67, 2'd0};
-            6'd4 : event_at = {1'b1, 7'd69, 2'd0};
-            6'd5 : event_at = {1'b1, 7'd69, 2'd0};
-            6'd6 : event_at = {1'b1, 7'd67, 2'd0};
-            6'd7 : event_at = {1'b1, 7'd65, 2'd0};
-            6'd8 : event_at = {1'b1, 7'd65, 2'd0};
-            6'd9 : event_at = {1'b1, 7'd64, 2'd0};
-            6'd10: event_at = {1'b1, 7'd64, 2'd0};
-            6'd11: event_at = {1'b1, 7'd62, 2'd0};
-            6'd12: event_at = {1'b1, 7'd62, 2'd0};
-            6'd13: event_at = {1'b1, 7'd60, 2'd0};
-            6'd14: event_at = {1'b1, 7'd67, 2'd0};
-            6'd15: event_at = {1'b1, 7'd67, 2'd0};
-            6'd16: event_at = {1'b1, 7'd65, 2'd0};
-            6'd17: event_at = {1'b1, 7'd65, 2'd0};
-            6'd18: event_at = {1'b1, 7'd64, 2'd0};
-            6'd19: event_at = {1'b1, 7'd64, 2'd0};
-            6'd20: event_at = {1'b1, 7'd62, 2'd0};
-            6'd21: event_at = {1'b1, 7'd67, 2'd0};
-            6'd22: event_at = {1'b1, 7'd67, 2'd0};
-            6'd23: event_at = {1'b1, 7'd65, 2'd0};
-            6'd24: event_at = {1'b1, 7'd65, 2'd0};
-            6'd25: event_at = {1'b1, 7'd64, 2'd0};
-            6'd26: event_at = {1'b1, 7'd64, 2'd0};
-            6'd27: event_at = {1'b1, 7'd62, 2'd0};
-            6'd28: event_at = {1'b1, 7'd60, 2'd0};
-            6'd29: event_at = {1'b1, 7'd60, 2'd0};
-            6'd30: event_at = {1'b1, 7'd67, 2'd0};
-            6'd31: event_at = {1'b1, 7'd67, 2'd0};
-            6'd32: event_at = {1'b1, 7'd69, 2'd0};
-            6'd33: event_at = {1'b1, 7'd69, 2'd0};
-            6'd34: event_at = {1'b1, 7'd67, 2'd0};
-            6'd35: event_at = {1'b1, 7'd65, 2'd0};
-            6'd36: event_at = {1'b1, 7'd65, 2'd0};
-            6'd37: event_at = {1'b1, 7'd64, 2'd0};
-            6'd38: event_at = {1'b1, 7'd64, 2'd0};
-            6'd39: event_at = {1'b1, 7'd62, 2'd0};
-            6'd40: event_at = {1'b1, 7'd62, 2'd0};
-            6'd41: event_at = {1'b1, 7'd60, 2'd0};
-            default: event_at = {1'b1, 7'd60, 2'd0};
+            6'd0 : event_at = {SCORE_VEL, 7'd60, 2'd0};
+            6'd1 : event_at = {SCORE_VEL, 7'd60, 2'd0};
+            6'd2 : event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd3 : event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd4 : event_at = {SCORE_VEL, 7'd69, 2'd0};
+            6'd5 : event_at = {SCORE_VEL, 7'd69, 2'd0};
+            6'd6 : event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd7 : event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd8 : event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd9 : event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd10: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd11: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd12: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd13: event_at = {SCORE_VEL, 7'd60, 2'd0};
+            6'd14: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd15: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd16: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd17: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd18: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd19: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd20: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd21: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd22: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd23: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd24: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd25: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd26: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd27: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd28: event_at = {SCORE_VEL, 7'd60, 2'd0};
+            6'd29: event_at = {SCORE_VEL, 7'd60, 2'd0};
+            6'd30: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd31: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd32: event_at = {SCORE_VEL, 7'd69, 2'd0};
+            6'd33: event_at = {SCORE_VEL, 7'd69, 2'd0};
+            6'd34: event_at = {SCORE_VEL, 7'd67, 2'd0};
+            6'd35: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd36: event_at = {SCORE_VEL, 7'd65, 2'd0};
+            6'd37: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd38: event_at = {SCORE_VEL, 7'd64, 2'd0};
+            6'd39: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd40: event_at = {SCORE_VEL, 7'd62, 2'd0};
+            6'd41: event_at = {SCORE_VEL, 7'd60, 2'd0};
+            default: event_at = {SCORE_VEL, 7'd60, 2'd0};
         endcase
     endfunction
 
@@ -153,6 +162,7 @@ module song_player #(
     logic [1:0]            ld_inst;
     logic [6:0]            ld_midi;
     logic                  ld_dyn;
+    logic [7:0]            ld_vel;
 
     logic [NUM_VOICES-1:0] loaded_mask;
     logic [2:0]            pulse_pos [0:NUM_VOICES-1];
@@ -171,6 +181,7 @@ module song_player #(
     assign load_instrument = ld_inst;
     assign load_midi       = ld_midi;
     assign load_dyn        = ld_dyn;
+    assign load_vel        = ld_vel;
 
     assign out_valid       = valid_r;
     assign out_sum         = sum_r;
@@ -211,6 +222,7 @@ module song_player #(
             ld_inst    <= 2'd0;
             ld_midi    <= 7'd0;
             ld_dyn     <= 1'b0;
+            ld_vel     <= SCORE_VEL;
             loaded_mask<= {NUM_VOICES{1'b0}};
             sum_r      <= 64'sd0;
             valid_r    <= 1'b0;
@@ -231,7 +243,8 @@ module song_player #(
                             ld_voice <= next_voice;
                             ld_inst  <= cur_ev[1:0];
                             ld_midi  <= cur_ev[8:2];
-                            ld_dyn   <= cur_ev[9];
+                            ld_dyn   <= 1'b1;          // 固定曲谱用 forte 表
+                            ld_vel   <= cur_ev[16:9];  // 8-bit 力度（曲谱全 255）
                             state    <= S_LOAD;
                         end else begin
                             state <= S_SAMPLE;

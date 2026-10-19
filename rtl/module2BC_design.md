@@ -19,11 +19,22 @@
 
 ## 3. ROM与装载契约（2B）
 
-乐器编号固定 `0=guitar,1=piano,2=banjo,3=mandolin`；输入dyn是**档位**而非原始力度，`0=piano,1=forte`。索引地址 `{instrument[1:0],midi[6:0],dyn}`。索引word：`[19]=present,[18:13]=n_modes(6bit),[12:0]=合并系数起始offset`；空项为0。生成器严格校验key、MIDI0..127、原mem72bit、n=1..48、偏移合法、不重叠以及覆盖全部行；不因排序改动原表项语义。结果可重复生成并byte-for-byte一致。
+乐器编号固定 `0=guitar,1=piano,2=banjo,3=mandolin`；输入 `load_dyn` 是**采样层/档位**而非原始力度，`0=piano,1=forte`；新增 `load_vel[7:0]` 是压力传感器的 8-bit 力度（0..255），只缩放冲激幅度，不参与索引。索引地址仍为 `{instrument[1:0],midi[6:0],dyn}`。索引word：`[19]=present,[18:13]=n_modes(6bit),[12:0]=合并系数起始offset`；空项为0。生成器严格校验key、MIDI0..127、原mem72bit、n=1..48、偏移合法、不重叠以及覆盖全部行；不因排序改动原表项语义。结果可重复生成并byte-for-byte一致。
 
 `coeff_loader`参数NUM_VOICES=32,N_MODES=48, ROM文件名及COEFF_DEPTH=5483；ROM均同步读，initial/readmemh初始化，不在运行时解析JSON。ROM是只读，可读成一个72bit逻辑端口，不作物理BSRAM映射承诺。
 
-接口：clk/rst_n；load_valid/ready、load_voice[VW]、load_instrument[2]、load_midi[7]、load_dyn[1]；busy、load_done、done_voice[VW]、loaded_n_modes[MW]；error_valid/error_code[2]（1=voice越界,2=缺表项,3=ROM元数据非法/超过结构N_MODES）；下游clear_valid/ready/voice；cfg_valid/ready/voice/mode/word。VW=max(1,clog2(NUM_VOICES)),MW=max(1,clog2(N_MODES+1))。
+接口：clk/rst_n；load_valid/ready、load_voice[VW]、load_instrument[2]、load_midi[7]、load_dyn[1]、load_vel[8]；busy、load_done、done_voice[VW]、loaded_n_modes[MW]；error_valid/error_code[2]（1=voice越界,2=缺表项,3=ROM元数据非法/超过结构N_MODES）；下游clear_valid/ready/voice；cfg_valid/ready/voice/mode/word。VW=max(1,clog2(NUM_VOICES)),MW=max(1,clog2(N_MODES+1))。
+
+`load_vel` 在 load 握手时锁存；`vel_q=round(vel*32768/255)`（UQ1.15），对每个 72-bit word 只改 G：
+
+```text
+G' = clamp(round(G * vel_q / 32768), 26-bit signed)
+a1' = a1, a2' = a2
+```
+
+`vel=255` 走旁路，逐位等于原 ROM word。把 G 乘 vel 与把 x 乘 vel 对线性递推等价，因此不用在 32 个 `x_vec` 通道上加乘法器；缺点是只在装载时生效，运行中 aftertouch 要改成 x 侧逐采样缩放。
+
+这条 `26×17` 乘法在 `S_CFG` 当拍从 `coeff_rdata` 组合到 `cfg_word`，是新增的 ROM 输出→bank 写数据路径。综合/P&R 必须单独检查；若 setup 不够，加一级 `S_SCALE`（每词多 1 拍）或把缩放移到 bank 的 cfg 写端。
 
 仅load握手锁存输入；busy时load_ready=0。先完整查表并校验范围，再clear指定声部，再按0..n-1输出系数；cfg/clear在ready前保持字段不变；最后cfg真正握手后才load_done。下游背压任意长不会丢词/重复提交。缺表项/非法元数据**不得clear或cfg**，不发load_done；错误脉冲后返回空闲。reset取消事务及所有有效token。reset途中部分装载不提供事务回滚：整机reset同时清loaded标志，因此该声部不可使用，必须重新装载。
 

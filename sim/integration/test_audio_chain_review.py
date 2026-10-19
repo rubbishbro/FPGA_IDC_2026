@@ -184,7 +184,9 @@ async def observe_core(d, state, expected):
             e = state.events % len(MELODY)
             assert int(d.sp_load_voice.value) == e % VOICES
             assert int(d.sp_load_midi.value) == MELODY[e]
-            assert int(d.sp_load_instrument.value) == 0 and int(d.sp_load_dyn.value) == 1
+            assert (int(d.sp_load_instrument.value) == 0
+                    and int(d.sp_load_dyn.value) == 1
+                    and int(d.sp_load_vel.value) == 255)
             state.events += 1
         if int(d.sp_out_valid.value):
             if state.outputs < len(expected):

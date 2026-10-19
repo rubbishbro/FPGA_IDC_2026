@@ -122,6 +122,7 @@ module audio_demo_core #(
     logic [1:0]            sp_load_instrument;
     logic [6:0]            sp_load_midi;
     logic                  sp_load_dyn;
+    logic [7:0]            sp_load_vel;
     logic                  sp_load_done;
     logic [VW-1:0]         sp_done_voice;
     logic [MW-1:0]         sp_loaded_n_modes;
@@ -149,6 +150,7 @@ module audio_demo_core #(
         .load_instrument (sp_load_instrument),
         .load_midi       (sp_load_midi),
         .load_dyn        (sp_load_dyn),
+        .load_vel        (sp_load_vel),
         .load_done       (sp_load_done),
         .done_voice      (sp_done_voice),
         .loaded_n_modes  (sp_loaded_n_modes),
@@ -178,6 +180,7 @@ module audio_demo_core #(
         .load_instrument(sp_load_instrument),
         .load_midi      (sp_load_midi),
         .load_dyn       (sp_load_dyn),
+        .load_vel       (sp_load_vel),
         .sample_valid   (sp_sample_valid),
         .sample_ready   (sp_sample_ready),
         .active_mask    (sp_active_mask),

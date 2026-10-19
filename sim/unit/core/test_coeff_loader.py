@@ -186,6 +186,7 @@ async def _reset(dut, sink):
     dut.load_instrument.value = 0
     dut.load_midi.value = 0
     dut.load_dyn.value = 0
+    dut.load_vel.value = 255
     dut.cfg_ready.value = 1
     dut.clear_ready.value = 1
     for _ in range(4):
@@ -196,7 +197,7 @@ async def _reset(dut, sink):
     sink.events.clear()
 
 
-async def _load(dut, sink, voice, inst, midi, dyn):
+async def _load(dut, sink, voice, inst, midi, dyn, vel=255):
     """Present one load request; return (kind, cycles, code)."""
     await Timer(1, unit="ns")
     guard = 0
@@ -210,6 +211,7 @@ async def _load(dut, sink, voice, inst, midi, dyn):
     dut.load_instrument.value = _u(inst, 2)
     dut.load_midi.value = _u(midi, 7)
     dut.load_dyn.value = _u(dyn, 1)
+    dut.load_vel.value = _u(vel, 8)
     await RisingEdge(dut.clk)                    # handshake edge
     await Timer(1, unit="ns")
     assert _i(dut.busy) == 1, "busy did not assert after load handshake"
@@ -399,6 +401,7 @@ async def t04_backpressure(dut):
     dut.load_instrument.value = _u(probe["inst"], 2)
     dut.load_midi.value = _u(probe["midi"], 7)
     dut.load_dyn.value = _u(probe["dyncode"], 1)
+    dut.load_vel.value = 255
     await RisingEdge(dut.clk)
     await Timer(1, unit="ns")
     dut.load_valid.value = 0
@@ -484,6 +487,7 @@ async def t05_busy_toxic(dut):
     dut.load_instrument.value = _u(k["inst"], 2)
     dut.load_midi.value = _u(k["midi"], 7)
     dut.load_dyn.value = _u(k["dyncode"], 1)
+    dut.load_vel.value = 255
     await RisingEdge(dut.clk)
     await Timer(1, unit="ns")
     assert int(dut.load_ready.value) == 0, "load_ready high while busy"
@@ -492,6 +496,7 @@ async def t05_busy_toxic(dut):
     dut.load_instrument.value = 3
     dut.load_midi.value = 1
     dut.load_dyn.value = 0
+    dut.load_vel.value = 0
     kind, cyc, code = await _wait_done(dut, sink)
     assert kind == "done"
     cfgs = _cfg_events(sink, vs)
@@ -537,6 +542,7 @@ async def t06_reset_phases(dut):
         dut.load_instrument.value = _u(k["inst"], 2)
         dut.load_midi.value = _u(k["midi"], 7)
         dut.load_dyn.value = _u(k["dyncode"], 1)
+        dut.load_vel.value = 255
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
         dut.load_valid.value = 0
@@ -647,6 +653,7 @@ async def t09_voice_oob(dut):
     dut.load_instrument.value = 0
     dut.load_midi.value = 40
     dut.load_dyn.value = 1
+    dut.load_vel.value = 255
     await RisingEdge(dut.clk)
     await Timer(1, unit="ns")
     dut.load_valid.value = 0
@@ -656,6 +663,55 @@ async def t09_voice_oob(dut):
     assert not [e for e in sink.events if e["kind"] in ("cfg", "clear", "done")]
     assert _i(dut.load_ready) == 1
     dut._log.info(f"T09 voice {oob} out of range rejected with error 1")
+
+
+# ---------------------------------------------------------------------------
+# T10 -- 8-bit velocity scales G (a1/a2 unchanged; vel=255 is the raw ROM word)
+# ---------------------------------------------------------------------------
+def _scaled_g(g, vel):
+    vq = (vel * 257 + 1) >> 1                 # UQ1.15, matches RTL
+    if vq == 32768:
+        return g
+    rnd = (g * vq + 16384) >> 15              # Python >> floors like >>> in SV
+    return max(-(1 << 25), min((1 << 25) - 1, rnd))
+
+
+@cocotb.test(timeout_time=300, timeout_unit="sec")
+async def t10_velocity_scale(dut):
+    sink = Sink()
+    await _begin(dut)
+    cocotb.start_soon(sink.run(dut))
+    await _reset(dut, sink)
+    k = _longest()
+    if k is None:
+        dut._log.info("T10 skipped (no entry fits structural N)")
+        return
+
+    voice = 0
+    kind, cyc, code = await _load(dut, sink, voice, k["inst"], k["midi"],
+                                  k["dyncode"], vel=255)
+    assert kind == "done" and code == 0
+    full = [e["word"] for e in _cfg_events(sink, voice)]
+    assert len(full) == k["n"]
+
+    await _reset(dut, sink)
+    kind, cyc, code = await _load(dut, sink, voice, k["inst"], k["midi"],
+                                  k["dyncode"], vel=128)
+    assert kind == "done" and code == 0
+    half = [e["word"] for e in _cfg_events(sink, voice)]
+    assert len(half) == k["n"]
+
+    for i, (wf, wh) in enumerate(zip(full, half)):
+        a1f, a2f, gf = unpack_word(wf)
+        a1h, a2h, gh = unpack_word(wh)
+        assert (a1f, a2f) == (a1h, a2h), f"mode {i}: a1/a2 changed under velocity"
+        assert gh == _scaled_g(gf, 128), (
+            f"mode {i}: G {gh} != expected {_scaled_g(gf, 128)} (full {gf})")
+        assert (wf & ((1 << 46) - 1)) == (wh & ((1 << 46) - 1)), (
+            f"mode {i}: low 46 bits changed")
+    if full and all(unpack_word(w)[2] != 0 for w in full):
+        assert half != full, "velocity 128 produced no change"
+    dut._log.info(f"T10 vel=255 raw vs vel=128 scaled: {len(full)} modes OK")
 
 
 # ---------------------------------------------------------------------------

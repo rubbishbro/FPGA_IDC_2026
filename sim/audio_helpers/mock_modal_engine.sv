@@ -33,6 +33,7 @@ module modal_engine #(
     input  logic [1:0]             load_instrument,
     input  logic [6:0]             load_midi,
     input  logic                   load_dyn,
+    input  logic [7:0]             load_vel,
 
     input  logic                   sample_valid,
     output logic                   sample_ready,

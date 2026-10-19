@@ -168,7 +168,8 @@ async def _begin(dut):
 async def _reset(dut):
     dut.rst_n.value = 0
     for name, val in (("load_valid", 0), ("load_voice", 0), ("load_instrument", 0),
-                      ("load_midi", 0), ("load_dyn", 0), ("sample_valid", 0),
+                      ("load_midi", 0), ("load_dyn", 0), ("load_vel", 255),
+                      ("sample_valid", 0),
                       ("active_mask", 0), ("x_vec", 0)):
         getattr(dut, name).value = val
     for _ in range(4):
@@ -191,6 +192,7 @@ async def _eload(dut, voice, inst, midi, dyn, timeout=5000):
     dut.load_instrument.value = _u(inst, 2)
     dut.load_midi.value = _u(midi, 7)
     dut.load_dyn.value = _u(dyn, 1)
+    dut.load_vel.value = 255
     await RisingEdge(dut.clk)
     await Timer(1, unit="ns")
     assert _i(dut.busy) == 1, "engine busy did not assert on load"
@@ -469,6 +471,7 @@ async def e05_mutual_exclusion(dut):
     dut.load_instrument.value = 1
     dut.load_midi.value = 21
     dut.load_dyn.value = 1
+    dut.load_vel.value = 255
     dut.sample_valid.value = 1
     dut.active_mask.value = 0
     await Timer(1, unit="ns")
@@ -525,6 +528,7 @@ async def e06_reset_stale(dut):
     dut.load_instrument.value = 1
     dut.load_midi.value = 21
     dut.load_dyn.value = 1
+    dut.load_vel.value = 255
     await Timer(1, unit="ns")
     while not _i(dut.load_ready):
         await RisingEdge(dut.clk)

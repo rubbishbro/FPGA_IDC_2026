@@ -52,7 +52,8 @@ class EngineReview:
     async def tick(self, **updates):
         d = self.d
         defaults = dict(rst_n=1, load_valid=0, load_voice=0, load_instrument=0,
-                        load_midi=0, load_dyn=0, sample_valid=0, active_mask=0, x_vec=0)
+                        load_midi=0, load_dyn=0, load_vel=255, sample_valid=0,
+                        active_mask=0, x_vec=0)
         defaults.update(updates)
         d.clk.value = 0
         for name, v in defaults.items():
@@ -121,7 +122,7 @@ class EngineReview:
     async def load(self, voice, inst, midi, dyn, expected_error=0):
         await self.idle()
         z = await self.tick(load_valid=1, load_voice=voice, load_instrument=inst,
-                            load_midi=midi, load_dyn=dyn)
+                            load_midi=midi, load_dyn=dyn, load_vel=255)
         assert z["accepted"]["load"] and not z["accepted"]["sample"]
         words = self.saved(inst, midi, dyn)
         for cycle in range(4 * 48 + 25):
@@ -140,6 +141,7 @@ class EngineReview:
             assert not z["sample_ready"], "sampling allowed midway through a load"
             z = await self.tick(load_voice=(voice + 1) % self.v,
                                 load_instrument=(inst + 1) % 4, load_midi=0, load_dyn=1-dyn,
+                                load_vel=0,
                                 sample_valid=1, active_mask=(1 << self.v)-1, x_vec=(1 << (32*self.v))-1)
             assert not z["accepted"]["sample"]
         raise AssertionError("load deadline exceeded")
@@ -308,7 +310,7 @@ async def resets_cancel_loads_and_running_frames(dut):
         await r.reset()
         await r.idle()
         z = await r.tick(load_valid=1, load_voice=0, load_instrument=chosen[0],
-                         load_midi=chosen[1], load_dyn=chosen[2])
+                         load_midi=chosen[1], load_dyn=chosen[2], load_vel=255)
         assert z['accepted']['load']
         for _ in range(delay):
             await r.tick()
