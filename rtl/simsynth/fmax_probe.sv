@@ -142,10 +142,6 @@ module fmax_e7 #(
     logic                          co_we;
     logic [TB-1:0]                 co_addr;
     coeff_t                        co_data;
-    logic                          st_we;
-    logic [TB-1:0]                 st_addr;
-    logic signed [QW-1:0]          st_q;
-    logic signed [VW-1:0]          st_qdot;
     logic                          x_we;
     logic [XB-1:0]                 x_addr;
     logic signed [XW-1:0]          x_data;
@@ -153,9 +149,9 @@ module fmax_e7 #(
     logic [$clog2(SLOTS+1)-1:0]    n_voices;
     logic [$clog2(X_DEPTH+1)-1:0]  n_samples;
     logic [$clog2(N_MODES+1)-1:0]  n_modes;
+    logic [SLOTS-1:0]              st_zero_mask;
     logic                          done;
     logic                          busy;
-    logic                          pp;
     logic                          rd_en;
     logic [$clog2(X_DEPTH)-1:0]    rd_addr;
     logic signed [YW-1:0]          rd_data;
@@ -166,10 +162,9 @@ module fmax_e7 #(
     ) u_vt (
         .clk(clk), .rst_n(rst_n),
         .co_we(co_we), .co_addr(co_addr), .co_data(co_data),
-        .st_we(st_we), .st_addr(st_addr), .st_q(st_q), .st_qdot(st_qdot),
         .x_we(x_we), .x_addr(x_addr), .x_data(x_data),
         .start(start), .n_voices(n_voices), .n_samples(n_samples), .n_modes(n_modes),
-        .done(done), .busy(busy), .pp(pp),
+        .st_zero_mask(st_zero_mask), .done(done), .busy(busy),
         .rd_en(rd_en), .rd_addr(rd_addr), .rd_data(rd_data), .rd_valid(rd_valid),
         .ns_rd_en(1'b0), .ns_rd_addr('0), .ns_rd_sel(1'b0),
         .ns_rd_data(), .ns_rd_valid()
@@ -191,14 +186,10 @@ module fmax_e7 #(
             xi        <= '0;
             ph        <= 2'd0;
             co_we     <= 1'b0;
-            st_we     <= 1'b0;
             x_we      <= 1'b0;
             co_addr   <= '0;
-            st_addr   <= '0;
             x_addr    <= '0;
             co_data   <= '0;
-            st_q      <= '0;
-            st_qdot   <= '0;
             x_data    <= '0;
             start     <= 1'b0;
             n_voices  <= SLOTS[$clog2(SLOTS+1)-1:0];
@@ -228,20 +219,6 @@ module fmax_e7 #(
                     co_data.wo  <= {lfsr[24:0], lfsr[31:25]};
                     if (ci == TB'(NCO_LAST)) begin
                         co_we <= 1'b0;
-                        ci    <= '0;
-                        ph    <= 2'd1;
-                    end else begin
-                        ci <= ci + 1'b1;
-                    end
-                end
-
-                2'd1: begin                                   // 旧状态清零
-                    st_we   <= 1'b1;
-                    st_addr <= ci;
-                    st_q    <= '0;
-                    st_qdot <= '0;
-                    if (ci == TB'(NCO_LAST)) begin
-                        st_we <= 1'b0;
                         ci    <= '0;
                         ph    <= 2'd2;
                     end else begin
@@ -372,6 +349,130 @@ module fmax_ram8 #(
                     if (y_valid[v]) acc <= acc ^ y_data[v];
                 end
             end
+        end
+    end
+
+endmodule
+
+// ---- 固定角色 A/B + 激励在顶层：同一工况的面积探针 ------------------------
+module fmax_e7_ab #(
+    parameter int N_MODES = 48,
+    parameter int X_DEPTH = 64,
+    parameter int SLOTS   = 8
+) (
+    input  logic clk,
+    input  logic rst_n,
+    output logic led
+);
+
+    import modal_step_pkg::*;
+
+    localparam int NCO = SLOTS * N_MODES;
+    localparam int NX  = SLOTS * X_DEPTH;
+    localparam int TB  = $clog2(NCO);
+    localparam int XB  = $clog2(NX);
+
+    logic                          co_we;
+    logic [TB-1:0]                 co_addr;
+    coeff_t                        co_data;
+    logic                          x_we;
+    logic [XB-1:0]                 x_addr;
+    logic signed [XW-1:0]          x_data;
+    logic                          start;
+    logic [$clog2(SLOTS+1)-1:0]    n_voices;
+    logic [$clog2(X_DEPTH+1)-1:0]  n_samples;
+    logic [$clog2(N_MODES+1)-1:0]  n_modes;
+    logic [SLOTS-1:0]              st_zero_mask;
+    logic                          done;
+    logic                          busy;
+    logic                          rd_en;
+    logic [$clog2(X_DEPTH)-1:0]    rd_addr;
+    logic signed [YW-1:0]          rd_data;
+    logic                          rd_valid;
+
+    modal_voice_top_ab #(
+        .N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .SLOTS(SLOTS), .DEBUG_PORT(1'b0)
+    ) u_vt (
+        .clk(clk), .rst_n(rst_n),
+        .co_we(co_we), .co_addr(co_addr), .co_data(co_data),
+        .x_we(x_we), .x_addr(x_addr), .x_data(x_data),
+        .start(start), .n_voices(n_voices), .n_samples(n_samples), .n_modes(n_modes),
+        .st_zero_mask(st_zero_mask), .done(done), .busy(busy),
+        .rd_en(rd_en), .rd_addr(rd_addr), .rd_data(rd_data), .rd_valid(rd_valid),
+        .ns_rd_en(1'b0), .ns_rd_addr('0), .ns_rd_sel(1'b0),
+        .ns_rd_data(), .ns_rd_valid()
+    );
+
+    logic [31:0]   lfsr;
+    logic [TB-1:0] ci;
+    logic [XB-1:0] xi;
+    logic [1:0]    ph;
+    logic [63:0]   acc;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            lfsr         <= 32'h1234_5678;
+            ci           <= '0;
+            xi           <= '0;
+            ph           <= 2'd0;
+            co_we        <= 1'b0;
+            x_we         <= 1'b0;
+            co_addr      <= '0;
+            x_addr       <= '0;
+            co_data      <= '0;
+            x_data       <= '0;
+            start        <= 1'b0;
+            n_voices     <= SLOTS[$clog2(SLOTS+1)-1:0];
+            n_samples    <= '0;
+            n_modes      <= '0;
+            st_zero_mask <= '0;
+            rd_en        <= 1'b0;
+            rd_addr      <= '0;
+            acc          <= '0;
+            led          <= 1'b0;
+        end else begin
+            lfsr  <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
+            led   <= ^acc;
+            start <= 1'b0;
+
+            case (ph)
+                2'd0: begin
+                    co_we   <= 1'b1;
+                    co_addr <= ci;
+                    co_data.a11 <= lfsr;
+                    co_data.a12 <= {lfsr[4:0],  lfsr[31:5]};
+                    co_data.a21 <= {lfsr[8:0],  lfsr[31:9]};
+                    co_data.a22 <= {lfsr[12:0], lfsr[31:13]};
+                    co_data.gq  <= {lfsr[16:0], lfsr[31:17]};
+                    co_data.gv  <= {lfsr[20:0], lfsr[31:21]};
+                    co_data.wo  <= {lfsr[24:0], lfsr[31:25]};
+                    if (ci == TB'(NCO-1)) begin
+                        co_we <= 1'b0; ci <= '0; ph <= 2'd1;
+                    end else ci <= ci + 1'b1;
+                end
+
+                2'd1: begin
+                    x_we   <= 1'b1;
+                    x_addr <= xi;
+                    x_data <= lfsr;
+                    if (xi == XB'(NX-1)) begin
+                        x_we <= 1'b0; xi <= '0; ph <= 2'd2;
+                    end else xi <= xi + 1'b1;
+                end
+
+                default: begin
+                    if (!busy) begin
+                        start        <= 1'b1;
+                        n_voices     <= SLOTS[$clog2(SLOTS+1)-1:0];
+                        n_modes      <= N_MODES[$clog2(N_MODES+1)-1:0];
+                        n_samples    <= 4'd8;
+                        st_zero_mask <= '1;
+                        rd_en        <= 1'b1;
+                        rd_addr      <= rd_addr + 1'b1;
+                    end
+                    if (rd_valid) acc <= acc ^ rd_data;
+                end
+            endcase
         end
     end
 

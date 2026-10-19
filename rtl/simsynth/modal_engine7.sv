@@ -42,13 +42,16 @@
 module modal_engine7 #(
     parameter int   N_MODES  = 48,
     parameter int   X_DEPTH  = 256,
-    parameter logic SATURATE = 1'b1
+    parameter logic SATURATE = 1'b1,
+    // 0 = 不接激励（gq/gv 搬到顶层去做），7 个乘法器降到 5 个
+    parameter bit   USE_X    = 1'b1
 ) (
     input  logic                                     clk,
     input  logic                                     rst_n,
 
     // ---- 作业口（与 modal_bank_ram 同义）----
     input  logic                                     start,
+    input  logic                                     st_zero,      // 1 = 本作业先把状态清零（note-on）
     input  logic [$clog2(X_DEPTH+1)-1:0]             n_samples,
     input  logic [$clog2(N_MODES+1)-1:0]             n_modes,
     output logic                                     done,
@@ -109,10 +112,11 @@ module modal_engine7 #(
     localparam logic signed [AW-1:0] R_WO  = 64'sd1 <<< (SH_WO  - 1);
 
     // ---- 作业状态 ---------------------------------------------------------
-    typedef enum logic [2:0] { S_IDLE, S_X, S_SETUP, S_RUN, S_WB, S_YWR, S_DONE } state_t;
+    typedef enum logic [2:0] { S_IDLE, S_ZERO, S_X, S_SETUP, S_RUN, S_WB, S_YWR, S_DONE } state_t;
     state_t               state;
     logic [IW:0]          ri;            // 读指针 = 流水序号
     logic [IW:0]          si;            // 写回序号 = ri - 4
+    logic [IW:0]          zi;            // 清零 pass 的计数
     logic [JW:0]          fidx;
     logic [JW:0]          n_samp_lat;
     logic [IW:0]          n_mod_lat;
@@ -145,10 +149,10 @@ module modal_engine7 #(
         end else if (mul_en) begin
             p_a11 <= mul64(st_q,    co_data.a11);
             p_a12 <= mul64(st_qdot, co_data.a12);
-            p_gq  <= mul64(x_lat,   co_data.gq);
+            if (USE_X) p_gq <= mul64(x_lat, co_data.gq);
             p_a21 <= mul64(st_q,    co_data.a21);
             p_a22 <= mul64(st_qdot, co_data.a22);
-            p_gv  <= mul64(x_lat,   co_data.gv);
+            if (USE_X) p_gv <= mul64(x_lat, co_data.gv);
             p_wo  <= mul64(st_q,    co_data.wo);
         end
     end
@@ -177,8 +181,8 @@ module modal_engine7 #(
             vn_q  <= '0;
             two_q <= '0;
         end else if (sum_en) begin
-            qn_q  <= t_a11 + t_a12 + t_gq;
-            vn_q  <= t_a21 + t_a22 + t_gv;
+            qn_q  <= t_a11 + t_a12 + (USE_X ? t_gq : '0);
+            vn_q  <= t_a21 + t_a22 + (USE_X ? t_gv : '0);
             two_q <= t_wo;
         end
     end
@@ -193,10 +197,11 @@ module modal_engine7 #(
         st_addr = co_addr;
 
         // W 级：饱和后写回（序号 ri-4）
-        st_we         = wb_en;
-        st_waddr      = si[IW-1:0];
-        st_q_wdata    = SATURATE ? sat_q(qn_q) : qn_q[QW-1:0];
-        st_qdot_wdata = SATURATE ? sat_v(vn_q) : vn_q[VW-1:0];
+        // 写口两个来源：计算写回（ri-4）与 note-on 的清零 pass
+        st_we         = wb_en || (state == S_ZERO);
+        st_waddr      = (state == S_ZERO) ? zi[IW-1:0] : si[IW-1:0];
+        st_q_wdata    = (state == S_ZERO) ? '0 : (SATURATE ? sat_q(qn_q) : qn_q[QW-1:0]);
+        st_qdot_wdata = (state == S_ZERO) ? '0 : (SATURATE ? sat_v(vn_q) : vn_q[VW-1:0]);
 
         x_re   = (state == S_X);
         x_addr = fidx[JW-1:0];
@@ -238,9 +243,16 @@ module modal_engine7 #(
                         ri         <= '0;
                         y_acc      <= '0;
                         y_sum      <= '0;
-                        state      <= S_X;
+                        zi         <= '0;
+                        state      <= st_zero ? S_ZERO : S_X;
                         busy       <= 1'b1;
                     end
+                end
+
+                S_ZERO: begin
+                    // 把本声部的状态清 0（note-on）：N 拍，一次性
+                    if (zi + 1'b1 >= n_mod_lat) state <= S_X;
+                    else                        zi    <= zi + 1'b1;
                 end
 
                 S_X: begin

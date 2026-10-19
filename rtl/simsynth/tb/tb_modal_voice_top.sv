@@ -36,11 +36,6 @@ module tb_modal_voice_top;
     logic [CO_SLOT-1:0]            co_addr;
     coeff_t                        co_data;
 
-    logic                          st_we;
-    logic [CO_SLOT-1:0]            st_addr;
-    logic signed [QW-1:0]          st_q;
-    logic signed [VW-1:0]          st_qdot;
-
     logic                          x_we;
     logic [X_SLOT-1:0]             x_addr;
     logic signed [XW-1:0]          x_data;
@@ -49,9 +44,9 @@ module tb_modal_voice_top;
     logic [$clog2(SLOTS+1)-1:0]    n_voices;
     logic [$clog2(X_DEPTH+1)-1:0]  n_samples;
     logic [$clog2(N_MODES+1)-1:0]  n_modes;
+    logic [SLOTS-1:0]              st_zero_mask;
     logic                          done;
     logic                          busy;
-    logic                          pp;
 
     logic                          rd_en;
     logic [$clog2(X_DEPTH)-1:0]    rd_addr;
@@ -69,10 +64,10 @@ module tb_modal_voice_top;
     modal_voice_top #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .SLOTS(SLOTS)) dut (
         .clk(clk), .rst_n(rst_n),
         .co_we(co_we), .co_addr(co_addr), .co_data(co_data),
-        .st_we(st_we), .st_addr(st_addr), .st_q(st_q), .st_qdot(st_qdot),
         .x_we(x_we), .x_addr(x_addr), .x_data(x_data),
         .start(start), .n_voices(n_voices), .n_samples(n_samples), .n_modes(n_modes),
-        .done(done), .busy(busy), .pp(pp),
+        .st_zero_mask(st_zero_mask),
+        .done(done), .busy(busy),
         .rd_en(rd_en), .rd_addr(rd_addr), .rd_data(rd_data), .rd_valid(rd_valid),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
         .ns_rd_data(ns_rd_data), .ns_rd_valid(ns_rd_valid)
@@ -152,16 +147,6 @@ module tb_modal_voice_top;
         end
         co_we = 1'b0;
 
-        // 旧状态清零（顶层可写的那一份）
-        st_we = 1'b1;
-        for (m = 0; m < nm[slot]; m++) begin
-            st_addr = CO_SLOT'(voice * N_MODES + m);
-            st_q    = '0;
-            st_qdot = '0;
-            @(negedge clk);
-        end
-        st_we = 1'b0;
-
         x_we = 1'b1;
         for (i = 0; i < ns[slot]; i++) begin
             x_addr = X_SLOT'(voice * X_DEPTH + i);
@@ -172,11 +157,12 @@ module tb_modal_voice_top;
         @(negedge clk);
     endtask
 
-    task automatic start_job(input int nv, input int nfr);
-        start     = 1'b1;
-        n_voices  = nv;
-        n_samples = nfr;
-        n_modes   = nm[0];
+    task automatic start_job(input int nv, input int nfr, input logic [SLOTS-1:0] mask);
+        start        = 1'b1;
+        n_voices     = nv;
+        n_samples    = nfr;
+        n_modes      = nm[0];
+        st_zero_mask = mask;
         cyc_cnt   = 0;
         cyc_en    = 1'b1;
         @(negedge clk);
@@ -248,7 +234,7 @@ module tb_modal_voice_top;
     task automatic run_one(input string path, input string tag);
         parse_file(path, 0);
         load_slot(0, 0);
-        start_job(1, ns[0]);
+        start_job(1, ns[0], 1'b1);
         wait_done;
         check_y(0, 0, 0, tag);
         check_state(0, 0, tag);
@@ -260,9 +246,8 @@ module tb_modal_voice_top;
         cyc_cnt = 0;
         cyc_en  = 1'b0;
         co_we = 1'b0; co_addr = '0; co_data = '0;
-        st_we = 1'b0; st_addr = '0; st_q = '0; st_qdot = '0;
         x_we  = 1'b0; x_addr  = '0; x_data = '0;
-        start = 1'b0; n_voices = 1; n_samples = '0; n_modes = '0;
+        start = 1'b0; n_voices = 1; n_samples = '0; n_modes = '0; st_zero_mask = '0;
         rd_en = 1'b0; rd_addr = '0;
         ns_rd_en = 1'b0; ns_rd_addr = '0; ns_rd_sel = 1'b0;
 
@@ -283,7 +268,7 @@ module tb_modal_voice_top;
         parse_file("golden_seq_guitar_1.txt", 1);
         load_slot(0, 0);
         load_slot(1, 1);
-        start_job(2, ns[0]);
+        start_job(2, ns[0], 2'b11);
         wait_done;
         check_y(0, 1, 1, "multi");
         check_state(0, 0, "multi");
@@ -293,7 +278,7 @@ module tb_modal_voice_top;
         parse_file("golden_seq_piano.txt",    0);   // 48 帧，作业够长
         parse_file("golden_seq_guitar_1.txt", 1);
         load_slot(0, 0);
-        start_job(1, ns[0]);
+        start_job(1, ns[0], 1'b1);
         load_slot(1, 1);                            // 引擎还在跑槽 0
         if (busy !== 1'b1) begin
             n_bad++;
@@ -309,7 +294,7 @@ module tb_modal_voice_top;
         // 两个槽整块换掉（换音色时本来也不弹，直接停机刷）
         load_slot(0, 0);                            // 槽 0 <- 吉他
         load_slot(1, 1);                            // 槽 1 <- 钢琴
-        start_job(2, ns[0]);
+        start_job(2, ns[0], 2'b11);
         wait_done;
         check_y(0, 1, 1, "reload");
         check_state(0, 0, "reload");
