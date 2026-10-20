@@ -38,7 +38,12 @@ module tb_string_mode_step;
 
     `define SCAN_FIELDS "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d"
 
-    task automatic step_case(
+        // 黄金向量所在目录（由 +GOLDEN_DIR= 指定，默认当前目录）——
+    // 这样仿真产物可以统一落到 local/scratch，而向量仍留在源码目录
+    string gdir;
+    initial if (!$value$plusargs("GOLDEN_DIR=%s", gdir)) gdir = "";
+
+task automatic step_case(
         input longint signed a11, input longint signed s11,
         input longint signed a12, input longint signed s12,
         input longint signed a21, input longint signed s21,
@@ -81,7 +86,7 @@ module tb_string_mode_step;
         int              nread;
         int              n_here;
         longint signed   f[20];
-        fd = $fopen(path, "r");
+        fd = $fopen({gdir, path}, "r");
         if (fd == 0) begin
             $display("FAIL: cannot open %s", path);
             n_bad++;

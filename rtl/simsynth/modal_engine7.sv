@@ -41,10 +41,7 @@
 
 module modal_engine7 #(
     parameter int   N_MODES  = 48,
-    parameter int   X_DEPTH  = 256,
-    parameter logic SATURATE = 1'b1,
-    // 0 = 不接激励（gq/gv 搬到顶层去做），7 个乘法器降到 5 个
-    parameter bit   USE_X    = 1'b1
+    parameter int   X_DEPTH  = 256
 ) (
     input  logic                                     clk,
     input  logic                                     rst_n,
@@ -145,10 +142,10 @@ module modal_engine7 #(
         end else if (mul_en) begin
             p_a11 <= mul64(st_q,    co_data.a11);
             p_a12 <= mul64(st_qdot, co_data.a12);
-            if (USE_X) p_gq <= mul64(x_lat, co_data.gq);
+            p_gq  <= mul64(x_lat, co_data.gq);
             p_a21 <= mul64(st_q,    co_data.a21);
             p_a22 <= mul64(st_qdot, co_data.a22);
-            if (USE_X) p_gv <= mul64(x_lat, co_data.gv);
+            p_gv  <= mul64(x_lat, co_data.gv);
             p_wo  <= mul64(st_q,    co_data.wo);
         end
     end
@@ -177,8 +174,8 @@ module modal_engine7 #(
             vn_q  <= '0;
             two_q <= '0;
         end else if (sum_en) begin
-            qn_q  <= t_a11 + t_a12 + (USE_X ? t_gq : '0);
-            vn_q  <= t_a21 + t_a22 + (USE_X ? t_gv : '0);
+            qn_q  <= t_a11 + t_a12 + t_gq;
+            vn_q  <= t_a21 + t_a22 + t_gv;
             two_q <= t_wo;
         end
     end
@@ -196,8 +193,8 @@ module modal_engine7 #(
         // 写口两个来源：计算写回（ri-4）与 note-on 的清零 pass
         st_we         = wb_en || (state == S_ZERO);
         st_waddr      = (state == S_ZERO) ? zi[IW-1:0] : si[IW-1:0];
-        st_q_wdata    = (state == S_ZERO) ? '0 : (SATURATE ? sat_q(qn_q) : qn_q[QW-1:0]);
-        st_qdot_wdata = (state == S_ZERO) ? '0 : (SATURATE ? sat_v(vn_q) : vn_q[VW-1:0]);
+        st_q_wdata    = (state == S_ZERO) ? '0 : sat_q(qn_q);
+        st_qdot_wdata = (state == S_ZERO) ? '0 : sat_v(vn_q);
 
         x_re   = (state == S_X);
         x_addr = '0;                       // 一次 start 只跑一个采样；帧号由顶层补进地址

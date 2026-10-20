@@ -89,7 +89,12 @@ module tb_modal_voice_top;
     longint signed   fq [0:1][0:N_MODES-1];
     longint signed   fv [0:1][0:N_MODES-1];
 
-    task automatic rd_int(input int fd, output longint signed v);
+        // 黄金向量所在目录（由 +GOLDEN_DIR= 指定，默认当前目录）——
+    // 这样仿真产物可以统一落到 local/scratch，而向量仍留在源码目录
+    string gdir;
+    initial if (!$value$plusargs("GOLDEN_DIR=%s", gdir)) gdir = "";
+
+task automatic rd_int(input int fd, output longint signed v);
         int nread;
         nread = $fscanf(fd, "%d", v);
         if (nread != 1) begin
@@ -103,7 +108,7 @@ module tb_modal_voice_top;
         longint signed v;
         int            i, m;
 
-        fd = $fopen(path, "r");
+        fd = $fopen({gdir, path}, "r");
         if (fd == 0) begin
             $display("FAIL: cannot open %s", path);
             n_bad++;

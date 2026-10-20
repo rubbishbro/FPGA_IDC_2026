@@ -17,13 +17,13 @@ rtl/simsynth/
   modal_engine7.sv     7 乘法器并联引擎：只算，不存；一次 start 递推一个采样
   modal_voice_top.sv   声部层：多槽存储 + 采样/声部调度（持有全部存储）
   string_mode_step.sv  单模态"并联一步"参考实现（组合、无状态）
-  modal_bank_ram.sv    旧方案 B：RAM 中心化 bank（作业式），保留作黄金向量参考
   fmax_probe.sv        时序探针（clk/rst_n/led + 内部 LFSR）
   tb_*.sv              测试台（配套本目录的 golden_*.txt）
   golden_*.txt         黄金向量（由 local/gen_golden.py 从真实模型生成）
   fmax.sdc fmax200.sdc fmax.cst   时序/引脚约束（可复用）
   FORMAT_ALIGNMENT.md  两套定点约定（本目录 vs rtl/math）的对齐说明
-  local/               本机脚本与临时产物（不入库）：仿真/综合/PnR 脚本、旧的放弃方案模块
+  local/               本机脚本（不入库）：仿真/综合/PnR 脚本、旧的放弃方案模块
+    scratch/           仿真产物（xsim.dir / *.wdb / *.log 全在这里，和源码分开）
 ```
 
 ## 定点格式（逐字段 Q + 32 位尾数）
@@ -127,7 +127,6 @@ rtl/simsynth/
 | 测试 | 结果 |
 |---|---|
 | `tb_string_mode_step` | 64 例（钢琴 32 + 吉他 32）、0 失配 |
-| `tb_modal_bank_ram` | 4 个作业（单帧/48 帧）、0 失配（旧方案参考） |
 | `tb_modal_voice_top` | 7 个作业、0 失配：4 条黄金向量 + 2 声部并行 + 运行中装载 + 停机换音色重刷 |
 
 黄金向量由 `local/gen_golden.py` 从真实模型生成（钢琴走 `sim_piano` 的表、吉他走 `sim_guitar`
@@ -152,9 +151,8 @@ rtl/simsynth/
 # 全部仿真（需要 Vivado xsim）
 pwsh -File rtl/simsynth/local/run_all.ps1
 
-# 单独跑
+# 单独跑（仿真产物都落在 local/scratch，源码目录保持干净）
 pwsh -File rtl/simsynth/local/run_xsim.ps1          # 单模态一步：64 例
-pwsh -File rtl/simsynth/local/run_xsim_ram.ps1      # 旧方案 B：4 作业
 pwsh -File rtl/simsynth/local/run_xsim_engine7.ps1  # 最终方案：7 作业
 
 # 重新生成黄金向量（需要 _analysis/ 里的模型工具）
