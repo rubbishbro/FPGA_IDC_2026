@@ -22,6 +22,7 @@ rtl/simsynth/
   golden_*.txt         黄金向量（由 local/gen_golden.py 从真实模型生成）
   fmax.sdc fmax200.sdc fmax.cst   时序/引脚约束（可复用）
   FORMAT_ALIGNMENT.md  两套定点约定（本目录 vs rtl/math）的对齐说明
+  ROUTER.md            声部路由器（双引擎 + force_pre + QSPI 加载）的设计稿
   local/               本机脚本（不入库）：仿真/综合/PnR 脚本、旧的放弃方案模块
     scratch/           仿真产物（xsim.dir / *.wdb / *.log 全在这里，和源码分开）
 ```
