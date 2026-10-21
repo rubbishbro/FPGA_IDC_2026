@@ -69,20 +69,22 @@ module eng1_lane_core #(
     output logic [5:0]            sat_count
 );
 
-    localparam logic [2:0] S_IDLE = 3'd0,
-                           S_REQ  = 3'd1,
-                           S_CAP  = 3'd2,
-                           S_M1   = 3'd3,
-                           S_M2   = 3'd4,
-                           S_M3   = 3'd5,
-                           S_FIN  = 3'd6,
-                           S_DONE = 3'd7;
+    localparam logic [3:0] S_IDLE  = 4'd0,
+                           S_REQ   = 4'd1,
+                           S_CAP   = 4'd2,
+                           S_M1    = 4'd3,
+                           S_M2    = 4'd4,
+                           S_M3    = 4'd5,
+                           S_FIN1  = 4'd6,
+                           S_FIN2  = 4'd7,
+                           S_FIN3  = 4'd8,
+                           S_DONE  = 4'd9;
 
     localparam logic signed [63:0] YMIN = -64'sd2147483648;
     localparam logic signed [63:0] YMAX =  64'sd2147483647;
     localparam logic signed [63:0] ROUND = 64'sd8388608;
 
-    logic [2:0]  st;
+    logic [3:0]  st;
     logic [MW-1:0] lc;
     logic [AW-1:0] mi;
     logic [VW-1:0] voice_r;
@@ -98,10 +100,12 @@ module eng1_lane_core #(
     logic signed [63:0] ps;
     logic [5:0]         sat;
 
-    logic signed [63:0] sum_final;
+    logic signed [63:0] diff;
     logic signed [63:0] shifted;
     logic               sat_now;
     logic signed [31:0] ynew;
+    logic signed [31:0] ynew_r;
+    logic               sat_r;
 
     // 局部 mode 数量：n_modes 内满足 k%LANES==LANE 的个数
     function automatic [MW-1:0] count_for(input [MW-1:0] nm);
@@ -122,9 +126,9 @@ module eng1_lane_core #(
 
     assign rd_re   = (st == S_REQ);
     assign rd_addr = voice_r * LOCAL + mi[AW-1:0];
-    assign st_we   = (st == S_FIN);
+    assign st_we   = (st == S_FIN3);
     assign st_addr = voice_r * LOCAL + mi[AW-1:0];
-    assign st_data = {y1_c, ynew};          // {y2_new, y1_new}
+    assign st_data = {y1_c, ynew_r};          // {y2_new, y1_new}
 
     assign done   = (st == S_DONE);
     assign busy   = (st != S_IDLE) && (st != S_DONE);
@@ -164,10 +168,9 @@ module eng1_lane_core #(
             prod_r <= csel * osel;
     end
 
-    // 最终加法/舍入/饱和（S_FIN 的组合）
+    // 移位/舍入/饱和（S_FIN2 的组合；64-bit 减法已在 S_FIN1 寄存）
     always_comb begin
-        sum_final = acc - prod_r;
-        shifted   = (sum_final + ROUND) >>> 24;
+        shifted   = (diff + ROUND) >>> 24;
         sat_now   = (shifted > YMAX) || (shifted < YMIN);
         if (shifted > YMAX)       ynew = 32'sh7FFFFFFF;
         else if (shifted < YMIN)  ynew = 32'sh80000000;
@@ -188,6 +191,9 @@ module eng1_lane_core #(
             y2_c         <= 32'sd0;
             acc          <= 64'sd0;
             ps           <= 64'sd0;
+            diff         <= 64'sd0;
+            ynew_r       <= 32'sd0;
+            sat_r        <= 1'b0;
             sat          <= 6'd0;
             commit_valid <= 1'b0;
             commit_voice_r <= {VW{1'b0}};
@@ -236,21 +242,30 @@ module eng1_lane_core #(
 
                 S_M3: begin
                     acc <= acc - prod_r;    // -a1*y1
-                    st  <= S_FIN;
+                    st  <= S_FIN1;
                 end
 
-                S_FIN: begin
-                    // acc - prod_r = -a2*y2 后的最终值
-                    acc <= sum_final;
-                    ps  <= ps + {{32{ynew[31]}}, ynew};
-                    if (sat_now) sat <= sat + 6'd1;
+                S_FIN1: begin
+                    diff <= acc - prod_r;   // 最终 64-bit 减法
+                    st   <= S_FIN2;
+                end
 
-                    commit_valid  <= 1'b1;
+                S_FIN2: begin
+                    ynew_r <= ynew;         // 舍入/移位/饱和
+                    sat_r  <= sat_now;
+                    st     <= S_FIN3;
+                end
+
+                S_FIN3: begin
+                    ps <= ps + {{32{ynew_r[31]}}, ynew_r};
+                    if (sat_r) sat <= sat + 6'd1;
+
+                    commit_valid   <= 1'b1;
                     commit_voice_r <= voice_r;
                     commit_mode_r  <= mi * LANES + LANE;
-                    commit_y1_r    <= ynew;
+                    commit_y1_r    <= ynew_r;
                     commit_y2_r    <= y1_c;
-                    commit_sat_r   <= sat_now;
+                    commit_sat_r   <= sat_r;
 
                     if ((mi + 1'b1) >= lc) begin
                         st <= S_DONE;

@@ -183,12 +183,19 @@ module eng1_engine_top #(
     endgenerate
 
     // ---- 调度 ----
-    typedef enum logic [2:0] { S_IDLE, S_START, S_WAIT, S_SUM, S_DONE } state_t;
+    typedef enum logic [3:0] { S_IDLE, S_START, S_WAIT, S_MIXADD, S_MIXENV, S_ENVPART, S_MIXMIX, S_SUM, S_DONE } state_t;
     state_t state;
     logic [NUM_SLOTS-1:0] active_r;
     logic armed;
     logic signed [63:0] mix_acc;
     logic [SW-1:0] sat_acc;
+    logic [LANES*64-1:0] lane_ps_r;
+    logic [LANES*6-1:0]  lane_sat_r;
+    logic [1:0]          mix_idx;
+    logic signed [63:0]  ps_acc, ps_r, vsum_r;
+    logic [5:0]          sat_tmp, sat_r;
+    logic signed [47:0]  env_hi;
+    logic        [47:0]  env_lo;
 
     logic [VW-1:0] next_v;
     logic          next_found;
@@ -208,9 +215,18 @@ module eng1_engine_top #(
         input logic signed [63:0] s,
         input logic [15:0]        g
     );
+        logic signed [31:0] sh;
+        logic        [31:0] sl;
+        logic signed [47:0] ph, pl;
         logic signed [79:0] p, r;
         begin
-            p = s * $signed({1'b0, g});
+            // 64x16 拆成两个 32x16，缩短单级乘法路径。
+            sh = s[63:32];
+            sl = s[31:0];
+            ph = sh * $signed({1'b0, g});
+            pl = sl * g;
+            p  = ($signed({{32{ph[47]}}, ph}) <<< 32)
+               + $signed({32'b0, pl});
             r = (p + 80'sd16384) >>> 15;
             if (r > 80'sd9223372036854775807)
                 apply_env = 64'sh7FFFFFFFFFFFFFFF;
@@ -218,6 +234,24 @@ module eng1_engine_top #(
                 apply_env = 64'sh8000000000000000;
             else
                 apply_env = r[63:0];
+        end
+    endfunction
+
+    function automatic logic signed [63:0] env_combine(
+        input logic signed [47:0] hi,
+        input logic        [47:0] lo
+    );
+        logic signed [79:0] p, r;
+        begin
+            p = ($signed({{32{hi[47]}}, hi}) <<< 32) +
+                $signed({32'b0, lo});
+            r = (p + 80'sd16384) >>> 15;
+            if (r > 80'sd9223372036854775807)
+                env_combine = 64'sh7FFFFFFFFFFFFFFF;
+            else if (r < -80'sd9223372036854775808)
+                env_combine = 64'sh8000000000000000;
+            else
+                env_combine = r[63:0];
         end
     endfunction
 
@@ -243,6 +277,16 @@ module eng1_engine_top #(
             x_r           <= '0;
             nm_r          <= '0;
             mix_acc       <= 64'sd0;
+            lane_ps_r    <= '0;
+            lane_sat_r   <= '0;
+            mix_idx      <= 2'd0;
+            ps_acc       <= 64'sd0;
+            ps_r         <= 64'sd0;
+            vsum_r       <= 64'sd0;
+            sat_tmp      <= 6'd0;
+            sat_r        <= 6'd0;
+            env_hi       <= 48'sd0;
+            env_lo       <= 48'd0;
             sat_acc       <= {SW{1'b0}};
             out_valid     <= 1'b0;
             mix_sum       <= 64'sd0;
@@ -285,13 +329,45 @@ module eng1_engine_top #(
                     if (!armed) begin
                         armed <= 1'b1;
                     end else if (&lane_done) begin
-                        voice_sum <= vsum;
-                        voice_id  <= vcur;
-                        voice_valid <= 1'b1;
-                        mix_acc   <= mix_acc + vsum;
-                        sat_acc   <= sat_acc + sat_sum;
-                        state     <= S_SUM;
+                        lane_ps_r  <= lane_ps;
+                        lane_sat_r <= lane_sat;
+                        voice_id   <= vcur;
+                        mix_idx    <= 2'd0;
+                        ps_acc     <= 64'sd0;
+                        sat_tmp    <= 6'd0;
+                        state      <= S_MIXADD;
                     end
+                end
+
+                S_MIXADD: begin
+                    ps_acc  <= ps_acc + $signed(lane_ps_r[mix_idx*64 +: 64]);
+                    sat_tmp <= sat_tmp + lane_sat_r[mix_idx*6 +: 6];
+                    if (mix_idx == LANES-1) begin
+                        ps_r   <= ps_acc + $signed(lane_ps_r[(LANES-1)*64 +: 64]);
+                        sat_r  <= sat_tmp + lane_sat_r[(LANES-1)*6 +: 6];
+                        state  <= S_MIXENV;
+                    end else begin
+                        mix_idx <= mix_idx + 1'b1;
+                    end
+                end
+
+                S_MIXENV: begin
+                    env_hi <= ps_r[63:32] * $signed({1'b0, env_gain_vec[voice_id*16 +: 16]});
+                    env_lo <= ps_r[31:0]  * env_gain_vec[voice_id*16 +: 16];
+                    state  <= S_ENVPART;
+                end
+
+                S_ENVPART: begin
+                    vsum_r <= env_combine(env_hi, env_lo);
+                    state  <= S_MIXMIX;
+                end
+
+                S_MIXMIX: begin
+                    mix_acc     <= mix_acc + vsum_r;
+                    sat_acc     <= sat_acc + sat_r;
+                    voice_sum   <= vsum_r;
+                    voice_valid <= 1'b1;
+                    state       <= S_SUM;
                 end
 
                 S_SUM: begin

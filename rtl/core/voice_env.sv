@@ -32,7 +32,10 @@ module voice_env (
     logic        c_rel_r;
     logic [31:0] target;
     logic [23:0] step;
+    logic [31:0] target_r;
+    logic [23:0] step_r;
     logic signed [32:0] diff;
+    logic signed [32:0] diff_r;
     logic signed [57:0] env_inc;
     logic signed [32:0] env_next;
 
@@ -56,8 +59,9 @@ module voice_env (
         end
     end
 
-    assign diff    = $signed({1'b0, target}) - $signed({1'b0, env});
-    assign env_inc = diff * $signed({1'b0, step});
+    // 两级流水：target/step 先寄存，diff 再寄存，乘法→env 更新单独一级。
+    assign diff    = $signed({1'b0, target_r}) - $signed({1'b0, env});
+    assign env_inc = diff_r * $signed({1'b0, step_r});
     assign env_next = $signed({1'b0, env}) + (env_inc >>> 24);
 
     // gain = round(env / 2^17)，clamp 到 0x8000
@@ -68,11 +72,17 @@ module voice_env (
         if (!rst_n) begin
             env     <= 32'd0;
             c_rel_r <= 1'b0;
+            target_r <= 32'd0;
+            step_r   <= 24'd0;
+            diff_r   <= 33'sd0;
         end else if (start) begin
             c_rel_r <= 1'b0;
             if (is_a || is_c) env <= 32'hFFFF_FFFF;
             else              env <= 32'd0;
         end else begin
+            target_r <= target;
+            step_r   <= step;
+            diff_r   <= diff;
             if (is_c && c_release) c_rel_r <= 1'b1;
             if (!is_a) begin
             if (env_next > 33'sh0_FFFF_FFFF)
