@@ -275,7 +275,7 @@ module router_system_top #(
     wire [63:0] e2_seed_data_use = (class_r == 2'd3) ? e2_seed_word_ld : e2_seed_data;
     wire [NUM_SLOTS*MW_E2-1:0] e2_nmodes_use = (class_r == 2'd3) ? e2_nm : e2_nmodes;
 
-    engines_system_top #(
+    shared_engines_system_top #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
         .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W),
         .C_SEED_FILE(C_SEED_FILE)

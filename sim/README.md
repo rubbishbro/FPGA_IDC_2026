@@ -1,6 +1,8 @@
 # sim — 新 ENG1/ENG2 引擎回归
 
-只保留新四引擎架构的 iverilog 测试；旧 demo、旧 `rtl/synth`、旧 `modal_engine` 测试已删除。
+只保留共享 RAM 新架构的 iverilog 测试；旧并行 top 测试已归档到 `history/sim/unit/core_legacy/`。
+
+当前 16 PASS / 1 FAIL：`tb_router_system_top` 的 A 路径失败（`mix=0`），等待 scheduler/A 包络修复。
 
 ## 测试入口
 
@@ -9,35 +11,21 @@
 IVERILOG=/path/to/iverilog VVP=/path/to/vvp bash sim/run_core.sh
 ```
 
-当前 31 项：
+当前 17 项：
 
 ```text
 tb_modal_ram
 tb_modal_ram_aux
 tb_eng1_lane_core
-tb_eng1_engine_top
-tb_eng1_xvel
 tb_voice_env
-tb_eng1_engine_env_top
-tb_engine_mix_sum
 tb_b_front
 tb_b_a1_ram
-tb_c_engine_top
-tb_b_engine_top
-tb_abc_engines_top
-tb_eng2_engine_top
-tb_four_engines_top
-tb_voice_router
-tb_engines_system_top
 tb_seed_rom
 tb_c_seed_loader
 tb_a_router_loader
 tb_bc_router_loader
-tb_router_system_top
-tb_router_system_b
-tb_router_system_c
-tb_router_system_e2
 tb_e2_router_loader
+tb_router_system_top
 tb_shared_modal_ram
 tb_shared_engine_mvp
 tb_b_engine_top_ext
