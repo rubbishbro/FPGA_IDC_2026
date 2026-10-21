@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# New ENG1/ENG2 core regression (24 Icarus tests).
+# New ENG1/ENG2 core regression (28 Icarus tests).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -53,3 +53,5 @@ run tb_router_system_top $(echo "$COMMON") sim/unit/core/tb_router_system_top.sv
 run tb_router_system_b $(echo "$COMMON") sim/unit/core/tb_router_system_b.sv
 run tb_router_system_c $(echo "$COMMON") sim/unit/core/tb_router_system_c.sv
 run tb_router_system_e2 $(echo "$COMMON") sim/unit/core/tb_router_system_e2.sv
+run tb_shared_modal_ram rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv sim/unit/core/tb_shared_modal_ram.sv
+run tb_shared_engine_mvp rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/eng2_engine_top_ext.sv rtl/core/shared_engine_mvp.sv sim/unit/core/tb_shared_engine_mvp.sv

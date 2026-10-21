@@ -1,6 +1,6 @@
 # ENG1 / ENG2 统一架构（2026-10-21）
 
-> 状态：**已完成（R2–R5）**；新 engine 架构 26 个 iverilog 测试通过；旧 demo/board top/旧 engine 路径已删除。
+> 状态：**已完成（R2–R5）**；新 engine 架构 28 个 iverilog 测试通过；旧 demo/board top/旧 engine 路径已删除。
 > 目标：A/B/C/ENG2 **四个独立引擎**共用同一套“RAM 层 + 纯计算 core”结构；
 > 全局 **16 voice**，每引擎物理 **16 slot**；每引擎 **4 lane**；记录 **9×32 bit**。
 
@@ -169,7 +169,9 @@ n=32 时总计约 **99 KiB**；n=48 时约 **126 KiB**。
   - `tb_router_system_b.sv` PASS（B：control/NCO/AR -> 非零 mix）；
   - `tb_router_system_c.sv` PASS（C：index/control/seed -> seed loader -> timer -> 非零 mix）；
   - `tb_router_system_e2.sv` PASS（E2：class=3 index/coeff/seed -> ENG2 -> 非零 mix）；
-  - `tb_e2_router_loader.sv` PASS（E2 7×32 coeff -> 9×32 + seed）。
-- **当前回归 26 项全 PASS**。
+  - `tb_e2_router_loader.sv` PASS（E2 7×32 coeff -> 9×32 + seed）；
+  - `tb_shared_modal_ram.sv` PASS（单份 9×32，共享 field/state/seed）；
+  - `tb_shared_engine_mvp.sv` PASS（同一份 RAM 上 A + E2 顺序跑，单尾部加法器）。
+- **当前回归 28 项全 PASS**。
 - **旧 `rtl/synth` 迁移路径已删除**（含 `synth_top`/`eng1_voice_top`/`eng2_voice_top`）；
   旧 `audio_demo_core` / `board_top` / `top` / 旧 `modal_engine` 路径已删除；当前只保留新四引擎 RTL 与测试，未包含新 demo/board top。

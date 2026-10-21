@@ -20,6 +20,10 @@ rtl/core/
   c_engine_top.sv + c_voice_timer/c_seed_loader/seed_rom
   eng2_engine_top.sv        ENG2 9×32 + modal_engine7
   e2_router_loader.sv       ENG2 index/seed + 224-bit coeff loader
+  shared_modal_ram.sv       单份 9×32 共享 RAM（depth 320）
+  eng1_engine_top_ext.sv    ENG1 外置 RAM 版本
+  eng2_engine_top_ext.sv    ENG2 外置 RAM 版本
+  shared_engine_mvp.sv      A/E2 共享 RAM MVP + 单尾部加法器
   class_loader.sv / class_loader64.sv
   a_router_loader.sv / bc_router_loader.sv
   engine_mix_sum.sv
