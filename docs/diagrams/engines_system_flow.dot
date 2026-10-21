@@ -1,0 +1,86 @@
+digraph engines_system {
+    graph [
+        fontname="Noto Sans CJK TC", fontsize=18,
+        rankdir=TB, compound=true, newrank=true,
+        nodesep=0.35, ranksep=0.55, size="15,13", bgcolor="white", pad=0.25
+    ];
+    node [shape=box, style="rounded,filled", fontname="Noto Sans CJK TC",
+          fontsize=10, margin="0.10,0.06", color="#4a5568", fillcolor="#edf2f7"];
+    edge [fontname="Noto Sans CJK TC", fontsize=8, color="#4a5568", arrowsize=0.7];
+
+    subgraph cluster_top {
+        label="router_system_top  （顶层：表装载 + 全局 16 voice + 四引擎 + 汇总）";
+        fontsize=13; color="#2b6cb0"; style="rounded"; fillcolor="#ebf8ff";
+
+        event [label="load event\nclass / voice / inst / note / vel / dyn", fillcolor="#bee3f8"];
+        rom [label="ROM 表\nA: modal_index / modal_coeff\nB/C: index / ctrl / coeff / seed", shape=cylinder, fillcolor="#fefcbf"];
+
+        subgraph cluster_front {
+            label="表装载 / 路由前端";
+            fontsize=11; color="#2b6cb0"; style="rounded,dashed"; fillcolor="#ebf8ff";
+            a_ld [label="a_router_loader\nclass_loader（A 20-bit index）\n→ 9×32 记录", fillcolor="#c6f6d5"];
+            bc_ld [label="bc_router_loader\nclass_loader64（B/C 64-bit index）\n→ 9×32 + ctrl + seed", fillcolor="#c6f6d5"];
+        }
+
+        subgraph cluster_sys {
+            label="engines_system_top";
+            fontsize=12; color="#2f855a"; style="rounded"; fillcolor="#f0fff4";
+            vr [label="voice_router\n全局 16 voice\nactive / class / gate", fillcolor="#9ae6b4"];
+
+            subgraph cluster_four {
+                label="four_engines_top  （每引擎 16 物理 slot / 4 lane / 9×32 记录）";
+                fontsize=11; color="#6b46c1"; style="rounded"; fillcolor="#faf5ff";
+
+                subgraph cluster_abc {
+                    label="abc_engines_top";
+                    fontsize=10; color="#805ad5"; style="rounded,dashed"; fillcolor="#faf5ff";
+                    a_eng [label="A\neng1_engine_env_top\n├ eng1_engine_top\n├ eng1_lane_core ×4\n├ modal_ram（9×32 / 4 lane）\n└ voice_env_bank（voice_env ×16）", fillcolor="#e9d8fd"];
+                    b_eng [label="B\nb_engine_top\n├ b_front / b_x_pool / b_voice_ctrl\n├ b_a1_refresh / b_a1_engine\n├ b_a1_ram_engine\n└ eng1_engine_env_top（复用 9×32）", fillcolor="#e9d8fd"];
+                    c_eng [label="C\nc_engine_top\n├ c_voice_timer\n├ c_seed_loader + seed_rom\n└ eng1_engine_env_top（复用 9×32）", fillcolor="#e9d8fd"];
+                }
+
+                e2 [label="ENG2\neng2_engine_top\n├ modal_ram（STATE_FIRST=7）\n└ modal_engine7（7×mult / 5-stage）", fillcolor="#fed7d7"];
+
+                { rank=same; a_eng; b_eng; c_eng; e2; }
+                a_eng -> b_eng -> c_eng [style=invis];
+
+                sum_abc [label="engine_mix_sum\nNUM_ENGINES=3", fillcolor="#fbd38d"];
+                sum_all [label="engine_mix_sum\nNUM_ENGINES=2", fillcolor="#fbd38d"];
+            }
+        }
+
+        mix_out [label="mix_sum\n64-bit mono", fillcolor="#f6ad55"];
+        reverb [label="reverb_top\n（下一阶段：后级混响）", shape=box, style="rounded,dashed", color="#c53030", fillcolor="#fff5f5"];
+
+        // ---- 主数据流 ----
+        event -> a_ld;
+        event -> bc_ld;
+        rom -> a_ld [style=dotted];
+        rom -> bc_ld [style=dotted];
+
+        a_ld -> a_eng [label="cfg / clr", color="#2b6cb0"];
+        bc_ld -> b_eng [label="cfg / clr / seed / ctrl", color="#2b6cb0"];
+        bc_ld -> c_eng [label="cfg / clr / seed", color="#2b6cb0"];
+
+        vr -> a_eng [label="active / gate", color="#2f855a", style=dashed];
+        vr -> b_eng [label="active / gate", color="#2f855a", style=dashed];
+        vr -> c_eng [label="active / gate", color="#2f855a", style=dashed];
+        vr -> e2  [label="active / gate", color="#2f855a", style=dashed];
+
+        a_eng -> sum_abc;
+        b_eng -> sum_abc;
+        c_eng -> sum_abc;
+        sum_abc -> sum_all [label="A/B/C"];
+        e2 -> sum_all [label="ENG2"];
+        sum_all -> mix_out;
+        mix_out -> reverb [label="wet/dry 后级", style=dashed, color="#c53030"];
+
+        // ENG2 当前仍是外部 cfg（下一阶段接入 router）
+        e2_ext [label="ENG2 cfg / seed\n当前外部输入", shape=note, fillcolor="#fff5f5", color="#c53030"];
+        e2_ext -> e2 [style=dashed, color="#c53030", label="下一阶段\nE2 router loader"];
+    }
+
+    // 用不可见边固定主链层级，避免 cluster 乱跳
+    edge [style=invis];
+    event -> a_ld; a_ld -> vr; vr -> a_eng; a_eng -> sum_abc; sum_abc -> sum_all; sum_all -> mix_out; mix_out -> reverb;
+}

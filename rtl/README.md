@@ -1,19 +1,32 @@
-# 硬件代码说明
+# rtl — 新 ENG1/ENG2 引擎架构
 
-**项目进度、资源占用和验收结论只看[工程汇报](../docs/工程汇报.md)。**本目录不再并列维护轮次汇报。
+当前只保留新四引擎路径；旧 demo、板级顶层、旧 `modal_engine`/`poly_modal_lane` 已删除。
 
-| 目录 | 内容 |
-|---|---|
-| `core/` | 模态运算、系数装载、调度和共享箱体 |
-| `audio/` | 歌曲调度、跨域FIFO和音频接口 |
-| `platform/tang_mega_138k_pro/` | 板级顶层、PLL、约束及独立诊断工程 |
-| `rom/` | 系数与索引初始化数据 |
+```text
+rtl/core/
+  router_system_top.sv      顶层：A/B/C 表装载 + 事件 + 四引擎 + 汇总
+  engines_system_top.sv     voice_router + four_engines_top
+  four_engines_top.sv       A/B/C + ENG2
+  abc_engines_top.sv        A/B/C
+  voice_router.sv           全局 16 voice
+  modal_record_pkg.sv       9×32 记录
+  modal_ram.sv              每 lane 9×32 BSRAM
+  eng1_lane_core.sv         A/B/C 单乘法器 lane
+  eng1_engine_top.sv        16 voice / 4 lane 调度
+  eng1_engine_env_top.sv    engine + envelope
+  voice_env.sv / voice_env_bank.sv
+  b_engine_top.sv + b_front/b_x_pool/b_voice_ctrl
+  b_a1_refresh/b_a1_engine/b_a1_ram_engine
+  c_engine_top.sv + c_voice_timer/c_seed_loader/seed_rom
+  eng2_engine_top.sv        ENG2 9×32 + modal_engine7
+  class_loader.sv / class_loader64.sv
+  a_router_loader.sv / bc_router_loader.sv
+  engine_mix_sum.sv
+rtl/simsynth/
+  modal_step_pkg.sv         E2 系数/状态格式
+  modal_engine7.sv          E2 7 乘法/5 级流水纯计算
+rtl/math/pkg/fxp_pkg.sv     定点工具
+rtl/rom/                    A/B 系数、index、seed 数据
+```
 
-## 开发时查阅的规格
-
-- [冻结设计约定](DECISIONS.md)：以此为准；未冻结项由作者决定，AI不擅自假设。
-- [单声部运算阵列规格](module2A_design.md) / [系数装载与多声部调度规格](module2BC_design.md)。
-- [共享箱体规格](body_design.md) / [音频启动规格](audio_bringup_design.md)。
-- [代码衔接架构](../CODE_ARCHITECTURE.md) / [仿真环境与用法](../sim/README.md)。
-
-AI按冻结规格实现并提供逐位验证，作者审查和判定。数值参考为`python/modal_sim/fixed_point.py`，不能将实现者自测当作独立验收。早期算法说明、推进路线及各轮报告已保存在[历史归档](../docs/archive/2026-10/)，日常不必逐份阅读。
+测试：`sim/run_core.sh`（24 项）。Gowin 探针：`sim/synth/`。
