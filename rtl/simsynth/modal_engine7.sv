@@ -232,7 +232,8 @@ module modal_engine7 #(
                         y_acc      <= '0;
                         y_sum      <= '0;
                         zi         <= '0;
-                        state      <= st_zero ? S_ZERO : S_X;
+                        if (st_zero) state <= S_ZERO;
+                        else         state <= S_X;
                     end
                 end
 

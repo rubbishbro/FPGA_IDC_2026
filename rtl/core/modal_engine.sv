@@ -25,6 +25,18 @@ module modal_engine #(
     parameter int INDEX_DEPTH = 1024,
     parameter COEFF_FILE = "rtl/rom/modal_coeff.mem",
     parameter INDEX_FILE = "rtl/rom/modal_index.mem",
+    parameter bit USE_BC = 1'b0,
+    parameter bit USE_BUF = 1'b0,
+    parameter int BC_COEFF_DEPTH = 5483,
+    parameter int BC_INDEX_DEPTH = 8192,
+    parameter int BC_CTRL_DEPTH = 1024,
+    parameter int BC_SEED_DEPTH = 1152,
+    parameter BC_COEFF_FILE = "rtl/rom/b_coeff.mem",
+    parameter BC_INDEX_FILE = "rtl/rom/b_index.mem",
+    parameter BC_CTRL_FILE = "rtl/rom/b_ctrl.mem",
+    parameter BC_SEED_FILE = "rtl/rom/c_seed.mem",
+    parameter int A1_THETA_DEPTH = 5483,
+    parameter A1_THETA_FILE = "",
     parameter int MW = (N_MODES < 1) ? 1 : $clog2(N_MODES + 1),
     parameter int VW = (NUM_VOICES < 2) ? 1 : $clog2(NUM_VOICES),
     parameter int SW = $clog2(NUM_VOICES * N_MODES + 1)
@@ -40,6 +52,8 @@ module modal_engine #(
     input  logic [6:0]             load_midi,
     input  logic                   load_dyn,       // 采样层
     input  logic [7:0]             load_vel,       // 8-bit 压力力度
+    input  logic [1:0]             load_class,     // 0=A，1=B，2=C
+    input  logic [11:0]            load_note_id,
     output logic                   busy,
     output logic                   load_done,
     output logic [VW-1:0]          done_voice,
@@ -65,6 +79,17 @@ module modal_engine #(
     output logic [127:0]           commit_y1,
     output logic [127:0]           commit_y2,
     output logic [3:0]             commit_sat,
+    output logic [255:0]           commit_ctrl,
+    input  logic [VW-1:0]          ctrl_rd_voice,
+    output logic [255:0]           ctrl_rd_data,
+    output logic [NUM_VOICES*256-1:0] ctrl_flat,
+    input  logic [15:0]            b_ratio,
+    input  logic                   a1_enable,
+    output logic                   a1_active,
+    output logic                   a1_done,
+    output logic                   buf_rd_en,
+    output logic [15:0]            buf_rd_addr,
+    input  logic [71:0]            buf_rd_data,
 
     output logic                   error_valid,
     output logic [2:0]             error_code
@@ -75,6 +100,9 @@ module modal_engine #(
     logic [1:0]     estate;
     logic [NUM_VOICES-1:0] voice_loaded;
     logic [MW-1:0]  voice_nm [0:NUM_VOICES-1];
+    logic [255:0]   voice_ctrl [0:NUM_VOICES-1];
+    logic [1:0]     voice_class [0:NUM_VOICES-1];
+    logic [15:0]    voice_theta_base [0:NUM_VOICES-1];
     logic           error4_r;
 
     logic [NUM_VOICES-1:0]    act_r;
@@ -94,7 +122,8 @@ module modal_engine #(
     logic [MW-1:0]          ld_cfg_mode;
     logic [71:0]            ld_cfg_word;
     logic                   ld_busy, ld_error_valid;
-    logic [1:0]             ld_error_code;
+    logic [2:0]             ld_error_code;
+    logic [15:0]            ld_theta_base;
 
     logic                   bk_busy, bk_error_valid, bk_sample_ready;
     logic                   bk_out_valid, bk_voice_valid;
@@ -151,29 +180,49 @@ module modal_engine #(
     wire [NUM_VOICES*MW-1:0] nm_vec = nm_vec_r;
 
     // ------------------------------------------------------------------
-    // 系数 loader
+    // 统一 loader（E1：A 路径；Event 由旧端口合成）
     // ------------------------------------------------------------------
-    coeff_loader #(
+    logic                   ld_seed_valid, ld_seed_ready;
+    logic [VW-1:0]          ld_seed_voice;
+    logic [MW-1:0]          ld_seed_mode;
+    logic [63:0]            ld_seed_word;
+
+    class_loader_mux #(
         .NUM_VOICES(NUM_VOICES),
         .N_MODES(N_MODES),
+        .USE_BC(USE_BC),
+        .USE_BUF(USE_BUF),
         .COEFF_DEPTH(COEFF_DEPTH),
         .INDEX_DEPTH(INDEX_DEPTH),
         .COEFF_FILE(COEFF_FILE),
-        .INDEX_FILE(INDEX_FILE)
+        .INDEX_FILE(INDEX_FILE),
+        .BC_COEFF_DEPTH(BC_COEFF_DEPTH),
+        .BC_INDEX_DEPTH(BC_INDEX_DEPTH),
+        .BC_CTRL_DEPTH(BC_CTRL_DEPTH),
+        .BC_SEED_DEPTH(BC_SEED_DEPTH),
+        .BC_COEFF_FILE(BC_COEFF_FILE),
+        .BC_INDEX_FILE(BC_INDEX_FILE),
+        .BC_CTRL_FILE(BC_CTRL_FILE),
+        .BC_SEED_FILE(BC_SEED_FILE)
     ) u_loader (
         .clk          (clk),
         .rst_n        (rst_n),
         .load_valid   (load_valid && (estate == E_IDLE) && !bk_busy),
         .load_ready   (),
+        .ev_class     (load_class),
+        .ev_layer     ({1'b0, load_dyn}),
+        .ev_instrument({2'b00, load_instrument}),
+        .ev_note      (load_midi),
+        .ev_velocity  (load_vel),
+        .ev_note_id   (load_note_id),
+        .ev_gate      (1'b1),
+        .ev_event_type(2'd0),
         .load_voice   (load_voice),
-        .load_instrument(load_instrument),
-        .load_midi    (load_midi),
-        .load_dyn     (load_dyn),
-        .load_vel     (load_vel),
         .busy         (ld_busy),
         .load_done    (load_done),
         .done_voice   (done_voice),
         .loaded_n_modes(loaded_n_modes),
+        .theta_base   (ld_theta_base),
         .error_valid  (ld_error_valid),
         .error_code   (ld_error_code),
         .clear_valid  (ld_clear_valid),
@@ -183,7 +232,63 @@ module modal_engine #(
         .cfg_ready    (ld_cfg_ready),
         .cfg_voice    (ld_cfg_voice),
         .cfg_mode     (ld_cfg_mode),
-        .cfg_word     (ld_cfg_word)
+        .cfg_word     (ld_cfg_word),
+        .seed_valid   (ld_seed_valid),
+        .seed_ready   (ld_seed_ready),
+        .seed_voice   (ld_seed_voice),
+        .seed_mode    (ld_seed_mode),
+        .buf_rd_en    (buf_rd_en),
+        .buf_rd_addr  (buf_rd_addr),
+        .buf_rd_data  (buf_rd_data),
+        .seed_word    (ld_seed_word),
+        .commit_valid (),
+        .commit_class (),
+        .commit_layer (),
+        .commit_instrument(),
+        .commit_note  (),
+        .commit_velocity(),
+        .commit_note_id(),
+        .commit_n_modes(),
+        .commit_ctrl  (commit_ctrl)
+    );
+
+    // ------------------------------------------------------------------
+    // B a1 刷新：θ ROM + a1 shadow 写
+    // ------------------------------------------------------------------
+    logic [NUM_VOICES*2-1:0]  class_flat;
+    logic [NUM_VOICES*16-1:0] theta_flat;
+    logic [NUM_VOICES-1:0]    b_mask;
+    logic        a1_rd_en, a1_rd_valid;
+    logic [VW-1:0] a1_rd_voice;
+    logic [MW-1:0] a1_rd_mode;
+    logic [71:0] a1_rd_data;
+    logic        a1_we, a1_ready;
+    logic [VW-1:0] a1_voice;
+    logic [MW-1:0] a1_mode;
+    logic [21:0] a1_data;
+
+    genvar ga;
+    generate
+        for (ga = 0; ga < NUM_VOICES; ga = ga + 1) begin : g_a1map
+            assign class_flat[ga*2 +: 2] = voice_class[ga];
+            assign theta_flat[ga*16 +: 16] = voice_theta_base[ga];
+            assign b_mask[ga] = (voice_class[ga] == 2'd1);
+        end
+    endgenerate
+
+    b_a1_engine #(
+        .NUM_VOICES(NUM_VOICES), .N_MODES(N_MODES),
+        .COEFF_DEPTH(COEFF_DEPTH), .THETA_DEPTH(A1_THETA_DEPTH),
+        .THETA_FILE(A1_THETA_FILE)
+    ) u_a1 (
+        .clk(clk), .rst_n(rst_n),
+        .class_vec(class_flat), .theta_base_vec(theta_flat),
+        .ratio(b_ratio), .enable(a1_enable),
+        .rd_en(a1_rd_en), .rd_voice(a1_rd_voice), .rd_mode(a1_rd_mode),
+        .rd_data(a1_rd_data), .rd_valid(a1_rd_valid), .bank_ready(a1_ready),
+        .a1_we(a1_we), .a1_voice(a1_voice), .a1_mode(a1_mode),
+        .a1_data(a1_data), .a1_ready(a1_ready),
+        .active(a1_active), .done(a1_done)
     );
 
     // ------------------------------------------------------------------
@@ -201,6 +306,23 @@ module modal_engine #(
         .cfg_voice   (ld_cfg_voice),
         .cfg_mode    (ld_cfg_mode),
         .cfg_word    (ld_cfg_word),
+        .seed_valid  (ld_seed_valid),
+        .seed_ready  (ld_seed_ready),
+        .seed_voice  (ld_seed_voice),
+        .seed_mode   (ld_seed_mode),
+        .seed_word   (ld_seed_word),
+        .a1_we       (a1_we),
+        .a1_ready    (a1_ready),
+        .a1_voice    (a1_voice),
+        .a1_mode     (a1_mode),
+        .a1_data     (a1_data),
+        .a1_done     (),
+        .b_mask      (b_mask),
+        .coeff_rd_en (a1_rd_en),
+        .coeff_rd_valid(a1_rd_valid),
+        .coeff_rd_voice(a1_rd_voice),
+        .coeff_rd_mode(a1_rd_mode),
+        .coeff_rd_data(a1_rd_data),
         .clear_valid (ld_clear_valid),
         .clear_ready (ld_clear_ready),
         .clear_voice (ld_clear_voice),
@@ -243,6 +365,14 @@ module modal_engine #(
     assign commit_y1    = bk_commit_y1;
     assign commit_y2    = bk_commit_y2;
     assign commit_sat   = bk_commit_sat;
+    assign ctrl_rd_data = voice_ctrl[ctrl_rd_voice];
+
+    genvar gv;
+    generate
+        for (gv = 0; gv < NUM_VOICES; gv = gv + 1) begin : g_ctrl_flat
+            assign ctrl_flat[gv*256 +: 256] = voice_ctrl[gv];
+        end
+    endgenerate
 
     // loader 和 bank 错误已经是寄存的单周期脉冲，因此在它们出现的
     // 当拍就转发（这使错误在 engine 返回 idle / 拉高 sample_ready 的
@@ -250,7 +380,7 @@ module modal_engine #(
     // 派生自一个在同一周期被拒绝的
     // sample 请求。
     assign error_valid = ld_error_valid | bk_error_flag | error4_r;
-    assign error_code  = ld_error_valid ? {1'b0, ld_error_code}
+    assign error_code  = ld_error_valid ? ld_error_code
                        : bk_error_flag  ? 3'd5
                        : 3'd4;
 
@@ -275,6 +405,9 @@ module modal_engine #(
             if (load_done) begin
                 voice_loaded[done_voice] <= 1'b1;
                 voice_nm[done_voice]     <= loaded_n_modes;
+                voice_ctrl[done_voice]   <= commit_ctrl;
+                voice_class[done_voice]  <= load_class;
+                voice_theta_base[done_voice] <= ld_theta_base;
             end
 
             // 在浅层 sample 握手时捕获 intake 候选，使宽 x 负载的 CE 不位于

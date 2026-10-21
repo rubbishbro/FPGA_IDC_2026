@@ -29,6 +29,7 @@ module modal_poly_bank #(
     parameter int VW = (NUM_VOICES < 2) ? 1 : $clog2(NUM_VOICES),
     parameter int LOCAL_MODES = (N_MODES + 3) / 4,
     parameter int IDXW = (LOCAL_MODES < 2) ? 1 : $clog2(LOCAL_MODES),
+    parameter int SVW = (NUM_VOICES * LOCAL_MODES < 2) ? 1 : $clog2(NUM_VOICES * LOCAL_MODES),
     parameter int SW = $clog2(NUM_VOICES * N_MODES + 1)
 ) (
     input  logic                   clk,
@@ -40,6 +41,29 @@ module modal_poly_bank #(
     input  logic [VW-1:0]          cfg_voice,
     input  logic [MW-1:0]          cfg_mode,
     input  logic [71:0]            cfg_word,
+
+    // C seed 写入（仅空闲时；写状态槽 {8'b0,y2,y1} 并置 state_valid）
+    input  logic                   seed_valid,
+    output logic                   seed_ready,
+    input  logic [VW-1:0]          seed_voice,
+    input  logic [MW-1:0]          seed_mode,
+    input  logic [63:0]            seed_word,
+
+    // a1 shadow 写（B；仅 idle）
+    input  logic                   a1_we,
+    output logic                   a1_ready,
+    input  logic [VW-1:0]          a1_voice,
+    input  logic [MW-1:0]          a1_mode,
+    input  logic [21:0]            a1_data,
+    output logic                   a1_done,
+    input  logic [NUM_VOICES-1:0]  b_mask,
+
+    // 系数只读（refresh；仅 idle）
+    input  logic                   coeff_rd_en,
+    output logic                   coeff_rd_valid,
+    input  logic [VW-1:0]          coeff_rd_voice,
+    input  logic [MW-1:0]          coeff_rd_mode,
+    output logic [71:0]            coeff_rd_data,
 
     // 逐 voice 逻辑状态清除
     input  logic                   clear_valid,
@@ -162,17 +186,23 @@ module modal_poly_bank #(
     assign busy         = ~idle;
     assign clear_ready  = idle;
     assign cfg_ready    = idle && !clear_valid;
-    assign sample_ready = idle && !clear_valid && !cfg_valid;
+    assign seed_ready   = idle && !clear_valid && !cfg_valid;
+    assign sample_ready = idle && !clear_valid && !cfg_valid && !seed_valid;
 
     wire clear_fire  = clear_valid  && clear_ready;
     wire cfg_fire    = cfg_valid    && cfg_ready;
+    wire seed_fire   = seed_valid   && seed_ready;
     wire sample_fire = sample_valid && sample_ready;
 
     wire clear_ok = clear_fire && (clear_voice < NUM_VOICES);
     wire cfg_ok   = cfg_fire && (cfg_mode < N_MODES) && (cfg_voice < NUM_VOICES);
+    wire seed_ok  = seed_fire && (seed_mode < N_MODES) && (seed_voice < NUM_VOICES);
 
     wire [1:0] cfg_lane = cfg_mode % 4;
     wire [IDXW-1:0] cfg_local_w = cfg_mode >> 2;
+
+    wire [1:0] seed_lane = seed_mode % 4;
+    wire [IDXW-1:0] seed_local_w = seed_mode >> 2;
 
     // 整帧合法性：在触动任何状态之前检查（同周期拒绝是外部契约的一部分：
     // error_valid 在握手周期拉高，busy 保持低）。一个 voice 未加载当且仅当
@@ -253,11 +283,37 @@ module modal_poly_bank #(
     logic signed [63:0]   lane_ps     [0:3];
     logic [5:0]           lane_sat    [0:3];
     logic [3:0]           lane_cfg_we;
+    logic [3:0]           lane_seed_we;
+    logic [3:0]           lane_a1_we;
+    logic [3:0]           lane_rd_en;
+    logic [71:0]          lane_rd_data [0:3];
+
+    wire [1:0]      a1_lane  = a1_mode[1:0];
+    wire [1:0]      rd_lane  = coeff_rd_mode[1:0];
+    wire [IDXW-1:0] a1_local = a1_mode[MW-1:2];
+    wire [IDXW-1:0] rd_local = coeff_rd_mode[MW-1:2];
+    wire [SVW-1:0]  a1_slot  = SVW'(a1_voice) * LOCAL_MODES + a1_local;
+    wire [SVW-1:0]  rd_slot  = SVW'(coeff_rd_voice) * LOCAL_MODES + rd_local;
+
+    logic coeff_rd_en_d;
+
+    assign a1_ready      = (state == IDLE) && !sample_valid && !clear_valid && !cfg_valid && !seed_valid;
+    assign a1_done       = a1_we && a1_ready;
+    assign coeff_rd_valid = coeff_rd_en_d;
+    assign coeff_rd_data = lane_rd_data[rd_lane];
+
+    always_ff @(posedge clk) begin
+        if (!rst_n) coeff_rd_en_d <= 1'b0;
+        else        coeff_rd_en_d <= coeff_rd_en;
+    end
 
     genvar gi;
     generate
         for (gi = 0; gi < 4; gi = gi + 1) begin : g_lane
-            assign lane_cfg_we[gi] = cfg_ok && (cfg_lane == gi[1:0]);
+            assign lane_cfg_we[gi]  = cfg_ok && (cfg_lane == gi[1:0]);
+            assign lane_seed_we[gi] = seed_ok && (seed_lane == gi[1:0]);
+            assign lane_a1_we[gi]   = a1_we && (a1_lane == gi[1:0]) && (state == IDLE);
+            assign lane_rd_en[gi]   = coeff_rd_en && (rd_lane == gi[1:0]) && (state == IDLE);
             poly_modal_lane #(
                 .NUM_VOICES(NUM_VOICES),
                 .N_MODES(N_MODES),
@@ -280,6 +336,17 @@ module modal_poly_bank #(
                 .cfg_voice  (cfg_voice),
                 .cfg_local  (cfg_local_w),
                 .cfg_wdata  (cfg_word),
+                .seed_we    (lane_seed_we[gi]),
+                .seed_voice (seed_voice),
+                .seed_local (seed_local_w),
+                .seed_wdata (seed_word),
+                .a1_we      (lane_a1_we[gi]),
+                .a1_addr    (a1_slot),
+                .a1_wdata   (a1_data),
+                .b_mask     (b_mask),
+                .coeff_rd_en(coeff_rd_en && (rd_lane == gi[1:0])),
+                .coeff_rd_addr(rd_slot),
+                .coeff_rd_data(lane_rd_data[gi]),
                 .done       (lane_done[gi]),
                 .commit_voice(lane_cvoice[gi]),
                 .commit_mode(lane_cmode[gi]),
@@ -358,6 +425,13 @@ module modal_poly_bank #(
                         // 合法 cfg 的元数据由独立的逐 voice g_meta 块更新；
                         // 此处不再写 coeff_loaded/low_unloaded，避免多驱动，
                         // 也避免动态索引读-改-写被推断成 RAM。
+                    end else if (seed_fire) begin
+                        // 合法 seed 由各 lane 在同一拍写入状态槽并置
+                        // state_valid；这里只负责非法地址报错。
+                        if (!seed_ok) begin
+                            error_valid <= 1'b1;
+                            error_code  <= 2'd1;
+                        end
                     end else if (sample_fire) begin
                         // 捕获候选（暂存），并且仅当同边沿 precheck 通过时才
                         // 进入 PREP。拒绝路径在该握手边沿保持 error_valid 且

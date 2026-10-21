@@ -169,6 +169,8 @@ async def _reset(dut):
     dut.rst_n.value = 0
     for name, val in (("cfg_valid", 0), ("cfg_voice", 0), ("cfg_mode", 0),
                       ("cfg_word", 0), ("clear_valid", 0), ("clear_voice", 0),
+                      ("seed_valid", 0), ("seed_voice", 0), ("seed_mode", 0),
+                      ("seed_word", 0),
                       ("sample_valid", 0), ("active_mask", 0),
                       ("n_modes_vec", 0), ("x_vec", 0)):
         getattr(dut, name).value = val
@@ -193,6 +195,24 @@ async def _cfg(dut, voice, mode, word):
         assert guard < 100, "cfg_ready stuck"
     await RisingEdge(dut.clk)
     dut.cfg_valid.value = 0
+    await Timer(1, unit="ns")
+    return _i(dut.error_valid), _i(dut.error_code)
+
+
+async def _seed(dut, voice, mode, word):
+    dut.seed_valid.value = 1
+    dut.seed_voice.value = _u(voice, VW)
+    dut.seed_mode.value = _u(mode, MW)
+    dut.seed_word.value = _u(word, 64)
+    await Timer(1, unit="ns")
+    guard = 0
+    while not _i(dut.seed_ready):
+        await RisingEdge(dut.clk)
+        await Timer(1, unit="ns")
+        guard += 1
+        assert guard < 100, "seed_ready stuck"
+    await RisingEdge(dut.clk)
+    dut.seed_valid.value = 0
     await Timer(1, unit="ns")
     return _i(dut.error_valid), _i(dut.error_code)
 
@@ -693,6 +713,74 @@ async def b09_reset_phases(dut):
         await RisingEdge(dut.clk)
         await Timer(1, unit="ns")
     dut._log.info(f"B09 reset at {3 * ((n + 3) // 4) + 12} phases clean")
+
+
+# ---------------------------------------------------------------------------
+# B10 -- C seed write port: seed -> state_valid -> first frame
+# ---------------------------------------------------------------------------
+@cocotb.test(timeout_time=300, timeout_unit="sec")
+async def b10_seed_write(dut):
+    import numpy as np
+    await _begin(dut)
+    await _reset(dut)
+    rng = np.random.default_rng(10)
+    v = 0
+    n = 4
+    words = [_rand_word(rng) for _ in range(n)]
+    for m, w in enumerate(words):
+        ev, ec = await _cfg(dut, v, m, w)
+        assert (ev, ec) == (0, 0), f"cfg m={m} err {ev}/{ec}"
+
+    seeds = [(0x12345678, -0x0BADF00D),
+             (-0x01020304, 0x0FEDCBA9),
+             (0x00000001, -0x00000001),
+             (0x7FFFFFFF, -0x80000000)]
+
+    # while seed_valid is held, the bank must not accept a frame
+    dut.seed_valid.value = 1
+    dut.seed_voice.value = _u(v, VW)
+    dut.seed_mode.value = 0
+    dut.seed_word.value = 0
+    await Timer(1, unit="ns")
+    assert _i(dut.seed_ready) == 1, "seed_ready should be high in idle"
+    assert _i(dut.sample_ready) == 0, "sample_ready must be low while seeding"
+    dut.seed_valid.value = 0
+    await RisingEdge(dut.clk)
+    await Timer(1, unit="ns")
+
+    for m, (y1, y2) in enumerate(seeds):
+        word = ((y2 & 0xFFFFFFFF) << 32) | (y1 & 0xFFFFFFFF)
+        ev, ec = await _seed(dut, v, m, word)
+        assert (ev, ec) == (0, 0), f"seed m={m} err {ev}/{ec}"
+
+    nvec = [0] * V_CFG
+    nvec[v] = n
+    res = await _frame(dut, 1 << v, nvec, [0] * V_CFG)
+
+    exp_commits = {}
+    total = 0
+    sat_total = 0
+    for m, (y1, y2) in enumerate(seeds):
+        a1, a2, G = unpack_word(words[m])
+        ny, sat = _mode_step(a1, a2, G, y1, y2, 0)
+        exp_commits[(v, m)] = (ny, y1, sat)
+        total += ny
+        sat_total += sat
+
+    _compare(res, exp_commits, {v: total}, sat_total, "b10_seed")
+    dut._log.info("B10 seed write: 4 modes, state_valid set, first frame matches")
+
+
+# ---------------------------------------------------------------------------
+# B11 -- seed address rejection
+# ---------------------------------------------------------------------------
+@cocotb.test(timeout_time=300, timeout_unit="sec")
+async def b11_seed_reject(dut):
+    await _begin(dut)
+    await _reset(dut)
+    ev, ec = await _seed(dut, 0, N_CFG, 0)
+    assert (ev, ec) == (1, 1), f"seed OOB mode: got {ev}/{ec}, want 1/1"
+    dut._log.info("B11 seed OOB mode rejected with error 1")
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+`timescale 1ns/1ps
 // ===========================================================================
 //  fxp_pkg -- a small fixed-point arithmetic package.
 //

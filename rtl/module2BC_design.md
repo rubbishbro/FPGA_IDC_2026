@@ -50,6 +50,8 @@ a1' = a1, a2' = a2
 
 优先级reset>clear>cfg>sample。busy时三个ready为0；非法请求握手后error，无计算/写回副作用。帧接受时锁存全部active/count/x；**计算任何声部前检查整个帧合法性**，后一个声部非法也不得更新前面声部状态。输入不活跃的槽本帧不更新（历史冻结）；活跃n=0合法，输出零声部和。voice_valid每活跃声部一次，最后所有状态提交完成后out_valid一次；mask全0返回零混音。输出无背压。各lane done不能被上一声部的DONE电平误判。sum/saturation不在声部边界截断；64bit范围足够1536条int32相加。
 
+**2026-10-20 扩展：C seed 写口（ENG1 重构第一步）**：新增 `seed_valid/seed_ready/seed_voice[VW]/seed_mode[MW]/seed_word[63:0]`。仅 `idle && !clear_valid && !cfg_valid` 时握手；写状态槽 `{8'b0, seed_word[63:32], seed_word[31:0]}`（RAM 奇地址），并置 `state_valid`；非法 `seed_voice/seed_mode` 报 error 1；`seed_valid` 期间 `sample_ready=0`，首帧前必须写完。与 cfg 共用单端口 RAM，不新增存储。`modal_engine` 目前把 `seed_valid` tie-off 为 0，等统一 loader 接入；A 路径逐位不变。
+
 ## 5. 集成接口
 
 `modal_engine`集成loader与poly_bank，参数继承ROM、NUM_VOICES/N_MODES/SKIP_ZERO_INPUT。
@@ -57,6 +59,8 @@ a1' = a1, a2' = a2
 外部load口同loader；sample_valid/ready、active_mask、x_vec；busy；load_done/done_voice/loaded_n_modes；out_valid/mix_sum/sat_count、voice_valid/id/sum、commit总线；error_valid/code[3]（1..3装载错；4=激活未成功装载的槽；5=内部bank错误）。工作n_modes在每次load_done时由engine存入对应槽，不由帧发送者伪造。只有成功装载标记的active声部允许帧。
 
 装载与计算**互斥**；空闲同时load_valid/sample_valid时load优先，不能同时握手。loader握手的当拍起锁住sample，整个clear/cfg期间不允许帧；计算busy不接受装载。失败装载不改变已有engine元数据、状态、系数。全帧active未装载错误不能部分计算。engine reset取消计算和装载并清全部loaded标志。自动歌曲上层今后基于ready调度，不能盲发单拍事件。
+
+**2026-10-20 E1：`class_loader.sv` 替换 `coeff_loader`（ENG1 重构第二步）**：`modal_engine` 内改为实例化 `rtl/core/class_loader.sv`；旧 `coeff_loader.sv` 保留，`core/coeff_loader` 直测仍覆盖它。新 loader 的 Event 端口由 engine 用旧 `(instrument,midi,dyn,vel)` 合成（`ev_class=0`、`ev_layer={1'b0,load_dyn}`），A 的 20-bit index 在模块内适配成 `present/n/offset`。Core 改为 **1 词/拍**：地址 `offset+cnt(+1)` 组合给出，同步 ROM 下一拍把数据送到 cfg；48 模态约 `n+6≈54` 拍（旧 216）。新增 `seed_*` 与 `commit_*` 端口，A 的 seed 恒 0；B/C 的 Control/Index/Seed ROM 与 class 选择下一步接。A-only 的 `core/engine` 逐位回归仍通过（e01–e07，含 e02 2048 帧长测；最坏 1508 周期）。
 
 ## 6. 测试规范
 
@@ -84,3 +88,24 @@ a1' = a1, a2' = a2
 ## 7. 交付判定
 
 DS V4.1 Flash实现；父会话独立审查/复测并写`docs/archive/2026-10/rtl/module2BC_delivery_report.md`。分清实现者报告、独立执行、功能周期门槛与尚未执行的板级验收。自动播放和麦克风链路另有验收记录，不能仅依据2B/2C完成而声称上板已打通。
+
+## 8. 数据格式冻结（2026-10-20，B/C 统一）
+
+> 本节覆盖前文“20-bit index / layer / 64 模态”的旧描述；A 的 20-bit index 只作为兼容适配器保留。
+
+- **宽度**：Event 64 / Key 13 / Index 64 / Control 256 / Core 72 / Seed 64。
+- **Key**：`{class, instrument, note}`，**没有 layer**。`velocity` 是唯一力度字段（8-bit）。
+- **Index 64**：`present/n_modes[6:0]/n_vel[2:0]/mode_offset[15:0]/ctrl_index[11:0]/version[1:0]/has_control/has_seed/class[1:0]/flags[5:0]`。
+- **力度带**：`n_vel=4` 先冻结；`vel8 = midi*2`，`band = vel8[7:6]`；`core_addr = mode_offset + band*n_modes + mode`。
+- **模态**：`N_MODES=48` 对所有类；`M_ACTIVE_MAX=1536`；不再有 64 模态。
+- **A 的 dyn**：存在 Event 的 `reserved_lo[0]`，只由 A 适配器使用；B/C 必须写 0。
+- **C**：`version=2`、`has_seed=1`、`n_vel=1`；seed ROM V=4，地址 `piece*192 + variant*48 + mode`。
+- **源文件**：`rtl/core/class_format_pkg.sv` 与 `python/modal_sim/class_format.py` 位序必须一致；对拍入口 `sim/unit/core/test_class_format.py`（T-F01）。
+- **ratio 的 Q**：16-bit **UQ1.15**（1.0 = `0x8000`，范围 <2）；要 >2 用 UQ2.14。旧文档写的 “UQ1.16 / 16-bit” 是笔误（1+16=17 bit）。
+- **B loader**：`rtl/core/class_loader64.sv`（64-bit index、4 带、Control 256、C seed）；A 仍用 `class_loader.sv` 的 20-bit 适配。
+- **class 选择**：`class_loader_mux.sv`；`modal_engine` 新增 `USE_BC`、`load_class[1:0]`、`load_note_id[11:0]`、`commit_ctrl[255:0]`；`USE_BC=0` 时 A 行为不变。
+- **B θ ROM**：`python/modal_sim/gen_b_theta.py` 从 72-bit core 反算 `θ=acos(-a1/(2r))`，输出 UQ2.14 `b_theta.mem`（与 core 同布局，只读）；loader 只写 per-voice `theta_base`（32×16 FF），**不写 θ RAM**；`test_b_theta.py` 4/4；demo 见 `rtl/rom/demo/`。
+- **B a1 刷新**：`rtl/core/b_a1_refresh.sv`；`rtl/core/b_a1_engine.sv`（θ ROM + theta_base + bank 系数读 + a1 shadow 写）+ `poly_modal_lane` 的 a1 shadow/coeff 读口 + `modal_poly_bank` 的 a1_we/coeff_rd 路由；`s=sqrt(4a2−a1²)`（Q2.24→Q1.12），`δθ=(ratio−1)·θ`（θ UQ2.14，ratio UQ1.15），`a1'=a1+s·δθ−a1·δθ²/2`；先覆盖颤音/±50c，大滑音以后换直接 cos。
+- **B Control 字段（Round 9 冻结）**：`period_T[15:0]`、`attack_step[39:16]`、`release_step[63:40]`、`base_inc[95:64]`（UQ0.32，避免除法器）、`noise_gain[135:120]`；`class_vec` 每声部 2-bit（0=A/1=B/2=C）；`x = impulse ? env*vel>>17 : 0`。
+- **B 多声部 x**：`rtl/core/b_x_pool.sv`（Control 解析 + N×`b_voice_ctrl` + class 门控）；`test_b_x_pool` 2/2 通过。
+- **顶层 x mux**：`modal_engine.ctrl_flat` -> `eng1_voice_top` 的 `b_x_pool`；`class=0` 用外部 x、`class=1` 用 B x、`class=2` 用 0；`synth_top` 透传 `b_class_vec/b_vel_vec/b_start_mask/b_gate_mask/b_ratio`。

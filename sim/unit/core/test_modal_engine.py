@@ -644,7 +644,12 @@ async def e07_digest(dut):
 # runner
 # ---------------------------------------------------------------------------
 def _sources():
-    return [os.path.join(_ROOT, "rtl", "core", "coeff_loader.sv"),
+    return [os.path.join(_ROOT, "rtl", "core", "class_format_pkg.sv"),
+            os.path.join(_ROOT, "rtl", "core", "class_loader.sv"),
+            os.path.join(_ROOT, "rtl", "core", "class_loader64.sv"),
+            os.path.join(_ROOT, "rtl", "core", "class_loader_mux.sv"),
+            os.path.join(_ROOT, "rtl", "core", "b_a1_refresh.sv"),
+            os.path.join(_ROOT, "rtl", "core", "b_a1_engine.sv"),
             os.path.join(_ROOT, "rtl", "core", "poly_modal_lane.sv"),
             os.path.join(_ROOT, "rtl", "core", "modal_poly_bank.sv"),
             os.path.join(_ROOT, "rtl", "core", "modal_engine.sv")]

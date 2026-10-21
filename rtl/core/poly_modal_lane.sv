@@ -52,6 +52,23 @@ module poly_modal_lane #(
     input  logic [IDXW-1:0]    cfg_local,
     input  logic [71:0]        cfg_wdata,
 
+    // C seed 写入（仅空闲时；写状态槽 {8'b0,y2,y1} 并置 state_valid）
+    input  logic               seed_we,
+    input  logic [VW-1:0]      seed_voice,
+    input  logic [IDXW-1:0]    seed_local,
+    input  logic [63:0]        seed_wdata,
+
+    // a1 shadow（B）：idle 时写；运行 ph0 读，ph1 与 rdata[21:0] 二选一
+    input  logic               a1_we,
+    input  logic [SVW-1:0]     a1_addr,
+    input  logic [21:0]        a1_wdata,
+    input  logic [NUM_VOICES-1:0] b_mask,
+
+    // 系数只读口（refresh 用；仅 bank idle）
+    input  logic               coeff_rd_en,
+    input  logic [SVW-1:0]     coeff_rd_addr,
+    output logic [71:0]        coeff_rd_data,
+
     output logic               done,
     output logic [VW-1:0]      commit_voice,
     output logic [MW-1:0]      commit_mode,
@@ -99,6 +116,8 @@ module poly_modal_lane #(
     logic [ADDRW-1:0]      addr;
     logic                  we;
     logic [71:0]           wdata;
+    logic [21:0]           a1_mem [0:SLOTS-1];
+    logic [21:0]           a1_rd;
 
     always_ff @(posedge clk) begin
         if (we) mem[addr] <= wdata;
@@ -269,11 +288,20 @@ module poly_modal_lane #(
     wire [SVW-1:0]   cfg_slot    = cfg_base + SVW'(cfg_local);
     wire [31:0]      cfg_addr_w  = 32'(cfg_slot) << 1;
 
-    always_comb begin
-        addr  = cfg_we ? cfg_addr_w[ADDRW-1:0] : run_addr;
-        we    = cfg_we | run_we;
-        wdata = cfg_we ? cfg_wdata : run_wdata;
-    end
+    // seed 写口：与 cfg 共用同一地址计算，但写奇地址（状态槽）。
+    // 槽数据布局与 run 写回一致：{8'b0, y2, y1}。
+    wire [SVW-1:0]   seed_slot   = voice_base(seed_voice) + SVW'(seed_local);
+    wire [31:0]      seed_addr_w = (32'(seed_slot) << 1) | 32'd1;
+
+    wire [SVW-1:0] coeff_rd_slot = coeff_rd_addr;
+    wire [ADDRW-1:0] coeff_rd_mem_addr = (32'(coeff_rd_slot) << 1);
+    assign addr  = cfg_we  ? cfg_addr_w[ADDRW-1:0]  :
+                   seed_we ? seed_addr_w[ADDRW-1:0] :
+                   coeff_rd_en ? coeff_rd_mem_addr[ADDRW-1:0] : run_addr;
+    assign we    = cfg_we | seed_we | run_we;
+    assign coeff_rd_data = rdata;
+    assign wdata = cfg_we  ? cfg_wdata :
+                   seed_we ? {8'b0, seed_wdata} : run_wdata;
 
     assign done        = (st == S_DONE);
     assign partial_sum = ps;
@@ -324,6 +352,16 @@ module poly_modal_lane #(
                 if (clear && (clear_voice == v[VW-1:0]))
                     state_valid[v*LOCAL_MODES +: LOCAL_MODES] <= '0;
 
+            // seed 写入后该 (voice,local) 才算有效；否则首帧 valid_now=0，
+            // y1/y2 会被门控成 0，seed 等于没写。
+            if (seed_we)
+                state_valid[seed_slot] <= 1'b1;
+
+            if (cfg_we)
+                a1_mem[cfg_slot] <= cfg_wdata[21:0];
+            if (a1_we)
+                a1_mem[a1_addr] <= a1_wdata;
+
             case (st)
                 S_IDLE, S_DONE: begin
                     if (start) begin
@@ -348,8 +386,10 @@ module poly_modal_lane #(
                     // ph1：为 ph2 捕获（寄存索引的）state-valid
                     if (ph == 2'd1) ctx_valid <= valid_now;
 
+                    if ((ph == 2'd0) && (mi < lc))
+                        a1_rd <= a1_mem[sv_run];
                     if ((ph == 2'd1) && (mi < lc)) begin
-                        ctx_a1 <= {rdata[21:0], 4'b0};        // a1 Q2.20 -> 26-bit
+                        ctx_a1 <= b_mask[voice_r] ? {4'b0, a1_rd} : {rdata[21:0], 4'b0};
                         ctx_a2 <= {2'b0, rdata[45:22]};       // a2 UQ0.24 -> 26-bit
                     end
                     if ((ph == 2'd2) && (mi < lc)) begin

@@ -95,6 +95,7 @@ class MetaBank:
     async def tick(self, **updates):
         d = self.d
         defaults = dict(rst_n=1, cfg_valid=0, cfg_voice=0, cfg_mode=0, cfg_word=0,
+                        seed_valid=0, seed_voice=0, seed_mode=0, seed_word=0,
                         clear_valid=0, clear_voice=0, sample_valid=0,
                         active_mask=0, n_modes_vec=self.count_vec(), x_vec=0)
         defaults.update(updates)

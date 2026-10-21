@@ -352,7 +352,7 @@ if __name__ == '__main__':
     build = a.build_dir.expanduser().resolve()
     build.mkdir(parents=True, exist_ok=True)
     runner = get_runner('icarus')
-    sources = [ROOT / 'rtl/core' / f for f in ('coeff_loader.sv', 'poly_modal_lane.sv',
+    sources = [ROOT / 'rtl/core' / f for f in ('class_format_pkg.sv', 'class_loader.sv', 'class_loader64.sv', 'class_loader_mux.sv', 'b_a1_refresh.sv', 'b_a1_engine.sv', 'poly_modal_lane.sv',
                                               'modal_poly_bank.sv', 'modal_engine.sv')]
     if a.frozen_sources:
         sources = [a.frozen_sources.resolve() / source.relative_to(ROOT) for source in sources]

@@ -1,0 +1,190 @@
+\documentclass[border=3pt]{standalone}
+\usepackage[UTF8,fontset=fandol]{ctex}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+\definecolor{Acol}{HTML}{2E7D32}
+\definecolor{Bcol}{HTML}{1565C0}
+\definecolor{Ccol}{HTML}{E65100}
+\definecolor{Scol}{HTML}{6A1B9A}
+\definecolor{Gcol}{HTML}{455A64}
+
+\begin{document}
+\begin{tikzpicture}[x=1mm,y=1mm, font=\sffamily,
+  pipe/.style={draw=#1!65!black, fill=#1!7, rounded corners=1.8mm,
+               line width=0.6pt, align=center, inner sep=1.1mm},
+  panel/.style={draw=#1!65!black, fill=#1!4, rounded corners=2.2mm,
+                line width=0.9pt},
+  arr/.style={-{Latex[length=1.7mm]}, draw=#1!65!black, line width=0.7pt},
+  sect/.style={font=\bfseries\fontsize{8.2}{9.6}\selectfont, text=#1},
+  body/.style={font=\fontsize{8.6}{10.2}\selectfont, align=left,
+               text width=118mm, anchor=north west},
+]
+
+% ---------------------------------------------------------------- title
+\node[anchor=center, font=\bfseries\fontsize{19}{22}\selectfont]
+  at (210,289) {ENG1 合成路径：A/B/C 三类 $\rightarrow$ 共享模态 IIR $\rightarrow$ 声部/模态生命周期};
+\node[anchor=center, font=\fontsize{8.6}{10}\selectfont, text=Gcol]
+  at (210,282.5) {给 ENG2 的架构导读 \quad·\quad 依据当前 RTL / Python（2026-10-20）\quad·\quad 公式由 \LaTeX{} 排版};
+
+% ---------------------------------------------------------------- legend
+\fill[Acol, rounded corners=0.6mm] (286,276.0) rectangle (291,280.5);
+\node[anchor=west, font=\fontsize{7.2}{8.4}\selectfont] at (292,278.2) {A 拨/击};
+\fill[Bcol, rounded corners=0.6mm] (322,276.0) rectangle (327,280.5);
+\node[anchor=west, font=\fontsize{7.2}{8.4}\selectfont] at (328,278.2) {B 持续};
+\fill[Ccol, rounded corners=0.6mm] (358,276.0) rectangle (363,280.5);
+\node[anchor=west, font=\fontsize{7.2}{8.4}\selectfont] at (364,278.2) {C 打击};
+\fill[Scol, rounded corners=0.6mm] (286,270.0) rectangle (291,274.5);
+\node[anchor=west, font=\fontsize{7.2}{8.4}\selectfont] at (292,272.2) {共享/生命周期};
+
+% ---------------------------------------------------------------- top pipeline
+\node[pipe=Gcol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont] (p1) at (43.5,257) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont Event / Key}\\[0.5mm]
+  class A/B/C · instrument · note\\ velocity · note\_id · gate};
+\node[pipe=Gcol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont, right=7mm of p1] (p2) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont Loader}\\[0.5mm]
+  index 64b $\rightarrow$ control 256b\\ core 72b $\times n$ · C seed 64b};
+\node[pipe=Gcol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont, right=7mm of p2] (p3) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont Voice runtime}\\[0.5mm]
+  class · $n_{\rm modes}$ · velocity\\ A pulse · B env/phase · C timer};
+\node[pipe=Scol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont, right=7mm of p3] (p4) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont 激励 $x_v$}\\[0.5mm]
+  A 升余弦 · B 冲激串\\ C $x=0$（seed 起振）};
+\node[pipe=Scol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont, right=7mm of p4] (p5) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont 共享 modal bank}\\[0.5mm]
+  4 lane · 32 voice $\times$ 48 mode\\ $y=Gx-a_1y_1-a_2y_2$};
+\node[pipe=Gcol, minimum width=59mm, minimum height=25mm,
+      font=\fontsize{7.0}{8.4}\selectfont, right=7mm of p5] (p6) {
+  \textbf{\fontsize{8.2}{9.4}\selectfont 后级 / 输出}\\[0.5mm]
+  A body · B/C bypass\\ C + noise · mix Q2.30 $\rightarrow$ i16};
+
+\foreach \a/\b in {p1/p2,p2/p3,p3/p4,p4/p5,p5/p6}
+  \draw[arr=Gcol] (\a.east) -- (\b.west);
+
+% ---------------------------------------------------------------- class panels
+% A
+\path[panel=Acol] (14,240) rectangle (142,96);
+\node[anchor=north west, font=\bfseries\fontsize{10.2}{12}\selectfont, text=Acol!75!black]
+  at (18,236.5) {A 类：拨弦 / 击弦（一次脉冲 $\rightarrow$ 自由衰减）};
+
+\node[body] at (18,228) {
+  \textcolor{Acol}{\bfseries 激励}\\[0.2mm]
+  $x[n]=\mathrm{pulse}_L[n]$，$G\leftarrow G\cdot v/2^{15}$（装载时；等价于缩放 $x$）\\ $L=7$ (forte) / $12$ (piano)，幅度 $0.2$\\[1.0mm]
+  \textcolor{Acol}{\bfseries 系数（离线）}\\[0.2mm]
+  $\theta_k=2\pi f_k/f_s,\qquad r_k=e^{-\gamma_k/f_s}$\\
+  $a_1=-2r_k\cos\theta_k,\qquad a_2=r_k^2$\\[1.0mm]
+  \textcolor{Acol}{\bfseries $G$（脉冲增益）}\\[0.2mm]
+  $G_k=w_k\sin\theta_k\,/\,P_{\mathrm{pulse}}(\theta_k)$\\
+  $P_{\mathrm{pulse}}$ 是 $L$ 点升余弦的频谱；A 的 $G$ 已折入脉冲形状\\[1.0mm]
+  \textcolor{Acol}{\bfseries 递推与初值}\\[0.2mm]
+  $y[n]=G\,x[n]-a_1y[n-1]-a_2y[n-2]$\\
+  初值 $y_1=y_2=0$；脉冲结束后自然衰减\\[1.0mm]
+  \textcolor{Scol}{\bfseries 生命周期}\\[0.2mm]
+  note-on $\rightarrow$ 装载 $\rightarrow$ 清状态 $\rightarrow$ 打脉冲 $\rightarrow$ 自由衰减\\
+  当前 RTL 无 note-off：靠衰减 + 分配器复用槽位
+};
+
+% B
+\path[panel=Bcol] (150,240) rectangle (278,96);
+\node[anchor=north west, font=\bfseries\fontsize{10.2}{12}\selectfont, text=Bcol!75!black]
+  at (154,236.5) {B 类：持续音（周期冲激 $\rightarrow$ 稳态）};
+
+\node[body] at (154,228) {
+  \textcolor{Bcol}{\bfseries 激励}\\[0.2mm]
+  $T=\mathrm{round}(f_s/f_0),\qquad f_{\mathrm{drive}}=f_s/T$\\
+  $x[n]=\mathrm{imp}\cdot \mathrm{env}\cdot v/2^{17}$\\
+  $\mathrm{env}\leftarrow \mathrm{target}+(\mathrm{env}-\mathrm{target})\alpha$；release 只乘驱动\\[0.8mm]
+  \textcolor{Bcol}{\bfseries 系数}\\[0.2mm]
+  $f_k=kf_{\mathrm{drive}},\quad \theta_k=2\pi f_k/f_s,\quad r_k=e^{-\gamma_k/f_s}$\\
+  $a_1=-2r_k\cos\theta_k,\qquad a_2=r_k^2$\\[0.8mm]
+  \textcolor{Bcol}{\bfseries $G$（稳态增益）}\\[0.2mm]
+  $G_k=w_k/A_{\mathrm{peak}}(k)$（稳态峰值，不是 A 的脉冲增益）\\[0.8mm]
+  \textcolor{Bcol}{\bfseries $a_1$ 刷新}\\[0.2mm]
+  $s=\sqrt{4a_2-a_1^2}=2r\sin\theta,\qquad \delta\theta=(\rho-1)\theta$\\
+  $a_1'=a_1+s\,\delta\theta-a_1\,\delta\theta^2/2$，写 a1 shadow；A 仍读 packed $a_1$\\[0.8mm]
+  \textcolor{Scol}{\bfseries 生命周期}\\[0.2mm]
+  gate on $\rightarrow$ attack $\rightarrow$ sustain $\rightarrow$ gate off $\rightarrow$ release\\
+  释放后按包络/模态幅度阈值或定时器回收
+};
+
+% C
+\path[panel=Ccol] (286,240) rectangle (414,96);
+\node[anchor=north west, font=\bfseries\fontsize{10.2}{12}\selectfont, text=Ccol!75!black]
+  at (290,236.5) {C 类：打击（seed + 噪声，一次性）};
+
+\node[body] at (290,228) {
+  \textcolor{Ccol}{\bfseries 激励}\\[0.2mm]
+  模态 $x=0$（靠 seed 起振）；另有噪声支路：LFSR $\rightarrow$ FIR $\rightarrow$ env\\[0.8mm]
+  \textcolor{Ccol}{\bfseries 系数}\\[0.2mm]
+  $\theta_k=2\pi f_k/f_s,\qquad r_k=e^{-\gamma_k/f_s}$\\
+  $a_1=-2r_k\cos\theta_k,\quad a_2=r_k^2,\quad G_k=0$\\[0.8mm]
+  \textcolor{Ccol}{\bfseries seed（相位初值）}\\[0.2mm]
+  自由响应 $y[n]=A\,r^n\sin(\theta n+\phi)$\\
+  $y_1=A\,r^{-1}\sin(\phi-\theta),\qquad y_2=A\,r^{-2}\sin(\phi-2\theta)$\\
+  $\phi$ 每 mode 随机；ROM 存 4 个变体\\[0.8mm]
+  \textcolor{Ccol}{\bfseries 噪声（目标）}\\[0.2mm]
+  白噪 $\rightarrow$ 每 piece 形状 FIR（1/3 倍频程）$\rightarrow$ 包络\\
+  噪声在声部输出相加，旁路 guitar body\\[0.8mm]
+  \textcolor{Scol}{\bfseries 生命周期}\\[0.2mm]
+  note-on $\rightarrow$ seed + 计时器 $\rightarrow$ 一次性发声\\
+  length/timer 到点释放；hi-hat 可设 choke group
+};
+
+% panel footers (RTL mapping)
+\node[anchor=south west, font=\fontsize{6.8}{8.0}\selectfont, text=Gcol, align=left, text width=118mm]
+  at (18,101) {RTL: \texttt{song\_player} $\rightarrow$ \texttt{class\_loader} $\rightarrow$ \texttt{modal\_engine} $\rightarrow$ \texttt{body\_filter}};
+\node[anchor=south west, font=\fontsize{6.8}{8.0}\selectfont, text=Gcol, align=left, text width=118mm]
+  at (154,101) {RTL: \texttt{b\_x\_pool} $\rightarrow$ \texttt{b\_voice\_ctrl} $\rightarrow$ \texttt{b\_a1\_engine} $\rightarrow$ \texttt{modal\_poly\_bank}};
+\node[anchor=south west, font=\fontsize{6.8}{8.0}\selectfont, text=Gcol, align=left, text width=118mm]
+  at (290,101) {RTL: \texttt{class\_loader64}（seed）$\rightarrow$ \texttt{c\_voice\_timer} $\rightarrow$ \texttt{modal\_poly\_bank}；noise 目标};
+
+% ---------------------------------------------------------------- shared IIR + lifecycle
+\path[panel=Scol] (14,90) rectangle (252,22);
+\node[anchor=north west, font=\bfseries\fontsize{9.6}{11}\selectfont, text=Scol!75!black]
+  at (18,86.5) {共享模态 IIR：三类唯一的声音核心};
+\node[anchor=north west, font=\fontsize{7.35}{8.75}\selectfont, align=left, text width=105mm]
+  at (18,79) {
+  $y[n]=G\,x[n]-a_1y[n-1]-a_2y[n-2]$\\
+  $H(z)=G/(1+a_1z^{-1}+a_2z^{-2})$\\
+  极点 $p=r e^{\pm j\theta}$，$r=e^{-\gamma/f_s}$，$\theta=2\pi f/f_s$\\
+  $a_1=-2r\cos\theta,\qquad a_2=r^2$\\
+  $G$: 26/Q2.24,\quad $a_1$: 22/Q2.20,\quad $a_2$: 24/UQ0.24\\
+  $x,y$: 32/Q2.30,\quad acc: 64；
+  };
+\node[anchor=north west, font=\fontsize{7.2}{8.6}\selectfont, align=left, text width=110mm]
+  at (130,79) {
+  lane 映射：$k\mapsto k\bmod 4$，local $=\lfloor k/4\rfloor$\\
+  4 lane 各 1 个 $26\times32$ 乘法器，II$=3$\\
+  32 voice $\times$ 48 mode，最坏 $\approx1508$ 周期/采样\\
+  A/B/C 只改 $x$、控制与生命周期，不改这条递推\\
+  clear 只清 \texttt{state\_valid}，系数保留；每帧写回 $y_1,y_2$
+  };
+
+\path[panel=Gcol] (260,90) rectangle (414,22);
+\node[anchor=north west, font=\bfseries\fontsize{9.6}{11}\selectfont, text=Gcol!80!black]
+  at (264,86.5) {声部 / 模态生命周期（Voice $\neq$ Mode）};
+\node[anchor=north west, font=\fontsize{7.0}{8.1}\selectfont, align=left, text width=144mm]
+  at (264,79) {
+  \textbf{LOAD} $\rightarrow$ \textbf{CLEAR} $\rightarrow$ \textbf{CORE$\times n$} $\rightarrow$ \textbf{SEED$\times n$} $\rightarrow$ \textbf{COMMIT} $\rightarrow$ \textbf{ACTIVE} $\rightarrow$ \textbf{FREE}\\[0.5mm]
+  \textbf{Voice}：32 个发声槽；保存 class、$n_{\rm modes}$、velocity、gate、包络/相位/计时器、控制块。\\
+  A：脉冲后衰减/复用；B：gate + AR + release；C：一次性 + timer/choke。\\
+  \textbf{Mode}：32$\times$48 = 1,536 个；4 lane 共享乘法器；每 mode $\{G,a_2,a_1\}+\{y_2,y_1\}$。\\
+  clear 只清 \texttt{state\_valid}；每帧 $y_{\rm new}=\mathrm{clamp}((Gx-a_1y_1-a_2y_2+2^{23})/2^{24})$，写回 $y_2\leftarrow y_1,\ y_1\leftarrow y_{\rm new}$。
+  };
+
+% ---------------------------------------------------------------- ENG2 boundary
+\path[panel=Gcol] (14,18) rectangle (414,1);
+\node[anchor=west, font=\fontsize{6.8}{7.9}\selectfont, align=left, text width=394mm]
+  at (18,10.0) {
+  \textbf{给 ENG2 的边界}：ENG1 是 3 系数 IIR（$G,a_1,a_2$），ENG2 是 7 字段 $(q,\dot q)$ 状态空间；系数/状态格式不通用。
+  可共用：时间基准（\texttt{core\_sample\_pulse}/2048 周期）、结果邮箱 \texttt{res\_mem[engine][bank]}（64-bit ping-pong）、BUF 命令/暂存；工作 RAM 与流水各自本地。
+  };
+
+\end{tikzpicture}
+\end{document}
