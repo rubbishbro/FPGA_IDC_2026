@@ -19,6 +19,7 @@ rtl/core/
   b_a1_refresh/b_a1_engine/b_a1_ram_engine
   c_engine_top.sv + c_voice_timer/c_seed_loader/seed_rom
   eng2_engine_top.sv        ENG2 9×32 + modal_engine7
+  e2_router_loader.sv       ENG2 index/seed + 224-bit coeff loader
   class_loader.sv / class_loader64.sv
   a_router_loader.sv / bc_router_loader.sv
   engine_mix_sum.sv

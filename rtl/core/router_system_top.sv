@@ -26,6 +26,15 @@ module router_system_top #(
     parameter     BC_CTRL_FILE  = "rtl/rom/b_ctrl.mem",
     parameter     BC_SEED_FILE  = "rtl/rom/c_seed.mem",
     parameter     C_SEED_FILE   = "rtl/rom/c_seed.mem",
+    parameter int E2_COEFF_DEPTH = 8192,
+    parameter int E2_INDEX_DEPTH = 8192,
+    parameter int E2_CTRL_DEPTH  = 1024,
+    parameter int E2_SEED_DEPTH  = 1152,
+    parameter     E2_COEFF_FILE  = "rtl/rom/e2_coeff.mem",
+    parameter     E2_INDEX_FILE  = "rtl/rom/e2_index.mem",
+    parameter     E2_CTRL_FILE   = "rtl/rom/e2_ctrl.mem",
+    parameter     E2_SEED_FILE   = "rtl/rom/e2_seed.mem",
+    parameter     E2_L72_FILE    = "rtl/rom/modal_coeff.mem",
     parameter int VW = (NUM_SLOTS < 2) ? 1 : $clog2(NUM_SLOTS),
     parameter int MW_ABC = (N_MODES_ABC < 2) ? 1 : $clog2(N_MODES_ABC),
     parameter int MW_E2  = (N_MODES_E2 < 2) ? 1 : $clog2(N_MODES_E2 + 1)
@@ -103,8 +112,25 @@ module router_system_top #(
     logic [15:0] bc_theta;
     logic [1:0] bc_class;
 
-    logic class_r;
+    logic [1:0] class_r;
     logic [VW-1:0] done_voice_r;
+
+    // E2 loader
+    logic e2_ready, e2_cfg_we_ld, e2_clr_we_ld;
+    logic [VW-1:0] e2_cfg_voice_ld, e2_clr_voice_ld;
+    logic [MW_E2-1:0] e2_cfg_mode_ld, e2_clr_mode_ld;
+    logic [REC_W-1:0] e2_cfg_data_ld;
+    logic e2_seed_valid_ld;
+    logic [VW-1:0] e2_seed_voice_ld;
+    logic [MW_E2-1:0] e2_seed_mode_ld;
+    logic [63:0] e2_seed_word_ld;
+    logic e2_done;
+    logic [VW-1:0] e2_done_voice;
+    logic [MW_E2-1:0] e2_n;
+    logic [15:0] e2_theta;
+    logic e2_err;
+    logic [2:0] e2_ecode;
+    logic [NUM_SLOTS*MW_E2-1:0] e2_nm;
 
     a_router_loader #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_ABC),
@@ -129,7 +155,7 @@ module router_system_top #(
         .CTRL_FILE(BC_CTRL_FILE), .SEED_FILE(BC_SEED_FILE), .REC_W(REC_W)
     ) u_bc_ld (
         .clk(clk), .rst_n(rst_n),
-        .load_valid(load_valid && (load_class != 2'd0)), .load_ready(bc_ready),
+        .load_valid(load_valid && ((load_class == 2'd1) || (load_class == 2'd2))), .load_ready(bc_ready),
         .ev_class(load_class), .ev_layer({1'b0, load_dyn}),
         .ev_instrument({2'b00, load_inst}), .ev_note(load_note),
         .ev_velocity(load_vel), .ev_note_id(load_note_id),
@@ -145,13 +171,35 @@ module router_system_top #(
         .error_valid(bc_err), .error_code(bc_ecode)
     );
 
+    e2_router_loader #(
+        .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_E2), .REC_W(REC_W),
+        .COEFF_DEPTH(E2_COEFF_DEPTH), .INDEX_DEPTH(E2_INDEX_DEPTH),
+        .CTRL_DEPTH(E2_CTRL_DEPTH), .SEED_DEPTH(E2_SEED_DEPTH),
+        .COEFF_FILE(E2_COEFF_FILE), .INDEX_FILE(E2_INDEX_FILE),
+        .CTRL_FILE(E2_CTRL_FILE), .SEED_FILE(E2_SEED_FILE), .L72_FILE(E2_L72_FILE)
+    ) u_e2_ld (
+        .clk(clk), .rst_n(rst_n),
+        .load_valid(load_valid && (load_class == 2'd3)), .load_ready(e2_ready),
+        .ev_class(load_class), .ev_layer({1'b0, load_dyn}),
+        .ev_instrument({2'b00, load_inst}), .ev_note(load_note),
+        .ev_velocity(load_vel), .ev_note_id(load_note_id), .load_voice(load_voice),
+        .cfg_we(e2_cfg_we_ld), .cfg_voice(e2_cfg_voice_ld), .cfg_mode(e2_cfg_mode_ld), .cfg_data(e2_cfg_data_ld),
+        .clr_we(e2_clr_we_ld), .clr_voice(e2_clr_voice_ld), .clr_mode(),
+        .seed_valid(e2_seed_valid_ld), .seed_voice(e2_seed_voice_ld),
+        .seed_mode(e2_seed_mode_ld), .seed_word(e2_seed_word_ld),
+        .load_done(e2_done), .done_voice(e2_done_voice), .loaded_n_modes(e2_n),
+        .theta_base(e2_theta), .error_valid(e2_err), .error_code(e2_ecode)
+    );
+
     always_comb begin
-        load_ready = (load_class == 2'd0) ? a_ready : bc_ready;
+        if (load_class == 2'd0)       load_ready = a_ready;
+        else if (load_class == 2'd3)  load_ready = e2_ready;
+        else                          load_ready = bc_ready;
     end
 
     always_ff @(posedge clk) begin
-        if (!rst_n) class_r <= 1'b0;
-        else if (load_valid && load_ready) class_r <= (load_class != 2'd0);
+        if (!rst_n) class_r <= 2'd0;
+        else if (load_valid && load_ready) class_r <= load_class;
     end
 
     // 元数据
@@ -161,15 +209,18 @@ module router_system_top #(
     logic [NUM_SLOTS*20-1:0]     c_len;
     logic [NUM_SLOTS*24-1:0]     c_atk, c_rel;
 
-    wire [VW-1:0] dv_meta = class_r ? bc_done_voice : a_done_voice;
+    wire [VW-1:0] dv_meta = (class_r == 2'd3) ? e2_done_voice :
+                            class_r ? bc_done_voice : a_done_voice;
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
-            a_nm <= '0; b_nm <= '0; c_nm <= '0;
+            a_nm <= '0; b_nm <= '0; c_nm <= '0; e2_nm <= '0;
             ctrl_flat <= '0; theta_flat <= '0;
-        end else if (class_r ? bc_done : a_done) begin
-            if (!class_r) begin
+        end else if ((class_r == 2'd3) ? e2_done : (class_r ? bc_done : a_done)) begin
+            if (class_r == 2'd0) begin
                 a_nm[dv_meta*MW_ABC +: MW_ABC] <= a_n;
+            end else if (class_r == 2'd3) begin
+                e2_nm[dv_meta*MW_E2 +: MW_E2] <= e2_n;
             end else begin
                 ctrl_flat[dv_meta*256 +: 256] <= bc_ctrl;
                 theta_flat[dv_meta*16 +: 16] <= bc_theta;
@@ -190,24 +241,39 @@ module router_system_top #(
         end
     endgenerate
 
-    wire load_done_mux = class_r ? bc_done : a_done;
-    wire [VW-1:0] done_voice_mux = class_r ? bc_done_voice : a_done_voice;
-    wire [MW_ABC-1:0] n_mux = class_r ? bc_n : a_n;
+    wire load_done_mux = (class_r == 2'd3) ? e2_done : (class_r ? bc_done : a_done);
+    wire [VW-1:0] done_voice_mux = (class_r == 2'd3) ? e2_done_voice :
+                                   class_r ? bc_done_voice : a_done_voice;
+    wire [MW_ABC-1:0] n_mux = (class_r == 2'd3) ? e2_n[MW_ABC-1:0] :
+                              class_r ? bc_n : a_n;
 
     assign load_done = load_done_mux;
     assign done_voice = done_voice_mux;
     assign loaded_n_modes = n_mux;
-    assign load_error = a_err | bc_err;
+    assign load_error = a_err | bc_err | e2_err;
 
-    // cfg/clr/seed mux
+    // A/B/C 共享总线
     wire cfg_we_mux = class_r ? bc_cfg_we : a_cfg_we;
     wire clr_we_mux = class_r ? bc_clr_we : a_clr_we;
     wire [VW-1:0] cfg_voice_mux = class_r ? bc_cfg_voice : a_cfg_voice;
     wire [MW_ABC-1:0] cfg_mode_mux = class_r ? bc_cfg_mode : a_cfg_mode;
     wire [REC_W-1:0] cfg_data_mux = class_r ? bc_cfg_data : a_cfg_data;
     wire [VW-1:0] clr_voice_mux = class_r ? bc_clr_voice : a_clr_voice;
+    wire seed_we_mux = (class_r == 2'd2) && bc_seed_valid;
 
-    wire seed_we_mux = class_r && (bc_class == 2'd2) && bc_seed_valid;
+    // E2 总线：class3 用 router loader；其他 class 保持外部手动口
+    wire e2_cfg_we_use = (class_r == 2'd3) ? e2_cfg_we_ld : e2_cfg_we;
+    wire e2_clr_we_use = (class_r == 2'd3) ? e2_clr_we_ld : e2_clr_we;
+    wire e2_seed_we_use = (class_r == 2'd3) ? e2_seed_valid_ld : e2_seed_we;
+    wire [VW-1:0] e2_cfg_voice_use = (class_r == 2'd3) ? e2_cfg_voice_ld : e2_cfg_voice;
+    wire [MW_E2-1:0] e2_cfg_mode_use = (class_r == 2'd3) ? e2_cfg_mode_ld : e2_cfg_mode;
+    wire [REC_W-1:0] e2_cfg_data_use = (class_r == 2'd3) ? e2_cfg_data_ld : e2_cfg_data;
+    wire [VW-1:0] e2_clr_voice_use = (class_r == 2'd3) ? e2_clr_voice_ld : e2_clr_voice;
+    wire [MW_E2-1:0] e2_clr_mode_use = (class_r == 2'd3) ? e2_cfg_mode_ld : e2_clr_mode;
+    wire [VW-1:0] e2_seed_voice_use = (class_r == 2'd3) ? e2_seed_voice_ld : e2_seed_voice;
+    wire [MW_E2-1:0] e2_seed_mode_use = (class_r == 2'd3) ? e2_seed_mode_ld : e2_seed_mode;
+    wire [63:0] e2_seed_data_use = (class_r == 2'd3) ? e2_seed_word_ld : e2_seed_data;
+    wire [NUM_SLOTS*MW_E2-1:0] e2_nmodes_use = (class_r == 2'd3) ? e2_nm : e2_nmodes;
 
     engines_system_top #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
@@ -217,22 +283,22 @@ module router_system_top #(
         .clk(clk), .rst_n(rst_n),
         .note_on(load_done_mux), .note_off(off_valid),
         .note_voice(off_valid ? off_voice : done_voice_mux),
-        .note_class(class_r ? bc_class : 2'd0),
+        .note_class((class_r == 2'd3) ? 2'd3 : (class_r ? bc_class : 2'd0)),
         .a_x(a_x), .a_x_vel(a_x_vel), .a_nmodes(a_nm),
         .b_ctrl(ctrl_flat), .b_vel(b_vel), .b_theta(theta_flat),
         .b_a1_enable(b_a1_enable), .b_ratio(b_ratio), .b_nmodes(b_nm),
         .c_len(c_len), .c_seed_vel(c_seed_vel), .c_attack(c_atk), .c_release(c_rel),
         .c_nmodes(c_nm), .c_seed_base(c_seed_base),
-        .cfg_we(cfg_we_mux), .cfg_engine(class_r ? (bc_class == 2'd1 ? 2'd1 : 2'd2) : 2'd0),
+        .cfg_we(cfg_we_mux), .cfg_engine((class_r == 2'd0) ? 2'd0 : (bc_class == 2'd1 ? 2'd1 : 2'd2)),
         .cfg_voice(cfg_voice_mux), .cfg_mode(cfg_mode_mux), .cfg_data(cfg_data_mux),
-        .clr_we(clr_we_mux), .clr_engine(class_r ? (bc_class == 2'd1 ? 2'd1 : 2'd2) : 2'd0),
+        .clr_we(clr_we_mux), .clr_engine((class_r == 2'd0) ? 2'd0 : (bc_class == 2'd1 ? 2'd1 : 2'd2)),
         .clr_voice(clr_voice_mux), .clr_mode(cfg_mode_mux),
         .seed_we(seed_we_mux), .seed_engine(2'd2),
         .seed_voice(bc_seed_voice), .seed_mode(bc_seed_mode), .seed_data(bc_seed_word),
-        .e2_cfg_we(e2_cfg_we), .e2_cfg_voice(e2_cfg_voice), .e2_cfg_mode(e2_cfg_mode), .e2_cfg_data(e2_cfg_data),
-        .e2_clr_we(e2_clr_we), .e2_clr_voice(e2_clr_voice), .e2_clr_mode(e2_clr_mode),
-        .e2_seed_we(e2_seed_we), .e2_seed_voice(e2_seed_voice), .e2_seed_mode(e2_seed_mode), .e2_seed_data(e2_seed_data),
-        .e2_x(e2_x), .e2_nmodes(e2_nmodes),
+        .e2_cfg_we(e2_cfg_we_use), .e2_cfg_voice(e2_cfg_voice_use), .e2_cfg_mode(e2_cfg_mode_use), .e2_cfg_data(e2_cfg_data_use),
+        .e2_clr_we(e2_clr_we_use), .e2_clr_voice(e2_clr_voice_use), .e2_clr_mode(e2_clr_mode_use),
+        .e2_seed_we(e2_seed_we_use), .e2_seed_voice(e2_seed_voice_use), .e2_seed_mode(e2_seed_mode_use), .e2_seed_data(e2_seed_data_use),
+        .e2_x(e2_x), .e2_nmodes(e2_nmodes_use),
         .start(start), .sample_ready(sample_ready), .busy(busy), .done(done),
         .out_valid(out_valid), .mix_sum(mix_sum)
     );

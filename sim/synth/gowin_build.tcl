@@ -9,6 +9,7 @@ set files [list \
   "$root/rtl/core/class_loader64.sv" \
   "$root/rtl/core/a_router_loader.sv" \
   "$root/rtl/core/bc_router_loader.sv" \
+  "$root/rtl/core/e2_router_loader.sv" \
   "$root/rtl/core/modal_record_pkg.sv" \
   "$root/rtl/core/modal_ram.sv" \
   "$root/rtl/core/eng1_lane_core.sv" \

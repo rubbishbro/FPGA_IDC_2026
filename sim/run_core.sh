@@ -9,7 +9,7 @@ OUT="${OUT:-/tmp/dsh_core_tests}"
 mkdir -p "$OUT"
 
 COMMON="rtl/core/class_format_pkg.sv rtl/core/class_loader.sv rtl/core/class_loader64.sv \
-rtl/core/a_router_loader.sv rtl/core/bc_router_loader.sv \
+rtl/core/a_router_loader.sv rtl/core/bc_router_loader.sv rtl/core/e2_router_loader.sv \
 rtl/core/modal_record_pkg.sv rtl/core/modal_ram.sv \
 rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top.sv \
 rtl/core/voice_env.sv rtl/core/voice_env_bank.sv rtl/core/eng1_engine_env_top.sv \
@@ -48,6 +48,8 @@ run tb_seed_rom rtl/core/seed_rom.sv sim/unit/core/tb_seed_rom.sv
 run tb_c_seed_loader rtl/core/seed_rom.sv rtl/core/c_seed_loader.sv sim/unit/core/tb_c_seed_loader.sv
 run tb_a_router_loader rtl/core/class_loader.sv rtl/core/a_router_loader.sv rtl/core/modal_record_pkg.sv sim/unit/core/tb_a_router_loader.sv
 run tb_bc_router_loader rtl/core/class_format_pkg.sv rtl/core/class_loader64.sv rtl/core/bc_router_loader.sv rtl/core/modal_record_pkg.sv sim/unit/core/tb_bc_router_loader.sv
+run tb_e2_router_loader rtl/core/class_format_pkg.sv rtl/core/class_loader64.sv rtl/core/e2_router_loader.sv rtl/core/modal_record_pkg.sv sim/unit/core/tb_e2_router_loader.sv
 run tb_router_system_top $(echo "$COMMON") sim/unit/core/tb_router_system_top.sv
 run tb_router_system_b $(echo "$COMMON") sim/unit/core/tb_router_system_b.sv
 run tb_router_system_c $(echo "$COMMON") sim/unit/core/tb_router_system_c.sv
+run tb_router_system_e2 $(echo "$COMMON") sim/unit/core/tb_router_system_e2.sv

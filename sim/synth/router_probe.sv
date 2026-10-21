@@ -67,7 +67,13 @@ module router_probe (
         .BC_INDEX_FILE("sim/unit/core/router_bc_index.mem"),
         .BC_CTRL_FILE("sim/unit/core/router_bc_ctrl.mem"),
         .BC_SEED_FILE("sim/unit/core/router_bc_seed.mem"),
-        .C_SEED_FILE("sim/unit/core/router_bc_seed.mem")
+        .C_SEED_FILE("sim/unit/core/router_bc_seed.mem"),
+        .E2_COEFF_DEPTH(2), .E2_INDEX_DEPTH(8192), .E2_CTRL_DEPTH(2), .E2_SEED_DEPTH(8),
+        .E2_COEFF_FILE("sim/unit/core/router_e2_coeff.mem"),
+        .E2_INDEX_FILE("sim/unit/core/router_e2_index.mem"),
+        .E2_CTRL_FILE("sim/unit/core/router_e2_ctrl.mem"),
+        .E2_SEED_FILE("sim/unit/core/router_e2_seed.mem"),
+        .E2_L72_FILE("sim/unit/core/router_e2_l72.mem")
     ) u_sys (
         .clk(clk), .rst_n(rst_n),
         .load_valid(load_valid), .load_ready(load_ready), .load_class(load_class),
@@ -90,7 +96,9 @@ module router_probe (
     );
 
     // 单独例化 ENG2，保证它不被优化掉（router 系统里 E2 仍走外部 cfg）
-    logic e2_start, e2_zero, e2_done, e2_ready, e2_out;
+    logic e2_start;
+    logic [SLOTS-1:0] e2_zero;
+    logic e2_done, e2_ready, e2_out;
     logic signed [63:0] e2_mix;
     logic [15:0] e2_active;
     logic [SLOTS*32-1:0] e2_x2;
@@ -151,7 +159,7 @@ module router_probe (
             start <= 1'b0;
             e2_cfg_we <= 1'b0;
             e2_start <= 1'b0;
-            e2_zero <= 1'b0;
+            e2_zero <= '0;
             e2_cnt <= 16'd0;
         end else begin
             lfsr <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
@@ -159,12 +167,12 @@ module router_probe (
             start <= 1'b0;
             e2_cfg_we <= 1'b0;
             e2_start <= 1'b0;
-            e2_zero <= 1'b0;
+            e2_zero <= '0;
             e2_cnt <= e2_cnt + 1'b1;
             if (e2_cnt == 16'd0) e2_cfg_we <= 1'b1;
                 if (e2_cnt[5:0] == 6'd0) begin
                 e2_start <= 1'b1;
-                if (e2_cnt == 16'd0) e2_zero <= 1'b1;
+                if (e2_cnt == 16'd0) e2_zero[0] <= 1'b1;
             end
             e2_x2 <= '0;
             e2_x2[0*32 +: 32] <= lfsr;

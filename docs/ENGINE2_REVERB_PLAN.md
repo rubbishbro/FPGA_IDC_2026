@@ -36,7 +36,7 @@
 
 - 四引擎主体、9×32 RAM、4 lane、16 voice router 已完成。
 - ENG2 已能通过 `router_system_top` 的 **外部 cfg/seed 端口**工作。
-- `router_system_top` 还没有 E2 的 router loader；这是接入 ENG2 的下一步。
+- `router_system_top` 的 class=3 现在走 `e2_router_loader`；E2 外部 cfg 端口保留为手动口。
 - 最新 P&R（`router_probe`）：
   - Fmax = **100.004 MHz**
   - Setup/Hold 违例 = 0
@@ -47,7 +47,11 @@
 
 目标：ENG2 与 A/B/C 一样，由事件 + router 自动装载，不再从顶层手接 cfg。
 
-### 3.1 新增 `e2_router_loader`
+### 3.1 新增 `e2_router_loader`（已完成）
+
+`rtl/core/e2_router_loader.sv` 已加入：复用 `class_loader64` 的 index/control/seed，
+coefficient 单独读 224-bit（7×32）表，打包成 9×32；`tb_e2_router_loader` PASS。
+
 
 参考 `bc_router_loader`，但 E2 的 index/control 格式独立：
 

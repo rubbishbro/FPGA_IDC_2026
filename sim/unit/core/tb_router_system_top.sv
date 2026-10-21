@@ -39,7 +39,13 @@ module tb_router_system_top;
         .BC_INDEX_FILE("sim/unit/core/router_bc_index.mem"),
         .BC_CTRL_FILE("sim/unit/core/router_bc_ctrl.mem"),
         .BC_SEED_FILE("sim/unit/core/router_bc_seed.mem"),
-        .C_SEED_FILE("sim/unit/core/router_bc_seed.mem")
+        .C_SEED_FILE("sim/unit/core/router_bc_seed.mem"),
+        .E2_COEFF_DEPTH(2), .E2_INDEX_DEPTH(8192), .E2_CTRL_DEPTH(2), .E2_SEED_DEPTH(8),
+        .E2_COEFF_FILE("sim/unit/core/router_e2_coeff.mem"),
+        .E2_INDEX_FILE("sim/unit/core/router_e2_index.mem"),
+        .E2_CTRL_FILE("sim/unit/core/router_e2_ctrl.mem"),
+        .E2_SEED_FILE("sim/unit/core/router_e2_seed.mem"),
+        .E2_L72_FILE("sim/unit/core/router_e2_l72.mem")
     ) dut (
         .clk(clk), .rst_n(rst_n),
         .load_valid(load_valid), .load_ready(load_ready), .load_class(load_class),
