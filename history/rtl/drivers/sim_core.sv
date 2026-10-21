@@ -1,0 +1,1 @@
+//synthesis sound by simulate string motion in modal space

@@ -1,0 +1,32 @@
+// -----------------------------------------------------------------------------
+// tone.cst —— diagnostic_tone_top 的引脚约束（独立音调 bring-up）。
+//
+// 目标：Tang Mega 138K Pro Dock，GW5AST-LV138FPG676A，FPG676。
+//
+// 电气属性原样复用现有生产约束
+// 文件（rtl/platform/tang_mega_138k_pro/tang_mega_138k_pro.cst，后者又复用了官方
+// TangMega-138KPro 音频示例的 clk 和 audio_pmod2.cst 的 PMOD2 引脚）。此处不引入任何
+// 新的引脚事实：
+//   * clk      : P16, input, no drive, BANK_VCCIO=3.3（官方示例）
+//   * amp_*    : PMOD2 / J26, LVCMOS33, DRIVE=8, BANK_VCCIO=3.3
+//   * amp_sd   : PMOD2 IO3, PULL_MODE=DOWN（安全低电平 = shutdown）
+// 本设计刻意没有复位/按键端口。
+//
+// 接线前仍必须对照实际板子核对连接器方向（PMOD2 Pin 1）；不能仅凭照片推断。
+// -----------------------------------------------------------------------------
+
+// 50 MHz 板级晶振（输入，无驱动）—— 官方示例
+IO_LOC "clk" P16;
+IO_PORT "clk" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+
+// PMOD2 -> 外部 MAX98357A（LVCMOS33, DRIVE=8）
+IO_LOC "amp_bclk" C21;
+IO_PORT "amp_bclk" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_lrc" B20;
+IO_PORT "amp_lrc" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC "amp_din" B19;
+IO_PORT "amp_din" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+// SD (MAX98357A shutdown / 声道选择)：默认 LOW 为安全状态，因此请求下拉；高 = 左
+// 声道，低 = shutdown。
+IO_LOC "amp_sd" A17;
+IO_PORT "amp_sd" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;

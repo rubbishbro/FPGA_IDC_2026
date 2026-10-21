@@ -1,0 +1,40 @@
+{
+  "status": "USER_AUTHORIZED_LIMITED_SRAM_BOARD_TRIAL_NOT_TIMING_SIGNOFF",
+  "date": "2026-10-08",
+  "authorization": "用户建议先上板测量，分析继续留作报告；仅准备临时SRAM试验，由用户操作下载。",
+  "candidate": "existing v5, copied unchanged; no new synthesis or P&R",
+  "source_bitstream": "/tmp/opencode/song-control-core100-v5-20261007/build/song_metadata_core100/impl/pnr/song_metadata_core100.fs",
+  "source_bitstream_sha256": "0981c613cb881247d6381ce2e87f16a919f377a201f729e60ae496d44c0911c2",
+  "files_sha256": {
+    "song_sram_trial_v5.fs": "0981c613cb881247d6381ce2e87f16a919f377a201f729e60ae496d44c0911c2",
+    "evidence/timing_report.tr": "4e894e14447c4d0bad4bf82283b8dc379a51395e70c38ffc49f387acc1957ee5",
+    "evidence/pnr_report.txt": "ba621aed066fbcb9d01ea0d36c0c099efa2834529cad72b3071883f202bf615f",
+    "evidence/tang_mega_138k_pro.cst": "cc83e7300be862da20c23efe4eb67d7082a043cf841eb57e7ba2ffd53145b1a2",
+    "evidence/tang_mega_138k_pro.sdc": "b72dda0753be5af822d6ad5f95b5026d9f66830aac473e16d827bce6150cb6aa"
+  },
+  "verified_source_sha256": {
+    "rtl/core/modal_poly_bank.sv": "2f52e0077fc2eebd92ed9c074ebd75a3c2be547ae92af7f3edd7a0a904c23c47",
+    "rtl/core/poly_modal_lane.sv": "353645be12571a56fd85082de1d4d6c8e41c1f145cff694ec4300a44089fbe08",
+    "rtl/platform/tang_mega_138k_pro/tang_mega_138k_pro.cst": "cc83e7300be862da20c23efe4eb67d7082a043cf841eb57e7ba2ffd53145b1a2",
+    "rtl/platform/tang_mega_138k_pro/tang_mega_138k_pro.sdc": "b72dda0753be5af822d6ad5f95b5026d9f66830aac473e16d827bce6150cb6aa"
+  },
+  "legacy_files_unchanged_sha256": {
+    "build/song_synthesis_core100_20261007/parent_core100.fs": "2a17be629f90bfeec59afdc67e8b25dd57160d7e631f95b1734d278f0d823176",
+    "build/diagnostic_tone_20261005/diagnostic_tone.fs": "4d5276bb3737ad51862bb97e105224845564c33310efffb799ecf1c3304e93a0"
+  },
+  "timing": {
+    "setup_violations": 0,
+    "hold_violations": 0,
+    "worst_setup_slack_ns": 0.001,
+    "mpw_slack_ns": -0.612,
+    "mpw_required_width_ns": 0.9,
+    "mpw_modeled_width_ns": 0.288
+  },
+  "limits": [
+    "MPW and PLL/PVT/board acceptance remain open.",
+    "No 100MHz clock observation pin in this unchanged candidate.",
+    "I2S waveforms / successful audio do not prove internal DSP/RAM pulse widths.",
+    "Physical U4 reset polarity and full part/speed grade not verified.",
+    "No Programmer interaction or Flash write by assistant."
+  ]
+}
