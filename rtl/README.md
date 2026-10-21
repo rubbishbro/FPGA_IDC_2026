@@ -24,6 +24,8 @@ rtl/core/
   eng1_engine_top_ext.sv    ENG1 外置 RAM 版本
   eng2_engine_top_ext.sv    ENG2 外置 RAM 版本
   shared_engine_mvp.sv      A/E2 共享 RAM MVP + 单尾部加法器
+  shared_engines_top.sv     A/B/C/E2 单共享 RAM + scheduler + 单尾部加法器
+  shared_engines_system_top.sv  shared_engines_top 的 event/voice_router 壳
   class_loader.sv / class_loader64.sv
   a_router_loader.sv / bc_router_loader.sv
   engine_mix_sum.sv

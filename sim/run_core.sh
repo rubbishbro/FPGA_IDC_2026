@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# New ENG1/ENG2 core regression (30 Icarus tests).
+# New ENG1/ENG2 core regression (31 Icarus tests).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -57,3 +57,4 @@ run tb_shared_modal_ram rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.s
 run tb_shared_engine_mvp rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/eng2_engine_top_ext.sv rtl/core/shared_engine_mvp.sv sim/unit/core/tb_shared_engine_mvp.sv
 run tb_b_engine_top_ext rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/eng1_engine_env_top_ext.sv rtl/core/voice_env.sv rtl/core/voice_env_bank.sv rtl/core/b_voice_ctrl.sv rtl/core/b_x_pool.sv rtl/core/b_front.sv rtl/core/b_a1_refresh.sv rtl/core/b_a1_engine.sv rtl/core/b_a1_ram_engine.sv rtl/core/b_engine_top_ext.sv sim/unit/core/tb_b_engine_top_ext.sv
 run tb_c_engine_top_ext rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/eng1_engine_env_top_ext.sv rtl/core/voice_env.sv rtl/core/voice_env_bank.sv rtl/core/c_voice_timer.sv rtl/core/seed_rom.sv rtl/core/c_seed_loader.sv rtl/core/c_engine_top_ext.sv sim/unit/core/tb_c_engine_top_ext.sv
+run tb_shared_engines_top rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/eng1_engine_env_top_ext.sv rtl/core/voice_env.sv rtl/core/voice_env_bank.sv rtl/core/b_voice_ctrl.sv rtl/core/b_x_pool.sv rtl/core/b_front.sv rtl/core/b_a1_refresh.sv rtl/core/b_a1_engine.sv rtl/core/b_a1_ram_engine.sv rtl/core/b_engine_top_ext.sv rtl/core/c_voice_timer.sv rtl/core/seed_rom.sv rtl/core/c_seed_loader.sv rtl/core/c_engine_top_ext.sv rtl/core/eng2_engine_top_ext.sv rtl/core/shared_engines_top.sv sim/unit/core/tb_shared_engines_top.sv
