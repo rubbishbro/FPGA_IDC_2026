@@ -37,11 +37,15 @@
 - 四引擎主体、9×32 RAM、4 lane、16 voice router 已完成。
 - ENG2 已能通过 `router_system_top` 的 **外部 cfg/seed 端口**工作。
 - `router_system_top` 的 class=3 现在走 `e2_router_loader`；E2 外部 cfg 端口保留为手动口。
-- 最新 P&R（`router_probe`）：
-  - Fmax = **100.004 MHz**
-  - Setup/Hold 违例 = 0
-  - 余量只有 0.000/0.001 ns，属于压线通过。
-- 资源：BSRAM 195/340，DSP 95/298。
+- E2 接入并重定时后的最新 P&R（`router_probe`，2026-10-21 19:55）：
+  - Fmax = **100.075 MHz**
+  - Setup 违例 = **0**，TNS = 0
+  - Hold 违例 = 0
+  - 最差 slack = +0.007 ns（仍非常紧）
+  - 关键路径：router `class_r` → B 引擎 RAM 写口（`u_b/.../u_ram/f3`）
+  - E2 的 RAM→DSP 路径已通过 `co_data_r/st_q_r` 一级流水打散。
+- 资源：BSRAM 190/340，DSP 88.5/298，Logic 12,736，Register 8,224。
+- 结论：E2 接入后 100 MHz 时序通过，但余量只有 0.007 ns，需要继续留 margin。
 
 ## 3. 接入 ENG2 的计划
 

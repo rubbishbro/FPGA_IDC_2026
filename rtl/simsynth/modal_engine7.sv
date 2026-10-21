@@ -120,7 +120,7 @@ module modal_engine7 #(
     logic signed [AW-1:0] y_acc, y_sum;
     logic signed [XW-1:0] x_lat;
 
-    assign si = ri - 4'd4;
+    assign si = ri - 5'd5;
 
     // ---- 流水寄存器 -------------------------------------------------------
     logic signed [AW-1:0] p_a11, p_a12, p_gq, p_a21, p_a22, p_gv, p_wo;   // M 级
@@ -129,12 +129,29 @@ module modal_engine7 #(
 
     logic                 mul_en, rnd_en, sum_en, wb_en;
 
+    // RAM 读数据先打一拍，再进 M 级乘法；流水整体多一级。
+    modal_step_pkg::coeff_t co_data_r;
+    logic signed [QW-1:0]   st_q_r;
+    logic signed [VW-1:0]   st_qdot_r;
+
     always_comb begin
-        // 读 = ri；乘 = ri-1；舍入 = ri-2；相加 = ri-3；写回 = ri-4
-        mul_en = (state == S_RUN) && (ri >= 1) && (ri <= n_mod_lat);
-        rnd_en = (state == S_RUN) && (ri >= 2) && (ri <= n_mod_lat + 1);
-        sum_en = (state == S_RUN) && (ri >= 3) && (ri <= n_mod_lat + 2);
-        wb_en  = (state == S_RUN) && (ri >= 4) && (ri <= n_mod_lat + 3);
+        // 读 = ri；数据寄存 = ri；乘 = ri-1；舍入 = ri-2；相加 = ri-3；写回 = ri-4
+        mul_en = (state == S_RUN) && (ri >= 2) && (ri <= n_mod_lat + 1);
+        rnd_en = (state == S_RUN) && (ri >= 3) && (ri <= n_mod_lat + 2);
+        sum_en = (state == S_RUN) && (ri >= 4) && (ri <= n_mod_lat + 3);
+        wb_en  = (state == S_RUN) && (ri >= 5) && (ri <= n_mod_lat + 4);
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            co_data_r <= '0;
+            st_q_r    <= '0;
+            st_qdot_r <= '0;
+        end else if ((state == S_RUN) && (ri >= 1) && (ri <= n_mod_lat)) begin
+            co_data_r <= co_data;
+            st_q_r    <= st_q;
+            st_qdot_r <= st_qdot;
+        end
     end
 
     // ---- M 级：乘法 -------------------------------------------------------
@@ -143,13 +160,13 @@ module modal_engine7 #(
             p_a11 <= '0; p_a12 <= '0; p_gq <= '0;
             p_a21 <= '0; p_a22 <= '0; p_gv <= '0; p_wo <= '0;
         end else if (mul_en) begin
-            p_a11 <= mul64(st_q,    co_data.a11);
-            p_a12 <= mul64(st_qdot, co_data.a12);
-            if (USE_X) p_gq <= mul64(x_lat, co_data.gq);
-            p_a21 <= mul64(st_q,    co_data.a21);
-            p_a22 <= mul64(st_qdot, co_data.a22);
-            if (USE_X) p_gv <= mul64(x_lat, co_data.gv);
-            p_wo  <= mul64(st_q,    co_data.wo);
+            p_a11 <= mul64(st_q_r,    co_data_r.a11);
+            p_a12 <= mul64(st_qdot_r, co_data_r.a12);
+            if (USE_X) p_gq <= mul64(x_lat, co_data_r.gq);
+            p_a21 <= mul64(st_q_r,    co_data_r.a21);
+            p_a22 <= mul64(st_qdot_r, co_data_r.a22);
+            if (USE_X) p_gv <= mul64(x_lat, co_data_r.gv);
+            p_wo  <= mul64(st_q_r,    co_data_r.wo);
         end
     end
 
@@ -257,7 +274,7 @@ module modal_engine7 #(
                 S_RUN: begin
                     // ri = n_mod+3 那拍完成最后一个模态的写回；
                     // ri = n_mod+4 这拍流水已排空，可以收尾
-                    if (ri == n_mod_lat + 3'd4) state <= S_WB;
+                    if (ri == n_mod_lat + 3'd5) state <= S_WB;
                     else                        ri    <= ri + 1'b1;
                 end
 
