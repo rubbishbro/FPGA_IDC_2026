@@ -1,0 +1,24 @@
+-series GW5AST
+-device GW5AST-138
+-device_version B
+-package FCPBGA676A
+-part_number GW5AST-LV138FPG676AC1/I0
+
+
+-mod_name Gowin_ADC
+-file_name gowin_adc
+-path E:/Gowin/Projects/sim_synth/src/gowin_adc/
+-file_type vlg
+-type ADC
+-voltage LV
+-adc_select ADCLRC
+-adc_mode voltage
+-div 1
+-vsen_ctl_sel 0
+-vsen_ctl adcv
+-clk_sel osc
+-rate_change_ctrl 128
+-sample_cnt_sel 1024
+-fscal_value 653
+-offset 0
+-dyn_bk_en false
