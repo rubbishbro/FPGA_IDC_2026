@@ -13,13 +13,14 @@ digraph engines_system {
         fontsize=13; color="#2b6cb0"; style="rounded"; fillcolor="#ebf8ff";
 
         event [label="load event\nclass / voice / inst / note / vel / dyn", fillcolor="#bee3f8"];
-        rom [label="ROM 表\nA: modal_index / modal_coeff\nB/C: index / ctrl / coeff / seed", shape=cylinder, fillcolor="#fefcbf"];
+        rom [label="ROM 表\nA: index / coeff\nB/C: index / ctrl / coeff / seed\nE2: index / ctrl / 224-bit coeff / seed", shape=cylinder, fillcolor="#fefcbf"];
 
         subgraph cluster_front {
             label="表装载 / 路由前端";
             fontsize=11; color="#2b6cb0"; style="rounded,dashed"; fillcolor="#ebf8ff";
             a_ld [label="a_router_loader\nclass_loader（A 20-bit index）\n→ 9×32 记录", fillcolor="#c6f6d5"];
             bc_ld [label="bc_router_loader\nclass_loader64（B/C 64-bit index）\n→ 9×32 + ctrl + seed", fillcolor="#c6f6d5"];
+            e2_ld [label="e2_router_loader\nclass_loader64（E2 index/ctrl/seed）\n+ 224-bit coeff（7×32）\n→ 9×32", fillcolor="#feb2b2"];
         }
 
         subgraph cluster_sys {
@@ -39,7 +40,7 @@ digraph engines_system {
                     c_eng [label="C\nc_engine_top\n├ c_voice_timer\n├ c_seed_loader + seed_rom\n└ eng1_engine_env_top（复用 9×32）", fillcolor="#e9d8fd"];
                 }
 
-                e2 [label="ENG2\neng2_engine_top\n├ modal_ram（STATE_FIRST=7）\n└ modal_engine7（7×mult / 5-stage）", fillcolor="#fed7d7"];
+                e2 [label="ENG2\neng2_engine_top\n├ modal_ram（STATE_FIRST=7）\n└ modal_engine7（7×mult / 5-stage）\n   └ co_data/st_q 先打一拍 → M", fillcolor="#fed7d7"];
 
                 { rank=same; a_eng; b_eng; c_eng; e2; }
                 a_eng -> b_eng -> c_eng [style=invis];
@@ -55,12 +56,15 @@ digraph engines_system {
         // ---- 主数据流 ----
         event -> a_ld;
         event -> bc_ld;
+        event -> e2_ld [label="class=3", color="#c53030"];
         rom -> a_ld [style=dotted];
         rom -> bc_ld [style=dotted];
+        rom -> e2_ld [style=dotted, color="#c53030"];
 
         a_ld -> a_eng [label="cfg / clr", color="#2b6cb0"];
         bc_ld -> b_eng [label="cfg / clr / seed / ctrl", color="#2b6cb0"];
         bc_ld -> c_eng [label="cfg / clr / seed", color="#2b6cb0"];
+        e2_ld -> e2 [label="cfg / clr / seed", color="#c53030", style=bold];
 
         vr -> a_eng [label="active / gate", color="#2f855a", style=dashed];
         vr -> b_eng [label="active / gate", color="#2f855a", style=dashed];
@@ -75,9 +79,6 @@ digraph engines_system {
         sum_all -> mix_out;
         mix_out -> reverb [label="wet/dry 后级", style=dashed, color="#c53030"];
 
-        // ENG2 当前仍是外部 cfg（下一阶段接入 router）
-        e2_ext [label="ENG2 cfg / seed\n当前外部输入", shape=note, fillcolor="#fff5f5", color="#c53030"];
-        e2_ext -> e2 [style=dashed, color="#c53030", label="下一阶段\nE2 router loader"];
     }
 
     // 用不可见边固定主链层级，避免 cluster 乱跳
