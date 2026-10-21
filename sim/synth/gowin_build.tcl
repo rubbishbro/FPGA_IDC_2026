@@ -1,5 +1,16 @@
 set root [pwd]
 cd $root
+# $readmemh 由综合器在工程目录解析；生成一份把 sim/unit/core/ 改成绝对路径的探针副本。
+set probe_src "$root/sim/synth/router_probe.sv"
+set probe_gen "$root/build/router_probe/router_probe_probe.sv"
+file mkdir [file dirname $probe_gen]
+set fh [open $probe_src r]
+set probe_text [read $fh]
+close $fh
+set probe_text [string map [list "sim/unit/core/" "$root/sim/unit/core/"] $probe_text]
+set fh [open $probe_gen w]
+puts $fh $probe_text
+close $fh
 set files [list \
   "$root/rtl/math/pkg/fxp_pkg.sv" \
   "$root/rtl/simsynth/modal_step_pkg.sv" \
@@ -35,10 +46,11 @@ set files [list \
   "$root/rtl/core/voice_router.sv" \
   "$root/rtl/core/engines_system_top.sv" \
   "$root/rtl/core/router_system_top.sv" \
-  "$root/sim/synth/router_probe.sv" \
+  "$probe_gen" \
 ]
 
 create_project -name router_probe -dir "$root/build/router_probe" -pn GW5AST-LV138FPG676AES -device_version B -force
+
 set_option -verilog_std sysv2017
 set_option -top_module router_probe
 foreach f $files { add_file $f }
