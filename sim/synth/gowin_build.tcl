@@ -34,6 +34,10 @@ set files [list \
   "$root/rtl/core/dry_wet_mix.sv" \
   "$root/rtl/core/final_adder.sv" \
   "$root/rtl/core/post_chain.sv" \
+  "$root/rtl/core/router_pkg.sv" \
+  "$root/rtl/core/router_ctrl.sv" \
+  "$root/rtl/core/excitation_convert.sv" \
+  "$root/rtl/core/router_frontend.sv" \
   "$root/rtl/core/voice_router.sv" \
     "$root/rtl/core/router_system_top.sv" \
   "$probe_gen" \

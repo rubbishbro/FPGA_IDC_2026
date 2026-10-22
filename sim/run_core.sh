@@ -15,7 +15,7 @@ rtl/core/router_loader.sv \
 rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv \
 rtl/core/eng1_engine_top_ext.sv rtl/core/pure_engine_abc.sv \
 rtl/core/eng2_engine_top_ext.sv rtl/core/engine_mux.sv rtl/core/shared_engines_top.sv \
-rtl/core/shared_engines_system_top.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv \
+rtl/core/shared_engines_system_top.sv rtl/core/router_pkg.sv rtl/core/router_ctrl.sv rtl/core/excitation_convert.sv rtl/core/router_frontend.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv \
 rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv"
 
 run() {

@@ -56,6 +56,15 @@ module router_system_top #(
     output logic [MW_ABC-1:0] loaded_n_modes,
     output logic load_error,
 
+    // new router frontend (config/fmap -> x)
+    input  logic rcfg_valid,
+    input  logic [3:0] rcfg_instrument,
+    input  logic [3:0] rcfg_voice,
+    input  logic [6:0] rcfg_note,
+    input  logic [7:0] rcfg_velocity,
+    input  logic [16*8-1:0] fmap,
+    input  logic fmap_valid,
+
     // note off
     input  logic off_valid,
     input  logic [VW-1:0] off_voice,
@@ -114,6 +123,29 @@ module router_system_top #(
 
     logic [1:0] class_r;
     logic [VW-1:0] done_voice_r;
+
+    logic [3:0] r_instrument_id;
+    logic [1:0] r_engine_sel;
+    logic signed [31:0] r_x;
+    logic r_key_pressed;
+    logic [15:0] r_velocity;
+    logic [NUM_SLOTS*32-1:0] a_x_eff;
+
+    router_frontend u_rfront (
+        .clk(clk), .rst_n(rst_n),
+        .cfg_valid(rcfg_valid), .cfg_instrument(rcfg_instrument),
+        .cfg_voice(rcfg_voice), .cfg_note(rcfg_note), .cfg_velocity(rcfg_velocity),
+        .fmap(fmap), .fmap_valid(fmap_valid),
+        .instrument_id(r_instrument_id), .engine_sel(r_engine_sel),
+        .coeff_base(), .ram_base(), .load_req(), .load_voice(), .load_note(),
+        .load_velocity(), .load_addr(), .key_pressed(r_key_pressed),
+        .velocity(r_velocity), .x(r_x), .x_valid()
+    );
+
+    always_comb begin
+        a_x_eff = a_x;
+        if (fmap_valid) a_x_eff[0*32 +: 32] = r_x;
+    end
 
     // E2 loader
     logic e2_ready, e2_cfg_we_ld, e2_clr_we_ld;
@@ -257,7 +289,7 @@ module router_system_top #(
         .note_on(load_done_mux), .note_off(off_valid),
         .note_voice(off_valid ? off_voice : done_voice_mux),
         .note_class((class_r == 2'd3) ? 2'd3 : (class_r ? bc_class : 2'd0)),
-        .a_x(a_x), .a_x_vel(a_x_vel), .a_nmodes(a_nm),
+        .a_x(a_x_eff), .a_x_vel(a_x_vel), .a_nmodes(a_nm),
         .b_ctrl(ctrl_flat), .b_vel(b_vel), .b_theta(theta_flat),
         .b_a1_enable(b_a1_enable), .b_ratio(b_ratio), .b_nmodes(b_nm),
         .c_len(c_len), .c_seed_vel(c_seed_vel), .c_attack(c_atk), .c_release(c_rel),

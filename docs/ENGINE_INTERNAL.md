@@ -409,3 +409,7 @@ BSRAM           71 / 340
 ## 25. router_loader 直测（2026-10-22）
 
 `tb_router_loader` A 路径直接验证统一 loader，PASS；回归 16 项。
+
+## 26. router_frontend 接入正式顶层（2026-10-22）
+
+`router_system_top` 增加 rcfg/fmap 输入并例化 router_frontend；fmap_valid=1 时覆盖 A slot0 x；16 项回归 PASS。

@@ -42,3 +42,5 @@ modal_record_pkg.sv
 `biquad` / `reverb` / `dry-wet` / `final_adder` 仍未实现。
 
 `router_frontend_top.sv` 提供 router_frontend + engine_mux 的 A 路径 MVP 顶；尚未替换正式 router_system_top。
+
+`router_system_top` 已接入 `router_frontend`：fmap_valid=1 时用 router 的 x 覆盖 A slot0。

@@ -79,6 +79,8 @@ module router_probe (
         .load_valid(load_valid), .load_ready(load_ready), .load_class(load_class),
         .load_voice(load_voice), .load_inst(load_inst), .load_note(load_note),
         .load_vel(load_vel), .load_dyn(load_dyn), .load_note_id(load_note_id),
+        .rcfg_valid(1'b0), .rcfg_instrument(4'd0), .rcfg_voice(4'd0), .rcfg_note(7'd0),
+        .rcfg_velocity(8'd0), .fmap(128'd0), .fmap_valid(1'b0),
         .load_done(load_done), .done_voice(done_voice), .loaded_n_modes(loaded_n),
         .load_error(load_error),
         .off_valid(1'b0), .off_voice('0),
