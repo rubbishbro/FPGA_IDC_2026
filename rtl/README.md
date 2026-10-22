@@ -40,3 +40,5 @@ modal_record_pkg.sv
 
 `router` / `excitation_convert` / `linear_modulation` / `envelope_mul` /
 `biquad` / `reverb` / `dry-wet` / `final_adder` 仍未实现。
+
+`router_frontend_top.sv` 提供 router_frontend + engine_mux 的 A 路径 MVP 顶；尚未替换正式 router_system_top。

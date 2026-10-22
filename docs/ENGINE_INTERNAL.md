@@ -377,3 +377,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 20. shared top 可选 post（2026-10-22）
 
 `shared_engines_top` 增加 `POST_EN`，默认 0；`tb_shared_engines_post` 用 POST_EN=1 PASS。正式顶层仍未默认开启 post。
+
+## 21. router_frontend_top（2026-10-22）
+
+新增 `router_frontend_top`，A 路径 config/fmap→x→engine_mux，测试 PASS；系数装载仍外部。
