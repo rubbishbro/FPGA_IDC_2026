@@ -19,6 +19,11 @@ module weight_loader #(
     output logic [$clog2(SLOTS*N_MODES)-1:0] co_addr,
     output modal_step_pkg::coeff_t      co_data,
 
+    // 调制参数表写口（和系数表同一套加载流程）
+    output logic                        pm_we,
+    output logic [$clog2(SLOTS*N_MODES)-1:0] pm_addr,
+    output router_pkg::mod_par_t        pm_data,
+
     // QSPI（占位：先引出来，后面对板子）
     output logic                        qspi_cs_n,
     output logic                        qspi_sck,
@@ -38,6 +43,9 @@ module weight_loader #(
             busy      <= 1'b0;
             done      <= 1'b0;
             co_we     <= 1'b0;
+            pm_we     <= 1'b0;
+            pm_addr   <= '0;
+            pm_data   <= '0;
             co_addr   <= '0;
             co_data   <= '0;
             qspi_cs_n <= 1'b1;
@@ -47,6 +55,7 @@ module weight_loader #(
         end else begin
             done   <= 1'b0;
             co_we  <= 1'b0;
+            pm_we  <= 1'b0;
 
             case (st)
                 W_IDLE: begin

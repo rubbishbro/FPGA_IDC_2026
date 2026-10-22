@@ -18,6 +18,7 @@ module voice_router #(
     parameter int   SLOTS      = 16,
     parameter int   N_MODES    = 48,
     parameter int   X_DEPTH    = 64,
+    parameter int   PM_MODES   = 80,          // 调制参数表按钢琴尺寸开
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
     parameter logic DEBUG_PORT = 1'b1
@@ -79,6 +80,13 @@ module voice_router #(
     (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram  [0:SLOTS*N_MODES-1];
     (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram  [0:SLOTS*N_MODES-1];
 
+    // 调制参数表（引擎不读；加载器写，调制器读）
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*PM_MODES-1];
+
     (* syn_ramstyle = "block_ram" *) logic signed [XW-1:0] x_ram  [0:SLOTS*X_DEPTH-1];
     (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_out  [0:X_DEPTH-1];
 
@@ -121,18 +129,24 @@ module voice_router #(
     localparam logic [7:0] NOTE_OFF_TH = 8'd1;
 
     logic [SLOTS-1:0] gate_r, note_gate, note_on;
+    logic             no_clr;
+    logic [VWID-1:0]  no_clr_v;
 
     always_comb for (int i = 0; i < SLOTS; i++)
         note_gate[i] = gate_r[i] ? (fmap.flat_d[i].val >= NOTE_OFF_TH)
                                  : (fmap.flat_d[i].val >  NOTE_ON_TH);
 
-    // note_on 保持一个采样周期（下一拍 tick 清掉），供本帧所有模块使用
+    // note_on：门控上升沿置位，**粘住**到该声部首帧处理完才清
+    // （否则换乐器/加载期间按下的音符会被吃掉）
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             gate_r  <= '0;
             note_on <= '0;
+        end else if (no_clr) begin
+            note_on[no_clr_v] <= 1'b0;
+            if (smp_tick) gate_r <= note_gate;
         end else if (smp_tick) begin
-            note_on <= note_gate & ~gate_r;
+            note_on <= note_on | (note_gate & ~gate_r);
             gate_r  <= note_gate;
         end
     end
@@ -154,14 +168,14 @@ module voice_router #(
     logic [IW-1:0]           mod_p_mode, mod_co_mode;
     logic [3:0]              mod_co_we;
     coeff_t                  mod_co_wdata;
+    logic signed [31:0]      mod_c0_r, mod_s0_r, mod_gam_r, mod_theta0_r, mod_g_r;
     logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g;
 
-    // TODO: 接调制参数表（现在是占位常数）
-    assign mod_c0     = 32'sd1 << 30;
-    assign mod_s0     = 32'sd0;
-    assign mod_gam    = 32'sd65536;       // gamma = 1.0
-    assign mod_theta0 = 32'sd21_474_837;  // theta0 = 0.02 rad（占位）
-    assign mod_g      = 32'sd2_147_483;   // g = dt/theta0（占位）
+    assign mod_c0     = mod_c0_r;
+    assign mod_s0     = mod_s0_r;
+    assign mod_gam    = mod_gam_r;
+    assign mod_theta0 = mod_theta0_r;
+    assign mod_g      = mod_g_r;
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_start),
@@ -180,11 +194,15 @@ module voice_router #(
     logic                           ld_co_we;
     logic [CO_SLOT-1:0]             ld_co_addr;
     coeff_t                         ld_co_data;
+    logic                           ld_pm_we;
+    logic [CO_SLOT-1:0]             ld_pm_addr;
+    router_pkg::mod_par_t           ld_pm_data;
 
     weight_loader #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_ld (
         .clk(clk), .rst_n(rst_n), .inst(4'(inst)),
         .start(ld_start), .busy(ld_busy), .done(ld_done),
         .co_we(ld_co_we), .co_addr(ld_co_addr), .co_data(ld_co_data),
+        .pm_we(ld_pm_we), .pm_addr(ld_pm_addr), .pm_data(ld_pm_data),
         .qspi_cs_n(qspi_cs_n), .qspi_sck(qspi_sck),
         .qspi_dq_o(qspi_dq_o), .qspi_dq_oe(qspi_dq_oe), .qspi_dq_i(qspi_dq_i)
     );
@@ -294,6 +312,7 @@ module voice_router #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             co_a11_r <= '0; co_a12_r <= '0; co_a21_r <= '0; co_a22_r <= '0;
+            mod_c0_r <= '0; mod_s0_r <= '0; mod_gam_r <= '0; mod_theta0_r <= '0; mod_g_r <= '0;
             co_gq_r  <= '0; co_gv_r  <= '0; co_wo_r  <= '0;
             st_q_r   <= '0; st_v_r   <= '0; x_r      <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
@@ -316,6 +335,22 @@ module voice_router #(
                 if (mod_co_we[2]) ca_a21[{mod_slot, mod_co_mode}] <= mod_co_wdata.a21;
                 if (mod_co_we[3]) ca_a22[{mod_slot, mod_co_mode}] <= mod_co_wdata.a22;
             end
+            // 调制参数表：加载器统一写；调制器读（1 拍延迟）
+            if (ld_pm_we) begin
+                pm_c0 [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.c0;
+                pm_s0 [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.s0;
+                pm_gam[{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.gam;
+                pm_th [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.theta0;
+                pm_g  [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.g;
+            end
+            if (mod_p_re) begin
+                mod_c0_r     <= pm_c0 [{mod_slot, mod_p_mode}];
+                mod_s0_r     <= pm_s0 [{mod_slot, mod_p_mode}];
+                mod_gam_r    <= pm_gam[{mod_slot, mod_p_mode}];
+                mod_theta0_r <= pm_th [{mod_slot, mod_p_mode}];
+                mod_g_r      <= pm_g  [{mod_slot, mod_p_mode}];
+            end
+
             if (eng_co_re) begin
                 co_a11_r <= ca_a11[co_idx];
                 co_a12_r <= ca_a12[co_idx];
@@ -411,8 +446,11 @@ module voice_router #(
             xw_run     <= 1'b0;
             xw_i       <= '0;
             wait_xmap  <= 1'b0;
+            no_clr     <= 1'b0;
+            no_clr_v   <= '0;
         end else begin
             done      <= 1'b0;
+            no_clr    <= 1'b0;
             y_valid   <= 1'b0;
             eng_start <= 1'b0;
             ld_start  <= 1'b0;
@@ -493,6 +531,10 @@ module voice_router #(
                 end
 
                 S_ADV: begin
+                    if (fidx == '0) begin
+                        no_clr   <= 1'b1;
+                        no_clr_v <= voi[VWID-1:0];
+                    end
                     if (voi + 1'b1 >= nv_lat) begin
                         y_out[fidx[JW-1:0]] <= y_last;
                         y_data  <= 64'(y_last);

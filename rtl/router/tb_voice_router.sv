@@ -29,8 +29,16 @@ module tb_voice_router;
     );
 
     int fd, a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos;
-    int n_yv = 0, n_nz = 0;
+    int n_yv = 0, n_nz = 0, n_mod_wr = 0;
+    bit r2_ok = 0;
     longint ymax = 0;
+
+    always @(posedge clk) if (|dut.mod_co_we) begin
+        n_mod_wr++;
+        $display("  MODWR slot=%0d mode=%0d c0=%0d th=%0d a11=%0d we=%b",
+                 dut.mod_slot, dut.mod_co_mode, dut.mod_c0_r, dut.mod_theta0_r,
+                 dut.mod_co_wdata.a11, dut.mod_co_we);
+    end
 
     always @(posedge clk) if (y_valid) begin
         n_yv++;
@@ -97,8 +105,27 @@ module tb_voice_router;
         repeat (3) @(posedge clk);
         $display("R2: y_valid=%0d  emap=%0d  q0=%0d v0=%0d  dead=%0b",
                  n_yv, dut.emap[0], dut.q_ram[0], dut.v_ram[0], dut.voice_dead[0]);
+        r2_ok = (dut.emap[0] == 0) && (dut.q_ram[0] == 0) && (dut.v_ram[0] == 0);
 
-        if (n_nz > 0 && ymax != 0 && dut.emap[0] == 0 && dut.q_ram[0] == 0)
+        // ---- R3: 吉他（有揉弦）—— 验证参数表读 + 调制器写系数 ----
+        inst = router_pkg::INST_GUITAR;
+        // 往参数表里写 4 个模态的参数（theta0 从小到 0.9，最后一个应被门控）
+        for (int m = 0; m < 4; m++) begin
+            real th; th = (m == 3) ? 0.9 : (2.0*3.14159265*82.4*(m+1)/48000.0);
+            dut.pm_c0 [m] = longint'($rtoi($cos(th)*1073741824.0));
+            dut.pm_s0 [m] = longint'($rtoi($sin(th)*1073741824.0));
+            dut.pm_gam[m] = 32'sd65536;
+            dut.pm_th [m] = longint'($rtoi(th*1073741824.0));
+            dut.pm_g  [m] = longint'($rtoi((1.0/48000.0)/th*1073741824.0));
+        end
+        n_mod_wr = 0; n_yv = 0;
+        fmap.flat_d[0].val = 8'd200;      // 有 aftertouch
+        @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
+        wait (done);
+        repeat (5) @(posedge clk);
+        $display("R3: guitar y_valid=%0d mod_writes=%0d  a11=%0d", n_yv, n_mod_wr, dut.ca_a11[0]);
+
+        if (n_nz > 0 && ymax != 0 && r2_ok && n_mod_wr > 0)
             $display("RESULT: PASS");
         else
             $display("RESULT: FAIL");

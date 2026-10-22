@@ -41,6 +41,10 @@ module modulation0 #(
     logic [15:0] mode;
     logic signed [63:0] alpha_q;
 
+    // 参数表读口：组合输出（M_RD 给地址，下一拍数据有效）
+    assign p_re   = (st == M_RD);
+    assign p_mode = mode[$clog2(N_MODES)-1:0];
+
     // 压力 -> alpha（Q1.30，直接线性映射）
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) alpha_q <= ONE;
@@ -73,9 +77,9 @@ module modulation0 #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             st <= M_IDLE; mode <= '0; busy <= 1'b0; done <= 1'b0;
-            p_re <= 1'b0; p_mode <= '0; co_we <= 4'b0000; co_mode <= '0; co_wdata <= '0;
+            co_we <= 4'b0000; co_mode <= '0; co_wdata <= '0;
         end else begin
-            done <= 1'b0; p_re <= 1'b0; co_we <= 4'b0000;
+            done <= 1'b0; co_we <= 4'b0000;
             case (st)
                 M_IDLE: begin
                     busy <= 1'b0;
@@ -84,9 +88,8 @@ module modulation0 #(
                     end
                 end
                 M_RD: begin
-                    p_mode <= mode[$clog2(N_MODES)-1:0];
-                    p_re   <= 1'b1;
-                    st     <= M_WR;
+                    // 读口是组合输出（见上面的 assign）：本拍给地址，下一拍数据有效
+                    st <= M_WR;
                 end
                 M_WR: begin
                     co_mode <= mode[$clog2(N_MODES)-1:0];

@@ -22,6 +22,15 @@ package router_pkg;
         INST_NONE     = 4'hF
     } instrument_e;
 
+    // 调制参数记录（每个 槽×模态 一条，5 个字段）
+    typedef struct packed {
+        logic signed [31:0] c0;       // cos(theta0), Q1.30
+        logic signed [31:0] s0;       // sin(theta0), Q1.30
+        logic signed [31:0] gam;      // gamma, Q16.16
+        logic signed [31:0] theta0;   // theta0 = omega0*dt, Q1.30
+        logic signed [31:0] g;        // dt/theta0, Q1.30
+    } mod_par_t;
+
     // 参数表基地址 = 乐器号 × TABLE_SIZE（TABLE_SIZE 固定为钢琴表大小）
     function automatic int unsigned table_base(input instrument_e inst);
         return 32'(inst) * 32'd80;      // TODO: 正式值 = 每个乐器的槽数 x 模态数，先按 80 占位
