@@ -369,3 +369,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 18. post_chain MVP（2026-10-22）
 
 `post_chain` 串联 envelope→body→reverb→dry-wet，测试 PASS。当前 dry 只做一拍对齐，完整 predelay/dry delay 仍待补。
+
+## 19. engine_mux + post_chain 联测（2026-10-22）
+
+`tb_engine_post_chain` 把 `engine_mux` 的 A 输出接 `post_chain`，PASS。后级仍未接正式 shared top。

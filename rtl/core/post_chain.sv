@@ -7,6 +7,7 @@
 module post_chain (
     input  logic clk, rst_n,
     input  logic in_valid,
+    output logic in_ready,
     input  logic signed [63:0] in_data,
     input  logic [15:0] env_gain,
     input  logic [15:0] gd,
@@ -32,6 +33,7 @@ module post_chain (
     );
 
     assign body_in_v = env_v;
+    assign in_ready   = body_in_ready;
 
     body_filter #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body (
         .clk(clk), .rst_n(rst_n), .clear_valid(1'b0), .clear_ready(),
