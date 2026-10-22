@@ -365,3 +365,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 17. router_frontend（2026-10-22）
 
 `router_frontend` 组合 `router_ctrl + excitation_convert`，测试 PASS。
+
+## 18. post_chain MVP（2026-10-22）
+
+`post_chain` 串联 envelope→body→reverb→dry-wet，测试 PASS。当前 dry 只做一拍对齐，完整 predelay/dry delay 仍待补。
