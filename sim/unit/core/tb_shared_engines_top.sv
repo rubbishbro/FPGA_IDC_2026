@@ -19,7 +19,7 @@ module tb_shared_engines_top;
     int errors=0;
     logic out_seen;
 
-    shared_engines_top #(.NUM_SLOTS(SLOTS),.N_MODES_ABC(MA),.N_MODES_E2(ME),.LANES(4),.REC_W(REC_W)) dut (
+    shared_engines_top #(.POST_EN(0),.NUM_SLOTS(SLOTS),.N_MODES_ABC(MA),.N_MODES_E2(ME),.LANES(4),.REC_W(REC_W)) dut (
         .clk(clk),.rst_n(rst_n),
         .cfg_we(cfg_we),.cfg_engine(cfg_engine),.cfg_voice(cfg_voice),.cfg_mode(cfg_mode),.cfg_data(cfg_data),
         .clr_we(clr_we),.clr_engine(clr_engine),.clr_voice(clr_voice),.clr_mode(clr_mode),

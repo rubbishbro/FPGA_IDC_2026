@@ -15,7 +15,8 @@ rtl/core/a_router_loader.sv rtl/core/bc_router_loader.sv rtl/core/e2_router_load
 rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv \
 rtl/core/eng1_engine_top_ext.sv rtl/core/pure_engine_abc.sv \
 rtl/core/eng2_engine_top_ext.sv rtl/core/engine_mux.sv rtl/core/shared_engines_top.sv \
-rtl/core/shared_engines_system_top.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv"
+rtl/core/shared_engines_system_top.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv \
+rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv"
 
 run() {
   local tb="$1"; shift
@@ -39,5 +40,5 @@ run tb_excitation_convert rtl/core/excitation_convert.sv sim/unit/core/tb_excita
 run tb_linear_modulation rtl/core/linear_modulation.sv sim/unit/core/tb_linear_modulation.sv
 run tb_router_frontend rtl/core/router_pkg.sv rtl/core/router_ctrl.sv rtl/core/excitation_convert.sv rtl/core/router_frontend.sv sim/unit/core/tb_router_frontend.sv
 run tb_post_chain_top rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv sim/unit/core/tb_post_chain_top.sv
-run tb_engine_post_chain $(echo "$COMMON") rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv sim/unit/core/tb_engine_post_chain.sv
+run tb_engine_post_chain $(echo "$COMMON") sim/unit/core/tb_engine_post_chain.sv
 run tb_shared_engines_post rtl/math/pkg/fxp_pkg.sv rtl/simsynth/modal_step_pkg.sv rtl/simsynth/modal_engine7.sv rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv rtl/core/eng1_engine_top_ext.sv rtl/core/pure_engine_abc.sv rtl/core/eng2_engine_top_ext.sv rtl/core/engine_mux.sv rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv rtl/core/shared_engines_top.sv sim/unit/core/tb_shared_engines_post.sv

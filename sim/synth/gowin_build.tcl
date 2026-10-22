@@ -7,7 +7,7 @@ file mkdir [file dirname $probe_gen]
 set fh [open $probe_src r]
 set probe_text [read $fh]
 close $fh
-set probe_text [string map [list "sim/unit/core/" "$root/sim/unit/core/"] $probe_text]
+set probe_text [string map [list "sim/unit/core/" "$root/sim/unit/core/" "rtl/rom/" "$root/rtl/rom/"] $probe_text]
 set fh [open $probe_gen w]
 puts $fh $probe_text
 close $fh
@@ -30,6 +30,12 @@ set files [list \
   "$root/rtl/core/engine_mux.sv" \
   "$root/rtl/core/shared_engines_top.sv" \
   "$root/rtl/core/shared_engines_system_top.sv" \
+  "$root/rtl/core/envelope_mul.sv" \
+  "$root/rtl/core/body_filter.sv" \
+  "$root/rtl/core/reverb_filter.sv" \
+  "$root/rtl/core/dry_wet_mix.sv" \
+  "$root/rtl/core/final_adder.sv" \
+  "$root/rtl/core/post_chain.sv" \
   "$root/rtl/core/voice_router.sv" \
     "$root/rtl/core/router_system_top.sv" \
   "$probe_gen" \

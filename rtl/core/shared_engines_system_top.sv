@@ -141,6 +141,7 @@ module shared_engines_system_top #(
         .e2_clr_we(e2_clr_we), .e2_clr_voice(e2_clr_voice), .e2_clr_mode(e2_clr_mode),
         .e2_seed_we(e2_seed_we), .e2_seed_voice(e2_seed_voice), .e2_seed_mode(e2_seed_mode), .e2_seed_data(e2_seed_data),
         .e2_active(e2_active), .e2_zero(e2_zero_r), .e2_x(e2_x), .e2_nmodes(e2_nmodes),
+        .post_env_gain(16'h8000), .post_gd(16'h4000), .post_gw(16'h4000),
         .start(start), .sample_ready(sample_ready), .busy(busy), .done(done),
         .out_valid(out_valid), .mix_sum(mix_sum)
     );
