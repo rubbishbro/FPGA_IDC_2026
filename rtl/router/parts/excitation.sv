@@ -8,12 +8,13 @@ module excitation_pulse_single #(
     parameter int CLK_HZ  = 100_000_000,
     parameter int SR_HZ   = 48_000,
     parameter int SLOTS   = 16,
-    parameter int SHIFT   = 20,
-    parameter int unsigned GATE_TH = 1
+    parameter int SLOTS_ = 0
 )(
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic                        smp_tick,
+    input  logic [5:0]                  SHIFT,         // 8 位力值 -> 32 位定点的左移量
+    input  logic [7:0]                  GATE_TH,
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）
@@ -48,12 +49,13 @@ module excitation_pulse_train #(
     parameter int CLK_HZ  = 100_000_000,
     parameter int SR_HZ   = 48_000,
     parameter int SLOTS   = 16,
-    parameter int SHIFT   = 20,
-    parameter int unsigned GATE_TH = 1
+    parameter int SLOTS_ = 0
 )(
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic                        smp_tick,
+    input  logic [5:0]                  SHIFT,         // 8 位力值 -> 32 位定点的左移量
+    input  logic [7:0]                  GATE_TH,
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）

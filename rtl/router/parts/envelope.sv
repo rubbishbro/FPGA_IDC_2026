@@ -7,16 +7,15 @@
 module envelope_ADSR #(
     parameter int CLK_HZ  = 100_000_000,
     parameter int SR_HZ   = 48_000,
-    parameter int SLOTS   = 16,
-    parameter int unsigned A_STEP  = 32'd16_777_216,   // 起振每采样增量
-    parameter int unsigned D_STEP  = 32'd1_048_576,    // 衰减每采样减量
-    parameter int unsigned S_LEVEL = 32'd536_870_912,  // 延音电平
-    parameter int unsigned GATE_ON_TH  = 1,            // 按下阈值
-    parameter int unsigned GATE_OFF_TH = 1             // 松开阈值（< 它立即归零）
+    parameter int SLOTS   = 16
 )(
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic                        smp_tick,
+    // 包络参数（由 router 的常量表按乐器选择；综合成常量网络）
+    input  logic [31:0]                 A_STEP,
+    input  logic [31:0]                 D_STEP,
+    input  logic [31:0]                 S_LEVEL,
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
