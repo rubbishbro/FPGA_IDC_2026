@@ -1,0 +1,67 @@
+digraph new_router_control_flow {
+    graph [
+        fontname="Noto Sans CJK TC", fontsize=18,
+        rankdir=LR, compound=true, newrank=true,
+        nodesep=0.35, ranksep=0.55, bgcolor="white", pad=0.28
+    ];
+    node [shape=box, style="rounded,filled", fontname="Noto Sans CJK TC",
+          fontsize=10, margin="0.11,0.07", color="#4a5568", fillcolor="#edf2f7"];
+    edge [fontname="Noto Sans CJK TC", fontsize=8, color="#4a5568", arrowsize=0.7];
+
+    subgraph cluster_in {
+        label="输入";
+        fontsize=11; color="#718096"; style="rounded,dashed"; fillcolor="#f7fafc";
+        cfg [label="rcfg\ninstrument / voice / note / velocity", fillcolor="#bee3f8"];
+        fmap [label="fmap\n4×4 × 8-bit pressure", fillcolor="#bee3f8"];
+        load [label="load event\nclass / voice / inst / note / vel / dyn", fillcolor="#bee3f8"];
+        off [label="note off\nvoice", fillcolor="#bee3f8"];
+    }
+
+    subgraph cluster_front {
+        label="router_frontend";
+        fontsize=12; color="#2f855a"; style="rounded"; fillcolor="#f0fff4";
+        ctrl [label="router_ctrl\n├ instrument_id\n├ engine_sel\n├ coeff_base / ram_base\n└ load_req / load fields", fillcolor="#9ae6b4"];
+        exc [label="excitation_convert\npressure → velocity(UQ1.15)\n→ x(Q30)", fillcolor="#c6f6d5"];
+        { rank=same; ctrl; exc; }
+    }
+
+    subgraph cluster_load {
+        label="router_loader";
+        labelloc="b";
+        fontsize=12; color="#b7791f"; style="rounded"; fillcolor="#fffff0";
+        a [label="class_loader\nA：20-bit index", fillcolor="#fefcbf"];
+        bc [label="class_loader64\nB/C：64-bit index / ctrl / seed", fillcolor="#fefcbf"];
+        e2 [label="class_loader64 + ROM\nE2：index / ctrl / seed / 224-bit coeff", fillcolor="#fefcbf"];
+        rom [label="ROM / Flash backend\nindex / coeff / ctrl / seed", shape=cylinder, fillcolor="#faf089"];
+        rom -> a [style=dotted];
+        rom -> bc [style=dotted];
+        rom -> e2 [style=dotted];
+        { rank=same; a; bc; e2; }
+    }
+
+    va [label="router_voice_alloc\n16 voice\nactive / class / note_start / gate", fillcolor="#d6bcfa"];
+
+    mux [label="engine_mux\npure_engine_abc / eng2_engine_top_ext\nshared_modal_ram", fillcolor="#e9d8fd"];
+
+    out [label="cfg / clr / seed\n+ active / x / n_modes", fillcolor="#fbd38d"];
+
+    cfg -> ctrl [label="config"];
+    fmap -> exc [label="fmap"];
+    load -> ctrl [label="load event", color="#b7791f", style=bold];
+    ctrl -> exc [label="instrument / note", style=dashed];
+    ctrl -> a [label="A load"];
+    ctrl -> bc [label="B/C load", color="#b7791f"];
+    ctrl -> e2 [label="E2 load", color="#c53030"];
+    exc -> mux [label="x", color="#2f855a", style=bold];
+    ctrl -> mux [label="engine_sel", color="#2f855a", style=dashed];
+    load -> va [label="note_on", color="#6b46c1"];
+    off -> va [label="note_off", color="#6b46c1"];
+    va -> mux [label="active / gate / zero", color="#6b46c1", style=dashed];
+    a -> out;
+    bc -> out;
+    e2 -> out;
+    out -> mux [label="cfg/clr/seed"];
+
+    caveat [shape=note, label="review 注意：\n1. linear_modulation 已实现/单测，未接正式顶层\n2. router_frontend 的 x 目前主要覆盖 slot0\n3. class_loader / 64 仍作为 router_loader backend", fillcolor="#fffaf0", color="#b7791f"];
+    caveat -> ctrl [style=invis];
+}
