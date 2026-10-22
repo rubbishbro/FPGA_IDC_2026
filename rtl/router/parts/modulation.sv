@@ -41,6 +41,7 @@ module modulation0 #(
     // 每拍一个状态
     typedef enum logic [3:0] {
         M_IDLE, M_RD,   // 读参数
+        M_LAT,          // 参数多等一拍（router 侧参数表读出后又打了一拍）
         M_A,            // D_q, d_q
         M_B,            // c_q, s_q
         M_C,            // ea, a1 = d*s
@@ -101,7 +102,9 @@ module modulation0 #(
                     end
                 end
 
-                M_RD: st <= M_A;        // 参数在本拍有效
+                M_RD: st <= M_LAT;      // 本拍给地址，router 下一拍寄存
+
+                M_LAT: st <= M_A;       // router 又打了一拍，参数此时才稳定
 
                 M_A: begin
                     // 四个并行乘法（互不依赖），不是链
