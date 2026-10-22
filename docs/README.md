@@ -5,6 +5,7 @@
 | 文档 | 内容 |
 |---|---|
 | [ENGINE_INTERNAL.md](ENGINE_INTERNAL.md) | 当前 A/B/C/E2 数学、字段、router、shared RAM、后级和 P&R 记录 |
+| [TIMING_RAM_ANALYSIS.md](TIMING_RAM_ANALYSIS.md) | 100MHz 时序余量与 BSRAM/逻辑/DSP 占用分析 |
 | [diagrams/README.md](diagrams/README.md) | 新架构三张图和 review 说明 |
 | [产品需求与竞品调研.md](产品需求与竞品调研.md) | 产品定位/竞品调研（非实现报告） |
 | [上位机可行性分析.md](上位机可行性分析.md) | 上位机/MIDI/链路可行性评估（讨论稿） |
