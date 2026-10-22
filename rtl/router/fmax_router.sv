@@ -28,7 +28,7 @@ module fmax_router #(
 
     voice_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .DEBUG_PORT(1'b0)) u_vr (
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst),
-        .reload(reload), .mod_req(mod_req), .start(start),
+        .reload(reload), .start(start),
         .n_voices(n_voices), .n_modes(n_modes), .n_samples(n_samples),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),

@@ -30,7 +30,6 @@ module voice_router #(
     input  pad_driver_pkg::mat4x4                    fmap,
     input  router_pkg::instrument_e                   inst,
     input  logic                                     reload,      // 强制重灌当前乐器
-    input  logic                                     mod_req,     // 请求一次系数调制（揉弦）
     input  logic                                     start,
     input  logic [$clog2(SLOTS+1)-1:0]                n_voices,
     input  logic [$clog2(N_MODES+1)-1:0]              n_modes,
@@ -408,8 +407,13 @@ module voice_router #(
     assign y_env = y_mul[94:31];
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin y_acc <= '0; y_last <= '0; end
-        else begin if (eng_yv) y_acc <= y_now; end
+        if (!rst_n) begin
+            y_acc  <= '0;
+            y_last <= '0;
+        end else if (eng_yv) begin
+            y_acc  <= y_now;      // 帧内跨声部求和
+            y_last <= y_env;      // 本声部乘过包络后的结果（给 S_ADV 写输出用）
+        end
     end
 
     // =========================================================================
@@ -520,7 +524,7 @@ module voice_router #(
 
                 S_RUN_V: begin
                     if (eng_yv) begin
-                        y_last <= y_env;
+                        // y_last 由累加器那个 always_ff 一并寄存（单一驱动者）
                         if (note_on[voi[VWID-1:0]]) begin
                             mod_slot  <= voi[VWID-1:0];   // 只调这一个声部
                             mod_start <= 1'b1;
