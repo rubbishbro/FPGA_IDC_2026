@@ -342,8 +342,8 @@ module abc_engine #(
                 end
 
                 S_MIXENV: begin
-                    env_hi <= ps_r[63:32] * $signed({1'b0, env_gain_vec[voice_id*16 +: 16]});
-                    env_lo <= ps_r[31:0]  * env_gain_vec[voice_id*16 +: 16];
+                    env_hi <= $signed(ps_r[63:32]) * $signed({1'b0, env_gain_vec[voice_id*16 +: 16]});
+                    env_lo <= ps_r[31:0] * env_gain_vec[voice_id*16 +: 16];
                     state  <= S_ENVPART;
                 end
 

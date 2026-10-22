@@ -21,6 +21,7 @@ module engine_mux #(
 ) (
     input  logic clk, rst_n,
     input  logic sel_e2,
+    input  logic cfg_sel_e2,
 
     // ABC load
     input  logic a_cfg_we,
@@ -78,18 +79,18 @@ module engine_mux #(
     logic [REC_W-1:0] cfg_data; logic [63:0] seed_data;
     logic [3:0] state_first;
 
-    assign cfg_we    = sel_e2 ? e2_cfg_we    : a_cfg_we;
-    assign cfg_voice = sel_e2 ? e2_cfg_voice : a_cfg_voice;
-    assign cfg_mode  = sel_e2 ? e2_cfg_mode  : {{(MW_RAM-MW_A){1'b0}}, a_cfg_mode};
-    assign cfg_data  = sel_e2 ? e2_cfg_data  : a_cfg_data;
-    assign clr_we    = sel_e2 ? e2_clr_we    : a_clr_we;
-    assign clr_voice = sel_e2 ? e2_clr_voice : a_clr_voice;
-    assign clr_mode  = sel_e2 ? e2_clr_mode  : {{(MW_RAM-MW_A){1'b0}}, a_clr_mode};
-    assign seed_we    = sel_e2 ? e2_seed_we    : a_seed_we;
-    assign seed_voice = sel_e2 ? e2_seed_voice : a_seed_voice;
-    assign seed_mode  = sel_e2 ? e2_seed_mode  : {{(MW_RAM-MW_A){1'b0}}, a_seed_mode};
-    assign seed_data  = sel_e2 ? e2_seed_data  : a_seed_data;
-    assign state_first = sel_e2 ? 4'd7 : 4'd3;
+    assign cfg_we    = cfg_sel_e2 ? e2_cfg_we    : a_cfg_we;
+    assign cfg_voice = cfg_sel_e2 ? e2_cfg_voice : a_cfg_voice;
+    assign cfg_mode  = cfg_sel_e2 ? e2_cfg_mode  : {{(MW_RAM-MW_A){1'b0}}, a_cfg_mode};
+    assign cfg_data  = cfg_sel_e2 ? e2_cfg_data  : a_cfg_data;
+    assign clr_we    = cfg_sel_e2 ? e2_clr_we    : a_clr_we;
+    assign clr_voice = cfg_sel_e2 ? e2_clr_voice : a_clr_voice;
+    assign clr_mode  = cfg_sel_e2 ? e2_clr_mode  : {{(MW_RAM-MW_A){1'b0}}, a_clr_mode};
+    assign seed_we    = cfg_sel_e2 ? e2_seed_we    : a_seed_we;
+    assign seed_voice = cfg_sel_e2 ? e2_seed_voice : a_seed_voice;
+    assign seed_mode  = cfg_sel_e2 ? e2_seed_mode  : {{(MW_RAM-MW_A){1'b0}}, a_seed_mode};
+    assign seed_data  = cfg_sel_e2 ? e2_seed_data  : a_seed_data;
+    assign state_first = cfg_sel_e2 ? 4'd7 : 4'd3;
 
     logic [LANES-1:0] ram_rd_re, ram_st_we;
     logic [LANES*AW_RAM-1:0] ram_rd_addr, ram_st_addr;
@@ -150,14 +151,19 @@ module engine_mux #(
     assign sample_ready = sel_e2 ? e2_ready : abc_ready;
     assign busy         = sel_e2 ? e2_busy  : abc_busy;
     assign done         = sel_e2 ? e2_done  : abc_done;
-    assign out_valid    = sel_e2 ? e2_valid : abc_valid;
-
-    // 唯一尾部加法器
+    // 唯一尾部加法器；out_valid 与 mix_sum 同拍寄存，避免 valid 早一拍。
+    logic out_valid_r;
     always_ff @(posedge clk) begin
-        if (!rst_n) mix_sum <= 64'sd0;
-        else if (a_start || e2_start) mix_sum <= 64'sd0;
-        else if (abc_valid) mix_sum <= mix_sum + abc_mix;
-        else if (e2_valid)  mix_sum <= mix_sum + e2_mix;
+        if (!rst_n) begin
+            mix_sum    <= 64'sd0;
+            out_valid_r <= 1'b0;
+        end else begin
+            out_valid_r <= !(a_start || e2_start) && (sel_e2 ? e2_valid : abc_valid);
+            if (a_start || e2_start) mix_sum <= 64'sd0;
+            else if (abc_valid) mix_sum <= mix_sum + abc_mix;
+            else if (e2_valid)  mix_sum <= mix_sum + e2_mix;
+        end
     end
+    assign out_valid = out_valid_r;
 
 endmodule

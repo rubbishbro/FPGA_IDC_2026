@@ -111,8 +111,8 @@ module shared_engines_system_top #(
     always_ff @(posedge clk) begin
         if (!rst_n) e2_zero_r <= '0;
         else begin
-            if (start) e2_zero_r <= '0;
-            e2_zero_r <= e2_zero_r | e2_ns;
+            // start 时保留同拍新 note 的 zero 请求，避免被后一个赋值覆盖。
+            e2_zero_r <= start ? e2_ns : (e2_zero_r | e2_ns);
         end
     end
 

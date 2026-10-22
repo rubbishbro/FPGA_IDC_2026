@@ -29,18 +29,41 @@ module post_chain (
     logic signed [63:0] mix_out_data;
     logic body_v_r;
     logic signed [63:0] body_data_r;
+    logic env_pending;
+    logic env_inflight;
+    logic signed [63:0] env_pending_data;
 
     envelope_mul u_env (
         .clk(clk), .rst_n(rst_n), .in_valid(in_valid), .in_data(in_data),
         .gain(env_gain), .out_valid(env_v), .out_data(env_data)
     );
 
-    assign body_in_v = env_v;
-    assign in_ready   = body_in_ready;
+    // envelope 有一级延迟；用 1-entry buffer 隔离，in_ready 只在空时接收。
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            env_pending      <= 1'b0;
+            env_inflight     <= 1'b0;
+            env_pending_data <= 64'sd0;
+        end else begin
+            // 一次只允许一个样本在 envelope 的 1 级延迟中。
+            if (in_valid && in_ready)
+                env_inflight <= 1'b1;
+            if (env_v) begin
+                env_pending      <= 1'b1;
+                env_pending_data <= env_data;
+                env_inflight     <= 1'b0;
+            end
+            if (env_pending && body_in_ready)
+                env_pending <= 1'b0;
+        end
+    end
+
+    assign body_in_v = env_pending;
+    assign in_ready   = !env_pending && !env_inflight;
 
     body_biquad #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body (
         .clk(clk), .rst_n(rst_n), .clear_valid(1'b0), .clear_ready(),
-        .in_valid(body_in_v), .in_ready(body_in_ready), .in_sum(env_data),
+        .in_valid(body_in_v), .in_ready(body_in_ready), .in_sum(env_pending_data),
         .out_valid(body_v), .out_sum(body_data), .out_sat(body_sat), .sat_count(body_sat_cnt),
         .coeff_ready(body_ready), .coeff_error(body_err)
     );

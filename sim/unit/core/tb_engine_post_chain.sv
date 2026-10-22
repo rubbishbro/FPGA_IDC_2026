@@ -33,7 +33,7 @@ module tb_engine_post_chain;
     engine_mux #(
         .NUM_SLOTS(SLOTS), .N_MODES_ABC(MA), .N_MODES_E2(ME), .LANES(LANES), .REC_W(REC_W)
     ) dut (
-        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2),
+        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2), .cfg_sel_e2(sel_e2),
         .a_cfg_we(a_cfg_we), .a_cfg_voice(a_cfg_voice), .a_cfg_mode(a_cfg_mode), .a_cfg_data(a_cfg_data),
         .a_clr_we(a_clr_we), .a_clr_voice(a_clr_voice), .a_clr_mode(a_clr_mode),
         .a_seed_we(a_seed_we), .a_seed_voice(a_seed_voice), .a_seed_mode(a_seed_mode), .a_seed_data(a_seed_data),
@@ -61,7 +61,7 @@ module tb_engine_post_chain;
         begin
             wait(ready); @(negedge clk); a_start=1;
             @(posedge clk); @(negedge clk); a_start=0;
-            wait(done); @(posedge clk); #1;
+            wait(done); wait(out_valid); #1;
         end
     endtask
 
@@ -69,7 +69,7 @@ module tb_engine_post_chain;
         begin
             wait(ready); @(negedge clk); e2_start=1;
             @(posedge clk); @(negedge clk); e2_start=0;
-            wait(done); @(posedge clk); #1;
+            wait(done); wait(out_valid); #1;
         end
     endtask
 

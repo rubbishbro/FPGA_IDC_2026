@@ -105,12 +105,14 @@ module shared_engines_top #(
     logic [NUM_SLOTS-1:0] abc_active;
     logic [NUM_SLOTS*32-1:0] abc_x;
     logic [NUM_SLOTS*MW_ABC-1:0] abc_nmodes;
-    logic sel_e2, abc_start, e2_start;
+    logic sel_e2, cfg_sel_e2, abc_start, e2_start;
     logic cfg_we_r; logic [VW-1:0] cfg_voice_r; logic [MW_ABC-1:0] cfg_mode_r;
     logic [REC_W-1:0] cfg_data_r; logic [1:0] cfg_engine_r;
 
     assign abc_active = a_active | b_active | c_active;
     assign sel_e2 = (abc_active == '0) && (|e2_active);
+    // 装载选择与计算选择分开：E2 首次装载时 active 还未建立。
+    assign cfg_sel_e2 = e2_cfg_we | e2_clr_we | e2_seed_we;
     assign abc_start = start && !sel_e2 && (|abc_active);
     assign e2_start  = start &&  sel_e2;
 
@@ -136,8 +138,22 @@ module shared_engines_top #(
     logic signed [63:0] em_mix;
     logic post_in_valid, post_in_ready, post_out_valid;
     logic signed [63:0] post_in_data, post_out_data;
-    logic [1:0] pstate;
-    logic [9:0] post_cnt;
+
+    // post 流式握手：先送 32 个激励样本，再送 1536 个零冲尾；
+    // 计数只在 valid && ready 握手成功时递增，不是 FIFO 容量。
+    localparam logic [2:0] POST_IDLE   = 3'd0;
+    localparam logic [2:0] POST_EXCITE = 3'd1;
+    localparam logic [2:0] POST_TAIL   = 3'd2;
+    localparam logic [2:0] POST_DRAIN  = 3'd3;
+    localparam logic [2:0] POST_DONE   = 3'd4;
+    localparam logic [2:0] POST_PRE    = 3'd5;
+    localparam int POST_EXCITE_N = 32;
+    localparam int POST_TAIL_N   = 1024;
+    localparam int POST_DRAIN_N  = 64;
+
+    logic [2:0] pstate;
+    logic [11:0] post_cnt;
+    logic [7:0] drain_cnt;
     logic signed [63:0] post_acc;
 
     always_ff @(posedge clk) begin
@@ -155,7 +171,7 @@ module shared_engines_top #(
         .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W),
         .LOCAL_RAM(LOCAL_RAM)
     ) u_mux (
-        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2),
+        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2), .cfg_sel_e2(cfg_sel_e2),
         .a_cfg_we(cfg_we_r), .a_cfg_voice(cfg_voice_r), .a_cfg_mode(cfg_mode_r), .a_cfg_data(cfg_data_r),
         .a_clr_we(clr_we), .a_clr_voice(clr_voice), .a_clr_mode(clr_mode),
         .a_seed_we(seed_we), .a_seed_voice(seed_voice), .a_seed_mode(seed_mode), .a_seed_data(seed_data),
@@ -180,39 +196,83 @@ module shared_engines_top #(
 
             always_ff @(posedge clk) begin
                 if (!rst_n) begin
-                    pstate <= 2'd0; post_in_valid <= 1'b0; post_in_data <= 64'sd0;
-                    post_cnt <= 10'd0; post_acc <= 64'sd0;
-                    out_valid <= 1'b0; mix_sum <= 64'sd0;
+                    pstate        <= POST_IDLE;
+                    post_in_valid <= 1'b0;
+                    post_in_data  <= 64'sd0;
+                    post_cnt      <= 12'd0;
+                    drain_cnt     <= 8'd0;
+                    post_acc      <= 64'sd0;
+                    out_valid     <= 1'b0;
+                    mix_sum       <= 64'sd0;
                 end else begin
                     out_valid <= 1'b0;
+
                     case (pstate)
-                        2'd0: if (em_done) begin
-                            post_in_data <= em_mix;
+                        POST_IDLE: if (em_done) begin
+                            // 先不拉 valid；下一拍再采样 em_mix，避免 done 同拍 mix 尚未稳定。
+                            post_in_valid <= 1'b0;
+                            post_in_data  <= em_mix;
+                            post_cnt      <= 12'd0;
+                            drain_cnt     <= 8'd0;
+                            post_acc      <= 64'sd0;
+                            pstate        <= POST_PRE;
+                        end
+
+                        POST_PRE: begin
                             post_in_valid <= 1'b1;
-                            post_acc <= 64'sd0;
-                            post_cnt <= 10'd0;
-                            pstate <= 2'd1;
+                            post_in_data  <= em_mix;
+                            pstate        <= POST_EXCITE;
                         end
-                        2'd1: if (post_in_ready) begin
-                            post_in_data <= 64'sd0;
-                            post_cnt <= 10'd0;
-                            pstate <= 2'd2;
-                        end
-                        2'd2: begin
-                            // 前 32 个样本保持激励，再送零让 body/reverb 吐 tail
-                            post_in_data <= (post_cnt < 10'd32) ? em_mix : 64'sd0;
-                            if (post_in_ready) post_cnt <= post_cnt + 10'd1;
+
+                        // 32 个激励：valid 一直保持，只有 ready=1 才算完成一次传输。
+                        // 计数达到 31 表示第 32 个样本已完成握手，下一拍切零 tail。
+                        POST_EXCITE: begin
+                            if (post_in_ready) begin
+                                if (post_cnt == POST_EXCITE_N-1) begin
+                                    post_cnt      <= 12'd0;
+                                    post_in_data  <= 64'sd0;
+                                    pstate        <= POST_TAIL;
+                                end else begin
+                                    post_cnt      <= post_cnt + 12'd1;
+                                end
+                            end
                             if (post_out_valid && (post_out_data != 0))
                                 post_acc <= post_out_data;
-                            if (post_cnt >= 10'd1023) begin
-                                post_in_valid <= 1'b0;
+                        end
+
+                        // 1024 个零：继续有效，让 body/reverb 把 tail 吐完。
+                        // 这里 1024 是传输次数，不是 FIFO 深度。
+                        POST_TAIL: begin
+                            if (post_in_ready) begin
+                                if (post_cnt == POST_TAIL_N-1) begin
+                                    post_in_valid <= 1'b0;
+                                    post_cnt      <= 12'd0;
+                                    drain_cnt     <= 8'd0;
+                                    pstate        <= POST_DRAIN;
+                                end else begin
+                                    post_cnt <= post_cnt + 12'd1;
+                                end
+                            end
+                            if (post_out_valid && (post_out_data != 0))
+                                post_acc <= post_out_data;
+                        end
+
+                        // 停止送数，给后级流水最后 N 拍排空。
+                        POST_DRAIN: begin
+                            post_in_valid <= 1'b0;
+                            if (post_out_valid && (post_out_data != 0))
+                                post_acc <= post_out_data;
+                            if (drain_cnt == POST_DRAIN_N-1) begin
                                 out_valid <= 1'b1;
                                 mix_sum   <= (post_acc != 0) ? post_acc : post_out_data;
-                                pstate    <= 2'd3;
+                                pstate    <= POST_DONE;
+                            end else begin
+                                drain_cnt <= drain_cnt + 8'd1;
                             end
                         end
-                        2'd3: pstate <= 2'd0;
-                        default: pstate <= 2'd0;
+
+                        POST_DONE: pstate <= POST_IDLE;
+                        default:   pstate <= POST_IDLE;
                     endcase
                 end
             end
@@ -223,8 +283,8 @@ module shared_engines_top #(
         end
     endgenerate
 
-    assign busy = em_busy || (POST_EN && (pstate != 2'd0));
-    assign sample_ready = em_ready && (!POST_EN || (pstate == 2'd0));
-    assign done = POST_EN ? (pstate == 2'd3) : em_done;
+    assign busy = em_busy || (POST_EN && (pstate != POST_IDLE));
+    assign sample_ready = em_ready && (!POST_EN || (pstate == POST_IDLE));
+    assign done = POST_EN ? (pstate == POST_DONE) : em_done;
 
 endmodule

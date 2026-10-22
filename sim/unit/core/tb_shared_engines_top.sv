@@ -42,7 +42,7 @@ module tb_shared_engines_top;
         begin
             wait(ready); @(negedge clk); start=1;
             @(posedge clk); @(negedge clk); start=0;
-            wait(done); @(posedge clk); #1;
+            wait(done); wait(outv); #1;
         end
     endtask
 
@@ -66,7 +66,7 @@ module tb_shared_engines_top;
         @(posedge clk); @(negedge clk); a_ns=0;
         run();
         if (mix <= 0) begin $display("FAIL A mix=%0d",mix); errors++; end
-        if (!out_seen) begin $display("FAIL A outv"); errors++; end
+        if (!outv) begin $display("FAIL A outv"); errors++; end
         if (errors==0) $display("PASS tb_shared_engines_top");
         else $display("FAIL tb_shared_engines_top errors=%0d",errors);
         $finish;

@@ -28,7 +28,7 @@ module tb_engine_mux;
     engine_mux #(
         .NUM_SLOTS(SLOTS), .N_MODES_ABC(MA), .N_MODES_E2(ME), .LANES(LANES), .REC_W(REC_W)
     ) dut (
-        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2),
+        .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2), .cfg_sel_e2(sel_e2),
         .a_cfg_we(a_cfg_we), .a_cfg_voice(a_cfg_voice), .a_cfg_mode(a_cfg_mode), .a_cfg_data(a_cfg_data),
         .a_clr_we(a_clr_we), .a_clr_voice(a_clr_voice), .a_clr_mode(a_clr_mode),
         .a_seed_we(a_seed_we), .a_seed_voice(a_seed_voice), .a_seed_mode(a_seed_mode), .a_seed_data(a_seed_data),
@@ -56,7 +56,7 @@ module tb_engine_mux;
         begin
             wait(ready); @(negedge clk); a_start=1;
             @(posedge clk); @(negedge clk); a_start=0;
-            wait(done); @(posedge clk); #1;
+            wait(done); wait(out_valid); #1;
         end
     endtask
 
@@ -64,7 +64,7 @@ module tb_engine_mux;
         begin
             wait(ready); @(negedge clk); e2_start=1;
             @(posedge clk); @(negedge clk); e2_start=0;
-            wait(done); @(posedge clk); #1;
+            wait(done); wait(out_valid); #1;
         end
     endtask
 
@@ -84,7 +84,7 @@ module tb_engine_mux;
         a_active=2'b11; a_x[0*32 +: 32]=32'sh1000_0000; a_x[1*32 +: 32]=32'sh0800_0000;
         run_a(); mix_a=mix;
         if (mix_a != 64'sd2013265920) begin $display("FAIL A mix=%0d",mix_a); errors++; end
-        if (!out_seen) begin $display("FAIL A out_valid"); errors++; end
+        if (!out_valid) begin $display("FAIL A out_valid"); errors++; end
 
         // E2: one voice/mode, same shared RAM; A idle
         sel_e2=1; a_start=0;
@@ -98,7 +98,7 @@ module tb_engine_mux;
         if (mix != 0) begin $display("FAIL E2 first mix=%0d",mix); errors++; end
         e2_zero=0; run_e2();
         if (mix == 0) begin $display("FAIL E2 second mix=0"); errors++; end
-        if (!out_seen) begin $display("FAIL E2 out_valid"); errors++; end
+        if (!out_valid) begin $display("FAIL E2 out_valid"); errors++; end
 
         if (errors==0) $display("PASS tb_engine_mux");
         else $display("FAIL tb_engine_mux errors=%0d",errors);

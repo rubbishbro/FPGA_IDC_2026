@@ -13,13 +13,15 @@ module envelope_mul (
     output logic out_valid,
     output logic signed [63:0] out_data
 );
-    logic signed [31:0] sh, sl;
-    logic signed [47:0] ph, pl;
+    logic signed [31:0] sh;
+    logic        [31:0] sl;
+    logic signed [47:0] ph;
+    logic        [47:0] pl;
     logic signed [79:0] prod, rounded;
     logic signed [63:0] sat;
 
     always_comb begin
-        sh = in_data[63:32];
+        sh = $signed(in_data[63:32]);
         sl = in_data[31:0];
         ph = sh * $signed({1'b0, gain});
         pl = sl * $signed({1'b0, gain});

@@ -11,7 +11,7 @@
 IVERILOG=/path/to/iverilog VVP=/path/to/vvp bash sim/run_core.sh
 ```
 
-当前 16 项：
+当前 20 项：
 
 ```text
 tb_shared_modal_ram
