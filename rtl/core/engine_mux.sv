@@ -77,7 +77,7 @@ module engine_mux #(
     logic [VW-1:0] cfg_voice, clr_voice, seed_voice;
     logic [MW_RAM-1:0] cfg_mode, clr_mode, seed_mode;
     logic [REC_W-1:0] cfg_data; logic [63:0] seed_data;
-    logic [3:0] state_first;
+    logic [3:0] cfg_first, st_first;
 
     assign cfg_we    = cfg_sel_e2 ? e2_cfg_we    : a_cfg_we;
     assign cfg_voice = cfg_sel_e2 ? e2_cfg_voice : a_cfg_voice;
@@ -90,7 +90,9 @@ module engine_mux #(
     assign seed_voice = cfg_sel_e2 ? e2_seed_voice : a_seed_voice;
     assign seed_mode  = cfg_sel_e2 ? e2_seed_mode  : {{(MW_RAM-MW_A){1'b0}}, a_seed_mode};
     assign seed_data  = cfg_sel_e2 ? e2_seed_data  : a_seed_data;
-    assign state_first = cfg_sel_e2 ? 4'd7 : 4'd3;
+    // 装载目标与计算目标分开：cfg_first 跟 cfg_sel_e2，st_first 跟 sel_e2。
+    assign cfg_first = cfg_sel_e2 ? 4'd7 : 4'd3;
+    assign st_first  = sel_e2     ? 4'd7 : 4'd3;
 
     logic [LANES-1:0] ram_rd_re, ram_st_we;
     logic [LANES*AW_RAM-1:0] ram_rd_addr, ram_st_addr;
@@ -106,7 +108,7 @@ module engine_mux #(
         .SLOTS(NUM_SLOTS), .MODES(N_MODES_E2), .LANES(LANES),
         .REC_W(REC_W), .FLD_W(32)
     ) u_ram (
-        .clk(clk), .rst_n(rst_n), .state_first(state_first),
+        .clk(clk), .rst_n(rst_n), .cfg_first(cfg_first), .st_first(st_first),
         .cfg_we(cfg_we), .cfg_voice(cfg_voice), .cfg_mode(cfg_mode), .cfg_data(cfg_data),
         .st_we(ram_st_we), .st_addr(ram_st_addr), .st_data(ram_st_data),
         .rd_re(ram_rd_re), .rd_addr(ram_rd_addr), .rd_data(rd_data),
@@ -150,9 +152,10 @@ module engine_mux #(
 
     assign sample_ready = sel_e2 ? e2_ready : abc_ready;
     assign busy         = sel_e2 ? e2_busy  : abc_busy;
-    assign done         = sel_e2 ? e2_done  : abc_done;
     // 唯一尾部加法器；out_valid 与 mix_sum 同拍寄存，避免 valid 早一拍。
     logic out_valid_r;
+    // done 与 out_valid/mix_sum 同拍：凭 done 取结果也不会拿到上一拍。
+    assign done         = out_valid_r;
     always_ff @(posedge clk) begin
         if (!rst_n) begin
             mix_sum    <= 64'sd0;

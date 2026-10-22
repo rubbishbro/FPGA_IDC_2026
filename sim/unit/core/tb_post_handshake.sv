@@ -16,9 +16,9 @@ always @(posedge clk) begin
 end
 initial begin
  repeat(3) @(posedge clk); rst_n=1; repeat(2) @(posedge clk);
- in_valid=1; in_data=64'sd268435456;
+ @(negedge clk); in_valid=1; in_data=64'sd268435456;
  repeat(20) @(posedge clk);
- in_valid=0;
+ @(negedge clk); in_valid=0;
  repeat(5000) @(posedge clk);
  if (in_cnt != out_cnt) $display("FAIL in=%0d out=%0d",in_cnt,out_cnt);
  else if (in_cnt == 0) $display("FAIL no transfers");

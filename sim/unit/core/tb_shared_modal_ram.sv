@@ -13,7 +13,7 @@ module tb_shared_modal_ram;
     logic co_we; logic [0:0] co_voice; logic [6:0] co_mode; logic [3:0] co_field; logic [31:0] co_wdata;
     int errors=0;
     shared_modal_ram #(.SLOTS(SLOTS),.MODES(MODES),.LANES(LANES),.REC_W(REC_W)) dut (
-      .clk(clk),.rst_n(rst_n),.state_first(state_first),
+      .clk(clk),.rst_n(rst_n),.cfg_first(state_first),.st_first(state_first),
       .cfg_we(cfg_we),.cfg_voice(cfg_voice),.cfg_mode(cfg_mode),.cfg_data(cfg_data),
       .st_we(st_we),.st_addr(st_addr),.st_data(st_data),
       .rd_re(rd_re),.rd_addr(rd_addr),.rd_data(rd_data),

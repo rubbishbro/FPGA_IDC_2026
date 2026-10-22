@@ -7,11 +7,11 @@
 ## 1. 结论
 
 ```text
-时序：100.032 MHz，setup/hold 都 0 违例
-     但 setup slack 只有 +0.003 ns（约 0.03% 周期）
+时序：100.063 MHz，setup/hold 都 0 违例
+     但 setup slack 只有 +0.006 ns（约 0.06% 周期）
 RAM ：113 / 340 BSRAM（33.2%），剩 227 块
-逻辑：10,099 / 138,240（7.3%）
-寄存器：6,131 / 139,140（4.4%）
+逻辑：9,647 / 138,240（7.3%）
+寄存器：6,047 / 139,140（4.4%）
 DSP ：56 / 298（18.8%）
 ```
 
@@ -19,7 +19,7 @@ DSP ：56 / 298（18.8%）
 
 - **BSRAM/逻辑/寄存器都有充足余量**，RAM 不是当前瓶颈。
 - **时序余量非常小**，当前只能算“刚好压线过 100 MHz”（bug fix 后进一步收紧），不能算稳健 closure。
-- 现有 SDC 只写了 `create_clock -period 10`，**没有 clock uncertainty、input/output delay、jitter**；真实板级时钟抖动加上后，+0.003 ns 会立刻变成负 slack。
+- 现有 SDC 只写了 `create_clock -period 10`，**没有 clock uncertainty、input/output delay、jitter**；真实板级时钟抖动加上后，+0.006 ns 会立刻变成负 slack。
 
 ## 2. 时序
 
@@ -28,8 +28,8 @@ DSP ：56 / 298（18.8%）
 | 项目 | 结果 |
 |---|---|
 | 约束时钟 | `clk_probe` 100.000 MHz |
-| 实际 Fmax | **100.032 MHz** |
-| 周期余量 | 10.000 - 9.997 ≈ **0.003 ns** |
+| 实际 Fmax | **100.063 MHz** |
+| 周期余量 | 10.000 - 9.994 ≈ **0.006 ns** |
 | Setup 违例 | **0** |
 | Hold 违例 | **0** |
 | Setup TNS | 0.000 |
@@ -39,15 +39,15 @@ DSP ：56 / 298（18.8%）
 Fmax 只比约束高：
 
 ```text
-(100.032 - 100.000) / 100.000 ≈ 0.032%
+(100.063 - 100.000) / 100.000 ≈ 0.063%
 ```
 
 ### 2.2 最差 setup 路径
 
 | # | Slack | 起点 | 终点 | 区域 |
 |---|---:|---|---|---|
-| 1 | **+0.003** | `u_abc/g_lane[2].u_lane/st_2_s1/Q` | `.../n5121_0_s/B[19]` | A/B/C lane |
-| 2 | +0.028 | `u_e2/u_eng/state_1_s1/Q` | `u_ram/g_lane[3].f8.../ADB[6]` | E2 → RAM |
+| 1 | **+0.006** | `class_r_1_s0/Q` | `u_ram/g_lane[1].f3.../ADA[5]` | router → RAM |
+| 2 | +0.008 | `u_rev/c1_c1_0_0_s/DO[1]` | `u_rev/sum4_65_s0/D` | reverb |
 | 3 | +0.031 | `u_post/u_rev/c1_c1_0_0_s/DO[0]` | `u_rev/sum4_65_s0/D` | reverb |
 | 4 | +0.031 | `u_post/u_body/sec_0_s3/Q` | `u_body/y2[1]_40_s0/CE` | body |
 | 5 | +0.055 | `u_post/u_body/sec_0_s3/Q` | `u_body/y1[1]_6_s0/CE` | body |
@@ -90,7 +90,7 @@ set_input_delay / set_output_delay
 
 | 额外 uncertainty | 估算 setup slack | 结果 |
 |---:|---:|---|
-| 0.0 ns | +0.003 ns | 当前报告 |
+| 0.0 ns | +0.006 ns | 当前报告 |
 | 0.2 ns | ≈ -0.183 ns | 100 MHz 不通过 |
 | 0.3 ns | ≈ -0.283 ns | 100 MHz 不通过 |
 
@@ -107,7 +107,7 @@ set_input_delay / set_output_delay
 1. 板级 bring-up 先用 **95–98 MHz** 验证功能。
 2. 正式 100 MHz 前，对 A/B/C lane 的 `st_1/st_3` 路径做重定时。
 3. reverb `c1 → sum4` 的第二瓶颈也要一起处理，否则只修 A lane 后它会顶上来。
-4. SDC 加 `set_clock_uncertainty`，不要只看当前 +0.003 ns。
+4. SDC 加 `set_clock_uncertainty`，不要只看当前 +0.006 ns。
 
 ## 3. RAM 占用
 
@@ -183,8 +183,8 @@ reverb：
 ## 4. 其他资源
 
 ```text
-Logic      10,099 / 138,240 = 7.3%
-Register    6,131 / 139,140 = 4.4%
+Logic      9,647 / 138,240 = 7.3%
+Register    6,047 / 139,140 = 4.4%
 CLS         7,054 / 69,120  = 10.2%
 DSP            56 / 298     = 18.8%
 ```

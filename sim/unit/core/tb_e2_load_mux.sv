@@ -93,7 +93,7 @@ module tb_e2_load_mux;
         e2_cfg_data=rec_set(e2_cfg_data,E2_WO,32'h0000_8000);
         @(negedge clk); e2_cfg_we=1; e2_cfg_voice=0; e2_cfg_mode=0;
         @(posedge clk); @(negedge clk); e2_cfg_we=0;
-        sel_e2=1;
+        sel_e2=1; cfg_sel_e2=0;   // 装载结束后回到计算目标
         e2_nm[0*MWE +: MWE]=7'd1; e2_active=2'b01; e2_x[0*32 +: 32]=32'sh1000_0000;
         e2_zero=2'b01; run_e2();
         if (mix != 0) begin $display("FAIL E2 first mix=%0d",mix); errors++; end

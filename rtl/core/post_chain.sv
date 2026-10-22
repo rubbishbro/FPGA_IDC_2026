@@ -31,10 +31,15 @@ module post_chain (
     logic signed [63:0] body_data_r;
     logic env_pending;
     logic env_inflight;
+    logic env_in;
     logic signed [63:0] env_pending_data;
 
+    // 只有真正完成 valid/ready 握手的输入才允许进入 envelope；
+    // 否则 in_ready=0 时 envelope 仍会处理旧输入，覆盖 pending 数据。
+    assign env_in = in_valid && in_ready;
+
     envelope_mul u_env (
-        .clk(clk), .rst_n(rst_n), .in_valid(in_valid), .in_data(in_data),
+        .clk(clk), .rst_n(rst_n), .in_valid(env_in), .in_data(in_data),
         .gain(env_gain), .out_valid(env_v), .out_data(env_data)
     );
 
@@ -46,7 +51,7 @@ module post_chain (
             env_pending_data <= 64'sd0;
         end else begin
             // 一次只允许一个样本在 envelope 的 1 级延迟中。
-            if (in_valid && in_ready)
+            if (env_in)
                 env_inflight <= 1'b1;
             if (env_v) begin
                 env_pending      <= 1'b1;

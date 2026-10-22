@@ -139,22 +139,14 @@ module shared_engines_top #(
     logic post_in_valid, post_in_ready, post_out_valid;
     logic signed [63:0] post_in_data, post_out_data;
 
-    // post 流式握手：先送 32 个激励样本，再送 1536 个零冲尾；
-    // 计数只在 valid && ready 握手成功时递增，不是 FIFO 容量。
-    localparam logic [2:0] POST_IDLE   = 3'd0;
-    localparam logic [2:0] POST_EXCITE = 3'd1;
-    localparam logic [2:0] POST_TAIL   = 3'd2;
-    localparam logic [2:0] POST_DRAIN  = 3'd3;
-    localparam logic [2:0] POST_DONE   = 3'd4;
-    localparam logic [2:0] POST_PRE    = 3'd5;
-    localparam int POST_EXCITE_N = 32;
-    localparam int POST_TAIL_N   = 1024;
-    localparam int POST_DRAIN_N  = 64;
+    // 后级逐采样：一个 engine 结果 → 一次 post 握手 → 一个对应输出。
+    // 不再在每次 engine done 后批量送 32 激励 + 1024 零 tail。
+    localparam logic [1:0] POST_IDLE = 2'd0;
+    localparam logic [1:0] POST_SEND = 2'd1;
+    localparam logic [1:0] POST_WAIT = 2'd2;
+    localparam logic [1:0] POST_DONE = 2'd3;
 
-    logic [2:0] pstate;
-    logic [11:0] post_cnt;
-    logic [7:0] drain_cnt;
-    logic signed [63:0] post_acc;
+    logic [1:0] pstate;
 
     always_ff @(posedge clk) begin
         if (!rst_n) begin
@@ -199,76 +191,33 @@ module shared_engines_top #(
                     pstate        <= POST_IDLE;
                     post_in_valid <= 1'b0;
                     post_in_data  <= 64'sd0;
-                    post_cnt      <= 12'd0;
-                    drain_cnt     <= 8'd0;
-                    post_acc      <= 64'sd0;
                     out_valid     <= 1'b0;
                     mix_sum       <= 64'sd0;
                 end else begin
                     out_valid <= 1'b0;
 
                     case (pstate)
+                        // 锁存本次 engine 结果；下一拍再拉 valid，避免 done 同拍采数。
                         POST_IDLE: if (em_done) begin
-                            // 先不拉 valid；下一拍再采样 em_mix，避免 done 同拍 mix 尚未稳定。
-                            post_in_valid <= 1'b0;
-                            post_in_data  <= em_mix;
-                            post_cnt      <= 12'd0;
-                            drain_cnt     <= 8'd0;
-                            post_acc      <= 64'sd0;
-                            pstate        <= POST_PRE;
-                        end
-
-                        POST_PRE: begin
                             post_in_valid <= 1'b1;
                             post_in_data  <= em_mix;
-                            pstate        <= POST_EXCITE;
+                            pstate        <= POST_SEND;
                         end
 
-                        // 32 个激励：valid 一直保持，只有 ready=1 才算完成一次传输。
-                        // 计数达到 31 表示第 32 个样本已完成握手，下一拍切零 tail。
-                        POST_EXCITE: begin
+                        // 只提交一次；ready=1 表示后级真正接收了这个样本。
+                        POST_SEND: begin
+                            post_in_valid <= 1'b1;
                             if (post_in_ready) begin
-                                if (post_cnt == POST_EXCITE_N-1) begin
-                                    post_cnt      <= 12'd0;
-                                    post_in_data  <= 64'sd0;
-                                    pstate        <= POST_TAIL;
-                                end else begin
-                                    post_cnt      <= post_cnt + 12'd1;
-                                end
+                                post_in_valid <= 1'b0;
+                                pstate        <= POST_WAIT;
                             end
-                            if (post_out_valid && (post_out_data != 0))
-                                post_acc <= post_out_data;
                         end
 
-                        // 1024 个零：继续有效，让 body/reverb 把 tail 吐完。
-                        // 这里 1024 是传输次数，不是 FIFO 深度。
-                        POST_TAIL: begin
-                            if (post_in_ready) begin
-                                if (post_cnt == POST_TAIL_N-1) begin
-                                    post_in_valid <= 1'b0;
-                                    post_cnt      <= 12'd0;
-                                    drain_cnt     <= 8'd0;
-                                    pstate        <= POST_DRAIN;
-                                end else begin
-                                    post_cnt <= post_cnt + 12'd1;
-                                end
-                            end
-                            if (post_out_valid && (post_out_data != 0))
-                                post_acc <= post_out_data;
-                        end
-
-                        // 停止送数，给后级流水最后 N 拍排空。
-                        POST_DRAIN: begin
-                            post_in_valid <= 1'b0;
-                            if (post_out_valid && (post_out_data != 0))
-                                post_acc <= post_out_data;
-                            if (drain_cnt == POST_DRAIN_N-1) begin
-                                out_valid <= 1'b1;
-                                mix_sum   <= (post_acc != 0) ? post_acc : post_out_data;
-                                pstate    <= POST_DONE;
-                            end else begin
-                                drain_cnt <= drain_cnt + 8'd1;
-                            end
+                        // 等后级吐出这一个样本对应的结果。
+                        POST_WAIT: if (post_out_valid) begin
+                            out_valid <= 1'b1;
+                            mix_sum   <= post_out_data;
+                            pstate    <= POST_DONE;
                         end
 
                         POST_DONE: pstate <= POST_IDLE;

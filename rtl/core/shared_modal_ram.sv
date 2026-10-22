@@ -2,7 +2,7 @@
 // 文件 : shared_modal_ram.sv
 // 模块 : shared_modal_ram
 // 功能 : 9×32 共享模态 RAM
-// 说明 : 深度 320；4 lane 读写；state_first=3(A/B/C)/7(E2)；cfg/clr/seed 同口。
+// 说明 : 深度 320；4 lane 读写；装载字段与计算写回字段分开选择。
 // =============================================================================
 `timescale 1ns/1ps
 
@@ -21,7 +21,8 @@ module shared_modal_ram #(
     input  logic                         rst_n,
 
     // 3 = A/B/C (y1/y2), 7 = E2 (q/qdot)
-    input  logic [3:0]                   state_first,
+    input  logic [3:0]                   cfg_first,
+    input  logic [3:0]                   st_first,
 
     input  logic                         cfg_we,
     input  logic [VW-1:0]                cfg_voice,
@@ -159,7 +160,7 @@ module shared_modal_ram #(
                     endcase
                 end else if (seed_we && (seed_lane == g) &&
                              (seed_voice < SLOTS) && (seed_mode < MODES)) begin
-                    if (state_first == 4'd3) begin
+                    if (cfg_first == 4'd3) begin
                         f3[seed_idx] <= seed_data[31:0];
                         f4[seed_idx] <= seed_data[63:32];
                     end else begin
@@ -168,7 +169,7 @@ module shared_modal_ram #(
                     end
                 end else if (clr_we && (clr_lane == g) &&
                              (clr_voice < SLOTS) && (clr_mode < MODES)) begin
-                    if (state_first == 4'd3) begin
+                    if (cfg_first == 4'd3) begin
                         f3[clr_idx] <= 32'd0;
                         f4[clr_idx] <= 32'd0;
                     end else begin
@@ -176,7 +177,7 @@ module shared_modal_ram #(
                         f8[clr_idx] <= 32'd0;
                     end
                 end else if (st_we[g]) begin
-                    if (state_first == 4'd3) begin
+                    if (st_first == 4'd3) begin
                         f3[st_addr[g*AW +: AW]] <= st_data[g*64 +: 32];
                         f4[st_addr[g*AW +: AW]] <= st_data[g*64+32 +: 32];
                     end else begin
