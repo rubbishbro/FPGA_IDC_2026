@@ -34,7 +34,6 @@ module voice_router #(
     input  logic [$clog2(SLOTS+1)-1:0]                n_voices,
     input  logic [$clog2(N_MODES+1)-1:0]              n_modes,
     input  logic [$clog2(X_DEPTH+1)-1:0]              n_samples,
-    input  logic [SLOTS-1:0]                          st_zero_mask,
     output logic                                      ready,       // 系数表就绪、可以 start
     output logic                                      busy,
     output logic                                      done,
@@ -86,7 +85,7 @@ module voice_router #(
     // 早期声明（parts 的选择逻辑要用）
     router_pkg::instrument_e inst_lat;
     logic [VWID:0]           nv_lat;
-    logic [SLOTS-1:0]        zero_lat;
+    logic [SLOTS-1:0]        zero_lat;   // 仅用于 note_on 的旧路径（保留待删）
     coeff_t                  co_r;
 
     // =========================================================================
@@ -115,19 +114,37 @@ module voice_router #(
     logic               xmap_valid;
     logic signed [31:0] emap [0:15];
     logic               emap_valid;
-    logic [SLOTS-1:0]   note_on;
 
-    assign note_on = zero_lat & {SLOTS{fidx == '0}};   // note-on 只在首帧是一拍脉冲
+    // ---- 音符事件：由 fmap 双阈值在 router 里统一生成（带回滞）----
+    localparam logic [7:0] NOTE_ON_TH  = 8'd2;
+    localparam logic [7:0] NOTE_OFF_TH = 8'd1;
+
+    logic [SLOTS-1:0] gate_r, note_gate, note_on;
+
+    always_comb for (int i = 0; i < SLOTS; i++)
+        note_gate[i] = gate_r[i] ? (fmap.flat_d[i].val >= NOTE_OFF_TH)
+                                 : (fmap.flat_d[i].val >  NOTE_ON_TH);
+
+    // note_on 保持一个采样周期（下一拍 tick 清掉），供本帧所有模块使用
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            gate_r  <= '0;
+            note_on <= '0;
+        end else if (smp_tick) begin
+            note_on <= note_gate & ~gate_r;
+            gate_r  <= note_gate;
+        end
+    end
 
     exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .inst(inst_lat),
+        .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
     env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .inst(inst_lat),
+        .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
         .emap(emap), .emap_valid(emap_valid)
     );
 
@@ -367,8 +384,7 @@ module voice_router #(
     always_comb for (int i = 0; i < SLOTS; i++)
         voice_dead[i] = (32'(emap[i]) < ENV_ZERO_TH);
 
-    assign eng_zero = (zero_lat[voi[VWID-1:0]] && (fidx == '0))
-                    || (voice_dead[voi[VWID-1:0]] && (fidx != '0));
+    assign eng_zero = note_on[voi[VWID-1:0]] | voice_dead[voi[VWID-1:0]];
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -406,7 +422,6 @@ module voice_router #(
                         nv_lat   <= (n_voices == 0) ? 1 : n_voices;
                         ns_lat   <= n_samples;
                         nm_lat   <= n_modes;
-                        zero_lat <= st_zero_mask;
                         inst_lat <= inst;
                         sel_alt  <= eng_sel(inst);
                         busy     <= 1'b1;

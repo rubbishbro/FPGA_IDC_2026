@@ -9,6 +9,7 @@ module env_router #(
     input  logic                    smp_tick,
     input  pad_driver_pkg::mat4x4   fmap,
     input  logic [SLOTS-1:0]        note_on,
+    input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
     output logic signed [31:0]      emap [0:15],
     output logic                    emap_valid
@@ -23,17 +24,17 @@ module env_router #(
                     .A_STEP(32'd16_777_216), .D_STEP(32'd1_048_576),
                     .S_LEVEL(32'd536_870_912)) u1 (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .emap(m1), .emap_valid(v1));
+        .note_on(note_on), .note_gate(note_gate), .emap(m1), .emap_valid(v1));
 
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ),
                     .A_STEP(32'd4_194_304), .D_STEP(32'd4_194_304),
                     .S_LEVEL(32'd1_073_741_824)) u2 (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .emap(m2), .emap_valid(v2));
+        .note_on(note_on), .note_gate(note_gate), .emap(m2), .emap_valid(v2));
 
     envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u3 (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .emap(m3), .emap_valid(v3));
+        .note_on(note_on), .note_gate(note_gate), .emap(m3), .emap_valid(v3));
 
     always_comb begin
         emap_valid = v0;

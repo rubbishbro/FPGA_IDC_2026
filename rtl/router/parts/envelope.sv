@@ -18,7 +18,8 @@ module envelope_ADSR #(
     input  logic                        rst_n,
     input  logic                        smp_tick,
     input  pad_driver_pkg::mat4x4       fmap,
-    input  logic [SLOTS-1:0]            note_on,       // 重触发（router 给）
+    input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
+    input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
     output logic signed [31:0]          emap [0:15],
     output logic                        emap_valid
 );
@@ -28,15 +29,8 @@ module envelope_ADSR #(
     logic [31:0] lvl [0:SLOTS-1];
     logic [SLOTS-1:0] gate;
 
-    // 带滞回的门控：> ON 置位，< OFF 清零
-    always_comb for (int i = 0; i < SLOTS; i++)
-        gate[i] = gate_r[i] ? (fmap.flat_d[i].val >= GATE_OFF_TH[7:0])
-                            : (fmap.flat_d[i].val >  GATE_ON_TH[7:0]);
-    logic [SLOTS-1:0] gate_r;
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) gate_r <= '0;
-        else if (smp_tick) gate_r <= gate;
-    end
+    // 门控直接来自 router（阈值判断已经在那里统一做了）
+    assign gate = note_gate;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -97,6 +91,7 @@ module envelope_dyn0 #(
     input  logic                        smp_tick,
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,
+    input  logic [SLOTS-1:0]            note_gate,
     output logic signed [31:0]          emap [0:15],
     output logic                        emap_valid
 );
@@ -106,7 +101,7 @@ module envelope_dyn0 #(
             for (int i = 0; i < SLOTS; i++) emap[i] <= '0;
         end else if (smp_tick) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (fmap.flat_d[i].val > GATE_TH[7:0])
+                if (note_gate[i])
                     emap[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
                 else
                     emap[i] <= '0;

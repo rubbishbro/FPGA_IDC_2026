@@ -10,7 +10,6 @@ module tb_voice_router;
     logic [4:0]  n_voices;
     logic [6:0]  n_modes;
     logic [6:0]  n_samples;
-    logic [15:0] st_zero_mask;
     logic        ready, busy, done, y_valid;
     logic signed [63:0] y_data;
     logic        ns_rd_en = 0, ns_rd_sel = 0;
@@ -22,7 +21,7 @@ module tb_voice_router;
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst),
         .reload(reload), .mod_req(mod_req), .start(start),
         .n_voices(n_voices), .n_modes(n_modes), .n_samples(n_samples),
-        .st_zero_mask(st_zero_mask), .ready(ready), .busy(busy), .done(done),
+        .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
@@ -68,7 +67,7 @@ module tb_voice_router;
     initial begin
         for (int i = 0; i < 16; i++) fmap.flat_d[i].val = 0;
         inst = router_pkg::INST_PIANO;  // piano: eng0 + ADSR
-        n_voices = 1; n_modes = 4; n_samples = 64; st_zero_mask = 16'h0001;
+        n_voices = 1; n_modes = 4; n_samples = 64;
         repeat (5) @(posedge clk);
         rst_n = 1;
         repeat (5) @(posedge clk);
