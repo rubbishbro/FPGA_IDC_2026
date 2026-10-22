@@ -109,7 +109,12 @@ module tb_voice_router;
 
         // ---- R3: 吉他（有揉弦）—— 验证参数表读 + 调制器写系数 ----
         inst = router_pkg::INST_GUITAR;
-        // 往参数表里写 4 个模态的参数（theta0 从小到 0.9，最后一个应被门控）
+        // 先跑一个空作业，让加载器（现在会真的写表）把所有表灌完
+        fmap.flat_d[0].val = 8'd0;
+        @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
+        wait (done);
+        repeat (5) @(posedge clk);
+        // 加载完成后再写参数（否则会被加载器覆盖）
         for (int m = 0; m < 4; m++) begin
             real th; th = (m == 3) ? 0.9 : (2.0*3.14159265*82.4*(m+1)/48000.0);
             dut.pm_c0 [m] = longint'($rtoi($cos(th)*1073741824.0));
