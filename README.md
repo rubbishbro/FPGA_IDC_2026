@@ -103,5 +103,7 @@ Every path is derived from `python/paths.py`; nothing writes outside `FFT_result
 * `python/MATH.md` — string model and the exact piecewise-constant update used for
   Class B / time-varying string length.
 * `FFT_results/report.md` — extraction summary across instruments.
+* `docs/上位机可行性分析.md` — 上位机（WebGL MIDI 编辑器）与板端链路的可行性、
+  协议草案、风险与里程碑（讨论稿，方案未定）。
 * `FFT_results/sim/README.md` — what each simulation deliverable is and how it was
   verified.
