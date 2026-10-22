@@ -76,9 +76,10 @@ module eng1_lane_core #(
                            S_M2    = 4'd4,
                            S_M3    = 4'd5,
                            S_FIN1  = 4'd6,
-                           S_FIN2  = 4'd7,
-                           S_FIN3  = 4'd8,
-                           S_DONE  = 4'd9;
+                           S_FIN2A = 4'd7,
+                           S_FIN2B = 4'd8,
+                           S_FIN3  = 4'd9,
+                           S_DONE  = 4'd10;
 
     localparam logic signed [63:0] YMIN = -64'sd2147483648;
     localparam logic signed [63:0] YMAX =  64'sd2147483647;
@@ -87,6 +88,7 @@ module eng1_lane_core #(
     logic [3:0]  st;
     logic [MW-1:0] lc;
     logic [AW-1:0] mi;
+    logic [AW-1:0] addr_r, voice_base_r;
     logic [VW-1:0] voice_r;
     logic signed [31:0] x_r;
 
@@ -168,9 +170,10 @@ module eng1_lane_core #(
             prod_r <= csel * osel;
     end
 
-    // 移位/舍入/饱和（S_FIN2 的组合；64-bit 减法已在 S_FIN1 寄存）
+    // S_FIN2A: 只做 diff + ROUND；S_FIN2B: 移位/比较/饱和。
+    logic signed [63:0] rounded;
     always_comb begin
-        shifted   = (diff + ROUND) >>> 24;
+        shifted   = rounded >>> 24;
         sat_now   = (shifted > YMAX) || (shifted < YMIN);
         if (shifted > YMAX)       ynew = 32'sh7FFFFFFF;
         else if (shifted < YMIN)  ynew = 32'sh80000000;
@@ -182,6 +185,8 @@ module eng1_lane_core #(
             st           <= S_IDLE;
             lc           <= {MW{1'b0}};
             mi           <= {AW{1'b0}};
+            addr_r       <= {AW{1'b0}};
+            voice_base_r <= {AW{1'b0}};
             voice_r      <= {VW{1'b0}};
             x_r          <= 32'sd0;
             g_c          <= 32'sd0;
@@ -209,6 +214,9 @@ module eng1_lane_core #(
                     if (start) begin
                         lc      <= count_for(n_modes);
                         mi      <= {AW{1'b0}};
+                        voice_base_r <= voice * LOCAL;
+                        addr_r       <= voice * LOCAL;
+                        commit_mode_r <= LANE[MW-1:0];
                         voice_r <= voice;
                         x_r     <= x_in;
                         ps      <= 64'sd0;
@@ -219,6 +227,10 @@ module eng1_lane_core #(
                 end
 
                 S_REQ: begin
+                    // 第一个 mode 的提交值已在 start 设为 LANE；
+                    // 从第二个 mode 起，每进一次 S_REQ 前进 LANES。
+                    if (mi != {AW{1'b0}})
+                        commit_mode_r <= commit_mode_r + LANES[MW-1:0];
                     st <= S_CAP;
                 end
 
@@ -247,11 +259,16 @@ module eng1_lane_core #(
 
                 S_FIN1: begin
                     diff <= acc - prod_r;   // 最终 64-bit 减法
-                    st   <= S_FIN2;
+                    st   <= S_FIN2A;
                 end
 
-                S_FIN2: begin
-                    ynew_r <= ynew;         // 舍入/移位/饱和
+                S_FIN2A: begin
+                    rounded <= diff + ROUND; // 只做 64-bit 舍入加法
+                    st      <= S_FIN2B;
+                end
+
+                S_FIN2B: begin
+                    ynew_r <= ynew;         // 移位/比较/饱和
                     sat_r  <= sat_now;
                     st     <= S_FIN3;
                 end
@@ -262,7 +279,6 @@ module eng1_lane_core #(
 
                     commit_valid   <= 1'b1;
                     commit_voice_r <= voice_r;
-                    commit_mode_r  <= mi * LANES + LANE;
                     commit_y1_r    <= ynew_r;
                     commit_y2_r    <= y1_c;
                     commit_sat_r   <= sat_r;
@@ -271,6 +287,7 @@ module eng1_lane_core #(
                         st <= S_DONE;
                     end else begin
                         mi <= mi + 1'b1;
+                        addr_r <= addr_r + 1'b1;
                         st <= S_REQ;
                     end
                 end

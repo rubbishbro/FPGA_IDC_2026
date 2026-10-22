@@ -249,3 +249,31 @@ E2 modal_engine7：7 乘/5 级/状态写回
 ```
 
 而不再讨论 index/control/loader。
+
+## 9. 已实现的 lane 时序修改（2026-10-22）
+
+`rtl/core/eng1_lane_core.sv` 已替换为新版，旧版归档到
+`history/rtl/core/legacy_parallel/eng1_lane_core.sv`。
+
+修改：
+
+```text
+1. voice 开始时只算一次 voice * LOCAL，寄存为 addr_r/voice_base_r
+   每个 mode 只做 addr_r + 1，去掉 rd_addr/st_addr 里的运行时乘法
+2. S_FIN2 拆成 S_FIN2A（diff+ROUND）和 S_FIN2B（移位/比较/饱和）
+3. commit_mode 改为 start 时设 LANE，之后每个 mode 加 LANES
+   去掉 mi*LANES+LANE 的提交路径乘法
+```
+
+测试：
+
+```text
+tb_eng1_lane_core   PASS
+tb_shared_engines_top PASS
+tb_shared_engine_mvp PASS
+tb_b_engine_top_ext PASS
+tb_c_engine_top_ext PASS
+tb_router_system_top FAIL mix=0（旧 scheduler/A 包络路径，未修）
+```
+
+本版只做 lane 时序；P&R 还没有重新跑。
