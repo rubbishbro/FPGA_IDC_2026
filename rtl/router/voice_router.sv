@@ -118,10 +118,10 @@ module voice_router #(
     // =========================================================================
     // 三个部件子路由（各自按乐器号选实例，主 router 只连总线）
     // =========================================================================
-    logic signed [31:0] xmap [0:15];
-    logic               xmap_valid;
-    logic signed [31:0] emap [0:15];
-    logic               emap_valid;
+    logic signed [15:0][31:0] xmap;      // 打包：xmap[i] 是第 i 个声部的激励
+    logic                     xmap_valid;
+    logic signed [15:0][31:0] emap;      // 打包：emap[i] 是第 i 个声部的包络
+    logic                     emap_valid;
 
     // ---- 音符事件：由 fmap 双阈值在 router 里统一生成（带回滞）----
     localparam logic [7:0] NOTE_ON_TH  = 8'd2;

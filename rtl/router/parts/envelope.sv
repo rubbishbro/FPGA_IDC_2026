@@ -19,7 +19,7 @@ module envelope_ADSR #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
-    output logic signed [31:0]          emap [0:15],
+    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid
 );
 
@@ -91,7 +91,7 @@ module envelope_dyn0 #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,
     input  logic [SLOTS-1:0]            note_gate,
-    output logic signed [31:0]          emap [0:15],
+    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid
 );
 
@@ -122,7 +122,7 @@ module envelope_const #(
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic                        smp_tick,
-    output logic signed [31:0]          emap [0:15],
+    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid
 );
 

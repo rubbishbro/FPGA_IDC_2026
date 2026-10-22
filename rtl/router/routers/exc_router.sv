@@ -11,7 +11,7 @@ module exc_router #(
     input  logic [SLOTS-1:0]        note_on,
     input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
-    output logic signed [31:0]      xmap [0:15],
+    output logic signed [15:0][31:0] xmap,
     output logic                    xmap_valid
 );
     logic [5:0] shift;
@@ -31,7 +31,7 @@ module exc_router #(
         endcase
     end
 
-    logic signed [31:0] m_s [0:15], m_t [0:15];
+    logic signed [15:0][31:0] m_s, m_t;
     logic               v_s, v_t;
 
     excitation_pulse_single #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_single (

@@ -11,7 +11,7 @@ module env_router #(
     input  logic [SLOTS-1:0]        note_on,
     input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
-    output logic signed [31:0]      emap [0:15],
+    output logic signed [15:0][31:0] emap,
     output logic                    emap_valid
 );
     // 参数常量表：加乐器 = 加一行，不用再加硬件
@@ -40,7 +40,7 @@ module env_router #(
         endcase
     end
 
-    logic signed [31:0] m_adsr [0:15], m_dyn [0:15];
+    logic signed [15:0][31:0] m_adsr, m_dyn;
     logic               v_adsr, v_dyn;
 
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_adsr (

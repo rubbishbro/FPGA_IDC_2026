@@ -18,7 +18,7 @@ module excitation_pulse_single #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）
-    output logic signed [31:0]          xmap [0:15],
+    output logic signed [15:0][31:0]    xmap,          // 打包：xmap[i] 取第 i 个声部
     output logic                        xmap_valid
 );
 
@@ -59,7 +59,7 @@ module excitation_pulse_train #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）
-    output logic signed [31:0]          xmap [0:15],
+    output logic signed [15:0][31:0]    xmap,          // 打包：xmap[i] 取第 i 个声部
     output logic                        xmap_valid
 );
 
