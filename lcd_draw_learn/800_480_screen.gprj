@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AST-138B" pn="GW5AST-LV138FPG676AES">gw5ast138b-002</Device>
+    <FileList>
+        <File path="src/gowin_pll/gowin_pll.v" type="file.verilog" enable="1"/>
+        <File path="src/fft/fft.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd_timing.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd_draw.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd_background.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd_fft.v" type="file.verilog" enable="1"/>
+        <File path="src/lcd_wave.v" type="file.verilog" enable="1"/>
+        <File path="src/freq_pingpong.v" type="file.verilog" enable="1"/>
+        <File path="src/spectrum_map.v" type="file.verilog" enable="1"/>
+        <File path="src/real_audio_chain.v" type="file.verilog" enable="1"/>
+        <File path="src/time_pingpong.v" type="file.verilog" enable="1"/>
+        <File path="src/audio_if.v" type="file.verilog" enable="1"/>
+        <File path="src/fft_ctrl.v" type="file.verilog" enable="1"/>
+        <File path="src/key_debounce.v" type="file.verilog" enable="1"/>
+        <File path="src/top.v" type="file.verilog" enable="1"/>
+        <File path="src/800_480_screen.cst" type="file.cst" enable="1"/>
+    </FileList>
+</Project>
