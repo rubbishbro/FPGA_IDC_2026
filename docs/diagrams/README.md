@@ -5,26 +5,26 @@
 
 ## 1. 总览
 
-[![新架构总览](new_architecture_overview.png)](new_architecture_overview.svg)
+[![新架构总览](architecture_overview.png)](architecture_overview.svg)
 
-- 源文件：[new_architecture_overview.dot](new_architecture_overview.dot)
-- SVG：[new_architecture_overview.svg](new_architecture_overview.svg)
+- 源文件：[architecture_overview.dot](architecture_overview.dot)
+- SVG：[architecture_overview.svg](architecture_overview.svg)
 - 内容：`router_system_top` 的控制面、统一 loader、shared system、engine_mux、post_chain。
 
 ## 2. Router 控制 / 装载 / voice
 
-[![Router 控制流](new_router_control_flow.png)](new_router_control_flow.svg)
+[![Router 控制流](router_control_flow.png)](router_control_flow.svg)
 
-- 源文件：[new_router_control_flow.dot](new_router_control_flow.dot)
-- SVG：[new_router_control_flow.svg](new_router_control_flow.svg)
+- 源文件：[router_control_flow.dot](router_control_flow.dot)
+- SVG：[router_control_flow.svg](router_control_flow.svg)
 - 内容：`rcfg/fmap → router_frontend → x/engine_sel/load`，以及 `router_loader`、`router_voice_alloc` 到 `engine_mux` 的连接。
 
 ## 3. 引擎 / 共享 RAM / 后级
 
-[![引擎与后级](new_engine_post_flow.png)](new_engine_post_flow.svg)
+[![引擎与后级](engine_post_flow.png)](engine_post_flow.svg)
 
-- 源文件：[new_engine_post_flow.dot](new_engine_post_flow.dot)
-- SVG：[new_engine_post_flow.svg](new_engine_post_flow.svg)
+- 源文件：[engine_post_flow.dot](engine_post_flow.dot)
+- SVG：[engine_post_flow.svg](engine_post_flow.svg)
 - 内容：`engine_mux`、`pure_engine_abc` / `eng2_engine_top_ext`、唯一 shared RAM、尾部加法器、post FSM、`post_chain`。
 
 ## 当前验证结果
@@ -69,12 +69,12 @@ POST_EN = 1
 ## 重新生成
 
 ```bash
-dot -Tsvg docs/diagrams/new_architecture_overview.dot -o docs/diagrams/new_architecture_overview.svg
-dot -Tpng -Gdpi=180 docs/diagrams/new_architecture_overview.dot -o docs/diagrams/new_architecture_overview.png
+dot -Tsvg docs/diagrams/architecture_overview.dot -o docs/diagrams/architecture_overview.svg
+dot -Tpng -Gdpi=180 docs/diagrams/architecture_overview.dot -o docs/diagrams/architecture_overview.png
 
-dot -Tsvg docs/diagrams/new_router_control_flow.dot -o docs/diagrams/new_router_control_flow.svg
-dot -Tpng -Gdpi=180 docs/diagrams/new_router_control_flow.dot -o docs/diagrams/new_router_control_flow.png
+dot -Tsvg docs/diagrams/router_control_flow.dot -o docs/diagrams/router_control_flow.svg
+dot -Tpng -Gdpi=180 docs/diagrams/router_control_flow.dot -o docs/diagrams/router_control_flow.png
 
-dot -Tsvg docs/diagrams/new_engine_post_flow.dot -o docs/diagrams/new_engine_post_flow.svg
-dot -Tpng -Gdpi=180 docs/diagrams/new_engine_post_flow.dot -o docs/diagrams/new_engine_post_flow.png
+dot -Tsvg docs/diagrams/engine_post_flow.dot -o docs/diagrams/engine_post_flow.svg
+dot -Tpng -Gdpi=180 docs/diagrams/engine_post_flow.dot -o docs/diagrams/engine_post_flow.png
 ```

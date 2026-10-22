@@ -1,4 +1,12 @@
-digraph new_engine_post_flow {
+// -----------------------------------------------------------------------------
+// 文件: engine_post_flow.dot
+// 用途: 引擎 / 共享 RAM / engine_mux / post_chain 数据流
+// 说明: pure_engine_abc + eng2_engine_top_ext 共用一份 shared_modal_ram；
+//       唯一尾部加法器 -> post FSM -> envelope/body/reverb/dry-wet/final。
+// 生成: dot -Tsvg engine_post_flow.dot -o engine_post_flow.svg
+//       dot -Tpng -Gdpi=180 engine_post_flow.dot -o engine_post_flow.png
+// -----------------------------------------------------------------------------
+digraph engine_post_flow {
     graph [
         fontname="Noto Sans CJK TC", fontsize=18,
         rankdir=LR, compound=true, newrank=true,

@@ -1,4 +1,12 @@
-digraph new_router_control_flow {
+// -----------------------------------------------------------------------------
+// 文件: router_control_flow.dot
+// 用途: router 控制面 / 装载 / voice 分配数据流
+// 说明: rcfg/fmap -> router_ctrl / excitation -> x；
+//       load -> router_loader -> cfg/clr/seed；note -> voice_alloc。
+// 生成: dot -Tsvg router_control_flow.dot -o router_control_flow.svg
+//       dot -Tpng -Gdpi=180 router_control_flow.dot -o router_control_flow.png
+// -----------------------------------------------------------------------------
+digraph router_control_flow {
     graph [
         fontname="Noto Sans CJK TC", fontsize=18,
         rankdir=LR, compound=true, newrank=true,
