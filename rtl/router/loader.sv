@@ -14,15 +14,14 @@ module weight_loader #(
     output logic                        busy,
     output logic                        done,           // 单拍
 
-    // 系数块写口（真实实现要逐个字写进去）
-    output logic                        co_we,
-    output logic [$clog2(SLOTS*N_MODES)-1:0] co_addr,
-    output modal_step_pkg::coeff_t      co_data,
-
-    // 调制参数表写口（和系数表同一套加载流程）
-    output logic                        pm_we,
-    output logic [$clog2(SLOTS*N_MODES)-1:0] pm_addr,
-    output router_pkg::mod_par_t        pm_data,
+    // 统一的写口：一个使能 + 一个地址空间
+    //   地址 [0, SLOTS*N_MODES)              -> 系数表
+    //   地址 [SLOTS*N_MODES, 2*SLOTS*N_MODES) -> 调制参数表
+    // 数据仍是两条总线（系数记录 7x32、参数记录 5x32，载荷不同）
+    output logic                                    ld_we,
+    output logic [$clog2(2*SLOTS*N_MODES)-1:0]      ld_addr,
+    output modal_step_pkg::coeff_t                  ld_co,
+    output router_pkg::mod_par_t                    ld_pm,
 
     // QSPI（占位：先引出来，后面对板子）
     output logic                        qspi_cs_n,
@@ -42,20 +41,17 @@ module weight_loader #(
             cnt       <= '0;
             busy      <= 1'b0;
             done      <= 1'b0;
-            co_we     <= 1'b0;
-            pm_we     <= 1'b0;
-            pm_addr   <= '0;
-            pm_data   <= '0;
-            co_addr   <= '0;
-            co_data   <= '0;
+            ld_we     <= 1'b0;
+            ld_addr   <= '0;
+            ld_co     <= '0;
+            ld_pm     <= '0;
             qspi_cs_n <= 1'b1;
             qspi_sck  <= 1'b0;
             qspi_dq_o <= '0;
             qspi_dq_oe<= 1'b0;
         end else begin
             done   <= 1'b0;
-            co_we  <= 1'b0;
-            pm_we  <= 1'b0;
+            ld_we  <= 1'b0;
 
             case (st)
                 W_IDLE: begin

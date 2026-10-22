@@ -191,18 +191,24 @@ module voice_router #(
     // 系数加载
     // =========================================================================
     logic                           ld_start, ld_busy, ld_done;
-    logic                           ld_co_we;
-    logic [CO_SLOT-1:0]             ld_co_addr;
+    logic                           ld_we;
+    logic [CO_SLOT:0]               ld_addr;          // 最高位选表：0=系数 1=调制参数
     coeff_t                         ld_co_data;
-    logic                           ld_pm_we;
-    logic [CO_SLOT-1:0]             ld_pm_addr;
     router_pkg::mod_par_t           ld_pm_data;
+    logic                           ld_co_we, ld_pm_we;
+    logic [CO_SLOT-1:0]             ld_idx;
+
+    // 一个写使能 + 地址高位选表
+    logic                           ld_sel_pm;
+    assign ld_sel_pm = ld_addr[CO_SLOT];
+    assign ld_idx    = ld_addr[CO_SLOT-1:0];
+    assign ld_co_we  = ld_we & ~ld_sel_pm;
+    assign ld_pm_we  = ld_we &  ld_sel_pm;
 
     weight_loader #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_ld (
         .clk(clk), .rst_n(rst_n), .inst(4'(inst)),
         .start(ld_start), .busy(ld_busy), .done(ld_done),
-        .co_we(ld_co_we), .co_addr(ld_co_addr), .co_data(ld_co_data),
-        .pm_we(ld_pm_we), .pm_addr(ld_pm_addr), .pm_data(ld_pm_data),
+        .ld_we(ld_we), .ld_addr(ld_addr), .ld_co(ld_co_data), .ld_pm(ld_pm_data),
         .qspi_cs_n(qspi_cs_n), .qspi_sck(qspi_sck),
         .qspi_dq_o(qspi_dq_o), .qspi_dq_oe(qspi_dq_oe), .qspi_dq_i(qspi_dq_i)
     );
@@ -321,13 +327,13 @@ module voice_router #(
 
             // 系数：加载器 / 调制器 写（loader 优先），引擎读
             if (ld_co_we) begin
-                ca_a11[ld_co_addr] <= ld_co_data.a11;
-                ca_a12[ld_co_addr] <= ld_co_data.a12;
-                ca_a21[ld_co_addr] <= ld_co_data.a21;
-                ca_a22[ld_co_addr] <= ld_co_data.a22;
-                ca_gq [ld_co_addr] <= ld_co_data.gq;
-                ca_gv [ld_co_addr] <= ld_co_data.gv;
-                ca_wo [ld_co_addr] <= ld_co_data.wo;
+                ca_a11[ld_idx] <= ld_co_data.a11;
+                ca_a12[ld_idx] <= ld_co_data.a12;
+                ca_a21[ld_idx] <= ld_co_data.a21;
+                ca_a22[ld_idx] <= ld_co_data.a22;
+                ca_gq [ld_idx] <= ld_co_data.gq;
+                ca_gv [ld_idx] <= ld_co_data.gv;
+                ca_wo [ld_idx] <= ld_co_data.wo;
             end else if (|mod_co_we) begin
                 // 每个字段独立写使能；地址 = {当前调制声部, 模态偏移}
                 if (mod_co_we[0]) ca_a11[{mod_slot, mod_co_mode}] <= mod_co_wdata.a11;
@@ -337,11 +343,11 @@ module voice_router #(
             end
             // 调制参数表：加载器统一写；调制器读（1 拍延迟）
             if (ld_pm_we) begin
-                pm_c0 [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.c0;
-                pm_s0 [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.s0;
-                pm_gam[{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.gam;
-                pm_th [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.theta0;
-                pm_g  [{ld_pm_addr[VWID-1:0], ld_pm_addr[IW-1:0]}] <= ld_pm_data.g;
+                pm_c0 [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.c0;
+                pm_s0 [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.s0;
+                pm_gam[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.gam;
+                pm_th [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.theta0;
+                pm_g  [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.g;
             end
             if (mod_p_re) begin
                 mod_c0_r     <= pm_c0 [{mod_slot, mod_p_mode}];
