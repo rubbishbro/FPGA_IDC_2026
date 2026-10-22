@@ -33,5 +33,4 @@ rtl/math/                       CORDIC 等数学依赖
 rtl/rom/                        A/B 系数、index、seed
 ```
 
-注意：当前 `tb_router_system_top` 的共享 top A 路径仍是 FAIL（`mix=0`），
-所以正式顶层虽然已切换，功能上还需要修 scheduler/A 包络路径。
+当前 `tb_router_system_top` 的共享 top A 路径已经 PASS；17 项新架构回归全通过。

@@ -309,6 +309,7 @@ module shared_engines_top #(
                     logic [3:0] next_done;
                     next_done = done_set | (4'b0001 << sel);
                     if ((eng_active & ~next_done) == 4'b0000) begin
+                        mix_sum <= acc;      // done 与 mix_sum 同拍有效
                         state <= S_DONE;
                     end else begin
                         sel <= first_active(eng_active, next_done);
@@ -316,7 +317,6 @@ module shared_engines_top #(
                     end
                 end
                 S_DONE: begin
-                    mix_sum <= acc;
                     state <= S_IDLE;
                 end
                 default: state <= S_IDLE;

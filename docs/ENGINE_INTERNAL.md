@@ -273,7 +273,7 @@ tb_shared_engines_top PASS
 tb_shared_engine_mvp PASS
 tb_b_engine_top_ext PASS
 tb_c_engine_top_ext PASS
-tb_router_system_top FAIL mix=0（旧 scheduler/A 包络路径，未修）
+tb_router_system_top PASS（共享 top A 路径）
 ```
 
-本版只做 lane 时序；P&R 还没有重新跑。
+本版只做 lane 时序；P&R 还没有重新跑。共享 top 的 done/mix 同拍问题也已修正。

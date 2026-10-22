@@ -2,7 +2,7 @@
 
 只保留共享 RAM 新架构的 iverilog 测试；旧并行 top 测试已归档到 `history/sim/unit/core_legacy/`。
 
-当前 16 PASS / 1 FAIL：`tb_router_system_top` 的 A 路径失败（`mix=0`），等待 scheduler/A 包络修复。
+当前 17 项全 PASS。
 
 ## 测试入口
 
