@@ -1,0 +1,77 @@
+// -----------------------------------------------------------------------------
+// 激励生成：整张 fmap -> 整张 xmap
+//   * 不需要声部号（router 按槽位分配）
+//   * 采样节拍由 router 统一给（smp_tick）
+//   * Q28 定标（与 modal_step_pkg::XF 一致），SHIFT 待定
+// -----------------------------------------------------------------------------
+module excitation_pulse_single #(
+    parameter int CLK_HZ  = 100_000_000,
+    parameter int SR_HZ   = 48_000,
+    parameter int SLOTS   = 16,
+    parameter int SLOTS_ = 0
+)(
+    input  logic                        clk,
+    input  logic                        rst_n,
+    input  logic                        smp_tick,
+    input  logic [5:0]                  SHIFT,         // 8 位力值 -> 32 位定点的左移量
+    input  logic [7:0]                  GATE_TH,
+    input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
+    input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）
+    output logic signed [15:0][31:0]    xmap,          // 打包：xmap[i] 取第 i 个声部
+    output logic                        xmap_valid
+);
+
+    logic [SLOTS-1:0] prev;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            prev <= '0;
+            for (int i = 0; i < SLOTS; i++) xmap[i] <= '0;
+        end else if (smp_tick) begin
+            for (int i = 0; i < SLOTS; i++) begin
+                // 只在"越过阈值的那一拍"给一个脉冲（拨弦）
+                if ((fmap.flat_d[i].val > GATE_TH[7:0] && !prev[i]) || note_on[i])
+                    xmap[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
+                else
+                    xmap[i] <= '0;
+                prev[i] <= (fmap.flat_d[i].val > GATE_TH[7:0]);
+            end
+        end
+    end
+    assign xmap_valid = smp_tick;
+
+endmodule
+
+
+// 持续力：按住期间一直给力（用于持续激励的乐器）
+module excitation_pulse_train #(
+    parameter int CLK_HZ  = 100_000_000,
+    parameter int SR_HZ   = 48_000,
+    parameter int SLOTS   = 16,
+    parameter int SLOTS_ = 0
+)(
+    input  logic                        clk,
+    input  logic                        rst_n,
+    input  logic                        smp_tick,
+    input  logic [5:0]                  SHIFT,         // 8 位力值 -> 32 位定点的左移量
+    input  logic [7:0]                  GATE_TH,
+    input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
+    input  logic [SLOTS-1:0]            note_gate,     // 按住电平（train 用）
+    output logic signed [15:0][31:0]    xmap,          // 打包：xmap[i] 取第 i 个声部
+    output logic                        xmap_valid
+);
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (int i = 0; i < SLOTS; i++) xmap[i] <= '0;
+        end else if (smp_tick) begin
+            for (int i = 0; i < SLOTS; i++)
+                xmap[i] <= (fmap.flat_d[i].val > GATE_TH[7:0])
+                         ? signed'(32'(fmap.flat_d[i].val) <<< SHIFT) : '0;
+        end
+    end
+    assign xmap_valid = smp_tick;
+
+endmodule
