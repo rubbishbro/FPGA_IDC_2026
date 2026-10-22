@@ -405,3 +405,7 @@ BSRAM           71 / 340
 ```
 
 关键路径 `router active_r -> A lane RAM f4`。
+
+## 25. router_loader 直测（2026-10-22）
+
+`tb_router_loader` A 路径直接验证统一 loader，PASS；回归 16 项。

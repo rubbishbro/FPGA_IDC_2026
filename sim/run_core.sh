@@ -26,6 +26,7 @@ run() {
 }
 
 run tb_shared_modal_ram rtl/core/modal_record_pkg.sv rtl/core/shared_modal_ram.sv sim/unit/core/tb_shared_modal_ram.sv
+run tb_router_loader rtl/core/class_format_pkg.sv rtl/core/class_loader.sv rtl/core/class_loader64.sv rtl/core/modal_record_pkg.sv rtl/core/router_loader.sv sim/unit/core/tb_router_loader.sv
 run tb_engine_mux $(echo "$COMMON") sim/unit/core/tb_engine_mux.sv
 run tb_shared_engines_top $(echo "$COMMON") sim/unit/core/tb_shared_engines_top.sv
 run tb_router_system_top $(echo "$COMMON") sim/unit/core/tb_router_system_top.sv
