@@ -43,9 +43,21 @@ module env_router #(
     logic signed [15:0][31:0] m_adsr, m_dyn;
     logic               v_adsr, v_dyn;
 
+    // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
+    logic [31:0] a_step_r, d_step_r, s_level_r;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            a_step_r <= '0; d_step_r <= '0; s_level_r <= '0;
+        end else begin
+            a_step_r  <= a_step;
+            d_step_r  <= d_step;
+            s_level_r <= s_level;
+        end
+    end
+
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_adsr (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .A_STEP(a_step), .D_STEP(d_step), .S_LEVEL(s_level),
+        .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .note_on(note_on), .note_gate(note_gate),
         .emap(m_adsr), .emap_valid(v_adsr)
     );

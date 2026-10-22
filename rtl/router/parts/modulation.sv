@@ -39,7 +39,8 @@ module modulation0 #(
     // ---- 单乘法器 ----
     logic signed [31:0] mul_a, mul_b;
     logic signed [31:0] mul_a_q, mul_b_q;               // 操作数寄存器（把路径切成两段）
-    wire signed [63:0]  prod = 64'(mul_a_q) * 64'(mul_b_q);
+    wire signed [63:0]  prod   = 64'(mul_a_q) * 64'(mul_b_q);
+    logic signed [63:0] prod_q;                          // M 级：乘积寄存器
 
     // ---- 中间量 ----
     logic signed [31:0] alpha_q, alpha1_q, inv_a_q, alpha2_q;
@@ -82,7 +83,7 @@ module modulation0 #(
         if (!rst_n) begin
             st <= S_IDLE; step <= '0; mode <= '0; busy <= 1'b0; done <= 1'b0;
             nmod_lat <= '0;
-            mul_a_q <= '0; mul_b_q <= '0;
+            mul_a_q <= '0; mul_b_q <= '0; prod_q <= '0;
             alpha_q <= '0; alpha1_q <= '0; inv_a_q <= '0; alpha2_q <= '0;
             c0_l <= '0; s0_l <= '0; gam_l <= '0; th_l <= '0; g_l <= '0;
             D_q <= '0; d_q <= '0; c_q <= '0; s_q <= '0; ea_q <= '0; a1_q <= '0;
@@ -128,23 +129,26 @@ module modulation0 #(
                     st      <= S_MUL;
                 end
 
-                S_MUL: st <= S_APPLY;
+                S_MUL: begin
+                    prod_q <= prod;   // 乘法单独占一拍，移位放到下一拍
+                    st     <= S_APPLY;
+                end
 
                 S_APPLY: begin
                     case (step)
-                        4'd1:  D_q      <= 32'(prod >>> 30);
-                        4'd2:  d_q      <= 32'(ONE - (prod >>> 20));
-                        4'd3:  c_q      <= 32'(64'(c0_l) - (prod >>> 30));
-                        4'd4:  s_q      <= 32'(64'(s0_l) + (prod >>> 30));
-                        4'd5:  ea_q     <= 32'(prod >>> 30);
-                        4'd6:  a1_q     <= 32'(prod >>> 30);
-                        4'd7:  a12a_q   <= 32'(prod >>> 30);
-                        4'd8:  a12_q    <= 32'(prod >>> 30);
-                        4'd9:  t_q      <= 32'(prod >>> 16);
-                        4'd10: pp_q     <= 32'(prod >>> 30);
-                        4'd11: w0_q     <= 32'(prod >>> 14);          // omega0 * 2^16
-                        4'd12: w2_q     <= 32'((prod >>> 32));        // omega0^2
-                        4'd13: a21_q    <= 32'(-(prod >>> 7));
+                        4'd1:  D_q      <= 32'(prod_q >>> 30);
+                        4'd2:  d_q      <= 32'(ONE - (prod_q >>> 20));
+                        4'd3:  c_q      <= 32'(64'(c0_l) - (prod_q >>> 30));
+                        4'd4:  s_q      <= 32'(64'(s0_l) + (prod_q >>> 30));
+                        4'd5:  ea_q     <= 32'(prod_q >>> 30);
+                        4'd6:  a1_q     <= 32'(prod_q >>> 30);
+                        4'd7:  a12a_q   <= 32'(prod_q >>> 30);
+                        4'd8:  a12_q    <= 32'(prod_q >>> 30);
+                        4'd9:  t_q      <= 32'(prod_q >>> 16);
+                        4'd10: pp_q     <= 32'(prod_q >>> 30);
+                        4'd11: w0_q     <= 32'(prod_q >>> 14);          // omega0 * 2^16
+                        4'd12: w2_q     <= 32'((prod_q >>> 32));        // omega0^2
+                        4'd13: a21_q    <= 32'(-(prod_q >>> 7));
                         default: ;
                     endcase
 
@@ -153,7 +157,7 @@ module modulation0 #(
                         co_wdata.a11 <= 32'((ea_q + t_q) >>> 2);      // Q28
                         co_wdata.a12 <= a12_q;                        // Q30
                         // a21 直接用本拍乘法结果（a21_q 要到下一拍才更新）
-                        co_wdata.a21 <= 32'(-(prod >>> 7));           // Q23
+                        co_wdata.a21 <= 32'(-(prod_q >>> 7));           // Q23
                         co_wdata.a22 <= 32'((ea_q - t_q) >>> 2);      // Q28
                         co_we <= ((th_l < TH_GATE) && (fmap_i != 8'd0)) ? 4'b1111 : 4'b0000;
                         if (mode + 1 >= nmod_lat) begin
