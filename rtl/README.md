@@ -1,36 +1,42 @@
-# rtl — 共享 RAM 四引擎架构
+# rtl — 新共享 RAM 架构
 
-当前正式路径已切到 `shared_engines_system_top`。旧并行 top 已归档到
-`history/rtl/core/legacy_parallel/`，不再参与构建。
+当前正式路径只保留：
 
 ```text
-rtl/core/
-  router_system_top.sv          顶层：装载 + 事件 + shared_engines_system_top
-  shared_engines_system_top.sv  voice_router + shared_engines_top
-  shared_engines_top.sv         A/B/C/E2 + 单份 shared_modal_ram + scheduler
-  shared_modal_ram.sv           唯一一份 9×32（depth 320）
-  eng1_engine_top_ext.sv        A/B/C 外置 RAM 核
-  eng1_engine_env_top_ext.sv    外置 RAM + envelope
-  b_engine_top_ext.sv           B 外置 RAM + a1 aux/co
-  c_engine_top_ext.sv           C 外置 RAM + seed/timer
-  eng2_engine_top_ext.sv        E2 外置 RAM
-  shared_engine_mvp.sv          A/E2 共享 RAM 早期 MVP（保留测试）
-  voice_router.sv               全局 16 voice
-  modal_record_pkg.sv           9×32 记录
-  eng1_lane_core.sv             A/B/C 单乘法器 lane
-  voice_env.sv / voice_env_bank.sv
-  b_front / b_x_pool / b_voice_ctrl
-  b_a1_refresh / b_a1_engine / b_a1_ram_engine
-  c_voice_timer / c_seed_loader / seed_rom
-  e2_router_loader.sv           E2 index/seed + 224-bit coeff
-  class_loader.sv / class_loader64.sv
-  a_router_loader.sv / bc_router_loader.sv
-rtl/simsynth/
-  modal_step_pkg.sv / modal_engine7.sv
-rtl/math/pkg/fxp_pkg.sv
-rtl/drivers/                    键盘/驱动依赖
-rtl/math/                       CORDIC 等数学依赖
-rtl/rom/                        A/B 系数、index、seed
+router_system_top
+└─ shared_engines_system_top
+   └─ shared_engines_top
+      └─ engine_mux
+         ├─ pure_engine_abc   （A/B/C 共用纯 eng1 核）
+         └─ eng2_engine_top_ext
 ```
 
-当前 `tb_router_system_top` 的共享 top A 路径已经 PASS；17 项新架构回归全通过。
+共享：
+
+```text
+shared_modal_ram   唯一一份 9×32 / depth 320
+```
+
+旧并行 top、旧 B/C 前端、b_a1/c_timer/c_seed/voice_env 已归档到
+`history/rtl/core/legacy_parallel/` 和 `history/rtl/core/legacy_frontend/`。
+
+保留的当前文件：
+
+```text
+router_system_top.sv
+shared_engines_system_top.sv
+shared_engines_top.sv
+engine_mux.sv
+pure_engine_abc.sv
+eng1_engine_top_ext.sv
+eng1_lane_core.sv
+eng2_engine_top_ext.sv
+shared_modal_ram.sv
+voice_router.sv
+router loaders: a_router_loader / bc_router_loader / e2_router_loader
+class_loader / class_loader64
+modal_record_pkg.sv
+```
+
+`router` / `excitation_convert` / `linear_modulation` / `envelope_mul` /
+`biquad` / `reverb` / `dry-wet` / `final_adder` 仍未实现。

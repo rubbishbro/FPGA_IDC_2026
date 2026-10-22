@@ -87,7 +87,7 @@ module tb_router_system_top;
 
         wait (ready);
         start=1; @(posedge clk); @(negedge clk); start=0;
-        wait (done); #1;
+        wait (done); @(posedge clk); #1;
 
         if (mix !== 64'sd536870912) begin // 2 modes * 0.25
             $display("FAIL mix=%0d exp=536870912", mix); errors++;

@@ -120,8 +120,7 @@ module shared_engines_system_top #(
 
     shared_engines_top #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
-        .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W),
-        .C_SEED_FILE(C_SEED_FILE)
+        .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W)
     ) u_engines (
         .clk(clk), .rst_n(rst_n),
         .cfg_we(cfg_we), .cfg_engine(cfg_engine), .cfg_voice(cfg_voice),
@@ -133,11 +132,11 @@ module shared_engines_system_top #(
         .a_x(a_x), .a_x_vel(a_x_vel), .a_nmodes(a_nmodes),
         .b_ctrl(b_ctrl), .b_class(voice_class), .b_vel(b_vel), .b_theta(b_theta),
         .b_a1_enable(b_a1_enable), .b_ratio(b_ratio),
-        .b_note_start(b_ns), .b_gate(b_gate), .b_active(b_active), .b_nmodes(b_nmodes),
-        .c_note_start(c_ns), .c_choke(c_choke), .c_len(c_len),
+        .b_note_start(b_ns), .b_gate(b_gate), .b_active(b_active), .b_nmodes(b_nmodes), .b_x('0),
+        .c_note_start(c_ns), .c_choke(c_choke), .c_active(c_active), .c_len(c_len),
         .c_seed_vel(c_seed_vel), .c_attack(c_attack), .c_release(c_release), .c_nmodes(c_nmodes),
         .c_seed_load_start(c_seed_load_start), .c_seed_load_voice(note_voice),
-        .c_seed_load_nmodes(c_seed_load_nmodes), .c_seed_base(c_seed_base),
+        .c_seed_load_nmodes(c_seed_load_nmodes), .c_seed_base(c_seed_base), .c_x('0),
         .e2_cfg_we(e2_cfg_we), .e2_cfg_voice(e2_cfg_voice), .e2_cfg_mode(e2_cfg_mode), .e2_cfg_data(e2_cfg_data),
         .e2_clr_we(e2_clr_we), .e2_clr_voice(e2_clr_voice), .e2_clr_mode(e2_clr_mode),
         .e2_seed_we(e2_seed_we), .e2_seed_voice(e2_seed_voice), .e2_seed_mode(e2_seed_mode), .e2_seed_data(e2_seed_data),

@@ -2,7 +2,7 @@
 
 只保留共享 RAM 新架构的 iverilog 测试；旧并行 top 测试已归档到 `history/sim/unit/core_legacy/`。
 
-当前 17 项全 PASS。
+当前 8 项全 PASS。旧前端测试已归档到 `history/sim/unit/core_legacy/`。
 
 ## 测试入口
 
@@ -11,27 +11,17 @@
 IVERILOG=/path/to/iverilog VVP=/path/to/vvp bash sim/run_core.sh
 ```
 
-当前 18 项：
+当前 8 项：
 
 ```text
-tb_modal_ram
-tb_modal_ram_aux
-tb_eng1_lane_core
-tb_voice_env
-tb_b_front
-tb_b_a1_ram
-tb_seed_rom
-tb_c_seed_loader
 tb_a_router_loader
 tb_bc_router_loader
 tb_e2_router_loader
-tb_router_system_top
 tb_shared_modal_ram
-tb_shared_engine_mvp
-tb_b_engine_top_ext
-tb_c_engine_top_ext
-tb_shared_engines_top
 tb_engine_mux
+tb_shared_engines_top
+tb_router_system_top
+tb_voice_router
 ```
 
 Gowin 时序探针在 `sim/synth/`：

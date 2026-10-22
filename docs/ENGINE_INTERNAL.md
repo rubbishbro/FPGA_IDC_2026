@@ -313,3 +313,16 @@ rtl/core/engine_mux.sv        pure ABC / E2 二选一 + 单份共享 RAM + 单�
 ```
 
 测试 `tb_engine_mux` PASS。
+
+## 12. shared top 已切到纯 engine mux（2026-10-22）
+
+`shared_engines_top` 现在只例化：
+
+```text
+engine_mux
+├─ pure_engine_abc
+└─ eng2_engine_top_ext
+```
+
+A/B/C 共用同一个纯 eng1 核；旧 B/C 前端、b_a1、c_timer/c_seed、voice_env 已归档。
+回归 8 项全 PASS。
