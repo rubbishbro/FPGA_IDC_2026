@@ -361,3 +361,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 16. excitation / linear modulation（2026-10-22）
 
 新增 `excitation_convert.sv`（pressure→velocity→x）和 `linear_modulation.sv`（二阶多项式占位），`tb_excitation_convert` / `tb_linear_modulation` PASS。
+
+## 17. router_frontend（2026-10-22）
+
+`router_frontend` 组合 `router_ctrl + excitation_convert`，测试 PASS。

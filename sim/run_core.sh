@@ -37,3 +37,4 @@ run tb_reverb_filter rtl/core/reverb_filter.sv sim/unit/core/tb_reverb_filter.sv
 run tb_router_ctrl rtl/core/router_pkg.sv rtl/core/router_ctrl.sv sim/unit/core/tb_router_ctrl.sv
 run tb_excitation_convert rtl/core/excitation_convert.sv sim/unit/core/tb_excitation_convert.sv
 run tb_linear_modulation rtl/core/linear_modulation.sv sim/unit/core/tb_linear_modulation.sv
+run tb_router_frontend rtl/core/router_pkg.sv rtl/core/router_ctrl.sv rtl/core/excitation_convert.sv rtl/core/router_frontend.sv sim/unit/core/tb_router_frontend.sv
