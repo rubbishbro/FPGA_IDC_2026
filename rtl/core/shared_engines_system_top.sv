@@ -30,6 +30,8 @@ module shared_engines_system_top #(
     // A job
     input  logic [NUM_SLOTS*32-1:0]    a_x,
     input  logic [NUM_SLOTS*16-1:0]    a_x_vel,
+    input  logic [NUM_SLOTS*32-1:0]    b_x,
+    input  logic [NUM_SLOTS*32-1:0]    c_x,
     input  logic [NUM_SLOTS*MW_ABC-1:0] a_nmodes,
 
     // B job
@@ -129,14 +131,14 @@ module shared_engines_system_top #(
         .seed_we(seed_we), .seed_engine(seed_engine), .seed_voice(seed_voice),
         .seed_mode(seed_mode), .seed_data(seed_data),
         .a_note_start(a_ns), .a_gate(a_gate), .a_active(a_active),
-        .a_x(a_x), .a_x_vel(a_x_vel), .a_nmodes(a_nmodes),
+        .a_x(a_x), .a_x_vel(a_x_vel), .a_nmodes(a_nmodes), .b_x(b_x), .c_x(c_x),
         .b_ctrl(b_ctrl), .b_class(voice_class), .b_vel(b_vel), .b_theta(b_theta),
         .b_a1_enable(b_a1_enable), .b_ratio(b_ratio),
-        .b_note_start(b_ns), .b_gate(b_gate), .b_active(b_active), .b_nmodes(b_nmodes), .b_x('0),
+        .b_note_start(b_ns), .b_gate(b_gate), .b_active(b_active), .b_nmodes(b_nmodes),
         .c_note_start(c_ns), .c_choke(c_choke), .c_active(c_active), .c_len(c_len),
         .c_seed_vel(c_seed_vel), .c_attack(c_attack), .c_release(c_release), .c_nmodes(c_nmodes),
         .c_seed_load_start(c_seed_load_start), .c_seed_load_voice(note_voice),
-        .c_seed_load_nmodes(c_seed_load_nmodes), .c_seed_base(c_seed_base), .c_x('0),
+        .c_seed_load_nmodes(c_seed_load_nmodes), .c_seed_base(c_seed_base),
         .e2_cfg_we(e2_cfg_we), .e2_cfg_voice(e2_cfg_voice), .e2_cfg_mode(e2_cfg_mode), .e2_cfg_data(e2_cfg_data),
         .e2_clr_we(e2_clr_we), .e2_clr_voice(e2_clr_voice), .e2_clr_mode(e2_clr_mode),
         .e2_seed_we(e2_seed_we), .e2_seed_voice(e2_seed_voice), .e2_seed_mode(e2_seed_mode), .e2_seed_data(e2_seed_data),

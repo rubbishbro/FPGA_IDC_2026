@@ -130,6 +130,9 @@ module router_system_top #(
     logic r_key_pressed;
     logic [15:0] r_velocity;
     logic [NUM_SLOTS*32-1:0] a_x_eff;
+    logic [NUM_SLOTS*32-1:0] b_x_eff;
+    logic [NUM_SLOTS*32-1:0] c_x_eff;
+    logic [NUM_SLOTS*32-1:0] e2_x_eff;
 
     router_frontend u_rfront (
         .clk(clk), .rst_n(rst_n),
@@ -144,7 +147,15 @@ module router_system_top #(
 
     always_comb begin
         a_x_eff = a_x;
-        if (fmap_valid) a_x_eff[0*32 +: 32] = r_x;
+        b_x_eff = '0;
+        c_x_eff = '0;
+        e2_x_eff = e2_x;
+        if (fmap_valid) begin
+            a_x_eff[0*32 +: 32]  = r_x;
+            b_x_eff[0*32 +: 32]  = r_x;
+            c_x_eff[0*32 +: 32]  = r_x;
+            e2_x_eff[0*32 +: 32] = r_x;
+        end
     end
 
     // E2 loader
@@ -289,7 +300,7 @@ module router_system_top #(
         .note_on(load_done_mux), .note_off(off_valid),
         .note_voice(off_valid ? off_voice : done_voice_mux),
         .note_class((class_r == 2'd3) ? 2'd3 : (class_r ? bc_class : 2'd0)),
-        .a_x(a_x_eff), .a_x_vel(a_x_vel), .a_nmodes(a_nm),
+        .a_x(a_x_eff), .a_x_vel(a_x_vel), .a_nmodes(a_nm), .b_x(b_x_eff), .c_x(c_x_eff),
         .b_ctrl(ctrl_flat), .b_vel(b_vel), .b_theta(theta_flat),
         .b_a1_enable(b_a1_enable), .b_ratio(b_ratio), .b_nmodes(b_nm),
         .c_len(c_len), .c_seed_vel(c_seed_vel), .c_attack(c_atk), .c_release(c_rel),
@@ -303,7 +314,7 @@ module router_system_top #(
         .e2_cfg_we(e2_cfg_we_use), .e2_cfg_voice(e2_cfg_voice_use), .e2_cfg_mode(e2_cfg_mode_use), .e2_cfg_data(e2_cfg_data_use),
         .e2_clr_we(e2_clr_we_use), .e2_clr_voice(e2_clr_voice_use), .e2_clr_mode(e2_clr_mode_use),
         .e2_seed_we(e2_seed_we_use), .e2_seed_voice(e2_seed_voice_use), .e2_seed_mode(e2_seed_mode_use), .e2_seed_data(e2_seed_data_use),
-        .e2_x(e2_x), .e2_nmodes(e2_nmodes_use),
+        .e2_x(e2_x_eff), .e2_nmodes(e2_nmodes_use),
         .start(start), .sample_ready(sample_ready), .busy(busy), .done(done),
         .out_valid(out_valid), .mix_sum(mix_sum)
     );

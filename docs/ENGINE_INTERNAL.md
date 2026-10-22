@@ -413,3 +413,7 @@ BSRAM           71 / 340
 ## 26. router_frontend 接入正式顶层（2026-10-22）
 
 `router_system_top` 增加 rcfg/fmap 输入并例化 router_frontend；fmap_valid=1 时覆盖 A slot0 x；16 项回归 PASS。
+
+## 27. router x 覆盖四 engine slot0（2026-10-22）
+
+`router_system_top` 在 fmap_valid=1 时把 router x 同时写到 A/B/C/E2 slot0；B/C x 已从 system 顶层传入 shared top。16 项回归 PASS。
