@@ -18,6 +18,9 @@ rtl/simsynth/
   modal_voice_top.sv   声部层：多槽存储 + 采样/声部调度（持有全部存储）
   string_mode_step.sv  单模态"并联一步"参考实现（组合、无状态）
   fmax_probe.sv        时序探针（clk/rst_n/led + 内部 LFSR）
+  router_pkg.sv        路由器枚举（乐器号）+ 引擎/揉弦选择函数
+  router_stubs.sv      占位模块：force_pre / weight_loader / eng_alt
+  voice_router.sv      路由器的第一版结构骨架（不动 modal_voice_top）
   tb_*.sv              测试台（配套本目录的 golden_*.txt）
   golden_*.txt         黄金向量（由 local/gen_golden.py 从真实模型生成）
   fmax.sdc fmax200.sdc fmax.cst   时序/引脚约束（可复用）
