@@ -111,3 +111,29 @@ module envelope_dyn0 #(
     assign emap_valid = smp_tick;
 
 endmodule
+
+// -----------------------------------------------------------------------------
+// envelope_const -- "无"包络：恒为 1.0（Q1.31）
+// -----------------------------------------------------------------------------
+module envelope_const #(
+    parameter int CLK_HZ = 100_000_000,
+    parameter int SR_HZ  = 48_000,
+    parameter int SLOTS  = 16
+)(
+    input  logic                        clk,
+    input  logic                        rst_n,
+    input  logic                        smp_tick,
+    output logic signed [31:0]          emap [0:15],
+    output logic                        emap_valid
+);
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
+        end else begin
+            for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
+        end
+    end
+    assign emap_valid = smp_tick;
+
+endmodule

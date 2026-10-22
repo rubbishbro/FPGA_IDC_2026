@@ -22,6 +22,11 @@ package router_pkg;
         INST_NONE     = 4'hF
     } instrument_e;
 
+    // 参数表基地址 = 乐器号 × TABLE_SIZE（TABLE_SIZE 固定为钢琴表大小）
+    function automatic int unsigned table_base(input instrument_e inst);
+        return 32'(inst) * 32'd80;      // TODO: 正式值 = 每个乐器的槽数 x 模态数，先按 80 占位
+    endfunction
+
     // 引擎选择：0 = eng0，1 = eng1（队友的引擎，接口相同）
     // 现阶段只是占位分配，后面按乐器真实的合成方式调整
     function automatic logic eng_sel(input instrument_e inst);
@@ -29,40 +34,6 @@ package router_pkg;
             INST_CELESTA, INST_PAD: return 1'b1;
             default:                return 1'b0;
         endcase
-    endfunction
-
-    // 是否挂揉弦（aftertouch）模块
-    function automatic logic has_expr(input instrument_e inst);
-        case (inst)
-            INST_GUITAR, INST_BASS: return 1'b1;
-            default:                return 1'b0;
-        endcase
-    endfunction
-
-    // 参数表基地址 = 乐器号 × TABLE_SIZE（TABLE_SIZE 固定为钢琴表大小）
-    function automatic int unsigned table_base(input instrument_e inst);
-        return 32'(inst) * 32'd80;      // TODO: 正式值 = 每个乐器的槽数 x 模态数，先按 80 占位
-    endfunction
-
-
-    // ---- 激励 / 包络 / 调制：占位选择（0 = 第一个实现，1 = 第二个）----
-    function automatic logic excitation_sel(input instrument_e inst);
-        case (inst)
-            INST_PAD, INST_VIBES: return 1'b1;   // pulse_train
-            default:              return 1'b0;   // pulse_single
-        endcase
-    endfunction
-
-    function automatic logic envelope_sel(input instrument_e inst);
-        case (inst)
-            INST_PAD: return 1'b1;               // dyn0
-            default:  return 1'b0;               // ADSR
-        endcase
-    endfunction
-
-    function automatic logic modulation_sel(input instrument_e inst);
-        // 0 = 不挂调制器，1 = modulation0
-        return has_expr(inst);
     endfunction
 
 endpackage

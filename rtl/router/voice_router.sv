@@ -109,70 +109,45 @@ module voice_router #(
     end
 
     // =========================================================================
-    // 激励：两种实现，按乐器号选（占位）
+    // 三个部件子路由（各自按乐器号选实例，主 router 只连总线）
     // =========================================================================
-    logic signed [31:0] xmap_a [0:15];
-    logic signed [31:0] xmap_b [0:15];
-    logic               xv_a, xv_b, exc_b;
     logic signed [31:0] xmap [0:15];
     logic               xmap_valid;
-
-    assign exc_b = excitation_sel(inst_lat);
-
-    excitation_pulse_single #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc0 (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .xmap(xmap_a), .xmap_valid(xv_a)
-    );
-    excitation_pulse_train #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc1 (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .xmap(xmap_b), .xmap_valid(xv_b)
-    );
-    always_comb for (int i = 0; i < 16; i++) xmap[i] = exc_b ? xmap_b[i] : xmap_a[i];
-    assign xmap_valid = exc_b ? xv_b : xv_a;
-
-    // =========================================================================
-    // 包络：两种实现；emap 全局 Q1.31
-    // =========================================================================
-    logic signed [31:0] emap_a [0:15];
-    logic signed [31:0] emap_b [0:15];
-    logic signed [31:0] emap   [0:15];
-    logic               ev_a, ev_b, env_b;
+    logic signed [31:0] emap [0:15];
+    logic               emap_valid;
     logic [SLOTS-1:0]   note_on;
 
-    assign env_b = envelope_sel(inst_lat);
+    assign note_on = zero_lat;      // 本作业首帧清零 = 重触发
 
-    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env0 (
+    exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .emap(emap_a), .emap_valid(ev_a)
+        .inst(inst_lat), .xmap(xmap), .xmap_valid(xmap_valid)
     );
-    envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env1 (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .emap(emap_b), .emap_valid(ev_b)
-    );
-    always_comb for (int i = 0; i < 16; i++) emap[i] = env_b ? emap_b[i] : emap_a[i];
-    assign note_on = zero_lat;
 
-    // =========================================================================
-    // 调制器（揉弦）：写系数表，写口与 loader 在下面 mux
-    // =========================================================================
+    env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
+        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
+        .note_on(note_on), .inst(inst_lat),
+        .emap(emap), .emap_valid(emap_valid)
+    );
+
     logic                    mod_busy, mod_done, mod_p_re, mod_co_re, mod_co_we;
     logic [CO_SLOT-1:0]      mod_p_addr, mod_co_addr;
     coeff_t                  mod_co_wdata;
     logic signed [31:0]      mod_c0, mod_s0, mod_g, mod_alpha;
 
-    assign mod_c0    = 32'sd1 << 30;   // TODO: 接真正的参数表（c0/s0/gamma，Q1.31）
+    assign mod_c0    = 32'sd1 << 30;   // TODO: 接参数表（c0/s0/gamma）
     assign mod_s0    = 32'sd0;
     assign mod_g     = 32'sd0;
     assign mod_alpha = 32'sd0;         // TODO: aftertouch 压力 -> alpha
 
-    modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_mod (
-        .clk(clk), .rst_n(rst_n), .start(mod_req && modulation_sel(inst_lat)),
-        .active(nv_lat[SLOTS-1:0]), .alpha_q(mod_alpha),
+    mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
+        .clk(clk), .rst_n(rst_n), .start(mod_req),
+        .active(nv_lat[SLOTS-1:0]), .alpha_q(mod_alpha), .inst(inst_lat),
         .busy(mod_busy), .done(mod_done),
-        .p_re(mod_p_re), .p_addr(mod_p_addr),
-        .p_c0(mod_c0), .p_s0(mod_s0), .p_g(mod_g),
         .co_re(mod_co_re), .co_we(mod_co_we), .co_addr(mod_co_addr),
-        .co_data(co_r), .co_wdata(mod_co_wdata)
+        .co_data(co_r), .co_wdata(mod_co_wdata),
+        .p_re(mod_p_re), .p_addr(mod_p_addr),
+        .p_c0(mod_c0), .p_s0(mod_s0), .p_g(mod_g)
     );
 
     // =========================================================================
