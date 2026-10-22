@@ -373,3 +373,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 19. engine_mux + post_chain 联测（2026-10-22）
 
 `tb_engine_post_chain` 把 `engine_mux` 的 A 输出接 `post_chain`，PASS。后级仍未接正式 shared top。
+
+## 20. shared top 可选 post（2026-10-22）
+
+`shared_engines_top` 增加 `POST_EN`，默认 0；`tb_shared_engines_post` 用 POST_EN=1 PASS。正式顶层仍未默认开启 post。

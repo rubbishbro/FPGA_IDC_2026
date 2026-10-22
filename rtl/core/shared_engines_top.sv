@@ -16,7 +16,8 @@ module shared_engines_top #(
     parameter int LOCAL_RAM   = (N_MODES_E2 + LANES - 1) / LANES,
     parameter int VW          = (NUM_SLOTS < 2) ? 1 : $clog2(NUM_SLOTS),
     parameter int MW_ABC      = (N_MODES_ABC < 2) ? 1 : $clog2(N_MODES_ABC),
-    parameter int MW_E2       = (N_MODES_E2 < 2) ? 1 : $clog2(N_MODES_E2 + 1)
+    parameter int MW_E2       = (N_MODES_E2 < 2) ? 1 : $clog2(N_MODES_E2 + 1),
+    parameter bit POST_EN      = 1'b0
 ) (
     input  logic clk, rst_n,
 
@@ -89,6 +90,10 @@ module shared_engines_top #(
     input  logic [NUM_SLOTS*32-1:0] e2_x,
     input  logic [NUM_SLOTS*MW_E2-1:0] e2_nmodes,
 
+    input  logic [15:0] post_env_gain,
+    input  logic [15:0] post_gd,
+    input  logic [15:0] post_gw,
+
     input  logic start,
     output logic sample_ready,
     output logic busy,
@@ -126,6 +131,12 @@ module shared_engines_top #(
         end
     endgenerate
 
+    logic em_ready, em_busy, em_done, em_valid;
+    logic signed [63:0] em_mix;
+    logic post_in_valid, post_in_ready, post_out_valid;
+    logic signed [63:0] post_in_data, post_out_data;
+    logic [1:0] pstate;
+
     engine_mux #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
         .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W),
@@ -140,8 +151,54 @@ module shared_engines_top #(
         .e2_clr_we(e2_clr_we), .e2_clr_voice(e2_clr_voice), .e2_clr_mode(e2_clr_mode),
         .e2_seed_we(e2_seed_we), .e2_seed_voice(e2_seed_voice), .e2_seed_mode(e2_seed_mode), .e2_seed_data(e2_seed_data),
         .e2_start(e2_start), .e2_active(e2_active), .e2_zero(e2_zero), .e2_x(e2_x), .e2_nmodes(e2_nmodes),
-        .sample_ready(sample_ready), .busy(busy), .done(done),
-        .out_valid(out_valid), .mix_sum(mix_sum)
+        .sample_ready(em_ready), .busy(em_busy), .done(em_done),
+        .out_valid(em_valid), .mix_sum(em_mix)
     );
+
+    // ---- optional post chain ----
+    generate
+        if (POST_EN) begin : g_post
+            post_chain u_post (
+                .clk(clk), .rst_n(rst_n),
+                .in_valid(post_in_valid), .in_ready(post_in_ready), .in_data(post_in_data),
+                .env_gain(post_env_gain), .gd(post_gd), .gw(post_gw),
+                .out_valid(post_out_valid), .out_data(post_out_data)
+            );
+
+            always_ff @(posedge clk) begin
+                if (!rst_n) begin
+                    pstate <= 2'd0; post_in_valid <= 1'b0; post_in_data <= 64'sd0;
+                    out_valid <= 1'b0; mix_sum <= 64'sd0;
+                end else begin
+                    out_valid <= 1'b0;
+                    case (pstate)
+                        2'd0: if (em_done) begin
+                            post_in_data <= em_mix;
+                            post_in_valid <= 1'b1;
+                            pstate <= 2'd1;
+                        end
+                        2'd1: if (post_in_ready) begin
+                            post_in_valid <= 1'b0;
+                            pstate <= 2'd2;
+                        end
+                        2'd2: if (post_out_valid) begin
+                            out_valid <= 1'b1;
+                            mix_sum   <= post_out_data;
+                            pstate    <= 2'd0;
+                        end
+                        default: pstate <= 2'd0;
+                    endcase
+                end
+            end
+        end else begin : g_bypass
+            assign out_valid = em_valid;
+            assign mix_sum   = em_mix;
+            assign post_in_ready = 1'b0;
+        end
+    endgenerate
+
+    assign busy = em_busy || (POST_EN && (pstate != 2'd0));
+    assign sample_ready = em_ready && (!POST_EN || (pstate == 2'd0));
+    assign done = POST_EN ? (pstate == 2'd2 && post_out_valid) : em_done;
 
 endmodule
