@@ -381,3 +381,7 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 21. router_frontend_top（2026-10-22）
 
 新增 `router_frontend_top`，A 路径 config/fmap→x→engine_mux，测试 PASS；系数装载仍外部。
+
+## 22. 统一 router_loader 顶层（2026-10-22）
+
+`router_system_top` 现在只例化一个 `router_loader`，内部仍是 A/BC/E2 三个后端；18 项回归 PASS。

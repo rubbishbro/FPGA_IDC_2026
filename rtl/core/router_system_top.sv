@@ -132,63 +132,36 @@ module router_system_top #(
     logic [2:0] e2_ecode;
     logic [NUM_SLOTS*MW_E2-1:0] e2_nm;
 
-    a_router_loader #(
-        .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_ABC),
-        .COEFF_DEPTH(A_COEFF_DEPTH), .INDEX_DEPTH(A_INDEX_DEPTH),
-        .COEFF_FILE(A_COEFF_FILE), .INDEX_FILE(A_INDEX_FILE), .REC_W(REC_W)
-    ) u_a_ld (
+    router_loader #(
+        .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC), .N_MODES_E2(N_MODES_E2), .REC_W(REC_W),
+        .A_COEFF_DEPTH(A_COEFF_DEPTH), .A_INDEX_DEPTH(A_INDEX_DEPTH),
+        .A_COEFF_FILE(A_COEFF_FILE), .A_INDEX_FILE(A_INDEX_FILE),
+        .BC_COEFF_DEPTH(BC_COEFF_DEPTH), .BC_INDEX_DEPTH(BC_INDEX_DEPTH),
+        .BC_CTRL_DEPTH(BC_CTRL_DEPTH), .BC_SEED_DEPTH(BC_SEED_DEPTH),
+        .BC_COEFF_FILE(BC_COEFF_FILE), .BC_INDEX_FILE(BC_INDEX_FILE),
+        .BC_CTRL_FILE(BC_CTRL_FILE), .BC_SEED_FILE(BC_SEED_FILE),
+        .E2_COEFF_DEPTH(E2_COEFF_DEPTH), .E2_INDEX_DEPTH(E2_INDEX_DEPTH),
+        .E2_CTRL_DEPTH(E2_CTRL_DEPTH), .E2_SEED_DEPTH(E2_SEED_DEPTH),
+        .E2_COEFF_FILE(E2_COEFF_FILE), .E2_INDEX_FILE(E2_INDEX_FILE),
+        .E2_CTRL_FILE(E2_CTRL_FILE), .E2_SEED_FILE(E2_SEED_FILE), .E2_L72_FILE(E2_L72_FILE)
+    ) u_ld (
         .clk(clk), .rst_n(rst_n),
-        .load_valid(load_valid && (load_class == 2'd0)), .load_ready(a_ready),
-        .load_voice(load_voice), .load_instrument(load_inst),
-        .load_midi(load_note), .load_dyn(load_dyn), .load_vel(8'd255),
-        .cfg_we(a_cfg_we), .cfg_voice(a_cfg_voice), .cfg_mode(a_cfg_mode), .cfg_data(a_cfg_data),
-        .clr_we(a_clr_we), .clr_voice(a_clr_voice),
-        .load_done(a_done), .done_voice(a_done_voice), .loaded_n_modes(a_n),
-        .error_valid(a_err), .error_code(a_ecode)
-    );
-
-    bc_router_loader #(
-        .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_ABC),
-        .COEFF_DEPTH(BC_COEFF_DEPTH), .INDEX_DEPTH(BC_INDEX_DEPTH),
-        .CTRL_DEPTH(BC_CTRL_DEPTH), .SEED_DEPTH(BC_SEED_DEPTH),
-        .COEFF_FILE(BC_COEFF_FILE), .INDEX_FILE(BC_INDEX_FILE),
-        .CTRL_FILE(BC_CTRL_FILE), .SEED_FILE(BC_SEED_FILE), .REC_W(REC_W)
-    ) u_bc_ld (
-        .clk(clk), .rst_n(rst_n),
-        .load_valid(load_valid && ((load_class == 2'd1) || (load_class == 2'd2))), .load_ready(bc_ready),
-        .ev_class(load_class), .ev_layer({1'b0, load_dyn}),
-        .ev_instrument({2'b00, load_inst}), .ev_note(load_note),
-        .ev_velocity(load_vel), .ev_note_id(load_note_id),
-        .ev_gate(1'b1), .ev_event_type(2'd0), .load_voice(load_voice),
-        .cfg_we(bc_cfg_we), .cfg_voice(bc_cfg_voice), .cfg_mode(bc_cfg_mode), .cfg_data(bc_cfg_data),
-        .clr_we(bc_clr_we), .clr_voice(bc_clr_voice),
-        .seed_valid(bc_seed_valid), .seed_voice(bc_seed_voice),
-        .seed_mode(bc_seed_mode), .seed_word(bc_seed_word),
-        .commit_valid(), .commit_class(bc_class), .commit_instrument(),
-        .commit_note(), .commit_velocity(), .commit_n_modes(),
-        .commit_ctrl(bc_ctrl), .theta_base(bc_theta),
-        .load_done(bc_done), .done_voice(bc_done_voice), .loaded_n_modes(bc_n),
-        .error_valid(bc_err), .error_code(bc_ecode)
-    );
-
-    e2_router_loader #(
-        .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_E2), .REC_W(REC_W),
-        .COEFF_DEPTH(E2_COEFF_DEPTH), .INDEX_DEPTH(E2_INDEX_DEPTH),
-        .CTRL_DEPTH(E2_CTRL_DEPTH), .SEED_DEPTH(E2_SEED_DEPTH),
-        .COEFF_FILE(E2_COEFF_FILE), .INDEX_FILE(E2_INDEX_FILE),
-        .CTRL_FILE(E2_CTRL_FILE), .SEED_FILE(E2_SEED_FILE), .L72_FILE(E2_L72_FILE)
-    ) u_e2_ld (
-        .clk(clk), .rst_n(rst_n),
-        .load_valid(load_valid && (load_class == 2'd3)), .load_ready(e2_ready),
-        .ev_class(load_class), .ev_layer({1'b0, load_dyn}),
-        .ev_instrument({2'b00, load_inst}), .ev_note(load_note),
-        .ev_velocity(load_vel), .ev_note_id(load_note_id), .load_voice(load_voice),
-        .cfg_we(e2_cfg_we_ld), .cfg_voice(e2_cfg_voice_ld), .cfg_mode(e2_cfg_mode_ld), .cfg_data(e2_cfg_data_ld),
-        .clr_we(e2_clr_we_ld), .clr_voice(e2_clr_voice_ld), .clr_mode(),
-        .seed_valid(e2_seed_valid_ld), .seed_voice(e2_seed_voice_ld),
-        .seed_mode(e2_seed_mode_ld), .seed_word(e2_seed_word_ld),
-        .load_done(e2_done), .done_voice(e2_done_voice), .loaded_n_modes(e2_n),
-        .theta_base(e2_theta), .error_valid(e2_err), .error_code(e2_ecode)
+        .load_valid(load_valid), .load_ready(),
+        .load_class(load_class), .load_voice(load_voice), .load_inst(load_inst),
+        .load_note(load_note), .load_vel(load_vel), .load_dyn(load_dyn), .load_note_id(load_note_id),
+        .a_cfg_we(a_cfg_we), .a_cfg_voice(a_cfg_voice), .a_cfg_mode(a_cfg_mode), .a_cfg_data(a_cfg_data),
+        .a_clr_we(a_clr_we), .a_clr_voice(a_clr_voice),
+        .a_ready(a_ready), .a_done(a_done), .a_err(a_err), .a_done_voice(a_done_voice), .a_n(a_n), .a_ecode(a_ecode),
+        .bc_cfg_we(bc_cfg_we), .bc_cfg_voice(bc_cfg_voice), .bc_cfg_mode(bc_cfg_mode), .bc_cfg_data(bc_cfg_data),
+        .bc_clr_we(bc_clr_we), .bc_clr_voice(bc_clr_voice),
+        .bc_seed_valid(bc_seed_valid), .bc_seed_voice(bc_seed_voice), .bc_seed_mode(bc_seed_mode), .bc_seed_word(bc_seed_word),
+        .bc_ctrl(bc_ctrl), .bc_theta(bc_theta), .bc_class(bc_class),
+        .bc_ready(bc_ready), .bc_done(bc_done), .bc_err(bc_err), .bc_done_voice(bc_done_voice), .bc_n(bc_n), .bc_ecode(bc_ecode),
+        .e2_cfg_we(e2_cfg_we_ld), .e2_cfg_voice(e2_cfg_voice_ld), .e2_cfg_mode(e2_cfg_mode_ld), .e2_cfg_data(e2_cfg_data_ld),
+        .e2_clr_we(e2_clr_we_ld), .e2_clr_voice(e2_clr_voice_ld),
+        .e2_seed_valid(e2_seed_valid_ld), .e2_seed_voice(e2_seed_voice_ld), .e2_seed_mode(e2_seed_mode_ld), .e2_seed_word(e2_seed_word_ld),
+        .e2_ready(e2_ready), .e2_done(e2_done), .e2_err(e2_err), .e2_done_voice(e2_done_voice), .e2_n(e2_n),
+        .e2_theta(e2_theta), .e2_ecode(e2_ecode)
     );
 
     always_comb begin
