@@ -44,3 +44,5 @@ modal_record_pkg.sv
 `router_frontend_top.sv` 提供 router_frontend + engine_mux 的 A 路径 MVP 顶；尚未替换正式 router_system_top。
 
 `router_system_top` 已接入 `router_frontend`：fmap_valid=1 时用 router 的 x 覆盖 A/B/C/E2 slot0。
+
+`post_chain` 已串联 final_adder；reverb 输出和加了一级流水。

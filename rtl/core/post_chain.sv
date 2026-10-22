@@ -24,6 +24,8 @@ module post_chain (
     logic rev_v;
     logic signed [63:0] rev_data;
     logic mix_v;
+    logic mix_out_v;
+    logic signed [63:0] mix_out_data;
     logic body_v_r;
     logic signed [63:0] body_data_r;
 
@@ -52,11 +54,16 @@ module post_chain (
         else begin body_v_r <= body_v; if (body_v) body_data_r <= body_data; end
     end
 
-    assign mix_v = body_v_r & rev_v;
+    assign mix_v = rev_v;
 
     dry_wet_mix u_mix (
         .clk(clk), .rst_n(rst_n), .in_valid(mix_v), .dry(body_data_r), .wet(rev_data),
-        .gd(gd), .gw(gw), .out_valid(out_valid), .out_data(out_data)
+        .gd(gd), .gw(gw), .out_valid(mix_out_v), .out_data(mix_out_data)
+    );
+
+    final_adder #(.N(1)) u_final (
+        .clk(clk), .rst_n(rst_n), .in_valid(mix_out_v),
+        .in_bus(mix_out_data), .out_valid(out_valid), .out_data(out_data)
     );
 
 endmodule

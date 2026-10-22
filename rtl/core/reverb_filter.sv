@@ -19,6 +19,8 @@ module reverb_filter #(
     logic [15:0] p1,p2,p3,p4;
     logic signed [63:0] lp1,lp2,lp3,lp4;
     logic signed [63:0] s1,s2,s3,s4;
+    logic signed [65:0] sum4;
+    logic sum_v, valid_d;
     integer ii;
     initial begin
         for (ii=0; ii<C1; ii=ii+1) c1[ii]='0;
@@ -29,9 +31,11 @@ module reverb_filter #(
     always_ff @(posedge clk) begin
         if (!rst_n) begin
             p1<=0;p2<=0;p3<=0;p4<=0; lp1<=0;lp2<=0;lp3<=0;lp4<=0;
-            out_valid<=0; out_data<=0;
+            out_valid<=0; out_data<=0; sum4<=0; sum_v<=0; valid_d<=0;
         end else begin
-            out_valid <= in_valid;
+            sum_v <= in_valid;
+            valid_d <= sum_v;
+            out_valid <= valid_d;
             if (in_valid) begin
                 s1 = c1[p1]; s2 = c2[p2]; s3 = c3[p3]; s4 = c4[p4];
                 lp1 <= s1 + ((lp1 - s1) >>> 3);
@@ -46,8 +50,9 @@ module reverb_filter #(
                 p2 <= (p2+1==C2)?0:p2+1;
                 p3 <= (p3+1==C3)?0:p3+1;
                 p4 <= (p4+1==C4)?0:p4+1;
-                out_data <= (s1 + s2 + s3 + s4) >>> 2;
+                sum4 <= s1 + s2 + s3 + s4;
             end
+            out_data <= sum4 >>> 2;
         end
     end
 endmodule

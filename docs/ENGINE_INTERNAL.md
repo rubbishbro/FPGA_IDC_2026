@@ -467,3 +467,17 @@ BSRAM          113 / 340
 ```
 
 正式 POST_EN 默认 1，回归 16 项 PASS。
+
+## 32. 后级 final_adder + reverb sum 流水（2026-10-22 18:23）
+
+```text
+Fmax        100.166 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.017 ns
+Logic       10,050
+Register     6,054
+BSRAM          113 / 340
+```
+
+POST_EN=1、final_adder 已接入；回归 16 项 PASS。
