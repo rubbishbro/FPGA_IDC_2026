@@ -51,11 +51,3 @@ vivado_pid*.str
 
 # 本地脚本/临时产物（可复用 RTL、TB、约束、黄金向量都在上一级，已跟踪）
 rtl/simsynth/local/
-
-# Gowin 工程构建/仿真中间产物（可重新生成；.pr/.fs 等超过 GitHub 100MB 限制）
-decoder38_learn_fpga/impl/
-decoder38_learn_fpga/sim/work/
-decoder38_learn_fpga/sim/gate_work/
-decoder38_learn_fpga/sim/*.wlf
-decoder38_learn_fpga/sim/transcript
-decoder38_learn_fpga/*.gprj.user
