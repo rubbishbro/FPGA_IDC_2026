@@ -24,28 +24,27 @@ set files [list \
   "$root/rtl/core/modal_record_pkg.sv" \
   "$root/rtl/core/modal_ram.sv" \
   "$root/rtl/core/eng1_lane_core.sv" \
-  "$root/rtl/core/eng1_engine_top.sv" \
+  "$root/rtl/core/eng1_engine_top_ext.sv" \
   "$root/rtl/core/voice_env.sv" \
   "$root/rtl/core/voice_env_bank.sv" \
-  "$root/rtl/core/eng1_engine_env_top.sv" \
+  "$root/rtl/core/eng1_engine_env_top_ext.sv" \
   "$root/rtl/core/b_voice_ctrl.sv" \
   "$root/rtl/core/b_x_pool.sv" \
   "$root/rtl/core/b_front.sv" \
   "$root/rtl/core/b_a1_refresh.sv" \
   "$root/rtl/core/b_a1_engine.sv" \
   "$root/rtl/core/b_a1_ram_engine.sv" \
-  "$root/rtl/core/b_engine_top.sv" \
+  "$root/rtl/core/b_engine_top_ext.sv" \
   "$root/rtl/core/c_voice_timer.sv" \
   "$root/rtl/core/seed_rom.sv" \
   "$root/rtl/core/c_seed_loader.sv" \
-  "$root/rtl/core/c_engine_top.sv" \
-  "$root/rtl/core/engine_mix_sum.sv" \
-  "$root/rtl/core/abc_engines_top.sv" \
-  "$root/rtl/core/eng2_engine_top.sv" \
-  "$root/rtl/core/four_engines_top.sv" \
+  "$root/rtl/core/c_engine_top_ext.sv" \
+      "$root/rtl/core/eng2_engine_top_ext.sv" \
+    "$root/rtl/core/shared_modal_ram.sv" \
+  "$root/rtl/core/shared_engines_top.sv" \
+  "$root/rtl/core/shared_engines_system_top.sv" \
   "$root/rtl/core/voice_router.sv" \
-  "$root/rtl/core/engines_system_top.sv" \
-  "$root/rtl/core/router_system_top.sv" \
+    "$root/rtl/core/router_system_top.sv" \
   "$probe_gen" \
 ]
 
