@@ -100,7 +100,8 @@ module class_loader #(
                            S_CLEAR = 3'd3,
                            S_RD    = 3'd4,
                            S_CORE  = 3'd5,
-                           S_DONE  = 3'd6;
+                           S_DONE  = 3'd6,
+                           S_CHK_DEC = 3'd7;
 
     // ------------------------------------------------------------------
     // A ROM（同步读）
@@ -116,6 +117,7 @@ module class_loader #(
     logic [COEFF_BITS-1:0]  coeff_rdata;
     logic [INDEX_BITS-1:0]  idx_rdata;
     logic                   rd_valid;
+    logic [INDEX_BITS-1:0]  idx_q;
 
     // ------------------------------------------------------------------
     // 事务状态
@@ -155,8 +157,8 @@ module class_loader #(
 
     // 20-bit A index 适配：present[19], n[18:13], offset[12:0]
     localparam int N_FIELD_W = INDEX_BITS - 1 - OFFSET_BITS;   // 6
-    wire [N_FIELD_W-1:0]   n_field   = idx_rdata[INDEX_BITS-2 -: N_FIELD_W];
-    wire [OFFSET_BITS-1:0] off_field = idx_rdata[OFFSET_BITS-1:0];
+    wire [N_FIELD_W-1:0]   n_field   = idx_q[INDEX_BITS-2 -: N_FIELD_W];
+    wire [OFFSET_BITS-1:0] off_field = idx_q[OFFSET_BITS-1:0];
     wire [OFFSET_BITS:0]   entry_end = {1'b0, off_field} + {1'b0, n_field};
     wire n_illegal = (n_field == {N_FIELD_W{1'b0}}) || (n_field > N_MODES);
 
@@ -229,6 +231,7 @@ module class_loader #(
             n_r         <= {MW{1'b0}};
             cnt         <= {MW{1'b0}};
             idx_raddr   <= 10'd0;
+            idx_q       <= '0;
             rd_valid    <= 1'b0;
             load_done   <= 1'b0;
             error_valid <= 1'b0;
@@ -264,11 +267,16 @@ module class_loader #(
 
                 S_IDX: begin
                     idx_raddr <= req_addr;
-                    st        <= S_CHK;
+                    st        <= S_CHK_DEC;
+                end
+
+                S_CHK_DEC: begin
+                    idx_q <= idx_rdata;
+                    st    <= S_CHK;
                 end
 
                 S_CHK: begin
-                    if (!idx_rdata[INDEX_BITS-1]) begin
+                    if (!idx_q[INDEX_BITS-1]) begin
                         error_valid <= 1'b1;
                         error_code  <= 2'd2;          // 缺失 entry
                         st          <= S_IDLE;
@@ -279,7 +287,7 @@ module class_loader #(
                         st          <= S_IDLE;
                     end else begin
                         offset_r <= off_field;
-                        n_r      <= idx_rdata[INDEX_BITS-2 -: N_FIELD_W];
+                        n_r      <= idx_q[INDEX_BITS-2 -: N_FIELD_W];
                         cnt      <= {MW{1'b0}};
                         st       <= S_CLEAR;
                     end

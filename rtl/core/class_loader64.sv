@@ -94,7 +94,8 @@ module class_loader64 #(
                            S_RD     = 4'd5,
                            S_CORE   = 4'd6,
                            S_SEED_RD= 4'd7,
-                           S_SEED   = 4'd8;
+                           S_SEED   = 4'd8,
+                           S_CHK_DEC= 4'd9;
 
     // ------------------------------------------------------------------
     // ROM（同步读）
@@ -134,6 +135,7 @@ module class_loader64 #(
     logic        has_seed_r;
     logic        rd_valid;
     index_t      ix;
+    index_t      idx_q;
 
     wire [15:0] core_next   = (cnt == (n_r - MW'(1))) ? {11'b0, cnt}
                                                        : ({11'b0, cnt} + 16'd1);
@@ -198,6 +200,7 @@ module class_loader64 #(
             seed_base_r <= 16'd0;
             has_seed_r  <= 1'b0;
             idx_raddr   <= 13'd0;
+            idx_q       <= '0;
             ctrl_raddr  <= 10'd0;
             rd_valid    <= 1'b0;
             load_done   <= 1'b0;
@@ -234,11 +237,16 @@ module class_loader64 #(
 
                 S_IDX: begin
                     idx_raddr <= {class_r, inst_r, note_r};
-                    st        <= S_CHK;
+                    st        <= S_CHK_DEC;
+                end
+
+                S_CHK_DEC: begin
+                    idx_q <= idx_rdata;       // 先寄存 index，再解码，切断 ROM→offset 路径
+                    st    <= S_CHK;
                 end
 
                 S_CHK: begin
-                    ix = idx_rdata;
+                    ix = idx_q;
                     if (!ix.present) begin
                         error_valid <= 1'b1;
                         error_code  <= 3'd2;

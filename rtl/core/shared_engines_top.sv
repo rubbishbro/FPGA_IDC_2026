@@ -258,7 +258,7 @@ module shared_engines_top #(
 
     wire [3:0] eng_ready = {e2_ready, c_ready, b_ready, a_ready};
     wire [3:0] eng_done  = {e2_done,  c_done,  b_done,  a_done};
-    wire [3:0] eng_active = {e2_active, c_active, b_active, a_active};
+    wire [3:0] eng_active = {|e2_active, |c_active, |b_active, |a_active};
     logic signed [63:0] eng_mix_sel;
     always_comb begin
         case (sel)

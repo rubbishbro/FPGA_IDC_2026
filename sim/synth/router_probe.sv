@@ -99,7 +99,6 @@ module router_probe (
     logic e2_start;
     logic [SLOTS-1:0] e2_zero;
     logic e2_done, e2_ready, e2_out;
-    logic signed [63:0] e2_mix;
     logic [15:0] e2_active;
     logic [SLOTS*32-1:0] e2_x2;
     logic [SLOTS*7-1:0] e2_nm;
@@ -203,7 +202,7 @@ module router_probe (
                 end
                 4'd7: begin
                     if (done) begin
-                        acc <= acc ^ mix_sum ^ e2_mix;
+                        acc <= acc ^ mix_sum;
                         if (run_cnt == 8'd7) begin
                             phase <= 4'd0;
                         end else begin

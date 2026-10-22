@@ -277,3 +277,28 @@ tb_router_system_top PASS（共享 top A 路径）
 ```
 
 本版只做 lane 时序；P&R 还没有重新跑。共享 top 的 done/mix 同拍问题也已修正。
+
+## 10. 最新共享 top P&R（2026-10-22 17:15）
+
+`router_probe` 在共享 top + lane retime + loader index decode pipeline 后：
+
+```text
+Fmax        102.750 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.268 ns
+Logic        4,119
+Register     2,879
+BSRAM           47 / 340
+DSP             21 / 298
+```
+
+关键路径从 BC loader 的 `index_rom → offset_r` 转移到：
+
+```text
+A lane st_3_s1
+  → mix_idx_1_s6
+Slack +0.268 ns
+```
+
+这说明旧 loader 的 index 解码链已不再是 100 MHz 瓶颈；下一步仍是把旧 loader 替换成 router/flash 接口。
