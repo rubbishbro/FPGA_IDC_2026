@@ -168,14 +168,13 @@ module voice_router #(
     logic [3:0]              mod_co_we;
     coeff_t                  mod_co_wdata;
     logic signed [31:0]      mod_c0_r, mod_s0_r, mod_gam_r, mod_theta0_r, mod_g_r;
-    logic signed [31:0]      mod_c0_d, mod_s0_d, mod_gam_d, mod_theta0_d, mod_g_d;
     logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g;
 
-    assign mod_c0     = mod_c0_d;
-    assign mod_s0     = mod_s0_d;
-    assign mod_gam    = mod_gam_d;
-    assign mod_theta0 = mod_theta0_d;
-    assign mod_g      = mod_g_d;
+    assign mod_c0     = mod_c0_r;
+    assign mod_s0     = mod_s0_r;
+    assign mod_gam    = mod_gam_r;
+    assign mod_theta0 = mod_theta0_r;
+    assign mod_g      = mod_g_r;
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_start),
@@ -319,7 +318,6 @@ module voice_router #(
         if (!rst_n) begin
             co_a11_r <= '0; co_a12_r <= '0; co_a21_r <= '0; co_a22_r <= '0;
             mod_c0_r <= '0; mod_s0_r <= '0; mod_gam_r <= '0; mod_theta0_r <= '0; mod_g_r <= '0;
-            mod_c0_d <= '0; mod_s0_d <= '0; mod_gam_d <= '0; mod_theta0_d <= '0; mod_g_d <= '0;
             co_gq_r  <= '0; co_gv_r  <= '0; co_wo_r  <= '0;
             st_q_r   <= '0; st_v_r   <= '0; x_r      <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
@@ -359,12 +357,6 @@ module voice_router #(
                 mod_theta0_r <= pm_th [{mod_slot, mod_p_mode}];
                 mod_g_r      <= pm_g  [{mod_slot, mod_p_mode}];
             end
-            // 第二条流水：乘法从这一级出发，路径里不再含 BSRAM 的 CLK->Q
-            mod_c0_d     <= mod_c0_r;
-            mod_s0_d     <= mod_s0_r;
-            mod_gam_d    <= mod_gam_r;
-            mod_theta0_d <= mod_theta0_r;
-            mod_g_d      <= mod_g_r;
 
             if (eng_co_re) begin
                 co_a11_r <= ca_a11[co_idx];

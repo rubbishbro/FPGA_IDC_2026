@@ -1,9 +1,10 @@
 // modulation0 -- 揉弦：一次只处理**一个声部**（模态 0..n_modes-1）
 //   * alpha 由 fmap_i 直接映射（内部决定）
-//   * 地址（槽号）由 router 拼，本模块只输出模态偏移
+//   * 槽号地址由 router 拼，本模块只输出模态偏移
 //   * 4 个字段独立写使能，gq/gv/wo 不写
-//   * 计算做成多拍流水：每拍至多一次 32x32 乘法，中间结果存 32 位寄存器
-//     （原来一条组合链上有 3~4 个 64x64 乘法，PnR 出来 55 ns）
+//   * **单乘法器串行**：一拍只做一次 32x32 乘法，用 step 计数复用它
+//     （原来 12 个乘法器、43 个 MULT27X36；串行后只需 2 个）
+//   * 一轮 16 声部 x 48 模态 x ~15 拍 ≈ 11.5k 拍 = 115 us，远小于 1 ms 刷新周期
 module modulation0 #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 48,
@@ -17,7 +18,6 @@ module modulation0 #(
     output logic                      busy,
     output logic                      done,
 
-    // 参数表读口（模态偏移；地址 = {slot, p_mode} 由 router 拼）
     output logic                      p_re,
     output logic [$clog2(N_MODES)-1:0] p_mode,
     input  logic signed [31:0]        p_c0,
@@ -26,139 +26,140 @@ module modulation0 #(
     input  logic signed [31:0]        p_theta0,
     input  logic signed [31:0]        p_g,
 
-    // 系数写口（模态偏移；地址由 router 拼）
     output logic [3:0]                co_we,
     output logic [$clog2(N_MODES)-1:0] co_mode,
     output modal_step_pkg::coeff_t    co_wdata
 );
 
     localparam signed [63:0] ONE     = 64'sd1 << 30;
-    localparam signed [63:0] K_ALPHA = 64'sd123_437;                 // 0.0293*2^30/255 ≈ 50 cent 满量程
-    localparam signed [63:0] C_GAM   = (64'sd1 << 40) / (64'sd65536 * FS);  // 1/(65536*fs)，把除法换成乘法
-    localparam signed [31:0] TH_GATE = 32'sd858_993_459;              // theta0 < 0.8 rad 才调制
-    localparam int FS_C = FS;
+    localparam signed [31:0] K_ALPHA = 32'sd123_437;      // 50 cent / 255
+    localparam signed [31:0] C_GAM   = 32'sd357_913;      // 0.3413 * 2^20 = 2^30/(2^16*fs) * 2^20
+    localparam signed [31:0] TH_GATE = 32'sd858_993_459;  // theta0 < 0.8 rad
 
-    // 每拍一个状态
-    typedef enum logic [3:0] {
-        M_IDLE, M_RD,   // 读参数
-        M_LAT,          // 参数多等一拍（router 侧参数表读出后又打了一拍）
-        M_A,            // D_q, d_q
-        M_B,            // c_q, s_q
-        M_C,            // ea, a1 = d*s
-        M_D,            // a12a = a1*g
-        M_E,            // a12, t
-        M_F,            // p = a12*alpha2
-        M_W             // 写回
-    } mst_e;
+    // ---- 单乘法器 ----
+    logic signed [31:0] mul_a, mul_b;
+    wire signed [63:0]  prod = 64'(mul_a) * 64'(mul_b);
+
+    // ---- 中间量 ----
+    logic signed [31:0] alpha_q, alpha1_q, inv_a_q, alpha2_q;
+    logic signed [31:0] c0_l, s0_l, gam_l, th_l, g_l;
+    logic signed [31:0] D_q, d_q, c_q, s_q, ea_q, a1_q, a12a_q, a12_q, t_q, pp_q, w0_q, w2_q, a21_q;
+
+    typedef enum logic [3:0] { S_IDLE, S_RD, S_W, S_MUL, S_APPLY } mst_e;
     mst_e st;
-
+    logic [3:0]  step;          // 每模态内的步骤
     logic [15:0] mode;
-    logic signed [63:0] alpha_q, alpha2_q, inv_a_q;
+    logic [15:0] nmod_lat;
 
-    // 流水寄存器（32 位）
-    logic signed [31:0] D_q, d_q, c_q, s_q, ea_q, a1_q, a12a_q, a12_q, t_q, p_q, w2_q;
+    wire signed [31:0] alpha_delta = alpha1_q;     // alpha - 1
 
-    // alpha 相关：每次激活算一次
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            alpha_q  <= ONE;
-            alpha2_q <= ONE;
-            inv_a_q  <= ONE;
-        end else if (start) begin
-            alpha_q  <= ONE + K_ALPHA * 64'(fmap_i);
-            alpha2_q <= ((ONE + K_ALPHA * 64'(fmap_i)) * (ONE + K_ALPHA * 64'(fmap_i))) >>> 30;
-            // 1/alpha ~ 1 - d + d^2   (d = alpha-1)
-            inv_a_q  <= ONE - (K_ALPHA * 64'(fmap_i))
-                        + (((K_ALPHA * 64'(fmap_i)) * (K_ALPHA * 64'(fmap_i))) >>> 30);
-        end
-    end
-
-    // 参数表读口：组合输出（M_RD 给地址，下一拍数据有效）
-    assign p_re   = (st == M_RD);
+    assign p_re   = (st == S_RD);
     assign p_mode = mode[$clog2(N_MODES)-1:0];
 
-    wire signed [31:0]  a11_w = 32'((ea_q + t_q) >>> 2);   // Q28
-    wire signed [31:0]  a12_w = 32'(a12_q);                // Q30
-    wire                gate  = (p_theta0 < TH_GATE) && (fmap_i != 8'd0);
+    // 乘法的操作数选择（按 step）
+    always_comb begin
+        mul_a = c0_l; mul_b = s0_l;
+        case (step)
+            4'd1:  begin mul_a = alpha_delta; mul_b = th_l; end   // D
+            4'd2:  begin mul_a = gam_l;       mul_b = C_GAM;    end   // d
+            4'd3:  begin mul_a = s0_l;        mul_b = D_q;      end   // c
+            4'd4:  begin mul_a = c0_l;        mul_b = D_q;      end   // s
+            4'd5:  begin mul_a = d_q;         mul_b = c_q;      end   // ea
+            4'd6:  begin mul_a = d_q;         mul_b = s_q;      end   // a1
+            4'd7:  begin mul_a = a1_q;        mul_b = g_l;      end   // a1*g
+            4'd8:  begin mul_a = a12a_q;      mul_b = inv_a_q;  end   // a12
+            4'd9:  begin mul_a = a12_q;       mul_b = gam_l;    end   // t
+            4'd10: begin mul_a = a12_q;       mul_b = alpha2_q; end   // p
+            4'd11: begin mul_a = th_l;        mul_b = 32'(FS);   end   // omega0
+            4'd12: begin mul_a = w0_q;        mul_b = w0_q;     end   // omega0^2
+            4'd13: begin mul_a = pp_q;        mul_b = w2_q;     end   // a21
+            default: ;
+        endcase
+    end
 
-    // 每拍一个乘法（32x32 -> 64）
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            st <= M_IDLE; mode <= '0; busy <= 1'b0; done <= 1'b0;
+            st <= S_IDLE; step <= '0; mode <= '0; busy <= 1'b0; done <= 1'b0;
+            nmod_lat <= '0;
+            alpha_q <= '0; alpha1_q <= '0; inv_a_q <= '0; alpha2_q <= '0;
+            c0_l <= '0; s0_l <= '0; gam_l <= '0; th_l <= '0; g_l <= '0;
             D_q <= '0; d_q <= '0; c_q <= '0; s_q <= '0; ea_q <= '0; a1_q <= '0;
-            a12a_q <= '0; a12_q <= '0; t_q <= '0; p_q <= '0; w2_q <= '0;
+            a12a_q <= '0; a12_q <= '0; t_q <= '0; pp_q <= '0; w0_q <= '0; w2_q <= '0; a21_q <= '0;
             co_we <= 4'b0000; co_mode <= '0; co_wdata <= '0;
         end else begin
             done  <= 1'b0;
             co_we <= 4'b0000;
 
             case (st)
-                M_IDLE: begin
+                S_IDLE: begin
                     busy <= 1'b0;
                     if (start) begin
-                        busy <= 1'b1;
-                        mode <= '0;
-                        st   <= M_RD;
+                        busy     <= 1'b1;
+                        mode     <= '0;
+                        nmod_lat <= n_modes;
+                        // alpha 相关量（每轮算一次）
+                        alpha1_q <= 32'(64'(K_ALPHA) * 64'(fmap_i));            // alpha-1
+                        st       <= S_RD;
                     end
                 end
 
-                M_RD: st <= M_LAT;      // 本拍给地址，router 下一拍寄存
-
-                M_LAT: st <= M_A;       // router 又打了一拍，参数此时才稳定
-
-                M_A: begin
-                    // 四个并行乘法（互不依赖），不是链
-                    D_q  <= 32'(((alpha_q - ONE) * 64'(p_theta0)) >>> 30);
-                    d_q  <= 32'(ONE - ((64'(p_gam) * C_GAM) >>> 40));
-                    w2_q <= 32'((((64'(p_theta0) * FS) >>> 14) * ((64'(p_theta0) * FS) >>> 14)) >>> 32);
-                    st   <= M_B;
+                // 地址给出去；router 侧参数表读出后有两级寄存器，再等一拍才稳定
+                S_RD: begin
+                    st <= S_W;
                 end
 
-                M_B: begin
-                    c_q <= 32'(64'(p_c0) - ((64'(p_s0) * 64'(D_q)) >>> 30));
-                    s_q <= 32'(64'(p_s0) + ((64'(p_c0) * 64'(D_q)) >>> 30));
-                    st  <= M_C;
+                // 这一拍把参数锁进本地寄存器（乘法从 FF 出发，路径里不含 BSRAM 的 CLK->Q）
+                S_W: begin
+                    c0_l <= p_c0;  s0_l <= p_s0;  gam_l <= p_gam;
+                    th_l <= p_theta0; g_l <= p_g;
+                    alpha2_q <= 32'(ONE + 2*64'(alpha1_q) + ((64'(alpha1_q)*64'(alpha1_q)) >>> 30));
+                    inv_a_q  <= 32'(ONE - 64'(alpha1_q) + ((64'(alpha1_q)*64'(alpha1_q)) >>> 30));
+                    alpha_q  <= 32'(ONE + 64'(alpha1_q));
+                    step     <= 4'd1;
+                    st       <= S_MUL;
                 end
 
-                M_C: begin
-                    ea_q <= 32'((64'(d_q) * 64'(c_q)) >>> 30);
-                    a1_q <= 32'((64'(d_q) * 64'(s_q)) >>> 30);
-                    st   <= M_D;
-                end
+                S_MUL: st <= S_APPLY;
 
-                M_D: begin
-                    a12a_q <= 32'((64'(a1_q) * 64'(p_g)) >>> 30);
-                    st     <= M_E;
-                end
+                S_APPLY: begin
+                    case (step)
+                        4'd1:  D_q      <= 32'(prod >>> 30);
+                        4'd2:  d_q      <= 32'(ONE - (prod >>> 20));
+                        4'd3:  c_q      <= 32'(64'(c0_l) - (prod >>> 30));
+                        4'd4:  s_q      <= 32'(64'(s0_l) + (prod >>> 30));
+                        4'd5:  ea_q     <= 32'(prod >>> 30);
+                        4'd6:  a1_q     <= 32'(prod >>> 30);
+                        4'd7:  a12a_q   <= 32'(prod >>> 30);
+                        4'd8:  a12_q    <= 32'(prod >>> 30);
+                        4'd9:  t_q      <= 32'(prod >>> 16);
+                        4'd10: pp_q     <= 32'(prod >>> 30);
+                        4'd11: w0_q     <= 32'(prod >>> 14);          // omega0 * 2^16
+                        4'd12: w2_q     <= 32'((prod >>> 32));        // omega0^2
+                        4'd13: a21_q    <= 32'(-(prod >>> 7));
+                        default: ;
+                    endcase
 
-                M_E: begin
-                    a12_q <= 32'((64'(a12a_q) * inv_a_q) >>> 30);
-                    st    <= M_F;
-                end
-
-                M_F: begin
-                    t_q  <= 32'((64'(a12_q) * 64'(p_gam)) >>> 16);
-                    p_q  <= 32'((64'(a12_q) * alpha2_q) >>> 30);
-                    st   <= M_W;
-                end
-
-                M_W: begin
-                    co_mode <= mode[$clog2(N_MODES)-1:0];
-                    co_wdata.a11 <= a11_w;
-                    co_wdata.a12 <= a12_w;
-                    // a21 = -a12*alpha^2*omega0^2（w2_q 已在 M_A 里算好，Q0 的 omega0^2）
-                    co_wdata.a21 <= 32'(-((64'(p_q) * 64'(w2_q)) >>> 7));
-                    co_wdata.a22 <= 32'((ea_q - t_q) >>> 2);
-                    co_we <= gate ? 4'b1111 : 4'b0000;
-                    if (mode + 1 >= n_modes) begin
-                        done <= 1'b1; busy <= 1'b0; st <= M_IDLE;
+                    if (step >= 4'd13) begin
+                        co_mode      <= mode[$clog2(N_MODES)-1:0];
+                        co_wdata.a11 <= 32'((ea_q + t_q) >>> 2);      // Q28
+                        co_wdata.a12 <= a12_q;                        // Q30
+                        // a21 直接用本拍乘法结果（a21_q 要到下一拍才更新）
+                        co_wdata.a21 <= 32'(-(prod >>> 7));           // Q23
+                        co_wdata.a22 <= 32'((ea_q - t_q) >>> 2);      // Q28
+                        co_we <= ((th_l < TH_GATE) && (fmap_i != 8'd0)) ? 4'b1111 : 4'b0000;
+                        if (mode + 1 >= nmod_lat) begin
+                            done <= 1'b1; busy <= 1'b0; st <= S_IDLE;
+                        end else begin
+                            mode <= mode + 1'b1;
+                            st   <= S_RD;
+                        end
                     end else begin
-                        mode <= mode + 1'b1;
-                        st   <= M_RD;
+                        step <= step + 1'b1;
+                        st   <= S_MUL;
                     end
                 end
 
-                default: st <= M_IDLE;
+                default: st <= S_IDLE;
             endcase
         end
     end
