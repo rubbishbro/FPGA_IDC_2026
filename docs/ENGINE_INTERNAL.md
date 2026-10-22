@@ -326,3 +326,20 @@ engine_mux
 
 A/B/C 共用同一个纯 eng1 核；旧 B/C 前端、b_a1、c_timer/c_seed、voice_env 已归档。
 回归 8 项全 PASS。
+
+## 13. Pure top P&R（2026-10-22 17:23）
+
+`shared_engines_top -> engine_mux(pure ABC, E2)`：
+
+```text
+Fmax        100.120 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.012 ns
+Logic        5,900
+Register     3,212
+BSRAM           71 / 340
+DSP             21 / 298
+```
+
+关键路径：`router class_r -> A lane RAM f8 write port`。
