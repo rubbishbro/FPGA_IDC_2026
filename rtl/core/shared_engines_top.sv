@@ -136,6 +136,8 @@ module shared_engines_top #(
     logic post_in_valid, post_in_ready, post_out_valid;
     logic signed [63:0] post_in_data, post_out_data;
     logic [1:0] pstate;
+    logic [9:0] post_cnt;
+    logic signed [63:0] post_acc;
 
     engine_mux #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
@@ -168,6 +170,7 @@ module shared_engines_top #(
             always_ff @(posedge clk) begin
                 if (!rst_n) begin
                     pstate <= 2'd0; post_in_valid <= 1'b0; post_in_data <= 64'sd0;
+                    post_cnt <= 10'd0; post_acc <= 64'sd0;
                     out_valid <= 1'b0; mix_sum <= 64'sd0;
                 end else begin
                     out_valid <= 1'b0;
@@ -175,17 +178,29 @@ module shared_engines_top #(
                         2'd0: if (em_done) begin
                             post_in_data <= em_mix;
                             post_in_valid <= 1'b1;
+                            post_acc <= 64'sd0;
+                            post_cnt <= 10'd0;
                             pstate <= 2'd1;
                         end
                         2'd1: if (post_in_ready) begin
-                            post_in_valid <= 1'b0;
+                            post_in_data <= 64'sd0;
+                            post_cnt <= 10'd0;
                             pstate <= 2'd2;
                         end
-                        2'd2: if (post_out_valid) begin
-                            out_valid <= 1'b1;
-                            mix_sum   <= post_out_data;
-                            pstate    <= 2'd0;
+                        2'd2: begin
+                            // 前 32 个样本保持激励，再送零让 body/reverb 吐 tail
+                            post_in_data <= (post_cnt < 10'd32) ? em_mix : 64'sd0;
+                            if (post_in_ready) post_cnt <= post_cnt + 10'd1;
+                            if (post_out_valid && (post_out_data != 0))
+                                post_acc <= post_out_data;
+                            if (post_cnt >= 10'd1023) begin
+                                post_in_valid <= 1'b0;
+                                out_valid <= 1'b1;
+                                mix_sum   <= (post_acc != 0) ? post_acc : post_out_data;
+                                pstate    <= 2'd3;
+                            end
                         end
+                        2'd3: pstate <= 2'd0;
                         default: pstate <= 2'd0;
                     endcase
                 end
@@ -199,6 +214,6 @@ module shared_engines_top #(
 
     assign busy = em_busy || (POST_EN && (pstate != 2'd0));
     assign sample_ready = em_ready && (!POST_EN || (pstate == 2'd0));
-    assign done = POST_EN ? (pstate == 2'd2 && post_out_valid) : em_done;
+    assign done = POST_EN ? (pstate == 2'd3) : em_done;
 
 endmodule

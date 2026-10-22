@@ -433,3 +433,17 @@ BSRAM           79 / 340
 ```
 
 关键路径 `E2 n_mod_lat -> shared RAM f8`。
+
+## 29. POST_EN=1 整机 P&R（2026-10-22 17:54）
+
+后级默认打开时：
+
+```text
+Fmax        58.715 MHz
+Setup 违例   979
+Slack        -7.031 ns
+Logic       10,175
+BSRAM          121 / 340
+```
+
+关键路径 `reverb c4 -> mult`。因此 POST_EN 仍默认 0；后级需流水化/降频才能整机 100 MHz。
