@@ -347,3 +347,13 @@ DSP             21 / 298
 ## 14. 后级模块（2026-10-22）
 
 已加入并单测：`envelope_mul`、`body_filter`（归档恢复）、`reverb_filter`、`dry_wet_mix`、`final_adder`。`tb_post_chain` 和 `tb_reverb_filter` PASS。
+
+## 15. router 控制面 MVP（2026-10-22）
+
+新增 `router_pkg.sv` / `router_ctrl.sv` / `tb_router_ctrl.sv`：
+
+```text
+config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命令
+```
+
+不做压力→激励、包络、颤音滑音。测试 PASS。
