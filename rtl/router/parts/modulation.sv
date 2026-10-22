@@ -38,14 +38,15 @@ module modulation0 #(
 
     // ---- 单乘法器 ----
     logic signed [31:0] mul_a, mul_b;
-    wire signed [63:0]  prod = 64'(mul_a) * 64'(mul_b);
+    logic signed [31:0] mul_a_q, mul_b_q;               // 操作数寄存器（把路径切成两段）
+    wire signed [63:0]  prod = 64'(mul_a_q) * 64'(mul_b_q);
 
     // ---- 中间量 ----
     logic signed [31:0] alpha_q, alpha1_q, inv_a_q, alpha2_q;
     logic signed [31:0] c0_l, s0_l, gam_l, th_l, g_l;
     logic signed [31:0] D_q, d_q, c_q, s_q, ea_q, a1_q, a12a_q, a12_q, t_q, pp_q, w0_q, w2_q, a21_q;
 
-    typedef enum logic [3:0] { S_IDLE, S_RD, S_W, S_MUL, S_APPLY } mst_e;
+    typedef enum logic [3:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY } mst_e;
     mst_e st;
     logic [3:0]  step;          // 每模态内的步骤
     logic [15:0] mode;
@@ -81,6 +82,7 @@ module modulation0 #(
         if (!rst_n) begin
             st <= S_IDLE; step <= '0; mode <= '0; busy <= 1'b0; done <= 1'b0;
             nmod_lat <= '0;
+            mul_a_q <= '0; mul_b_q <= '0;
             alpha_q <= '0; alpha1_q <= '0; inv_a_q <= '0; alpha2_q <= '0;
             c0_l <= '0; s0_l <= '0; gam_l <= '0; th_l <= '0; g_l <= '0;
             D_q <= '0; d_q <= '0; c_q <= '0; s_q <= '0; ea_q <= '0; a1_q <= '0;
@@ -116,7 +118,14 @@ module modulation0 #(
                     inv_a_q  <= 32'(ONE - 64'(alpha1_q) + ((64'(alpha1_q)*64'(alpha1_q)) >>> 30));
                     alpha_q  <= 32'(ONE + 64'(alpha1_q));
                     step     <= 4'd1;
-                    st       <= S_MUL;
+                    st       <= S_LD;
+                end
+
+                // 操作数先寄存，乘法从 FF 出发（否则 BSRAM 的 CLK->Q 会和乘法串在一起）
+                S_LD: begin
+                    mul_a_q <= mul_a;
+                    mul_b_q <= mul_b;
+                    st      <= S_MUL;
                 end
 
                 S_MUL: st <= S_APPLY;
@@ -155,7 +164,7 @@ module modulation0 #(
                         end
                     end else begin
                         step <= step + 1'b1;
-                        st   <= S_MUL;
+                        st   <= S_LD;       // 下一步：先寄存操作数
                     end
                 end
 
