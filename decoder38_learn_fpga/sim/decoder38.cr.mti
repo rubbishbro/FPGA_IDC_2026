@@ -1,0 +1,15 @@
+E:/gowin_fpga/decoder38_learn_fpga/src/decoder38.v {1 {vlog -work work -vopt -stats=none E:/gowin_fpga/decoder38_learn_fpga/src/decoder38.v
+Model Technology ModelSim SE-64 vlog 10.6d Compiler 2018.02 Feb 24 2018
+-- Compiling module decoder38
+
+Top level modules:
+	decoder38
+
+} {} {}} E:/gowin_fpga/decoder38_learn_fpga/src/decoder38_tb.v {1 {vlog -work work -vopt -stats=none E:/gowin_fpga/decoder38_learn_fpga/src/decoder38_tb.v
+Model Technology ModelSim SE-64 vlog 10.6d Compiler 2018.02 Feb 24 2018
+-- Compiling module decoder38_tb
+
+Top level modules:
+	decoder38_tb
+
+} {} {}}
