@@ -85,6 +85,7 @@ module voice_router #(
     // 早期声明（parts 的选择逻辑要用）
     router_pkg::instrument_e inst_lat;
     logic [VWID:0]           nv_lat;
+    logic [IW:0]             nm_lat;
     logic [SLOTS-1:0]        zero_lat;   // 仅用于 note_on 的旧路径（保留待删）
     coeff_t                  co_r;
 
@@ -151,21 +152,25 @@ module voice_router #(
     logic                    mod_busy, mod_done, mod_p_re, mod_co_re, mod_co_we;
     logic [CO_SLOT-1:0]      mod_p_addr, mod_co_addr;
     coeff_t                  mod_co_wdata;
-    logic signed [31:0]      mod_c0, mod_s0, mod_g, mod_alpha;
+    logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g, mod_alpha;
 
-    assign mod_c0    = 32'sd1 << 30;   // TODO: 接参数表（c0/s0/gamma）
-    assign mod_s0    = 32'sd0;
-    assign mod_g     = 32'sd0;
-    assign mod_alpha = 32'sd0;         // TODO: aftertouch 压力 -> alpha
+    assign mod_c0     = 32'sd1 << 30;  // TODO: 接调制参数表（c0/s0/gamma/theta0/g）
+    assign mod_s0     = 32'sd0;
+    assign mod_gam    = 32'sd0;
+    assign mod_theta0 = 32'sd0;
+    assign mod_g      = 32'sd0;
+    assign mod_alpha  = 32'sd1 << 30;  // TODO: aftertouch 压力 -> alpha
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_req),
-        .active(SLOTS'(nv_lat)), .alpha_q(mod_alpha), .inst(inst_lat),
+        .active(SLOTS'(nv_lat)), .alpha_q(mod_alpha),
+        .n_modes(16'(nm_lat)), .inst(inst_lat),
         .busy(mod_busy), .done(mod_done),
         .co_re(mod_co_re), .co_we(mod_co_we), .co_addr(mod_co_addr),
         .co_data(co_r), .co_wdata(mod_co_wdata),
         .p_re(mod_p_re), .p_addr(mod_p_addr),
-        .p_c0(mod_c0), .p_s0(mod_s0), .p_g(mod_g)
+        .p_c0(mod_c0), .p_s0(mod_s0), .p_gam(mod_gam),
+        .p_theta0(mod_theta0), .p_g(mod_g)
     );
 
     // =========================================================================
@@ -373,7 +378,6 @@ module voice_router #(
     typedef enum logic [2:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_DONE } st_e;
     st_e                 state;
     logic [JW:0]         ns_lat;
-    logic [IW:0]         nm_lat;
     instrument_e         inst_prev;
     logic                wait_xmap;
 

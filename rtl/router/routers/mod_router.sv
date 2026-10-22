@@ -8,6 +8,7 @@ module mod_router #(
     input  logic                             start,
     input  logic [SLOTS-1:0]                 active,
     input  logic signed [31:0]               alpha_q,
+    input  logic [15:0]                      n_modes,
     input  router_pkg::instrument_e          inst,
     output logic                             busy,
     output logic                             done,
@@ -20,6 +21,8 @@ module mod_router #(
     output logic [$clog2(SLOTS*N_MODES)-1:0] p_addr,
     input  logic signed [31:0]               p_c0,
     input  logic signed [31:0]               p_s0,
+    input  logic signed [31:0]               p_gam,
+    input  logic signed [31:0]               p_theta0,
     input  logic signed [31:0]               p_g
 );
     logic en;
@@ -31,9 +34,10 @@ module mod_router #(
 
     modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_mod0 (
         .clk(clk), .rst_n(rst_n), .start(start && en),
-        .active(active), .alpha_q(alpha_q),
+        .active(active), .alpha_q(alpha_q), .n_modes(n_modes),
         .busy(busy), .done(done),
-        .p_re(p_re), .p_addr(p_addr), .p_c0(p_c0), .p_s0(p_s0), .p_g(p_g),
+        .p_re(p_re), .p_addr(p_addr),
+        .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
         .co_re(co_re), .co_we(co_we), .co_addr(co_addr),
         .co_data(co_data), .co_wdata(co_wdata));
 endmodule
