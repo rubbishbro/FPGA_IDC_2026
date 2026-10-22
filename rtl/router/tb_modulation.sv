@@ -12,18 +12,18 @@ module tb_modulation;
     logic [SLOTS-1:0] active = '1;
     logic start = 0, busy, done;
 
-    logic p_re, co_re, co_we;
+    logic p_re, co_re;
+    logic [3:0] co_we;
     logic [CO-1:0] p_addr, co_addr;
     logic signed [31:0] p_c0, p_s0, p_gam, p_theta0, p_g;
-    modal_step_pkg::coeff_t co_data, co_wdata;
+    modal_step_pkg::coeff_t co_wdata;
 
     modulation0 #(.SLOTS(SLOTS), .N_MODES(NM), .FS(FS)) dut (
         .clk(clk), .rst_n(rst_n), .start(start), .active(active),
         .alpha_q(alpha_q), .n_modes(n_modes), .busy(busy), .done(done),
         .p_re(p_re), .p_addr(p_addr),
         .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
-        .co_re(co_re), .co_we(co_we), .co_addr(co_addr),
-        .co_data(co_data), .co_wdata(co_wdata)
+        .co_we(co_we), .co_addr(co_addr), .co_wdata(co_wdata)
     );
 
     // ---- 参数/系数存储（1 拍同步读）----
@@ -36,16 +36,20 @@ module tb_modulation;
             p_c0 <= mc0[p_addr]; p_s0 <= ms0[p_addr]; p_gam <= mgam[p_addr];
             p_theta0 <= mth[p_addr]; p_g <= mg[p_addr];
         end
-        if (co_re) co_data <= mco[co_addr];
     end
 
     // ---- 写回捕获 ----
     modal_step_pkg::coeff_t wmem[0:SLOTS*NM-1];
     logic [SLOTS*NM-1:0]   wr_seen;
     always_ff @(posedge clk) begin
-        if (co_we) begin
-            wmem[co_addr] <= co_wdata;
+        // 按字段写：只有被使能的字段才更新（真实 RAM 也是这个行为）
+        if (|co_we) begin
+            if (co_we[0]) wmem[co_addr].a11 <= co_wdata.a11;
+            if (co_we[1]) wmem[co_addr].a12 <= co_wdata.a12;
+            if (co_we[2]) wmem[co_addr].a21 <= co_wdata.a21;
+            if (co_we[3]) wmem[co_addr].a22 <= co_wdata.a22;
             wr_seen[co_addr] <= 1'b1;
+            if (co_we != 4'b1111) $display("FAIL: 写使能不是 4'b1111: %b", co_we);
         end
     end
 
@@ -129,7 +133,8 @@ module tb_modulation;
     initial begin
         for (int i = 0; i < SLOTS*NM; i++) begin
             mc0[i] = '0; ms0[i] = '0; mgam[i] = '0; mth[i] = '0; mg[i] = '0;
-            mco[i] = '0; wmem[i] = '0; wr_seen[i] = '0;
+            mco[i] = '0; wr_seen[i] = '0;
+            wmem[i] = '0; wmem[i].gq = 32'sd1111; wmem[i].gv = 32'sd2222; wmem[i].wo = 32'sd3333;
         end
         alpha_q = 32'sd1 << 30;
         repeat (5) @(posedge clk);

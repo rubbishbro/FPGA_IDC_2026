@@ -12,10 +12,8 @@ module mod_router #(
     input  router_pkg::instrument_e          inst,
     output logic                             busy,
     output logic                             done,
-    output logic                             co_re,
-    output logic                             co_we,
+    output logic [3:0]                       co_we,
     output logic [$clog2(SLOTS*N_MODES)-1:0] co_addr,
-    input  modal_step_pkg::coeff_t           co_data,
     output modal_step_pkg::coeff_t           co_wdata,
     output logic                             p_re,
     output logic [$clog2(SLOTS*N_MODES)-1:0] p_addr,
@@ -38,6 +36,5 @@ module mod_router #(
         .busy(busy), .done(done),
         .p_re(p_re), .p_addr(p_addr),
         .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
-        .co_re(co_re), .co_we(co_we), .co_addr(co_addr),
-        .co_data(co_data), .co_wdata(co_wdata));
+        .co_we(co_we), .co_addr(co_addr), .co_wdata(co_wdata));
 endmodule

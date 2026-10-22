@@ -149,7 +149,8 @@ module voice_router #(
         .emap(emap), .emap_valid(emap_valid)
     );
 
-    logic                    mod_busy, mod_done, mod_p_re, mod_co_re, mod_co_we;
+    logic                    mod_busy, mod_done, mod_p_re;
+    logic [3:0]              mod_co_we;
     logic [CO_SLOT-1:0]      mod_p_addr, mod_co_addr;
     coeff_t                  mod_co_wdata;
     logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g, mod_alpha;
@@ -166,8 +167,7 @@ module voice_router #(
         .active(SLOTS'(nv_lat)), .alpha_q(mod_alpha),
         .n_modes(16'(nm_lat)), .inst(inst_lat),
         .busy(mod_busy), .done(mod_done),
-        .co_re(mod_co_re), .co_we(mod_co_we), .co_addr(mod_co_addr),
-        .co_data(co_r), .co_wdata(mod_co_wdata),
+        .co_we(mod_co_we), .co_addr(mod_co_addr), .co_wdata(mod_co_wdata),
         .p_re(mod_p_re), .p_addr(mod_p_addr),
         .p_c0(mod_c0), .p_s0(mod_s0), .p_gam(mod_gam),
         .p_theta0(mod_theta0), .p_g(mod_g)
@@ -309,14 +309,12 @@ module voice_router #(
                 ca_gq [ld_co_addr] <= ld_co_data.gq;
                 ca_gv [ld_co_addr] <= ld_co_data.gv;
                 ca_wo [ld_co_addr] <= ld_co_data.wo;
-            end else if (mod_co_we) begin
-                ca_a11[mod_co_addr] <= mod_co_wdata.a11;
-                ca_a12[mod_co_addr] <= mod_co_wdata.a12;
-                ca_a21[mod_co_addr] <= mod_co_wdata.a21;
-                ca_a22[mod_co_addr] <= mod_co_wdata.a22;
-                ca_gq [mod_co_addr] <= mod_co_wdata.gq;
-                ca_gv [mod_co_addr] <= mod_co_wdata.gv;
-                ca_wo [mod_co_addr] <= mod_co_wdata.wo;
+            end else if (|mod_co_we) begin
+                // 每个字段独立写使能：只改调制器负责的 4 个，gq/gv/wo 不碰
+                if (mod_co_we[0]) ca_a11[mod_co_addr] <= mod_co_wdata.a11;
+                if (mod_co_we[1]) ca_a12[mod_co_addr] <= mod_co_wdata.a12;
+                if (mod_co_we[2]) ca_a21[mod_co_addr] <= mod_co_wdata.a21;
+                if (mod_co_we[3]) ca_a22[mod_co_addr] <= mod_co_wdata.a22;
             end
             if (eng_co_re) begin
                 co_a11_r <= ca_a11[co_idx];

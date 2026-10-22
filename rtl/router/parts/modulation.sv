@@ -23,11 +23,10 @@ module modulation0 #(
     input  logic signed [31:0]               p_theta0,    // Q1.30
     input  logic signed [31:0]               p_g,         // Q1.30 = dt/theta0
 
-    // 系数块：读原记录 + 写新记录（同一地址）
-    output logic                             co_re,
-    output logic                             co_we,
+    // 系数块写口：4 个字段各一个写使能（gq/gv/wo 不写，所以不需要读口）
+    //   co_we[0]=a11  [1]=a12  [2]=a21  [3]=a22
+    output logic [3:0]                       co_we,
     output logic [$clog2(SLOTS*N_MODES)-1:0] co_addr,
-    input  modal_step_pkg::coeff_t           co_data,
     output modal_step_pkg::coeff_t           co_wdata
 );
 
@@ -47,7 +46,6 @@ module modulation0 #(
 
     // 读口是组合输出：M_RD 给地址 -> 下一拍（M_WR）数据有效
     assign p_re    = (st == M_RD) && !skip;
-    assign co_re   = (st == M_RD) && !skip;
     assign p_addr  = idx[$clog2(SLOTS*N_MODES)-1:0];
     assign co_addr = idx[$clog2(SLOTS*N_MODES)-1:0];
 
@@ -81,9 +79,9 @@ module modulation0 #(
         if (!rst_n) begin
             st <= M_IDLE; slot <= '0; mode <= '0; idx <= '0; act <= '0;
             busy <= 1'b0; done <= 1'b0;
-            co_we <= 1'b0; co_wdata <= '0;
+            co_we <= 4'b0000; co_wdata <= '0;
         end else begin
-            done <= 1'b0; co_we <= 1'b0;
+            done <= 1'b0; co_we <= 4'b0000;
 
             case (st)
                 M_IDLE: begin
@@ -106,10 +104,7 @@ module modulation0 #(
                     co_wdata.a12 <= a12_w;
                     co_wdata.a21 <= a21_w;
                     co_wdata.a22 <= a22_w;
-                    co_wdata.gq  <= co_data.gq;
-                    co_wdata.gv  <= co_data.gv;
-                    co_wdata.wo  <= co_data.wo;
-                    co_we <= gate;
+                    co_we <= gate ? 4'b1111 : 4'b0000;
                     st <= M_NEXT;
                 end
 
