@@ -481,3 +481,7 @@ BSRAM          113 / 340
 ```
 
 POST_EN=1、final_adder 已接入；回归 16 项 PASS。
+
+## 33. voice_router 替换（2026-10-22 18:28）
+
+旧的 `voice_router.sv` 已归档，新模块 `router_voice_alloc.sv` 接入 shared system；100.166MHz、0/0、16 项回归 PASS。

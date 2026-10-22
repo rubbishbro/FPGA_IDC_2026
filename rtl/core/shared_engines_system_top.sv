@@ -96,7 +96,7 @@ module shared_engines_system_top #(
     logic [NUM_SLOTS*2-1:0] voice_class;
     logic [NUM_SLOTS-1:0] e2_zero_r;
 
-    voice_router #(.NUM_VOICES(NUM_SLOTS)) u_router (
+    router_voice_alloc #(.NUM_VOICES(NUM_SLOTS)) u_router (
         .clk(clk), .rst_n(rst_n),
         .note_on(note_on), .note_off(note_off),
         .voice(note_voice), .cls(note_class),

@@ -18,7 +18,7 @@ tb_shared_modal_ram
 tb_engine_mux
 tb_shared_engines_top
 tb_router_system_top
-tb_voice_router
+tb_router_voice_alloc
 tb_post_chain
 tb_reverb_filter
 tb_router_ctrl

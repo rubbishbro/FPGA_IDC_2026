@@ -15,7 +15,7 @@ rtl/core/router_loader.sv \
 rtl/core/shared_modal_ram.sv rtl/core/eng1_lane_core.sv \
 rtl/core/eng1_engine_top_ext.sv rtl/core/pure_engine_abc.sv \
 rtl/core/eng2_engine_top_ext.sv rtl/core/engine_mux.sv rtl/core/shared_engines_top.sv \
-rtl/core/shared_engines_system_top.sv rtl/core/router_pkg.sv rtl/core/router_ctrl.sv rtl/core/excitation_convert.sv rtl/core/router_frontend.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv \
+rtl/core/shared_engines_system_top.sv rtl/core/router_pkg.sv rtl/core/router_ctrl.sv rtl/core/excitation_convert.sv rtl/core/router_frontend.sv rtl/core/router_voice_alloc.sv rtl/core/router_system_top.sv \
 rtl/core/envelope_mul.sv rtl/core/body_filter.sv rtl/core/reverb_filter.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/post_chain.sv"
 
 run() {
@@ -30,7 +30,7 @@ run tb_router_loader rtl/core/class_format_pkg.sv rtl/core/class_loader.sv rtl/c
 run tb_engine_mux $(echo "$COMMON") sim/unit/core/tb_engine_mux.sv
 run tb_shared_engines_top $(echo "$COMMON") sim/unit/core/tb_shared_engines_top.sv
 run tb_router_system_top $(echo "$COMMON") sim/unit/core/tb_router_system_top.sv
-run tb_voice_router rtl/core/voice_router.sv sim/unit/core/tb_voice_router.sv
+run tb_router_voice_alloc rtl/core/router_voice_alloc.sv sim/unit/core/tb_router_voice_alloc.sv
 run tb_post_chain rtl/core/envelope_mul.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/body_filter.sv sim/unit/core/tb_post_chain.sv
 run tb_reverb_filter rtl/core/reverb_filter.sv sim/unit/core/tb_reverb_filter.sv
 run tb_router_ctrl rtl/core/router_pkg.sv rtl/core/router_ctrl.sv sim/unit/core/tb_router_ctrl.sv
