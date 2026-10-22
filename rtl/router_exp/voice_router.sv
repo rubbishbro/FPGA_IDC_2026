@@ -151,11 +151,11 @@ module voice_router #(
         end
     end
 
-    exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
-        .xmap(xmap), .xmap_valid(xmap_valid)
-    );
+    // 实验 A：去掉激励子路由，xmap 用常数
+    always_comb begin
+        xmap       = '0;
+        xmap_valid = smp_tick;
+    end
 
     env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),

@@ -34,6 +34,10 @@ module weight_loader #(
     typedef enum logic [1:0] {W_IDLE, W_BUSY, W_DONE} wstate_e;
     wstate_e      st;
     logic [23:0]  cnt;
+    // 占位加载器也真的写数据：否则综合器会把系数/参数阵列当成常量（全 0），
+    // 整个引擎跟着被折叠，PnR 面积/Fmax 完全没有意义。
+    logic [$clog2(2*SLOTS*N_MODES)-1:0] wa;
+    logic [31:0]  lfsr;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -45,6 +49,8 @@ module weight_loader #(
             ld_addr   <= '0;
             ld_co     <= '0;
             ld_pm     <= '0;
+            wa        <= '0;
+            lfsr      <= 32'h1234_5678;
             qspi_cs_n <= 1'b1;
             qspi_sck  <= 1'b0;
             qspi_dq_o <= '0;
@@ -52,6 +58,7 @@ module weight_loader #(
         end else begin
             done   <= 1'b0;
             ld_we  <= 1'b0;
+            lfsr   <= {lfsr[30:0], lfsr[31] ^ lfsr[21] ^ lfsr[1] ^ lfsr[0]};
 
             case (st)
                 W_IDLE: begin
@@ -59,15 +66,32 @@ module weight_loader #(
                     if (start) begin
                         busy      <= 1'b1;
                         cnt       <= '0;
+                        wa        <= '0;
                         qspi_cs_n <= 1'b0;      // TODO: 真正发 QSPI 命令 + 收数据
                         st        <= W_BUSY;
                     end
                 end
                 W_BUSY: begin
-                    if (cnt + 1 >= LOAD_CYCLES) begin
+                    // 每个周期写一条记录：地址低半区写系数表、高半区写参数表
+                    // （真实实现是 QSPI 收数据后按同样的地址空间写）
+                    ld_we   <= 1'b1;
+                    ld_addr <= wa;
+                    ld_co.a11 <= lfsr;
+                    ld_co.a12 <= {lfsr[4:0],  lfsr[31:5]};
+                    ld_co.a21 <= {lfsr[8:0],  lfsr[31:9]};
+                    ld_co.a22 <= {lfsr[12:0], lfsr[31:13]};
+                    ld_co.gq  <= {lfsr[16:0], lfsr[31:17]};
+                    ld_co.gv  <= {lfsr[20:0], lfsr[31:21]};
+                    ld_co.wo  <= {lfsr[24:0], lfsr[31:25]};
+                    ld_pm.c0     <= {lfsr[3:0],  lfsr[31:4]};
+                    ld_pm.s0     <= {lfsr[7:0],  lfsr[31:8]};
+                    ld_pm.gam    <= {lfsr[11:0], lfsr[31:12]};
+                    ld_pm.theta0 <= {lfsr[15:0], lfsr[31:16]};
+                    ld_pm.g      <= {lfsr[19:0], lfsr[31:20]};
+                    if (wa + 1'b1 == 2*SLOTS*N_MODES) begin
                         qspi_cs_n <= 1'b1;
                         st        <= W_DONE;
-                    end else cnt <= cnt + 1'b1;
+                    end else wa <= wa + 1'b1;
                 end
                 W_DONE: begin
                     busy <= 1'b0;

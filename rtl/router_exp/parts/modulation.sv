@@ -41,6 +41,9 @@ module modulation0 #(
     logic [15:0] mode;
     logic signed [63:0] alpha_q;
 
+    // 编译期常数：2^40 / (65536*fs)，把除法换成乘法
+    localparam signed [63:0] C_GAM = (64'sd1 << 40) / (64'sd65536 * FS);
+
     // 参数表读口：组合输出（M_RD 给地址，下一拍数据有效）
     assign p_re   = (st == M_RD);
     assign p_mode = mode[$clog2(N_MODES)-1:0];
@@ -56,7 +59,8 @@ module modulation0 #(
     always_comb begin
         inv_a  = ONE - (alpha_q - ONE) + (((alpha_q - ONE) ** 2) >>> 30);
         alpha2 = (alpha_q * alpha_q) >>> 30;
-        d_q    = ONE - ((64'(p_gam) * ONE) / (64'(65536) * FS_C));
+        // 除以 (65536*FS) 改成乘编译期常数：除法器会被综合成超长组合路径
+        d_q    = ONE - ((64'(p_gam) * C_GAM) >>> 40);
         D_q    = (((alpha_q - ONE) * 64'(p_theta0)) >>> 30);
         c_q    = 64'(p_c0) - ((64'(p_s0) * D_q) >>> 30);
         s_q    = 64'(p_s0) + ((64'(p_c0) * D_q) >>> 30);
