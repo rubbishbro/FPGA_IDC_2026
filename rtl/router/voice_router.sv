@@ -121,7 +121,8 @@ module voice_router #(
 
     exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
-        .inst(inst_lat), .xmap(xmap), .xmap_valid(xmap_valid)
+        .note_on(note_on), .inst(inst_lat),
+        .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
     env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (

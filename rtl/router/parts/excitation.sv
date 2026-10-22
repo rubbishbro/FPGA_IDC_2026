@@ -15,6 +15,7 @@ module excitation_pulse_single #(
     input  logic                        rst_n,
     input  logic                        smp_tick,
     input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     output logic signed [31:0]          xmap [0:15],
     output logic                        xmap_valid
 );
@@ -28,7 +29,7 @@ module excitation_pulse_single #(
         end else if (smp_tick) begin
             for (int i = 0; i < SLOTS; i++) begin
                 // 只在"越过阈值的那一拍"给一个脉冲（拨弦）
-                if (fmap.flat_d[i].val > GATE_TH[7:0] && !prev[i])
+                if ((fmap.flat_d[i].val > GATE_TH[7:0] && !prev[i]) || note_on[i])
                     xmap[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
                 else
                     xmap[i] <= '0;
@@ -53,6 +54,7 @@ module excitation_pulse_train #(
     input  logic                        rst_n,
     input  logic                        smp_tick,
     input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS-1:0]            note_on,       // 新音符：强制给一拍脉冲
     output logic signed [31:0]          xmap [0:15],
     output logic                        xmap_valid
 );

@@ -55,6 +55,16 @@ module tb_voice_router;
         $display("coefs loaded: a11=%0d a12=%0d a21=%0d wo=%0d", a11m, a12m, a21m, wom);
     endtask
 
+    int dbg_n = 0;
+    always @(posedge clk) begin
+        #1;
+        if (dut.xmap_valid && dbg_n < 10) begin
+            $display("TICK fmap0=%0d xmap0=%0d x_ram0=%0d st=%0d fidx=%0d xw=%0b",
+                     fmap.flat_d[0].val, dut.xmap[0], dut.x_ram[0], dut.state, dut.fidx, dut.xw_run);
+            dbg_n++;
+        end
+    end
+
     initial begin
         for (int i = 0; i < 16; i++) fmap.flat_d[i].val = 0;
         inst = router_pkg::INST_PIANO;  // piano: eng0 + ADSR
@@ -64,6 +74,13 @@ module tb_voice_router;
         repeat (5) @(posedge clk);
 
         load_coefs();
+        repeat (5) @(posedge clk);
+
+        // 空作业：让 weight_loader 的先走完（否则按键脉冲会在加载期间被吃掉）
+        @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
+        wait (done);
+        repeat (5) @(posedge clk);
+        load_coefs();               // 加载器是占位实现，不真的写表，重新灌一次
         repeat (5) @(posedge clk);
 
         //       255
