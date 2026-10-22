@@ -417,3 +417,19 @@ BSRAM           71 / 340
 ## 27. router x 覆盖四 engine slot0（2026-10-22）
 
 `router_system_top` 在 fmap_valid=1 时把 router x 同时写到 A/B/C/E2 slot0；B/C x 已从 system 顶层传入 shared top。16 项回归 PASS。
+
+## 28. fmap 激励 P&R（2026-10-22 17:50）
+
+`router_probe` 加入 fmap/rcfg 激励后：
+
+```text
+Fmax        100.264 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.026 ns
+Logic        6,075
+Register     3,237
+BSRAM           79 / 340
+```
+
+关键路径 `E2 n_mod_lat -> shared RAM f8`。

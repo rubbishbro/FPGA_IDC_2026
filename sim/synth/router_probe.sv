@@ -52,6 +52,13 @@ module router_probe (
     logic [SLOTS*32-1:0] e2_x;
     logic [SLOTS*7-1:0] e2_nmodes;
 
+    logic [127:0] fmap;
+    logic fmap_valid;
+    logic rcfg_valid;
+    logic [3:0] rcfg_instrument, rcfg_voice;
+    logic [6:0] rcfg_note;
+    logic [7:0] rcfg_velocity;
+
     logic start, sample_ready, busy, done, out_valid;
     logic signed [63:0] mix_sum;
 
@@ -79,8 +86,8 @@ module router_probe (
         .load_valid(load_valid), .load_ready(load_ready), .load_class(load_class),
         .load_voice(load_voice), .load_inst(load_inst), .load_note(load_note),
         .load_vel(load_vel), .load_dyn(load_dyn), .load_note_id(load_note_id),
-        .rcfg_valid(1'b0), .rcfg_instrument(4'd0), .rcfg_voice(4'd0), .rcfg_note(7'd0),
-        .rcfg_velocity(8'd0), .fmap(128'd0), .fmap_valid(1'b0),
+        .rcfg_valid(rcfg_valid), .rcfg_instrument(rcfg_instrument), .rcfg_voice(rcfg_voice),
+        .rcfg_note(rcfg_note), .rcfg_velocity(rcfg_velocity), .fmap(fmap), .fmap_valid(fmap_valid),
         .load_done(load_done), .done_voice(done_voice), .loaded_n_modes(loaded_n),
         .load_error(load_error),
         .off_valid(1'b0), .off_voice('0),
@@ -168,6 +175,17 @@ module router_probe (
             e2_x2[0*32 +: 32] <= lfsr;
             a_x[0*32 +: 32] <= lfsr;
             a_x[1*32 +: 32] <= {lfsr[7:0], lfsr[31:8]};
+            fmap_valid <= 1'b1;
+            fmap <= '0;
+            fmap[0*8 +: 8] <= lfsr[7:0];
+            fmap[1*8 +: 8] <= lfsr[15:8];
+            fmap[2*8 +: 8] <= lfsr[23:16];
+            fmap[3*8 +: 8] <= lfsr[31:24];
+            rcfg_valid <= (phase == 4'd0);
+            rcfg_instrument <= 4'd0;
+            rcfg_voice <= 4'd0;
+            rcfg_note <= 7'd60;
+            rcfg_velocity <= lfsr[7:0];
             case (phase)
                 4'd0: begin // load A
                     load_valid <= 1'b1; load_class <= 2'd0; load_note <= 7'd60;
