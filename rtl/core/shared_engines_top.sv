@@ -17,7 +17,7 @@ module shared_engines_top #(
     parameter int VW          = (NUM_SLOTS < 2) ? 1 : $clog2(NUM_SLOTS),
     parameter int MW_ABC      = (N_MODES_ABC < 2) ? 1 : $clog2(N_MODES_ABC),
     parameter int MW_E2       = (N_MODES_E2 < 2) ? 1 : $clog2(N_MODES_E2 + 1),
-    parameter bit POST_EN      = 1'b0
+    parameter bit POST_EN      = 1'b1
 ) (
     input  logic clk, rst_n,
 
@@ -107,6 +107,8 @@ module shared_engines_top #(
     logic [NUM_SLOTS*32-1:0] abc_x;
     logic [NUM_SLOTS*MW_ABC-1:0] abc_nmodes;
     logic sel_e2, abc_start, e2_start;
+    logic cfg_we_r; logic [VW-1:0] cfg_voice_r; logic [MW_ABC-1:0] cfg_mode_r;
+    logic [REC_W-1:0] cfg_data_r; logic [1:0] cfg_engine_r;
 
     assign abc_active = a_active | b_active | c_active;
     assign sel_e2 = (abc_active == '0) && (|e2_active);
@@ -139,13 +141,23 @@ module shared_engines_top #(
     logic [9:0] post_cnt;
     logic signed [63:0] post_acc;
 
+    always_ff @(posedge clk) begin
+        if (!rst_n) begin
+            cfg_we_r <= 1'b0; cfg_voice_r <= '0; cfg_mode_r <= '0;
+            cfg_data_r <= '0; cfg_engine_r <= '0;
+        end else begin
+            cfg_we_r <= cfg_we; cfg_voice_r <= cfg_voice; cfg_mode_r <= cfg_mode;
+            cfg_data_r <= cfg_data; cfg_engine_r <= cfg_engine;
+        end
+    end
+
     engine_mux #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES_ABC(N_MODES_ABC),
         .N_MODES_E2(N_MODES_E2), .LANES(LANES), .REC_W(REC_W),
         .LOCAL_RAM(LOCAL_RAM)
     ) u_mux (
         .clk(clk), .rst_n(rst_n), .sel_e2(sel_e2),
-        .a_cfg_we(cfg_we), .a_cfg_voice(cfg_voice), .a_cfg_mode(cfg_mode), .a_cfg_data(cfg_data),
+        .a_cfg_we(cfg_we_r), .a_cfg_voice(cfg_voice_r), .a_cfg_mode(cfg_mode_r), .a_cfg_data(cfg_data_r),
         .a_clr_we(clr_we), .a_clr_voice(clr_voice), .a_clr_mode(clr_mode),
         .a_seed_we(seed_we), .a_seed_voice(seed_voice), .a_seed_mode(seed_mode), .a_seed_data(seed_data),
         .a_start(abc_start), .a_active(abc_active), .a_x(abc_x), .a_nmodes(abc_nmodes),

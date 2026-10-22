@@ -451,3 +451,19 @@ BSRAM          121 / 340
 ## 30. 后级流水实验（2026-10-22 18:00）
 
 reverb 改用移位反馈后 POST_EN=1 Fmax 83.577 MHz（setup -1.965ns，460 endpoints）；再尝试读/写两级流水，Gowin 报 SP WRITE_MODE=2'b10 不支持。当前回退 single-stage 移位版，POST_EN 保持 0，正式 16 项回归 PASS。
+
+## 31. POST_EN=1 正式 100MHz（2026-10-22 18:13）
+
+4-comb reverb + ABC cfg 流水后：
+
+```text
+Fmax        100.224 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.022 ns
+Logic       10,046
+Register     5,921
+BSRAM          113 / 340
+```
+
+正式 POST_EN 默认 1，回归 16 项 PASS。
