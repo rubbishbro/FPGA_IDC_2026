@@ -35,3 +35,5 @@ run tb_voice_router rtl/core/voice_router.sv sim/unit/core/tb_voice_router.sv
 run tb_post_chain rtl/core/envelope_mul.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/body_filter.sv sim/unit/core/tb_post_chain.sv
 run tb_reverb_filter rtl/core/reverb_filter.sv sim/unit/core/tb_reverb_filter.sv
 run tb_router_ctrl rtl/core/router_pkg.sv rtl/core/router_ctrl.sv sim/unit/core/tb_router_ctrl.sv
+run tb_excitation_convert rtl/core/excitation_convert.sv sim/unit/core/tb_excitation_convert.sv
+run tb_linear_modulation rtl/core/linear_modulation.sv sim/unit/core/tb_linear_modulation.sv

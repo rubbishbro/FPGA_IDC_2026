@@ -11,7 +11,7 @@
 IVERILOG=/path/to/iverilog VVP=/path/to/vvp bash sim/run_core.sh
 ```
 
-当前 11 项：
+当前 13 项：
 
 ```text
 tb_a_router_loader
@@ -25,6 +25,8 @@ tb_voice_router
 tb_post_chain
 tb_reverb_filter
 tb_router_ctrl
+tb_excitation_convert
+tb_linear_modulation
 ```
 
 Gowin 时序探针在 `sim/synth/`：
