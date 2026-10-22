@@ -18,7 +18,7 @@ rtl/core/eng1_engine_env_top_ext.sv \
 rtl/core/b_voice_ctrl.sv rtl/core/b_x_pool.sv rtl/core/b_front.sv \
 rtl/core/b_a1_refresh.sv rtl/core/b_a1_engine.sv rtl/core/b_a1_ram_engine.sv rtl/core/b_engine_top_ext.sv \
 rtl/core/c_voice_timer.sv rtl/core/seed_rom.sv rtl/core/c_seed_loader.sv rtl/core/c_engine_top_ext.sv \
-rtl/core/eng2_engine_top_ext.sv rtl/core/shared_engine_mvp.sv rtl/core/shared_engines_top.sv \
+rtl/core/eng2_engine_top_ext.sv rtl/core/pure_engine_abc.sv rtl/core/engine_mux.sv rtl/core/shared_engine_mvp.sv rtl/core/shared_engines_top.sv \
 rtl/core/shared_engines_system_top.sv rtl/core/voice_router.sv rtl/core/router_system_top.sv"
 
 run() {
@@ -45,3 +45,4 @@ run tb_shared_engine_mvp $(echo "$COMMON") sim/unit/core/tb_shared_engine_mvp.sv
 run tb_b_engine_top_ext $(echo "$COMMON") sim/unit/core/tb_b_engine_top_ext.sv
 run tb_c_engine_top_ext $(echo "$COMMON") sim/unit/core/tb_c_engine_top_ext.sv
 run tb_shared_engines_top $(echo "$COMMON") sim/unit/core/tb_shared_engines_top.sv
+run tb_engine_mux $(echo "$COMMON") sim/unit/core/tb_engine_mux.sv

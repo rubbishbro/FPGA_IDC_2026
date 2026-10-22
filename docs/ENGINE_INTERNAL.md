@@ -302,3 +302,14 @@ Slack +0.268 ns
 ```
 
 这说明旧 loader 的 index 解码链已不再是 100 MHz 瓶颈；下一步仍是把旧 loader 替换成 router/flash 接口。
+
+## 11. 纯 ABC/E2 engine_mux（2026-10-22）
+
+新增：
+
+```text
+rtl/core/pure_engine_abc.sv   A/B/C 共用的纯 eng1 核（无 b_front/b_x_pool/b_a1/voice_env）
+rtl/core/engine_mux.sv        pure ABC / E2 二选一 + 单份共享 RAM + 单尾部加法器
+```
+
+测试 `tb_engine_mux` PASS。
