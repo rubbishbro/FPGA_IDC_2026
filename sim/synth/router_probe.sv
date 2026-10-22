@@ -111,19 +111,8 @@ module router_probe (
     assign e2_cfg = {32'sh0, 32'sh7000, 32'sh6000, 32'sh5000,
                      32'sh4000, 32'sh3000, 32'sh2000, 32'sh1000, 32'sh0};
 
-    eng2_engine_top #(
-        .NUM_SLOTS(SLOTS), .N_MODES(ME), .LANES(4), .REC_W(288)
-    ) u_e2 (
-        .clk(clk), .rst_n(rst_n),
-        .cfg_we(e2_cfg_we), .cfg_voice(4'd0), .cfg_mode(7'd0), .cfg_data(e2_cfg),
-        .clr_we(1'b0), .clr_voice(4'd0), .clr_mode(7'd0),
-        .seed_we(1'b0), .seed_voice(4'd0), .seed_mode(7'd0), .seed_data(64'd0),
-        .start(e2_start), .active_mask(e2_active), .zero_mask(e2_zero),
-        .x_vec(e2_x2), .n_modes_vec(e2_nm),
-        .sample_ready(e2_ready), .done(e2_done), .busy(),
-        .out_valid(e2_out), .mix_sum(e2_mix),
-        .voice_valid(), .voice_id(), .voice_sum()
-    );
+    // E2 已由 router_system_top 内部的 shared_engines_top 承担；这里不再单独例化旧 E2。
+
 
     logic [31:0] lfsr;
     logic [3:0]  phase;
