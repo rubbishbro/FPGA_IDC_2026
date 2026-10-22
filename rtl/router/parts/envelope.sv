@@ -11,8 +11,8 @@ module envelope_ADSR #(
     parameter int unsigned A_STEP  = 32'd16_777_216,   // 起振每采样增量
     parameter int unsigned D_STEP  = 32'd1_048_576,    // 衰减每采样减量
     parameter int unsigned S_LEVEL = 32'd536_870_912,  // 延音电平
-    parameter int unsigned R_STEP  = 32'd262_144,      // 释放每采样减量
-    parameter int unsigned GATE_TH = 1                 // fmap 超过它算按下
+    parameter int unsigned GATE_ON_TH  = 1,            // 按下阈值
+    parameter int unsigned GATE_OFF_TH = 1             // 松开阈值（< 它立即归零）
 )(
     input  logic                        clk,
     input  logic                        rst_n,
@@ -23,12 +23,20 @@ module envelope_ADSR #(
     output logic                        emap_valid
 );
 
-    typedef enum logic [2:0] { E_IDLE, E_ATK, E_DEC, E_SUS, E_REL } est_e;
+    typedef enum logic [2:0] { E_IDLE, E_ATK, E_DEC, E_SUS } est_e;
     est_e        st  [0:SLOTS-1];
     logic [31:0] lvl [0:SLOTS-1];
     logic [SLOTS-1:0] gate;
 
-    always_comb for (int i = 0; i < SLOTS; i++) gate[i] = (fmap.flat_d[i].val > GATE_TH[7:0]);
+    // 带滞回的门控：> ON 置位，< OFF 清零
+    always_comb for (int i = 0; i < SLOTS; i++)
+        gate[i] = gate_r[i] ? (fmap.flat_d[i].val >= GATE_OFF_TH[7:0])
+                            : (fmap.flat_d[i].val >  GATE_ON_TH[7:0]);
+    logic [SLOTS-1:0] gate_r;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) gate_r <= '0;
+        else if (smp_tick) gate_r <= gate;
+    end
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -41,6 +49,9 @@ module envelope_ADSR #(
                 if (note_on[i]) begin
                     lvl[i] <= '0;
                     st[i]  <= E_ATK;
+                end else if (!gate[i]) begin
+                    lvl[i] <= '0;              // 低于松开阈值：立即归零（任何状态）
+                    st[i]  <= E_IDLE;
                 end else begin
                     case (st[i])
                         E_IDLE: if (gate[i]) st[i] <= E_ATK;
@@ -55,13 +66,7 @@ module envelope_ADSR #(
                                 st[i]  <= E_SUS;
                             end else lvl[i] <= lvl[i] - D_STEP;
                         end
-                        E_SUS: if (!gate[i]) st[i] <= E_REL;
-                        E_REL: begin
-                            if (lvl[i] <= R_STEP) begin
-                                lvl[i] <= '0;
-                                st[i]  <= E_IDLE;
-                            end else lvl[i] <= lvl[i] - R_STEP;
-                        end
+                        E_SUS: ;
                         default: st[i] <= E_IDLE;
                     endcase
                 end

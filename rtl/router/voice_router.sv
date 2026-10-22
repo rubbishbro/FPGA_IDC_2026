@@ -117,7 +117,7 @@ module voice_router #(
     logic               emap_valid;
     logic [SLOTS-1:0]   note_on;
 
-    assign note_on = zero_lat;      // 本作业首帧清零 = 重触发
+    assign note_on = zero_lat & {SLOTS{fidx == '0}};   // note-on 只在首帧是一拍脉冲
 
     exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
@@ -359,8 +359,15 @@ module voice_router #(
     instrument_e         inst_prev;
     logic                wait_xmap;
 
-    // 本声部开始时是否要清零状态（note-on）
-    assign eng_zero = zero_lat[voi[VWID-1:0]] && (fidx == '0);
+    // st_zero：note-on 首帧 或 该声部包络已归零（< ENV_ZERO_TH）时清零状态
+    localparam logic [31:0] ENV_ZERO_TH = 32'd1;
+
+    logic [SLOTS-1:0] voice_dead;
+    always_comb for (int i = 0; i < SLOTS; i++)
+        voice_dead[i] = (32'(emap[i]) < ENV_ZERO_TH);
+
+    assign eng_zero = (zero_lat[voi[VWID-1:0]] && (fidx == '0))
+                    || (voice_dead[voi[VWID-1:0]] && (fidx != '0));
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
