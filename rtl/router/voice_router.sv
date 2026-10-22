@@ -149,28 +149,28 @@ module voice_router #(
         .emap(emap), .emap_valid(emap_valid)
     );
 
-    logic                    mod_busy, mod_done, mod_p_re;
+    logic                    mod_busy, mod_done, mod_start, mod_p_re;
+    logic [VWID-1:0]         mod_slot;
+    logic [IW-1:0]           mod_p_mode, mod_co_mode;
     logic [3:0]              mod_co_we;
-    logic [CO_SLOT-1:0]      mod_p_addr, mod_co_addr;
     coeff_t                  mod_co_wdata;
-    logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g, mod_alpha;
+    logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g;
 
-    assign mod_c0     = 32'sd1 << 30;  // TODO: 接调制参数表（c0/s0/gamma/theta0/g）
+    // TODO: 接调制参数表（现在是占位常数）
+    assign mod_c0     = 32'sd1 << 30;
     assign mod_s0     = 32'sd0;
-    assign mod_gam    = 32'sd0;
-    assign mod_theta0 = 32'sd0;
-    assign mod_g      = 32'sd0;
-    assign mod_alpha  = 32'sd1 << 30;  // TODO: aftertouch 压力 -> alpha
+    assign mod_gam    = 32'sd65536;       // gamma = 1.0
+    assign mod_theta0 = 32'sd21_474_837;  // theta0 = 0.02 rad（占位）
+    assign mod_g      = 32'sd2_147_483;   // g = dt/theta0（占位）
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
-        .clk(clk), .rst_n(rst_n), .start(mod_req),
-        .active(SLOTS'(nv_lat)), .alpha_q(mod_alpha),
-        .n_modes(16'(nm_lat)), .inst(inst_lat),
-        .busy(mod_busy), .done(mod_done),
-        .co_we(mod_co_we), .co_addr(mod_co_addr), .co_wdata(mod_co_wdata),
-        .p_re(mod_p_re), .p_addr(mod_p_addr),
+        .clk(clk), .rst_n(rst_n), .start(mod_start),
+        .fmap_i(fmap.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
+        .inst(inst_lat), .busy(mod_busy), .done(mod_done),
+        .p_re(mod_p_re), .p_mode(mod_p_mode),
         .p_c0(mod_c0), .p_s0(mod_s0), .p_gam(mod_gam),
-        .p_theta0(mod_theta0), .p_g(mod_g)
+        .p_theta0(mod_theta0), .p_g(mod_g),
+        .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata)
     );
 
     // =========================================================================
@@ -310,11 +310,11 @@ module voice_router #(
                 ca_gv [ld_co_addr] <= ld_co_data.gv;
                 ca_wo [ld_co_addr] <= ld_co_data.wo;
             end else if (|mod_co_we) begin
-                // 每个字段独立写使能：只改调制器负责的 4 个，gq/gv/wo 不碰
-                if (mod_co_we[0]) ca_a11[mod_co_addr] <= mod_co_wdata.a11;
-                if (mod_co_we[1]) ca_a12[mod_co_addr] <= mod_co_wdata.a12;
-                if (mod_co_we[2]) ca_a21[mod_co_addr] <= mod_co_wdata.a21;
-                if (mod_co_we[3]) ca_a22[mod_co_addr] <= mod_co_wdata.a22;
+                // 每个字段独立写使能；地址 = {当前调制声部, 模态偏移}
+                if (mod_co_we[0]) ca_a11[{mod_slot, mod_co_mode}] <= mod_co_wdata.a11;
+                if (mod_co_we[1]) ca_a12[{mod_slot, mod_co_mode}] <= mod_co_wdata.a12;
+                if (mod_co_we[2]) ca_a21[{mod_slot, mod_co_mode}] <= mod_co_wdata.a21;
+                if (mod_co_we[3]) ca_a22[{mod_slot, mod_co_mode}] <= mod_co_wdata.a22;
             end
             if (eng_co_re) begin
                 co_a11_r <= ca_a11[co_idx];
@@ -355,6 +355,7 @@ module voice_router #(
     // 结果：每采样把各声部求和
     // =========================================================================
     logic signed [AW-1:0] y_acc;
+    logic signed [AW-1:0] y_last;
     logic signed [AW-1:0] y_now;
 
     assign y_now = (voi == '0) ? eng_y : (y_acc + eng_y);
@@ -366,14 +367,14 @@ module voice_router #(
     assign y_env = y_mul[94:31];
 
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) y_acc <= '0;
-        else if (eng_yv) y_acc <= y_now;
+        if (!rst_n) begin y_acc <= '0; y_last <= '0; end
+        else begin if (eng_yv) y_acc <= y_now; end
     end
 
     // =========================================================================
     // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
-    typedef enum logic [2:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_DONE } st_e;
+    typedef enum logic [2:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_MOD, S_ADV, S_DONE } st_e;
     st_e                 state;
     logic [JW:0]         ns_lat;
     instrument_e         inst_prev;
@@ -475,23 +476,39 @@ module voice_router #(
 
                 S_RUN_V: begin
                     if (eng_yv) begin
-                        if (voi + 1'b1 >= nv_lat) begin
-                            // 本采样所有声部算完：写结果、发一个 y_valid
-                            y_out[fidx[JW-1:0]] <= y_env;
-                            y_data  <= y_env;
-                            y_valid <= 1'b1;
-                            voi     <= '0;
-                            if (fidx + 1'b1 >= ns_lat) begin
-                                state <= S_DONE;
-                            end else begin
-                                fidx      <= fidx + 1'b1;
-                                wait_xmap <= 1'b1;
-                                state     <= S_RUN_X;
-                            end
+                        y_last <= y_env;
+                        if (note_on[voi[VWID-1:0]]) begin
+                            mod_slot  <= voi[VWID-1:0];   // 只调这一个声部
+                            mod_start <= 1'b1;
+                            state     <= S_MOD;
+                        end else state <= S_ADV;
+                    end
+                end
+
+                S_MOD: begin
+                    if (mod_done) begin
+                        mod_start <= 1'b0;
+                        state     <= S_ADV;
+                    end
+                end
+
+                S_ADV: begin
+                    if (voi + 1'b1 >= nv_lat) begin
+                        y_out[fidx[JW-1:0]] <= y_last;
+                        y_data  <= 64'(y_last);
+                        y_valid <= 1'b1;
+                        voi     <= '0;
+                        if (fidx + 1'b1 >= ns_lat) begin
+                            state <= S_DONE;
                         end else begin
-                            voi       <= voi + 1'b1;
-                            eng_start <= 1'b1;      // 下一个声部的作业
+                            fidx      <= fidx + 1'b1;
+                            wait_xmap <= 1'b1;
+                            state     <= S_RUN_X;
                         end
+                    end else begin
+                        voi       <= voi + 1'b1;
+                        eng_start <= 1'b1;
+                        state     <= S_RUN_V;
                     end
                 end
 
