@@ -37,9 +37,9 @@ digraph router_control_flow {
         label="router_loader";
         labelloc="b";
         fontsize=12; color="#b7791f"; style="rounded"; fillcolor="#fffff0";
-        a [label="class_loader\nA：20-bit index", fillcolor="#fefcbf"];
-        bc [label="class_loader64\nB/C：64-bit index / ctrl / seed", fillcolor="#fefcbf"];
-        e2 [label="class_loader64 + ROM\nE2：index / ctrl / seed / 224-bit coeff", fillcolor="#fefcbf"];
+        a [label="index_loader20\nA：20-bit index", fillcolor="#fefcbf"];
+        bc [label="index_loader64\nB/C：64-bit index / ctrl / seed", fillcolor="#fefcbf"];
+        e2 [label="index_loader64 + ROM\nE2：index / ctrl / seed / 224-bit coeff", fillcolor="#fefcbf"];
         rom [label="ROM / Flash backend\nindex / coeff / ctrl / seed", shape=cylinder, fillcolor="#faf089"];
         rom -> a [style=dotted];
         rom -> bc [style=dotted];
@@ -49,7 +49,7 @@ digraph router_control_flow {
 
     va [label="router_voice_alloc\n16 voice\nactive / class / note_start / gate", fillcolor="#d6bcfa"];
 
-    mux [label="engine_mux\npure_engine_abc / eng2_engine_top_ext\nshared_modal_ram", fillcolor="#e9d8fd"];
+    mux [label="engine_mux\npure_engine_abc / e2_engine\nshared_modal_ram", fillcolor="#e9d8fd"];
 
     out [label="cfg / clr / seed\n+ active / x / n_modes", fillcolor="#fbd38d"];
 
@@ -70,6 +70,6 @@ digraph router_control_flow {
     e2 -> out;
     out -> mux [label="cfg/clr/seed"];
 
-    caveat [shape=note, label="review 注意：\n1. linear_modulation 已实现/单测，未接正式顶层\n2. router_frontend 的 x 目前主要覆盖 slot0\n3. class_loader / 64 仍作为 router_loader backend", fillcolor="#fffaf0", color="#b7791f"];
+    caveat [shape=note, label="review 注意：\n1. linear_modulation 已实现/单测，未接正式顶层\n2. router_frontend 的 x 目前主要覆盖 slot0\n3. index_loader20 / 64 仍作为 router_loader backend", fillcolor="#fffaf0", color="#b7791f"];
     caveat -> ctrl [style=invis];
 }

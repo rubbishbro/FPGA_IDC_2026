@@ -1,63 +1,12 @@
-// -----------------------------------------------------------------------------
-// body_filter.sv -- 共享 4-section（8 阶）body-filter 加速器。
-//
-// 流水线版本。算术运算和所有状态值与先前的
-// 单周期实现逐位相同；只有调度改变了。
-// 100 MHz 的失败路径是
-//     operand mux -> (sec*5 address MULT) -> coefficient mux -> 68x32 multiply
-//     -> 100-bit product -> 104-bit accumulate -> round/clamp -> state
-// 全在一个周期内。现在被拆分：
-//
-//   * 移除了 section*5 动态地址乘法器：一个寄存的
-//     `tap_idx` 计数器（0..19）选择系数，一个独立的
-//     寄存 `tap`（0..4）选择操作数。没有算术地址。
-//   * 每个 tap 三个寄存级：S_OP（锁存 op_s/op_c）、S_MUL（寄存
-//     精确的 (64+G)+32 位乘积）、S_ACC（将符号扩展后的
-//     乘积加/减到 104 位累加器）。乘法和 104 位加法
-//     绝不在同一周期。
-//   * 逐 section 的舍入也被流水化，因此 clamp/compare 链不
-//     在累加器周期内：S_RNDA 寄存 (acc+2**29)>>30，S_RNDB
-//     寄存 signed(64+G) clamp，S_UPD 更新 section 历史，并且
-//     （仅最后一个 section）S_FIN 完成 Q(30+G)->Q30 折叠和 signed64 clamp。
-//     然后是 S_OUT。
-//
-// 20 taps * 3 cycles + 4 * (3 round/update stages) + final + output = ~74
-// cycles（< 128）。各级之间不引入中间舍入、clamp 或
-// 回绕：乘积和累加器是精确的宽
-// 整数，因此帧结果与 DFI golden 逐位相同。
-//
-// 数值契约（rtl/body_design.md 第 2 节，guard-bit 变体）：
-//   * coefficients    : signed Q2.30，32 位
-//   * external x / y  : signed 64 位，Q30（与 modal mix_sum 同标度）
-//   * internal state  : signed (64+G) 位，Q(30+G)；G = GUARD_BITS（默认 4）
-//   * product         : (64+G)+32 位，符号扩展进 >= 104 位的 acc
-//   * Direct Form I，sections 按 SOS 顺序，一次一个 order-2 section：
-//         xin = in_sum << G
-//         acc = b0*x + b1*x1 + b2*x2 - a1*y1 - a2*y2
-//         y   = clamp_s(64+G)( (acc + 2**29) >>> 30 )          # Q(30+G)
-//     只有最后一个 section 折回引脚：
-//         raw = (y + 2**(G-1)) >>> G
-//         out = clamp_s64(raw);  其饱和值 OR 进 out_sat[3]
-//
-// 握手 / 优先级（未变）：
-//   * reset（rst_n，异步）在任何流水线级取消进行中的帧
-//     清除每个历史寄存器并重新运行 ROM preload；
-//     没有幽灵 out_valid 能存活。
-//   * clear_valid/clear_ready 只清除历史（和饱和
-//     记录）并保留系数；仅在空闲时被接受，并优先
-//     于同时出现的 in_valid。
-//   * in_valid/in_ready 仅在 idle 状态接受一个采样；当帧
-//     在途时 in_ready 为低，因此保持的 in_valid 不会成为第二个输入。
-//   * out_valid 是单周期，无 backpressure。
-//
-// 同步 ROM preload 仅在选择乐器的全部 20 个字
-// 都被捕获后才拉高 coeff_ready。如果 init 文件缺失或
-// 过短，iverilog 会在 ROM 中留下 X；preload 检测到它并停留在
-// S_ERR（coeff_error=1，coeff_ready=0），而不是伪造一个有效的全零滤波器。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : body_biquad.sv
+// 模块 : body_biquad
+// 功能 : 4-section body biquad 滤波器
+// 说明 : 系数来自 ROM；逐样本 valid/ready；输出饱和统计。
+// =============================================================================
 `timescale 1ns/1ps
 
-module body_filter #(
+module body_biquad #(
     parameter int BODY_INSTRUMENT = 0,             // 0..3 吉他/钢琴/班卓琴/曼陀林
     parameter BODY_FILE = "rtl/rom/body_coeff.mem",
     parameter int GUARD_BITS = 4                   // 内部额外小数位（>=1）

@@ -16,7 +16,7 @@ module tb_post_chain;
     envelope_mul u_env(.clk(clk),.rst_n(rst_n),.in_valid(env_v),.in_data(env_in),.gain(16'h4000),.out_valid(),.out_data(env_out));
     dry_wet_mix u_dw(.clk(clk),.rst_n(rst_n),.in_valid(dw_v),.dry(64'sd1073741824),.wet(64'sd536870912),.gd(16'h4000),.gw(16'h4000),.out_valid(),.out_data(dw_out));
     final_adder #(.N(2)) u_fa(.clk(clk),.rst_n(rst_n),.in_valid(fa_v),.in_bus({64'sd2,64'sd1}),.out_valid(),.out_data(fa_out));
-    body_filter #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body(
+    body_biquad #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body(
         .clk(clk),.rst_n(rst_n),.clear_valid(body_clear),.clear_ready(body_clear_ready),
         .in_valid(body_in_v),.in_ready(body_in_ready),.in_sum(body_in),
         .out_valid(body_out_v),.out_sum(body_out),.out_sat(body_sat),.sat_count(body_sat_cnt),

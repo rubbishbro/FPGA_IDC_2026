@@ -1,10 +1,9 @@
-// -----------------------------------------------------------------------------
-// router_loader.sv -- 统一 loader 顶层（直接使用 class_loader / class_loader64）
-//
-// A: class_loader（20-bit index）
-// B/C: class_loader64（64-bit index/control/seed）
-// E2: class_loader64 + 224-bit coefficient ROM
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : router_loader.sv
+// 模块 : router_loader
+// 功能 : 统一 loader 顶层
+// 说明 : 按 load_class 分发到 index_loader20(A) / index_loader64(B/C/E2)，输出 cfg/clr/seed。
+// =============================================================================
 `timescale 1ns/1ps
 module router_loader #(
     parameter int NUM_SLOTS = 16,
@@ -67,7 +66,7 @@ module router_loader #(
     logic [VW-1:0] a_cv, a_clv, a_dv;
     logic [MW_ABC-1:0] a_cm, a_nm;
     logic [71:0] a_word; logic [1:0] a_ec2;
-    class_loader #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(A_COEFF_DEPTH),
+    index_loader20 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(A_COEFF_DEPTH),
       .INDEX_DEPTH(A_INDEX_DEPTH),.COEFF_FILE(A_COEFF_FILE),.INDEX_FILE(A_INDEX_FILE),.USE_BUF(1'b0)) u_a (
       .clk(clk),.rst_n(rst_n),.load_valid(load_valid && load_class==2'd0),.load_ready(a_ready),
       .ev_class(2'd0),.ev_layer({1'b0,load_dyn}),.ev_instrument({2'b0,load_inst}),.ev_note(load_note),
@@ -94,7 +93,7 @@ module router_loader #(
     logic [VW-1:0] bc_cv, bc_clv, bc_dv;
     logic [MW_ABC-1:0] bc_cm, bc_nm;
     logic [71:0] bc_word;
-    class_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(BC_COEFF_DEPTH),
+    index_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(BC_COEFF_DEPTH),
       .INDEX_DEPTH(BC_INDEX_DEPTH),.CTRL_DEPTH(BC_CTRL_DEPTH),.SEED_DEPTH(BC_SEED_DEPTH),
       .COEFF_FILE(BC_COEFF_FILE),.INDEX_FILE(BC_INDEX_FILE),.CTRL_FILE(BC_CTRL_FILE),
       .SEED_FILE(BC_SEED_FILE),.USE_BUF(1'b0),.MW(MW_ABC)) u_bc (
@@ -128,7 +127,7 @@ module router_loader #(
     logic [15:0] e2_addr;
     initial if (E2_COEFF_FILE != "") $readmemh(E2_COEFF_FILE, e2_rom);
     assign e2_addr = e2_theta + e2_cm;
-    class_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_E2),.COEFF_DEPTH(E2_COEFF_DEPTH),
+    index_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_E2),.COEFF_DEPTH(E2_COEFF_DEPTH),
       .INDEX_DEPTH(E2_INDEX_DEPTH),.CTRL_DEPTH(E2_CTRL_DEPTH),.SEED_DEPTH(E2_SEED_DEPTH),
       .COEFF_FILE(E2_L72_FILE),.INDEX_FILE(E2_INDEX_FILE),.CTRL_FILE(E2_CTRL_FILE),
       .SEED_FILE(E2_SEED_FILE),.USE_BUF(1'b0),.MW(MW_E2)) u_e2 (

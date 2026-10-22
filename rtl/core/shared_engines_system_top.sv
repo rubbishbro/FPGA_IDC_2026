@@ -1,10 +1,9 @@
-// -----------------------------------------------------------------------------
-// engines_system_top.sv -- 全局事件 + voice_router + four_engines_top
-//
-// 事件只给 note_on/note_off/voice/class；router 维护 16 voice 的 class/active，
-// 输出每引擎 active/note_start/gate；四个引擎各自 16 物理 slot。
-// index/control/seed 表仍在更外层 router/ROM（本模块只接 cfg 总线）。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : shared_engines_system_top.sv
+// 模块 : shared_engines_system_top
+// 功能 : voice 分配 + 共享引擎系统
+// 说明 : router_voice_alloc + shared_engines_top；把事件转换成引擎作业。
+// =============================================================================
 `timescale 1ns/1ps
 
 module shared_engines_system_top #(

@@ -1,29 +1,12 @@
-// -----------------------------------------------------------------------------
-// eng1_lane_core.sv -- ENG1 的纯计算 lane（内存中心版）
-//
-// 与 poly_modal_lane 的区别：
-//   * 不再持有 RAM / state_valid / a1 shadow / clear / seed；
-//   * 每次 mode 从 modal_ram 读一条 9×32 记录，算完把 y1/y2 写回；
-//   * 4 个 lane 各处理 mode % LANES == LANE 的局部 mode。
-//
-// 算术与 poly_modal_lane 对齐：
-//   G  = Q2.24 (26-bit) sign-extended 到 32
-//   a1 = Q2.20 (22-bit) sign-extended，<<4 到 Q2.24
-//   a2 = UQ0.24 (24-bit)，零扩展
-//   y1/y2 = Q2.30 signed 32
-//   ynew = clamp((G*x - a1*y1 - a2*y2 + 2^23) >>> 24)
-//
-// 每 mode 的时序（单乘法器）：
-//   S_REQ  : 发读地址
-//   S_CAP  : 捕获记录（下一拍数据）
-//   S_M1   : prod <= G*x
-//   S_M2   : acc  <= prod(G*x)；prod <= a1*y1
-//   S_M3   : acc  <= acc - prod(a1*y1)；prod <= a2*y2
-//   S_FIN  : acc  <= acc - prod(a2*y2)；算 ynew、写状态、累计 ps
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : abc_lane_core.sv
+// 模块 : abc_lane_core
+// 功能 : A/B/C 单 lane 递推核
+// 说明 : 实现 y[n]=clamp((G*x[n]-a1*y[n-1]-a2*y[n-2]+2^23)>>>24)；4 lane 并行。
+// =============================================================================
 `timescale 1ns/1ps
 
-module eng1_lane_core #(
+module abc_lane_core #(
     parameter int NUM_SLOTS      = 16,
     parameter int N_MODES        = 48,
     parameter int LANES          = 4,

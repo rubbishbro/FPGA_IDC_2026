@@ -20,7 +20,7 @@ tb_shared_engines_top
 tb_router_system_top
 tb_router_voice_alloc
 tb_post_chain
-tb_reverb_filter
+tb_comb_reverb
 tb_router_ctrl
 tb_excitation_convert
 tb_linear_modulation
@@ -28,7 +28,7 @@ tb_router_frontend
 tb_post_chain_top
 tb_engine_post_chain
 tb_shared_engines_post
-tb_router_frontend_top
+tb_router_frontend_a_path_top
 ```
 
 Gowin 时序探针在 `sim/synth/`：

@@ -1,10 +1,9 @@
-// -----------------------------------------------------------------------------
-// shared_engines_top.sv -- 纯 ABC 核 / E2 核 + 单份共享 RAM + 单尾部加法器
-//
-// A/B/C 共用 pure_engine_abc（同一递推），router 只给系数/x/n_modes。
-// B/C 旧前端、a1、timer、seed 不再在本层例化。
-// 同一时刻只选 ABC 或 E2；ABC 内部所有 active voice 由 pure_engine_abc TDM。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : shared_engines_top.sv
+// 模块 : shared_engines_top
+// 功能 : 共享引擎子系统
+// 说明 : engine_mux（ABC/E2）+ 唯一 shared_modal_ram + post_chain；POST_EN=1。
+// =============================================================================
 `timescale 1ns/1ps
 
 module shared_engines_top #(

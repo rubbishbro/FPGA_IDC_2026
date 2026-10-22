@@ -1,10 +1,9 @@
-// -----------------------------------------------------------------------------
-// router_system_top.sv -- A/B/C router loader + 事件/voice router + 四引擎
-//
-// load event -> A/B/C index/control/coeff ROM loader -> 9×32 cfg
-// load_done -> voice_router note_on -> 四引擎
-// ENG2 的 cfg/x 仍由外部给（R5 已有 9×32 适配）。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : router_system_top.sv
+// 模块 : router_system_top
+// 功能 : 新架构正式顶层
+// 说明 : router_loader + router_frontend + shared_engines_system_top；含 fmap/config/load/start。
+// =============================================================================
 `timescale 1ns/1ps
 
 module router_system_top #(

@@ -1,9 +1,9 @@
-// -----------------------------------------------------------------------------
-// pure_engine_abc.sv -- A/B/C 共用纯计算核（eng1_engine_top_ext + unity env）
-//
-// B/C 的递推与 A 相同，class 差异全部由 router 给出的系数/x/n_modes 决定。
-// 本模块不含 b_front / b_x_pool / b_a1 / voice_env。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : pure_engine_abc.sv
+// 模块 : pure_engine_abc
+// 功能 : A/B/C 纯计算核封装
+// 说明 : abc_engine + unity envelope；不含 b_front/b_a1/voice_env。
+// =============================================================================
 `timescale 1ns/1ps
 
 module pure_engine_abc #(
@@ -49,7 +49,7 @@ module pure_engine_abc #(
     output logic [LANES*64-1:0] ram_st_data
 );
 
-    eng1_engine_top_ext #(
+    abc_engine #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES), .LANES(LANES),
         .LOCAL(LOCAL), .REC_W(REC_W)
     ) u_engine (

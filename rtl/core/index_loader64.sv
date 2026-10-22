@@ -1,19 +1,12 @@
-// -----------------------------------------------------------------------------
-// class_loader64.sv -- B/C 的 64-bit index 装载器（A 继续用 class_loader）
-//
-// 记录：Index 64 / Control 256 / Core 72 / Seed 64（class_format_pkg）
-// 力度带：n_vel=4，band=velocity[7:6]，core = mode_offset + band*n_modes + mode
-// 顺序：IDLE -> IDX -> CHK -> CTRL -> CLEAR -> RD -> CORE -> (SEED) -> DONE
-//
-// 与 class_loader 的区别：
-//   * index 是 64-bit，不是 A 的 20-bit；
-//   * 先读 256-bit Control（1 拍），commit 给 engine；
-//   * C 的 has_seed 走 SEED 阶段，写 64-bit y1/y2；
-//   * A 不经过本模块。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : index_loader64.sv
+// 模块 : index_loader64
+// 功能 : B/C/E2 64-bit index/control/seed 装载器
+// 说明 : 读 index/control/coeff/seed，输出 9×32 cfg、seed 和 ctrl；由 router_loader 选择 class。
+// =============================================================================
 `timescale 1ns/1ps
 
-module class_loader64 #(
+module index_loader64 #(
     parameter int NUM_VOICES   = 32,
     parameter int N_MODES      = 48,
     parameter int COEFF_DEPTH  = 5483,

@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module tb_router_frontend_top;
+module tb_router_frontend_a_path_top;
     import modal_record_pkg::*;
     logic clk=0,rst_n=0; logic cfg_valid=0,fmap_valid=0,a_start=0; logic [3:0] ci=0,cv=0; logic [6:0] cn=0; logic [7:0] cvel=0;
     logic [16*8-1:0] fmap=0; logic [3:0] ii; logic [1:0] es; logic kp; logic [15:0] vel; logic signed [31:0] x;
@@ -8,7 +8,7 @@ module tb_router_frontend_top;
     logic e2_cfg=0,e2_clr=0,e2_seed=0; logic [0:0] ev=0,ecv=0,esv=0; logic [6:0] em=0,ecm=0,esm=0; logic [287:0] ed=0; logic [63:0] esd=0;
     logic [1:0] eact=0,ez=0; logic [63:0] ex=0; logic [13:0] enm=0;
     logic ready,busy,done,outv; logic signed [63:0] mix; int errors=0;
-    router_frontend_top #(.NUM_SLOTS(2),.N_MODES_ABC(48),.N_MODES_E2(80),.LANES(4),.REC_W(288)) dut(
+    router_frontend_a_path_top #(.NUM_SLOTS(2),.N_MODES_ABC(48),.N_MODES_E2(80),.LANES(4),.REC_W(288)) dut(
       .clk(clk),.rst_n(rst_n),.cfg_valid(cfg_valid),.cfg_instrument(ci),.cfg_voice(cv),.cfg_note(cn),.cfg_velocity(cvel),.fmap(fmap),.fmap_valid(fmap_valid),
       .a_cfg_we(a_cfg),.a_cfg_voice(av),.a_cfg_mode(am),.a_cfg_data(ad),.a_clr_we(a_clr),.a_clr_voice(acv),.a_clr_mode(acm),
       .a_seed_we(a_seed),.a_seed_voice(asv),.a_seed_mode(asm),.a_seed_data(asd),.a_start(a_start),.a_active(aact),.a_nmodes(anm),
@@ -27,7 +27,7 @@ module tb_router_frontend_top;
       wait(done); @(posedge clk); #1;
       if (mix == 0) begin $display("FAIL mix=0"); errors++; end
       if (!kp) begin $display("FAIL kp"); errors++; end
-      if (errors==0) $display("PASS tb_router_frontend_top"); else $display("FAIL tb_router_frontend_top errors=%0d",errors);
+      if (errors==0) $display("PASS tb_router_frontend_a_path_top"); else $display("FAIL tb_router_frontend_a_path_top errors=%0d",errors);
       $finish;
     end
 endmodule

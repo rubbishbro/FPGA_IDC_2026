@@ -16,21 +16,21 @@ set files [list \
   "$root/rtl/simsynth/modal_step_pkg.sv" \
   "$root/rtl/simsynth/modal_engine7.sv" \
   "$root/rtl/core/class_format_pkg.sv" \
-  "$root/rtl/core/class_loader.sv" \
-  "$root/rtl/core/class_loader64.sv" \
+  "$root/rtl/core/index_loader20.sv" \
+  "$root/rtl/core/index_loader64.sv" \
   "$root/rtl/core/router_loader.sv" \
   "$root/rtl/core/modal_record_pkg.sv" \
-  "$root/rtl/core/eng1_lane_core.sv" \
-  "$root/rtl/core/eng1_engine_top_ext.sv" \
-      "$root/rtl/core/eng2_engine_top_ext.sv" \
+  "$root/rtl/core/abc_lane_core.sv" \
+  "$root/rtl/core/abc_engine.sv" \
+      "$root/rtl/core/e2_engine.sv" \
     "$root/rtl/core/shared_modal_ram.sv" \
   "$root/rtl/core/pure_engine_abc.sv" \
   "$root/rtl/core/engine_mux.sv" \
   "$root/rtl/core/shared_engines_top.sv" \
   "$root/rtl/core/shared_engines_system_top.sv" \
   "$root/rtl/core/envelope_mul.sv" \
-  "$root/rtl/core/body_filter.sv" \
-  "$root/rtl/core/reverb_filter.sv" \
+  "$root/rtl/core/body_biquad.sv" \
+  "$root/rtl/core/comb_reverb.sv" \
   "$root/rtl/core/dry_wet_mix.sv" \
   "$root/rtl/core/final_adder.sv" \
   "$root/rtl/core/post_chain.sv" \

@@ -1,15 +1,9 @@
-// -----------------------------------------------------------------------------
-// class_format_pkg.sv -- 统一记录格式（A/B/C 共用）与力度带地址
-//
-// 冻结（2026-10-20）：
-//   Event 64 / Index 64 / Control 256 / Core 72 / Seed 64
-//   Key = {class, instrument, note}，没有 layer
-//   n_vel = 4（先冻结），band = vel8[7:6]
-//   core 地址 = mode_offset + band*n_modes + mode
-//
-// 这里只放类型和纯函数；pack/unpack 的位序必须与
-// python/modal_sim/class_format.py 完全一致。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : class_format_pkg.sv
+// 模块 : class_format_pkg
+// 功能 : A/B/C 记录格式与力度带地址
+// 说明 : 定义 Event/Index/Control/Core/Seed 的位宽和纯函数；与 Python class_format 对齐。
+// =============================================================================
 `timescale 1ns/1ps
 
 package class_format_pkg;

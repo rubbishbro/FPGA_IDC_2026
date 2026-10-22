@@ -32,7 +32,7 @@ digraph architecture_overview {
             label="控制面";
             fontsize=12; color="#2f855a"; style="rounded"; fillcolor="#f0fff4";
             rf [label="router_frontend\nrouter_ctrl + excitation_convert\ninstrument_id / engine_sel / x", fillcolor="#9ae6b4"];
-            rl [label="router_loader\nclass_loader(A) + class_loader64(B/C/E2)", fillcolor="#fefcbf"];
+            rl [label="router_loader\nindex_loader20(A) + index_loader64(B/C/E2)", fillcolor="#fefcbf"];
             rom [label="ROM / Flash backend\nindex / coeff / ctrl / seed", shape=cylinder, fillcolor="#faf089"];
             { rank=same; rf; rl; }
             rl -> rom [label="read", style=dotted, color="#b7791f"];
@@ -46,7 +46,7 @@ digraph architecture_overview {
             subgraph cluster_core {
                 label="shared_engines_top";
                 fontsize=11; color="#805ad5"; style="rounded,dashed"; fillcolor="#faf5ff";
-                mux [label="engine_mux\npure_engine_abc / eng2_engine_top_ext\n唯一 shared_modal_ram\n唯一尾部加法器", fillcolor="#e9d8fd"];
+                mux [label="engine_mux\npure_engine_abc / e2_engine\n唯一 shared_modal_ram\n唯一尾部加法器", fillcolor="#e9d8fd"];
                 post [label="post_chain（POST_EN=1）\nenvelope → body biquad → reverb\n→ dry/wet → final_adder", fillcolor="#fed7d7"];
                 mux -> post [label="mix_sum"];
             }

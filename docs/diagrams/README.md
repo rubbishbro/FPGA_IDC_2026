@@ -25,7 +25,7 @@
 
 - 源文件：[engine_post_flow.dot](engine_post_flow.dot)
 - SVG：[engine_post_flow.svg](engine_post_flow.svg)
-- 内容：`engine_mux`、`pure_engine_abc` / `eng2_engine_top_ext`、唯一 shared RAM、尾部加法器、post FSM、`post_chain`。
+- 内容：`engine_mux`、`pure_engine_abc` / `e2_engine`、唯一 shared RAM、尾部加法器、post FSM、`post_chain`。
 
 ## 当前验证结果
 
@@ -50,7 +50,7 @@ POST_EN = 1
 
 ## Review 时请重点看
 
-1. **`class_loader` / `class_loader64` 还在**
+1. **`index_loader20` / `index_loader64` 还在**
    它们是 `router_loader` 的 ROM/Flash backend；旧的 A/BC/E2 loader 包装已归档到
    `history/rtl/core/legacy_loader/`。如果要求连底层 loader 也完全删除，需要另做一版 flash 接口。
 

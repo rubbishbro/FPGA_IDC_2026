@@ -4,7 +4,7 @@
 
 ## 1. A/B/C 的递推
 
-A/B/C 走 `eng1_lane_core`，是二阶直接型递推：
+A/B/C 走 `abc_lane_core`，是二阶直接型递推：
 
 ```text
 y[n] = clamp( (G*x[n] - a1*y[n-1] - a2*y[n-2] + 2^23) >>> 24 )
@@ -252,8 +252,8 @@ E2 modal_engine7：7 乘/5 级/状态写回
 
 ## 9. 已实现的 lane 时序修改（2026-10-22）
 
-`rtl/core/eng1_lane_core.sv` 已替换为新版，旧版归档到
-`history/rtl/core/legacy_parallel/eng1_lane_core.sv`。
+`rtl/core/abc_lane_core.sv` 已替换为新版，旧版归档到
+`history/rtl/core/legacy_parallel/abc_lane_core.sv`。
 
 修改：
 
@@ -268,7 +268,7 @@ E2 modal_engine7：7 乘/5 级/状态写回
 测试：
 
 ```text
-tb_eng1_lane_core   PASS
+tb_abc_lane_core   PASS
 tb_shared_engines_top PASS
 tb_shared_engine_mvp PASS
 tb_b_engine_top_ext PASS
@@ -321,7 +321,7 @@ rtl/core/engine_mux.sv        pure ABC / E2 二选一 + 单份共享 RAM + 单�
 ```text
 engine_mux
 ├─ pure_engine_abc
-└─ eng2_engine_top_ext
+└─ e2_engine
 ```
 
 A/B/C 共用同一个纯 eng1 核；旧 B/C 前端、b_a1、c_timer/c_seed、voice_env 已归档。
@@ -346,7 +346,7 @@ DSP             21 / 298
 
 ## 14. 后级模块（2026-10-22）
 
-已加入并单测：`envelope_mul`、`body_filter`（归档恢复）、`reverb_filter`、`dry_wet_mix`、`final_adder`。`tb_post_chain` 和 `tb_reverb_filter` PASS。
+已加入并单测：`envelope_mul`、`body_biquad`（归档恢复）、`comb_reverb`、`dry_wet_mix`、`final_adder`。`tb_post_chain` 和 `tb_comb_reverb` PASS。
 
 ## 15. router 控制面 MVP（2026-10-22）
 
@@ -378,9 +378,9 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 
 `shared_engines_top` 增加 `POST_EN`，默认 0；`tb_shared_engines_post` 用 POST_EN=1 PASS。正式顶层仍未默认开启 post。
 
-## 21. router_frontend_top（2026-10-22）
+## 21. router_frontend_a_path_top（2026-10-22）
 
-新增 `router_frontend_top`，A 路径 config/fmap→x→engine_mux，测试 PASS；系数装载仍外部。
+新增 `router_frontend_a_path_top`，A 路径 config/fmap→x→engine_mux，测试 PASS；系数装载仍外部。
 
 ## 22. 统一 router_loader 顶层（2026-10-22）
 
@@ -388,11 +388,11 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 
 ## 23. 删除旧 a/bc/e2 loader 包装（2026-10-22）
 
-`router_loader` 直接例化 `class_loader` / `class_loader64`，旧 a/bc/e2 loader 已归档到 `history/rtl/core/legacy_loader/`；回归 15 项。
+`router_loader` 直接例化 `index_loader20` / `index_loader64`，旧 a/bc/e2 loader 已归档到 `history/rtl/core/legacy_loader/`；回归 15 项。
 
 ## 24. Inlined loader P&R（2026-10-22 17:41）
 
-旧 a/bc/e2 loader 归档，router_loader 直接例化 class_loader/64：
+旧 a/bc/e2 loader 归档，router_loader 直接例化 index_loader20/64：
 
 ```text
 Fmax        100.250 MHz

@@ -1,26 +1,12 @@
-// -----------------------------------------------------------------------------
-// class_loader.sv -- ENG1 统一装载器（E1：A 路径 + 统一端口）
-//
-// 目标：把旧的 coeff_loader（20-bit index / 每词 4 拍）替换成统一记录流：
-//   Event -> Index -> Control -> Core -> (Seed) -> Commit
-// E1 只实现 A 类数据路径：
-//   * 外部仍收旧的 (instrument, midi, dyn, vel)，内部合成 Event；
-//   * A 的 index 仍是 20-bit {present,n[5:0],offset[12:0]}，在本模块内
-//     适配成统一视图；
-//   * Control 暂用 A 默认值（E1 不消费，端口先留）；
-//   * Core 改为 burst 1 词/拍；
-//   * Seed 端口保留，A 恒 0（C 在 E2/E4 接）。
-//
-// 契约：
-//   * load 输入仅在 load 握手时锁存；busy 时 load_ready=0
-//   * 先完整查表并校验，再 clear，再 burst 写系数；失败不 clear/cfg
-//   * cfg/clear 字段在 ready 前保持稳定；背压不丢词、不重复
-//   * 最后一个 cfg 握手后才 load_done
-//   * reset 取消事务
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : index_loader20.sv
+// 模块 : index_loader20
+// 功能 : A 类 20-bit index ROM 装载器
+// 说明 : 读 index/coeff ROM，输出 72-bit core 并打包为 9×32 cfg；一次装载一个 voice。
+// =============================================================================
 `timescale 1ns/1ps
 
-module class_loader #(
+module index_loader20 #(
     parameter int NUM_VOICES  = 32,
     parameter int N_MODES     = 48,
     parameter int COEFF_DEPTH = 5483,

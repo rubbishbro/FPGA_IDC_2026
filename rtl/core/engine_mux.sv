@@ -1,8 +1,9 @@
-// -----------------------------------------------------------------------------
-// engine_mux.sv -- 纯 ABC 核 / E2 核二选一 + 单份共享 RAM + 单尾部加法器
-//
-// router 通过 sel_e2 选一个核；同一时刻只接一个。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : engine_mux.sv
+// 模块 : engine_mux
+// 功能 : ABC/E2 二选一 + 共享 RAM + 尾部加法器
+// 说明 : sel_e2 选择计算核；同一时刻只接一个核；唯一尾部加法器。
+// =============================================================================
 `timescale 1ns/1ps
 
 module engine_mux #(
@@ -130,7 +131,7 @@ module engine_mux #(
         .ram_st_we(abc_st_we), .ram_st_addr(abc_st_addr), .ram_st_data(abc_st_data)
     );
 
-    eng2_engine_top_ext #(
+    e2_engine #(
         .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES_E2), .LANES(LANES),
         .LOCAL(LOCAL_RAM), .REC_W(REC_W)
     ) u_e2 (

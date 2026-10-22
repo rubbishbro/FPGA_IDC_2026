@@ -1,20 +1,12 @@
-// -----------------------------------------------------------------------------
-// eng1_engine_top.sv -- ENG1 单引擎（16 slot，4 lane，9×32 RAM 中心）
-//
-// 结构：
-//   modal_ram（16 slot × N_MODES × 9×32，4 lane banks）
-//       ↕ rd/st
-//   4 × eng1_lane_core（纯计算）
-//       ↓ partial_sum
-//   voice_sum →（A 暂为 unity）→ mix_sum
-//
-// 每帧：逐 active voice，4 lane 同时算该 voice 的局部 mode，全部 done 后
-// 汇总成一个 voice_sum，再进入下一个 voice。包络接口预留在 engine 内，
-// A 当前 unity；B/C 后续接 env_gain。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : abc_engine.sv
+// 模块 : abc_engine
+// 功能 : A/B/C 共用 4-lane 引擎核（外部 RAM）
+// 说明 : TDM 处理 voice/mode；cfg/clr/seed 由 router_loader 提供；不含包络/前端。
+// =============================================================================
 `timescale 1ns/1ps
 
-module eng1_engine_top_ext #(
+module abc_engine #(
     parameter int NUM_SLOTS      = 16,
     parameter int N_MODES        = 48,
     parameter int LANES          = 4,
@@ -150,7 +142,7 @@ module eng1_engine_top_ext #(
     genvar g;
     generate
         for (g = 0; g < LANES; g = g + 1) begin : g_lane
-            eng1_lane_core #(
+            abc_lane_core #(
                 .NUM_SLOTS(NUM_SLOTS), .N_MODES(N_MODES), .LANES(LANES),
                 .LANE(g), .LOCAL(LOCAL), .VW(VW), .MW(MW), .AW(AW),
                 .REC_W(REC_W)

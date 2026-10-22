@@ -1,13 +1,9 @@
-// -----------------------------------------------------------------------------
-// voice_router.sv -- 全局 16 voice 的 class/active/gate 路由
-//
-// 全局 voice 0..15；每个 voice 同一时刻属于一个引擎：
-//   cls=0 A, 1 B, 2 C, 3 ENG2
-// 每个引擎物理 16 slot，所以 local slot = global voice，不需要搬移。
-//
-// 本模块只做“事件 -> 每引擎 active/note_start/gate/choke”；
-// index/control/seed 表仍在更上层的 router/ROM。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : router_voice_alloc.sv
+// 模块 : router_voice_alloc
+// 功能 : 16 voice class/active/gate 分配
+// 说明 : note_on/off 更新 active/gate/class；输出每引擎 active/note_start/gate。
+// =============================================================================
 `timescale 1ns/1ps
 
 module router_voice_alloc #(

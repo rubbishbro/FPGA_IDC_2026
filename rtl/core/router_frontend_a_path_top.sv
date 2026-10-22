@@ -1,11 +1,11 @@
-// -----------------------------------------------------------------------------
-// router_frontend_top.sv -- router_frontend + engine_mux 的新架构 MVP
-//
-// 只接 A 路径用于验证：config/fmap -> x -> engine_mux(A/E2) -> mix。
-// 系数仍通过外部 cfg 口装载；旧 loader 尚未替换。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : router_frontend_a_path_top.sv
+// 模块 : router_frontend_a_path_top
+// 功能 : router_frontend + engine_mux 的 A 路径 MVP
+// 说明 : 仅用于 A 路径验证；不是正式顶层，正式顶层是 router_system_top。
+// =============================================================================
 `timescale 1ns/1ps
-module router_frontend_top #(
+module router_frontend_a_path_top #(
     parameter int NUM_SLOTS   = 16,
     parameter int N_MODES_ABC = 48,
     parameter int N_MODES_E2  = 80,

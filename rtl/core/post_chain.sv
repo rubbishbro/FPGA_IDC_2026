@@ -1,8 +1,9 @@
-// -----------------------------------------------------------------------------
-// post_chain.sv -- engine 后的 MVP 后级
-//   envelope_mul -> body_filter -> reverb_filter -> dry_wet_mix -> final_adder
-// 说明：当前 dry 未做 reverb 延迟对齐；这版先打通连接，下一步加 dry delay/predelay。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : post_chain.sv
+// 模块 : post_chain
+// 功能 : 正式后级链
+// 说明 : envelope_mul → body_biquad → comb_reverb → dry_wet_mix → final_adder。
+// =============================================================================
 `timescale 1ns/1ps
 module post_chain (
     input  logic clk, rst_n,
@@ -37,14 +38,14 @@ module post_chain (
     assign body_in_v = env_v;
     assign in_ready   = body_in_ready;
 
-    body_filter #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body (
+    body_biquad #(.BODY_INSTRUMENT(0), .BODY_FILE("rtl/rom/body_coeff.mem")) u_body (
         .clk(clk), .rst_n(rst_n), .clear_valid(1'b0), .clear_ready(),
         .in_valid(body_in_v), .in_ready(body_in_ready), .in_sum(env_data),
         .out_valid(body_v), .out_sum(body_data), .out_sat(body_sat), .sat_count(body_sat_cnt),
         .coeff_ready(body_ready), .coeff_error(body_err)
     );
 
-    reverb_filter u_rev (
+    comb_reverb u_rev (
         .clk(clk), .rst_n(rst_n), .in_valid(body_v), .in_data(body_data),
         .out_valid(rev_v), .out_data(rev_data)
     );

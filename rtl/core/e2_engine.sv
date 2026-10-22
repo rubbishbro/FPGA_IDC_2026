@@ -1,14 +1,12 @@
-// -----------------------------------------------------------------------------
-// eng2_engine_top.sv -- ENG2 的 9×32 RAM 中心适配
-//
-// 复用 modal_engine7（7 乘纯计算），把系数/状态放到统一 9×32 modal_ram：
-//   field 0..6 = a11,a12,a21,a22,gq,gv,wo
-//   field 7..8 = q,qdot
-// 每 voice 一帧一个 sample；y_valid 给出该 voice 的 y_sum。
-// -----------------------------------------------------------------------------
+// =============================================================================
+// 文件 : e2_engine.sv
+// 模块 : e2_engine
+// 功能 : E2 7×7 状态空间引擎核（外部 RAM）
+// 说明 : 状态 q/v；字段 a11,a12,a21,a22,gq,gv,wo,q,qdot；7×mult / 5-stage。
+// =============================================================================
 `timescale 1ns/1ps
 
-module eng2_engine_top_ext #(
+module e2_engine #(
     parameter int NUM_SLOTS = 16,
     parameter int N_MODES   = 80,
     parameter int LANES     = 4,
