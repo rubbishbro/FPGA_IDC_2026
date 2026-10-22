@@ -160,7 +160,7 @@ module voice_router #(
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_req),
-        .active(nv_lat[SLOTS-1:0]), .alpha_q(mod_alpha), .inst(inst_lat),
+        .active(SLOTS'(nv_lat)), .alpha_q(mod_alpha), .inst(inst_lat),
         .busy(mod_busy), .done(mod_done),
         .co_re(mod_co_re), .co_we(mod_co_we), .co_addr(mod_co_addr),
         .co_data(co_r), .co_wdata(mod_co_wdata),
