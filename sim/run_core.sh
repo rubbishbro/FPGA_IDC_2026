@@ -32,3 +32,5 @@ run tb_engine_mux $(echo "$COMMON") sim/unit/core/tb_engine_mux.sv
 run tb_shared_engines_top $(echo "$COMMON") sim/unit/core/tb_shared_engines_top.sv
 run tb_router_system_top $(echo "$COMMON") sim/unit/core/tb_router_system_top.sv
 run tb_voice_router rtl/core/voice_router.sv sim/unit/core/tb_voice_router.sv
+run tb_post_chain rtl/core/envelope_mul.sv rtl/core/dry_wet_mix.sv rtl/core/final_adder.sv rtl/core/body_filter.sv sim/unit/core/tb_post_chain.sv
+run tb_reverb_filter rtl/core/reverb_filter.sv sim/unit/core/tb_reverb_filter.sv

@@ -343,3 +343,7 @@ DSP             21 / 298
 ```
 
 关键路径：`router class_r -> A lane RAM f8 write port`。
+
+## 14. 后级模块（2026-10-22）
+
+已加入并单测：`envelope_mul`、`body_filter`（归档恢复）、`reverb_filter`、`dry_wet_mix`、`final_adder`。`tb_post_chain` 和 `tb_reverb_filter` PASS。
