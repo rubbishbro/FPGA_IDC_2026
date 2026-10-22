@@ -33,7 +33,7 @@ eng1_lane_core.sv
 eng2_engine_top_ext.sv
 shared_modal_ram.sv
 voice_router.sv
-router_loader（统一顶层） + a/bc/e2 backend
+router_loader（统一顶层，直接 class_loader/class_loader64）
 class_loader / class_loader64
 modal_record_pkg.sv
 ```

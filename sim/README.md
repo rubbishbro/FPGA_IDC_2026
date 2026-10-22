@@ -11,12 +11,9 @@
 IVERILOG=/path/to/iverilog VVP=/path/to/vvp bash sim/run_core.sh
 ```
 
-当前 18 项：
+当前 15 项：
 
 ```text
-tb_a_router_loader
-tb_bc_router_loader
-tb_e2_router_loader
 tb_shared_modal_ram
 tb_engine_mux
 tb_shared_engines_top

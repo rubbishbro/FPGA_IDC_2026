@@ -385,3 +385,23 @@ config/fmap → instrument_id → engine_sel / coeff_base / ram_base / load 命�
 ## 22. 统一 router_loader 顶层（2026-10-22）
 
 `router_system_top` 现在只例化一个 `router_loader`，内部仍是 A/BC/E2 三个后端；18 项回归 PASS。
+
+## 23. 删除旧 a/bc/e2 loader 包装（2026-10-22）
+
+`router_loader` 直接例化 `class_loader` / `class_loader64`，旧 a/bc/e2 loader 已归档到 `history/rtl/core/legacy_loader/`；回归 15 项。
+
+## 24. Inlined loader P&R（2026-10-22 17:41）
+
+旧 a/bc/e2 loader 归档，router_loader 直接例化 class_loader/64：
+
+```text
+Fmax        100.250 MHz
+Setup 违例   0
+Hold 违例    0
+Slack        +0.025 ns
+Logic        5,889
+Register     3,213
+BSRAM           71 / 340
+```
+
+关键路径 `router active_r -> A lane RAM f4`。

@@ -1,6 +1,9 @@
 // -----------------------------------------------------------------------------
-// router_loader.sv -- 统一 loader 顶层（当前内部仍是 A/BC/E2 三个后端）
-// 目标：router_system_top 只看到一个 loader；后续把后端换成 flash 接口。
+// router_loader.sv -- 统一 loader 顶层（直接使用 class_loader / class_loader64）
+//
+// A: class_loader（20-bit index）
+// B/C: class_loader64（64-bit index/control/seed）
+// E2: class_loader64 + 224-bit coefficient ROM
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 module router_loader #(
@@ -59,43 +62,103 @@ module router_loader #(
     output logic e2_ready, e2_done, e2_err, output logic [VW-1:0] e2_done_voice,
     output logic [MW_E2-1:0] e2_n, output logic [15:0] e2_theta, output logic [2:0] e2_ecode
 );
-    a_router_loader #(.NUM_SLOTS(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(A_COEFF_DEPTH),
-      .INDEX_DEPTH(A_INDEX_DEPTH),.COEFF_FILE(A_COEFF_FILE),.INDEX_FILE(A_INDEX_FILE),.REC_W(REC_W)) u_a (
+    // ---------------- A ----------------
+    logic a_cfg_valid, a_clear_valid, a_busy;
+    logic [VW-1:0] a_cv, a_clv, a_dv;
+    logic [MW_ABC-1:0] a_cm, a_nm;
+    logic [71:0] a_word; logic [1:0] a_ec2;
+    class_loader #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(A_COEFF_DEPTH),
+      .INDEX_DEPTH(A_INDEX_DEPTH),.COEFF_FILE(A_COEFF_FILE),.INDEX_FILE(A_INDEX_FILE),.USE_BUF(1'b0)) u_a (
       .clk(clk),.rst_n(rst_n),.load_valid(load_valid && load_class==2'd0),.load_ready(a_ready),
-      .load_voice(load_voice),.load_instrument(load_inst),.load_midi(load_note),.load_dyn(load_dyn),
-      .load_vel(8'd255),.cfg_we(a_cfg_we),.cfg_voice(a_cfg_voice),.cfg_mode(a_cfg_mode),.cfg_data(a_cfg_data),
-      .clr_we(a_clr_we),.clr_voice(a_clr_voice),.load_done(a_done),.done_voice(a_done_voice),
-      .loaded_n_modes(a_n),.error_valid(a_err),.error_code(a_ecode));
+      .ev_class(2'd0),.ev_layer({1'b0,load_dyn}),.ev_instrument({2'b0,load_inst}),.ev_note(load_note),
+      .ev_velocity(load_vel),.ev_note_id(12'd0),.ev_gate(1'b1),.ev_event_type(2'd0),.load_voice(load_voice),
+      .busy(a_busy),.load_done(a_done),.done_voice(a_dv),.loaded_n_modes(a_nm),.theta_base(),
+      .error_valid(a_err),.error_code(a_ec2),.clear_valid(a_clear_valid),.clear_ready(1'b1),
+      .clear_voice(a_clv),.cfg_valid(a_cfg_valid),.cfg_ready(1'b1),.cfg_voice(a_cv),.cfg_mode(a_cm),
+      .cfg_word(a_word),.buf_rd_en(),.buf_rd_addr(),.buf_rd_data(72'd0),
+      .seed_valid(),.seed_ready(1'b1),.seed_voice(),.seed_mode(),.seed_word(),
+      .commit_valid(),.commit_class(),.commit_layer(),.commit_instrument(),.commit_note(),
+      .commit_velocity(),.commit_note_id(),.commit_n_modes());
+    always_comb begin
+        a_cfg_data='0;
+        a_cfg_data[0*32 +: 32]={{6{a_word[71]}},a_word[71:46]};
+        a_cfg_data[1*32 +: 32]={{10{a_word[21]}},a_word[21:0]};
+        a_cfg_data[2*32 +: 32]={8'b0,a_word[45:22]};
+    end
+    assign a_cfg_we=a_cfg_valid; assign a_cfg_voice=a_cv; assign a_cfg_mode=a_cm;
+    assign a_clr_we=a_clear_valid; assign a_clr_voice=a_clv;
+    assign a_done_voice=a_dv; assign a_n=a_nm; assign a_ecode={1'b0,a_ec2};
 
-    bc_router_loader #(.NUM_SLOTS(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(BC_COEFF_DEPTH),
+    // ---------------- B/C ----------------
+    logic bc_cfg_valid, bc_clear_valid;
+    logic [VW-1:0] bc_cv, bc_clv, bc_dv;
+    logic [MW_ABC-1:0] bc_cm, bc_nm;
+    logic [71:0] bc_word;
+    class_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_ABC),.COEFF_DEPTH(BC_COEFF_DEPTH),
       .INDEX_DEPTH(BC_INDEX_DEPTH),.CTRL_DEPTH(BC_CTRL_DEPTH),.SEED_DEPTH(BC_SEED_DEPTH),
-      .COEFF_FILE(BC_COEFF_FILE),.INDEX_FILE(BC_INDEX_FILE),.CTRL_FILE(BC_CTRL_FILE),.SEED_FILE(BC_SEED_FILE),.REC_W(REC_W)) u_bc (
+      .COEFF_FILE(BC_COEFF_FILE),.INDEX_FILE(BC_INDEX_FILE),.CTRL_FILE(BC_CTRL_FILE),
+      .SEED_FILE(BC_SEED_FILE),.USE_BUF(1'b0),.MW(MW_ABC)) u_bc (
       .clk(clk),.rst_n(rst_n),.load_valid(load_valid && (load_class==2'd1||load_class==2'd2)),.load_ready(bc_ready),
       .ev_class(load_class),.ev_layer({1'b0,load_dyn}),.ev_instrument({2'b0,load_inst}),.ev_note(load_note),
       .ev_velocity(load_vel),.ev_note_id(load_note_id),.ev_gate(1'b1),.ev_event_type(2'd0),.load_voice(load_voice),
-      .cfg_we(bc_cfg_we),.cfg_voice(bc_cfg_voice),.cfg_mode(bc_cfg_mode),.cfg_data(bc_cfg_data),
-      .clr_we(bc_clr_we),.clr_voice(bc_clr_voice),.seed_valid(bc_seed_valid),.seed_voice(bc_seed_voice),
-      .seed_mode(bc_seed_mode),.seed_word(bc_seed_word),.commit_valid(),.commit_class(bc_class),
-      .commit_instrument(),.commit_note(),.commit_velocity(),.commit_n_modes(),.commit_ctrl(bc_ctrl),
-      .theta_base(bc_theta),.load_done(bc_done),.done_voice(bc_done_voice),.loaded_n_modes(bc_n),
-      .error_valid(bc_err),.error_code(bc_ecode));
+      .busy(),.load_done(bc_done),.done_voice(bc_dv),.loaded_n_modes(bc_nm),.theta_base(bc_theta),
+      .error_valid(bc_err),.error_code(bc_ecode),.clear_valid(bc_clear_valid),.clear_ready(1'b1),
+      .clear_voice(bc_clv),.cfg_valid(bc_cfg_valid),.cfg_ready(1'b1),.cfg_voice(bc_cv),.cfg_mode(bc_cm),
+      .cfg_word(bc_word),.buf_rd_en(),.buf_rd_addr(),.buf_rd_data(72'd0),
+      .seed_valid(bc_seed_valid),.seed_ready(1'b1),.seed_voice(bc_seed_voice),.seed_mode(bc_seed_mode),
+      .seed_word(bc_seed_word),.commit_valid(),.commit_class(bc_class),.commit_layer(),
+      .commit_instrument(),.commit_note(),.commit_velocity(),.commit_note_id(),.commit_n_modes(),
+      .commit_ctrl(bc_ctrl));
+    always_comb begin
+        bc_cfg_data='0;
+        bc_cfg_data[0*32 +: 32]={{6{bc_word[71]}},bc_word[71:46]};
+        bc_cfg_data[1*32 +: 32]={{10{bc_word[21]}},bc_word[21:0]};
+        bc_cfg_data[2*32 +: 32]={8'b0,bc_word[45:22]};
+    end
+    assign bc_cfg_we=bc_cfg_valid; assign bc_cfg_voice=bc_cv; assign bc_cfg_mode=bc_cm;
+    assign bc_clr_we=bc_clear_valid; assign bc_clr_voice=bc_clv;
+    assign bc_done_voice=bc_dv; assign bc_n=bc_nm;
 
-    e2_router_loader #(.NUM_SLOTS(NUM_SLOTS),.N_MODES(N_MODES_E2),.REC_W(REC_W),
-      .COEFF_DEPTH(E2_COEFF_DEPTH),.INDEX_DEPTH(E2_INDEX_DEPTH),.CTRL_DEPTH(E2_CTRL_DEPTH),
-      .SEED_DEPTH(E2_SEED_DEPTH),.COEFF_FILE(E2_COEFF_FILE),.INDEX_FILE(E2_INDEX_FILE),
-      .CTRL_FILE(E2_CTRL_FILE),.SEED_FILE(E2_SEED_FILE),.L72_FILE(E2_L72_FILE)) u_e2 (
+    // ---------------- E2 ----------------
+    logic e2_cfg_valid, e2_clear_valid;
+    logic [VW-1:0] e2_cv, e2_clv, e2_dv;
+    logic [MW_E2-1:0] e2_cm, e2_nm;
+    logic [71:0] e2_word;
+    logic [223:0] e2_rom [0:E2_COEFF_DEPTH-1];
+    logic [15:0] e2_addr;
+    initial if (E2_COEFF_FILE != "") $readmemh(E2_COEFF_FILE, e2_rom);
+    assign e2_addr = e2_theta + e2_cm;
+    class_loader64 #(.NUM_VOICES(NUM_SLOTS),.N_MODES(N_MODES_E2),.COEFF_DEPTH(E2_COEFF_DEPTH),
+      .INDEX_DEPTH(E2_INDEX_DEPTH),.CTRL_DEPTH(E2_CTRL_DEPTH),.SEED_DEPTH(E2_SEED_DEPTH),
+      .COEFF_FILE(E2_L72_FILE),.INDEX_FILE(E2_INDEX_FILE),.CTRL_FILE(E2_CTRL_FILE),
+      .SEED_FILE(E2_SEED_FILE),.USE_BUF(1'b0),.MW(MW_E2)) u_e2 (
       .clk(clk),.rst_n(rst_n),.load_valid(load_valid && load_class==2'd3),.load_ready(e2_ready),
       .ev_class(load_class),.ev_layer({1'b0,load_dyn}),.ev_instrument({2'b0,load_inst}),.ev_note(load_note),
-      .ev_velocity(load_vel),.ev_note_id(load_note_id),.load_voice(load_voice),
-      .cfg_we(e2_cfg_we),.cfg_voice(e2_cfg_voice),.cfg_mode(e2_cfg_mode),.cfg_data(e2_cfg_data),
-      .clr_we(e2_clr_we),.clr_voice(e2_clr_voice),.clr_mode(),
-      .seed_valid(e2_seed_valid),.seed_voice(e2_seed_voice),.seed_mode(e2_seed_mode),.seed_word(e2_seed_word),
-      .load_done(e2_done),.done_voice(e2_done_voice),.loaded_n_modes(e2_n),.theta_base(e2_theta),
-      .error_valid(e2_err),.error_code(e2_ecode));
+      .ev_velocity(load_vel),.ev_note_id(load_note_id),.ev_gate(1'b1),.ev_event_type(2'd0),.load_voice(load_voice),
+      .busy(),.load_done(e2_done),.done_voice(e2_dv),.loaded_n_modes(e2_nm),.theta_base(e2_theta),
+      .error_valid(e2_err),.error_code(e2_ecode),.clear_valid(e2_clear_valid),.clear_ready(1'b1),
+      .clear_voice(e2_clv),.cfg_valid(e2_cfg_valid),.cfg_ready(1'b1),.cfg_voice(e2_cv),.cfg_mode(e2_cm),
+      .cfg_word(e2_word),.buf_rd_en(),.buf_rd_addr(),.buf_rd_data(72'd0),
+      .seed_valid(e2_seed_valid),.seed_ready(1'b1),.seed_voice(e2_seed_voice),.seed_mode(e2_seed_mode),
+      .seed_word(e2_seed_word),.commit_valid(),.commit_class(),.commit_layer(),.commit_instrument(),
+      .commit_note(),.commit_velocity(),.commit_note_id(),.commit_n_modes(),.commit_ctrl());
+    always_comb begin
+        e2_cfg_data='0;
+        e2_cfg_data[0*32 +: 32]=e2_rom[e2_addr][0*32 +: 32];
+        e2_cfg_data[1*32 +: 32]=e2_rom[e2_addr][1*32 +: 32];
+        e2_cfg_data[2*32 +: 32]=e2_rom[e2_addr][2*32 +: 32];
+        e2_cfg_data[3*32 +: 32]=e2_rom[e2_addr][3*32 +: 32];
+        e2_cfg_data[4*32 +: 32]=e2_rom[e2_addr][4*32 +: 32];
+        e2_cfg_data[5*32 +: 32]=e2_rom[e2_addr][5*32 +: 32];
+        e2_cfg_data[6*32 +: 32]=e2_rom[e2_addr][6*32 +: 32];
+    end
+    assign e2_cfg_we=e2_cfg_valid; assign e2_cfg_voice=e2_cv; assign e2_cfg_mode=e2_cm;
+    assign e2_clr_we=e2_clear_valid; assign e2_clr_voice=e2_clv;
+    assign e2_done_voice=e2_dv; assign e2_n=e2_nm;
 
     always_comb begin
-        if (load_class == 2'd0) load_ready = a_ready;
-        else if (load_class == 2'd3) load_ready = e2_ready;
-        else load_ready = bc_ready;
+        if (load_class==2'd0) load_ready=a_ready;
+        else if (load_class==2'd3) load_ready=e2_ready;
+        else load_ready=bc_ready;
     end
 endmodule
