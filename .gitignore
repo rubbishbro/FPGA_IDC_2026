@@ -51,3 +51,18 @@ vivado_pid*.str
 
 # 本地脚本/临时产物（可复用 RTL、TB、约束、黄金向量都在上一级，已跟踪）
 rtl/simsynth/local/
+
+# FFT_spectrumshow 的 Gowin/ModelSim 生成物（可重新生成，不入库）
+FFT_spectrumshow/impl/
+FFT_spectrumshow/archive/debug_board/impl/
+FFT_spectrumshow/*.gprj.user
+FFT_spectrumshow/archive/debug_board/*.gprj.user
+FFT_spectrumshow/archive/logs/
+FFT_spectrumshow/sim/work/
+FFT_spectrumshow/sim/transcript
+FFT_spectrumshow/sim/archive/legacy/transcript
+FFT_spectrumshow/sim/**/*.wlf
+FFT_spectrumshow/sim/**/*.log
+FFT_spectrumshow/sim/archive/legacy/diag/*.csv
+FFT_spectrumshow/sim/archive/legacy/diag/*.svg
+FFT_spectrumshow/sim/archive/legacy/diag/*.txt
