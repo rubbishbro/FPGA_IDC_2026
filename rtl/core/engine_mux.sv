@@ -158,7 +158,7 @@ module engine_mux #(
             mix_sum    <= 64'sd0;
             out_valid_r <= 1'b0;
         end else begin
-            out_valid_r <= !(a_start || e2_start) && (sel_e2 ? e2_valid : abc_valid);
+            out_valid_r <= sel_e2 ? e2_valid : abc_valid;
             if (a_start || e2_start) mix_sum <= 64'sd0;
             else if (abc_valid) mix_sum <= mix_sum + abc_mix;
             else if (e2_valid)  mix_sum <= mix_sum + e2_mix;
