@@ -1,6 +1,49 @@
 # Engine 内部结构分析（A/B/C 与 E2）
 
-> 状态：结构理解，不改 RTL。结论：A/B/C 与 E2 不强行统一，各自实例；共享同一层 9×32 字段和统一的 instrument_id 编址。
+> 当前实现复核：2026-10-22，基线 `cdc4e8a2`。本轮只更新文档，未改 RTL。
+> **先读 §0。** §1–8 是早期结构分析／目标稿，§9–33 是阶段记录；其中“RAM 只存状态”“四个独立 engine”“只保留一个 instrument”“统一 instrument_id”等不能直接当作当前实现。
+
+## 0. 当前实现与验证边界
+
+### 0.1 正式数据流
+
+```text
+router_system_top
+  ├─ router_loader → index_loader20(A) / index_loader64(B/C/E2)
+  │    .mem 初始化 ROM → cfg/clr/seed → shared_modal_ram
+  ├─ router_frontend → router_ctrl + excitation_convert
+  │    仅 fmap[7:0] → x；正式 top 注入 A/B/C/E2 slot0
+  └─ shared_engines_system_top → router_voice_alloc → shared_engines_top
+       ├─ engine_mux
+       │    ├─ pure_engine_abc → abc_engine → abc_lane_core ×4
+       │    ├─ e2_engine
+       │    └─ 唯一 shared_modal_ram（系数 + 状态）
+       └─ post_chain（POST_EN 默认 1）
+            envelope_mul → body_biquad → comb_reverb → dry_wet_mix → final_adder
+```
+
+### 0.2 当前能力，不沿用旧稿假设
+
+- **核与音色不同**：A/B/C 共用同一个递推核；每个 voice 的系数／状态各自存储，ABC 内不同音色没有“必须同时只能一种”的结构限制，但完整多音色演奏尚未验收。ABC 与 E2 互斥，存在 ABC active 时优先 ABC；没有自动切换／清音策略。
+- **RAM 存整条记录**：4 lane × 9×32 字段，默认 `LOCAL_RAM=20`、每 lane 深度 `16×20=320`。ABC 用 field0..2 存 G/a1/a2、field3/4 存状态；E2 用 field0..6 存系数、field7/8 存状态。不是实时从外部 flash 逐 mode 读取系数。
+- **装载／计算选择已分离**：`cfg_sel_e2` 决定装载目标和 `cfg_first`，`sel_e2` 决定计算读写和 `st_first`；E2 尚未 active 时也可先装载。单字段 `co_we` 与 aux 口在 mux 层仍关闭，不能直接用于上位机改参。
+- **控制前端尚未闭环**：`router_frontend` 的 load 请求和地址输出未连接正式 loader；`load_inst` 仍为 2 bit，`rcfg_instrument` 为 4 bit。`router_voice_alloc` 只记录外部指定 voice 的 active/class/gate，不自动找空槽／抢占；Note Off 直接清 active，没有逐 voice release 尾音管理。
+- **纯 ABC 不等于完整 B/C 乐器**：旧持续激励、a1 刷新、C timer 和 voice 包络前端已归档；顶层 B/C 的 x 除 slot0 压力覆盖外为 0。`b_ctrl/b_vel/b_ratio` 等旧接口还在，但不代表原功能仍被执行。`pure_engine_abc` 中 x_vel/env_gain 均固定 unity；`linear_modulation` 为独立占位模块，未接正式路径。
+- **后级已接，不等于可调效果器已完成**：body 是四段 biquad，固定 `BODY_INSTRUMENT=0`；reverb 是四梳状简化版、反馈常量，无 allpass／独立可调 predelay。系统把 env/gd/gw 固定为 `0x8000/0x4000/0x4000`。`envelope_mul` 只是增益乘法，不是 ADSR 发生器。
+- **dry/wet 是定点加权**：`round((dry*gd + wet*gw)/2^15)` 并饱和，不会除以 `gd+gw`。默认 0.5/0.5；开放参数需另定归一化和峰值策略。
+- **后级逐样本握手已修复**：一个 engine 结果只送一次后级，等待对应输出后完成；旧诊断的 32 激励／1024 零循环已移除。不能据此推断满 16 voice、48 模态已满足 2048 拍预算，仍需完整周期测试。
+
+### 0.3 本轮复核结果
+
+| 项目 | 证据与边界 |
+|---|---|
+| 核心回归 | 实际重跑 `sim/run_core.sh`，**21 项 PASS**；包含 signed、E2 装载、post 握手／数据顺序及系统冒烟，不能替代满复音／真实音色／板级测试 |
+| 已有 P&R | 保留的 `build/router_probe/router_probe/impl/pnr/router_probe.tr`：100.063 MHz，setup/hold 0/0，最差 setup +0.006 ns；PnR Logic 9,647、Register 6,047、BSRAM 113、DSP 56 |
+| P&R 范围 | 3-I/O `router_probe`、小型测试 ROM；本轮没有重新综合／布局布线，不宣称该报告已对当前源码快照完成时序签核；不是整板音频顶层 |
+| 可视化 | `FFT_spectrumshow/` 有 1024 点 FFT、128 柱和 64 帧瀑布核心；未接合成器，需 PCM 缩放和跨域 FIFO；本轮 `chain_tb` 在 `spectrum_map.v` 因 `xk_re_r/xk_im_r` 未声明而编译失败 |
+| 主机／板级 | UART/host_link、蓝牙 App、FFT 联机、传感器完整映射和新路径音频板级集成不在本次 PASS 结论内 |
+
+详见[测试说明](../sim/README.md)、[时序分析](TIMING_RAM_ANALYSIS.md)、[产品需求与竞品调研](产品需求与竞品调研.md)。后文原阶段记录保留，若与 §0 或当前 RTL 冲突，以当前源码和本节证据范围为准。
 
 ## 1. A/B/C 的递推
 

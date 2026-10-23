@@ -3,6 +3,7 @@
 > 数据来源：`build/router_probe/router_probe/impl/pnr/router_probe.tr`、
 > `router_probe.rpt.txt`、`router_probe_syn_rsc.xml`。
 > 对象是 3-I/O 的 `router_probe`（测试 ROM，POST_EN=1），不是整板音频顶层。
+> 2026-10-22 文档复核：以下数字核对已有报告，未重跑 P&R，未验证报告与当前源码快照完全对应。当前实现与测试边界见 [ENGINE_INTERNAL §0](ENGINE_INTERNAL.md)。
 
 ## 1. 结论
 
@@ -10,7 +11,7 @@
 时序：100.063 MHz，setup/hold 都 0 违例
      但 setup slack 只有 +0.006 ns（约 0.06% 周期）
 RAM ：113 / 340 BSRAM（33.2%），剩 227 块
-逻辑：9,647 / 138,240（7.3%）
+逻辑：9,647 / 138,240（7.0%）
 寄存器：6,047 / 139,140（4.4%）
 DSP ：56 / 298（18.8%）
 ```
@@ -66,9 +67,9 @@ body               4 条
 结论：
 
 ```text
-第一瓶颈：A/B/C lane 的 st_2/st_3 路径
-第二瓶颈：E2 state → shared RAM
-第三瓶颈：reverb / body 的反馈路径
+当前最差：router class_r → shared RAM f3 地址端
+紧邻路径：reverb RAM → sum4、body 状态使能
+其他需关注：ABC lane、E2 / loader
 ```
 
 ### 2.3 加时钟不确定性后的估算
@@ -91,8 +92,8 @@ set_input_delay / set_output_delay
 | 额外 uncertainty | 估算 setup slack | 结果 |
 |---:|---:|---|
 | 0.0 ns | +0.006 ns | 当前报告 |
-| 0.2 ns | ≈ -0.183 ns | 100 MHz 不通过 |
-| 0.3 ns | ≈ -0.283 ns | 100 MHz 不通过 |
+| 0.2 ns | ≈ -0.194 ns | 按当前路径估算不通过，需重跑确认 |
+| 0.3 ns | ≈ -0.294 ns | 按当前路径估算不通过，需重跑确认 |
 
 因此：
 
@@ -167,9 +168,9 @@ reverb：
 按 75 个 18K BSRAM 块计算，块容量约 1.38 Mbit；  
 设计本体 bit 填充率约 **50%**，存在宽度/深度碎片，但块数仍有很大余量。
 
-### 3.4 如果保留四个 engine 状态区
+### 3.4 假设扩成四份 RAM region 的容量估算
 
-当前 shared RAM 用 36 块。若四个 region 都保留：
+当前 ABC 共用一个核，与 E2 二选一；RAM 按 voice 保存系数和状态，并非只保留一个 instrument。以下是额外增加四份等大物理 region 的容量假设，不是实现多音色必须采取的结构。按当前 shared RAM 36 块估：
 
 ```text
 36 × 4 = 144 块
@@ -178,12 +179,12 @@ reverb：
 ```
 
 仍然放得下，但会明显压缩后续扩展空间。  
-如果只保留“当前 engine 独占状态区”，则维持 113 块。
+不增加 region 时，已有探针仍为 113 块。ABC 内不同 voice 的不同音色可使用现有槽位，不需要先复制四份 RAM。
 
 ## 4. 其他资源
 
 ```text
-Logic      9,647 / 138,240 = 7.3%
+Logic      9,647 / 138,240 = 7.0%
 Register    6,047 / 139,140 = 4.4%
 CLS         7,054 / 69,120  = 10.2%
 DSP            56 / 298     = 18.8%
@@ -211,4 +212,4 @@ DSP 块数 56 不等于上面实例数简单相加，27×36 乘法会占用多�
 5. RAM 方面暂不需要优化；227 块余量足够
 ```
 
-RAM 不是瓶颈；当前真正限制目标是 **A/B/C lane 和 reverb 的 setup 路径**。
+RAM 容量不是已有探针的主要瓶颈；最差路径为 **router→shared RAM 地址端**，reverb／body 等路径也接近临界。修改当前设计后仍需重新分析，不能把上述探针结果当作整机签核。

@@ -3,6 +3,8 @@
 当前目录只保留核心逻辑，不再包含 demo 音频 ROM 和板级调试 top。
 板级 top、Gowin 工程、约束、bitstream 已归档到 `archive/debug_board/`。
 
+> 2026-10-22 实现复核（`cdc4e8a2`）：核心尚未接入主合成器。本轮按下列链级源文件用 Icarus 编译 `chain_tb`，因 `src/spectrum/spectrum_map.v` 引用未声明的 `xk_re_r`、`xk_im_r` 而失败，未进入仿真。下方 CHAIN PASS 是原有历史记录，不是当前提交的可复现验收结论；本轮仅更新文档，未修 RTL。
+
 ## 核心接口
 
 ```text
@@ -97,7 +99,7 @@ vlog -sv ..\src\fft\fft1024_iter.sv `
 vsim -c -do "run -all; quit" chain_tb
 ```
 
-当前链级结果：
+历史链级结果（当前源码编译阻塞，需修复后重跑）：
 
 ```text
 === CHAIN TEST PASSED ===
@@ -108,6 +110,7 @@ max bar height = 280
 
 ## 已知问题
 
+- 当前链级编译阻塞：`spectrum_map.v` 输入寄存器 `xk_re_r`、`xk_im_r` 未声明。
 - `spectrum_map` 的 ACCUM 流水线 bin/bar 延迟不一致，
   会把 bin n 写到 bar n-1，并和 bar n-3 的旧值比较；
   表现为频谱左移、空洞和斜边。

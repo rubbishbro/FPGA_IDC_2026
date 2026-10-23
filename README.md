@@ -16,7 +16,7 @@ Three instrument classes:
 
 ## 工程汇报
 
-**当前进度、合成资源、验证结果和实板待办，只读[工程汇报](docs/工程汇报.md)。**各轮重复汇报已移入历史归档，不再作为并列阅读入口。
+**当前实现与验证边界先读 [ENGINE_INTERNAL §0](docs/ENGINE_INTERNAL.md)，专题入口见[文档索引](docs/README.md)。**旧[工程汇报](history/docs/工程汇报.md)已归档，其中的板级结果不自动代表当前重构路径。
 
 以下章节是项目结构与Python工具用法，不另行维护板级验收状态。
 
