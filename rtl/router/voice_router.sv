@@ -430,9 +430,14 @@ module voice_router #(
     // st_zero：note-on 首帧 或 该声部包络已归零（< ENV_ZERO_TH）时清零状态
     localparam logic [31:0] ENV_ZERO_TH = 32'd1;
 
+    // 比较结果打一拍：原来 emap -> 比较 -> eng_zero 是一条长组合链
+    // （包络每采样才更新一次，晚一拍对 st_zero 没有影响）
     logic [SLOTS-1:0] voice_dead;
-    always_comb for (int i = 0; i < SLOTS; i++)
-        voice_dead[i] = (32'(emap[i]) < ENV_ZERO_TH);
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) voice_dead <= '0;
+        else for (int i = 0; i < SLOTS; i++)
+            voice_dead[i] <= (32'(emap[i]) < ENV_ZERO_TH);
+    end
 
     assign eng_zero = note_on[voi[VWID-1:0]] | voice_dead[voi[VWID-1:0]];
 
