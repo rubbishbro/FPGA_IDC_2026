@@ -31,8 +31,15 @@ module tb_eng1;
         e1_cd = '0;
         e1_cd.a11 = G_m;   e1_cd.a12 = a1_m;   e1_cd.a21 = a2_m;
     end
-    assign e1_q  = y1_m;
-    assign e1_qd = y2_m;
+    // eng1 的状态模型：写回就存，读就从同一个模态取
+    logic signed [31:0] q_mem [0:N-1];
+    logic signed [31:0] v_mem [0:N-1];
+    assign e1_q  = q_mem[e1_st_addr];
+    assign e1_qd = v_mem[e1_st_addr];
+    always @(posedge clk) if (e1_st_we) begin
+        q_mem[e1_st_wa] <= e1_qw;
+        v_mem[e1_st_wa] <= e1_qdw;
+    end
 
     eng1 #(.N_MODES(N), .X_DEPTH(4)) u_eng1 (
         .clk(clk), .rst_n(rst_n), .start(start), .st_zero(1'b1), .n_modes(n_modes),
@@ -73,7 +80,7 @@ module tb_eng1;
     logic signed [31:0] y1_i, y2_i;
 
     integer i;
-    real    c_g, c_a1, c_a2, c_y1, c_y2, xr;
+    longint c_g, c_a1, c_a2, c_y1, c_y2, xr;
     longint acc, yexp, y1n, y2n;
 
     // 我们的 eng1 用同一个初值（它只读一个模态一条记录）
@@ -90,8 +97,8 @@ module tb_eng1;
     // 参考核的状态写回更新 mem
     always @(posedge clk) begin
         if (r_st_we) begin
-            mem[r_st_addr[7:0] % N][31:0]   <= r_st_data[31:0];    // y1
-            mem[r_st_addr[7:0] % N][63:32]  <= r_st_data[63:32];   // y2
+            mem[r_st_addr[7:0] % N][127:96]  <= r_st_data[31:0];    // y1
+            mem[r_st_addr[7:0] % N][159:128] <= r_st_data[63:32];   // y2
         end
     end
 
@@ -116,21 +123,23 @@ module tb_eng1;
 
         for (int c = 0; c < NCASE; c++) begin
             // 造系数：G 小、a1/a2 使极点接近单位圆
-            c_g  = ($urandom % 2000) + 100;          // 100..2100
-            c_a1 = ($urandom % 100000) - 50000;      // 小的正/负
-            c_a2 = $urandom % 50000;
+            // 真实量纲：G~Q2.24(0.1..0.9)、a1~Q2.20(-0.9..0.9)、a2~UQ0.24(0..0.9)
+            c_g  = (($urandom % 800) + 100) * 16777;          // 0.1..0.9 * 2^24
+            c_a1 = (($urandom % 1800) - 900) * 582;           // -0.9..0.9 * 2^20
+            c_a2 = ($urandom % 900) * 18641;                  // 0..0.9 * 2^24
             xr   = 0;
             for (i = 0; i < N; i++) begin
                 mem[i] = '0;
-                mem[i][31:0]   = 0;                  // y1 = 0
-                mem[i][63:32]  = 0;                  // y2 = 0
-                mem[i][95:64]  = G_m_rt(c_g);        // G
-                mem[i][127:96] = a1_rt(c_a1);        // a1
-                mem[i][159:128] = a2_rt(c_a2);       // a2
+                mem[i][31:0]   = G_m_rt(c_g);        // 字段 0 = G
+                mem[i][63:32]  = a1_rt(c_a1);        // 字段 1 = a1
+                mem[i][95:64]  = a2_rt(c_a2);        // 字段 2 = a2
+                mem[i][127:96] = 0;                  // 字段 3 = y1
+                mem[i][159:128]= 0;                  // 字段 4 = y2
             end
             G_m  = G_m_rt(c_g);  a1_m = a1_rt(c_a1); a2_m = a2_rt(c_a2);
             y1_m = 0; y2_m = 0;
-            x_in = 32'($urandom % 100000) - 50000;
+            for (i = 0; i < N; i++) begin q_mem[i] = 0; v_mem[i] = 0; end
+            x_in = 32'(((($urandom % 800) + 100) * 1342177) * (($urandom % 2) ? 1 : -1));  // 0.1..0.9 * 2^30
 
             @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
             wait (e1_yv);
@@ -153,7 +162,7 @@ module tb_eng1;
     end
 
     // 把整数塞进 32 位字段
-    function automatic logic [31:0] G_m_rt(input real v);  G_m_rt  = 32'(longint'(v)); endfunction
-    function automatic logic [31:0] a1_rt(input real v);   a1_rt   = 32'(longint'(v)); endfunction
-    function automatic logic [31:0] a2_rt(input real v);   a2_rt   = 32'(longint'(v)); endfunction
+    function automatic logic [31:0] G_m_rt(input longint v);  G_m_rt  = 32'(v); endfunction
+    function automatic logic [31:0] a1_rt(input longint v);   a1_rt   = 32'(v); endfunction
+    function automatic logic [31:0] a2_rt(input longint v);   a2_rt   = 32'(v); endfunction
 endmodule
