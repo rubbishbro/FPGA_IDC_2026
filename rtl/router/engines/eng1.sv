@@ -79,7 +79,7 @@ module eng1 #(
 
     wire signed [63:0] mul_g  = mul64(x_ext,  {{38{co_data.a11[25]}}, co_data.a11[25:0]});
     wire signed [63:0] mul_a1 = mul64(y1_ext, {{38{co_data.a12[21]}}, co_data.a12[21:0], 4'b0});
-    wire signed [63:0] mul_a2 = mul64(y2_ext, {6'b0, co_data.a21[23:0], 4'b0});
+    wire signed [63:0] mul_a2 = mul64(y2_ext, {40'b0, co_data.a21[23:0]});   // UQ0.24，不再左移
 
     // ---- 舍入 + 饱和（S_RND 的下一拍用它）----
     wire signed [63:0] acc_w = acc_q;

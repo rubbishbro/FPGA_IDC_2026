@@ -134,6 +134,7 @@ module tb_eng1;
 
             @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
             wait (e1_yv);
+            wait (r_done);
             @(posedge clk);
 
             // 参考：用同一组系数按契约逐模态算
@@ -143,10 +144,10 @@ module tb_eng1;
                 acc  = acc + yexp;
                 y2n  = y1n;  y1n = yexp;
             end
-            if (acc === 64'(e1_yd))
-                $display("case %0d: OK  y=%0d", c, e1_yd);
+            if (64'(e1_yd) === r_sum)
+                $display("case %0d: OK  eng1=%0d ref=%0d", c, e1_yd, r_sum);
             else
-                $display("case %0d: FAIL eng1=%0d exp=%0d", c, e1_yd, acc);
+                $display("case %0d: FAIL eng1=%0d ref=%0d exp=%0d", c, e1_yd, r_sum, acc);
         end
         $finish;
     end
