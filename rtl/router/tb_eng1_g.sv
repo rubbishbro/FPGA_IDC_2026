@@ -34,19 +34,18 @@ module tb_eng1_g;
         .y_valid(yv), .y_data(yd)
     );
 
-    // 读：地址在 S_RD 给出，下一拍（posedge 结束 S_RD）采数据
-    always @(posedge clk) if (st_re) begin
-        st_q_r  <= q_mem[st_addr];
-        st_qd_r <= v_mem[st_addr];
-    end
-    // 写：st_we 只在高电平这一拍有效，用 negedge 采样才不会漏
-    always @(negedge clk) if (st_we) begin
-        q_mem[st_wa] <= qw;
-        v_mem[st_wa] <= qdw;
+    // 直接按 eng1 的状态采样，避免 st_we/st_re 组合脉冲的边沿问题
+    always @(posedge clk) begin
+        if (dut.st === 3'd1) begin           // S_RD：地址有效
+            st_q_r  <= q_mem[dut.st_addr];
+            st_qd_r <= v_mem[dut.st_addr];
+        end
+        if (dut.st === 3'd5) begin           // S_WB：写状态
+            q_mem[dut.st_waddr]  <= dut.st_q_wdata;
+            v_mem[dut.st_waddr]  <= dut.st_qdot_wdata;
+        end
     end
 
-
-    // 探针：直接看 eng1 内部（不改 RTL）
     integer cyc = 0;
     always @(posedge clk) begin
         cyc = cyc + 1;
