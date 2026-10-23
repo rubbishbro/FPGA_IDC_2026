@@ -61,7 +61,7 @@ module eng1 #(
         mul64 = a * b;
     endfunction
 
-    typedef enum logic [2:0] { S_IDLE, S_RD, S_MUL, S_RND, S_WB, S_DONE } est_e;
+    typedef enum logic [2:0] { S_IDLE, S_RD, S_MUL, S_RND, S_SHR, S_WB, S_DONE } est_e;
     est_e st;
 
     logic [IW-1:0] mi, mi_q, nmod_lat;
@@ -146,16 +146,21 @@ module eng1 #(
                     st     <= S_RND;
                 end
 
-                // 先乘后移：这一拍只做加减 + 寄存器
+                // 加减（操作数都是上一拍的寄存器）
                 S_RND: begin
                     acc_q <= p_g - p_a1 - p_a2;
+                    st    <= S_SHR;
+                end
+
+                // 移位 + 饱和 + 累加（acc_q 已是寄存器，避免同拍读到 X）
+                S_SHR: begin
+                    y_new <= y_clp;
+                    y_acc <= y_acc + 64'(y_clp);
                     st    <= S_WB;
                 end
 
-                // 移位 + 饱和 + 写状态 + 累加
+                // 写状态（st_we 在这一拍）+ 下一个模态
                 S_WB: begin
-                    y_new <= y_clp;
-                    y_acc <= y_acc + 64'(y_clp);
                     if (mi_q + 1'b1 >= nmod_lat) st <= S_DONE;
                     else begin
                         mi <= mi_q + 1'b1;
