@@ -1,0 +1,15 @@
+# Gowin-generated implementation outputs and temporary work files
+/impl/
+/work/
+/sim/work/
+/sim/*.wlf
+/sim/transcript
+
+# Per-user Gowin project settings
+/*.gprj.user
+
+# Editor and operating-system files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

@@ -67,6 +67,8 @@ sim/
   song/beyond_chorus.{wav,json,png}        a real song excerpt
   roll_compare/roll_compare.json + rollcmp_*.png             roll experiment
   crosscheck/timbre_{guitar,piano}.png, timbre_check.json, filter_chain.png
+  vibrato_coeff/README.md + fig_*.png + coeff_sweep.csv   a1 vibrato-modulation
+        experiment (linear approximation vs Q2.20/Q2.24 fixed point)
 ```
 
 One folder per topic: each holds its own audio, figures and data. Cross-instrument

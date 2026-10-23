@@ -16,6 +16,7 @@ Layout under ``FFT_results/``::
         song/                     a real song excerpt
         roll_compare/             roll-vs-repeated-hit experiment
         crosscheck/               cross-instrument checks (timbre, filter chain)
+        vibrato_coeff/            vibrato a1-coefficient modulation experiment
 """
 
 from __future__ import annotations
@@ -38,9 +39,10 @@ SIM_DRUMS = os.path.join(SIM, "drums")
 SIM_ROLL = os.path.join(SIM, "roll_compare")
 SIM_SUSTAIN = os.path.join(SIM, "sustained")
 SIM_CROSSCHECK = os.path.join(SIM, "crosscheck")
+SIM_VIBRATO = os.path.join(SIM, "vibrato_coeff")
 
 ALL_DIRS = [PARAMS, FIG_EXTRACT, SIM, SIM_PITCHED, SIM_SONG,
-            SIM_DRUMS, SIM_ROLL, SIM_SUSTAIN, SIM_CROSSCHECK]
+            SIM_DRUMS, SIM_ROLL, SIM_SUSTAIN, SIM_CROSSCHECK, SIM_VIBRATO]
 
 
 def param(inst: str, kind: str, ext: str = "npz") -> str:
