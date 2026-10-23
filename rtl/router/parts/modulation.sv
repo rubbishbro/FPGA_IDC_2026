@@ -25,6 +25,8 @@ module modulation0 #(
     input  logic signed [31:0]        p_gam,
     input  logic signed [31:0]        p_theta0,
     input  logic signed [31:0]        p_g,
+    input  logic signed [31:0]        p_k12,        // a12 的归一化系数 sq/sv
+    input  logic signed [31:0]        p_k21,        // a21 的归一化系数 sv/sq
 
     output logic [3:0]                co_we,
     output logic [$clog2(N_MODES)-1:0] co_mode,
@@ -44,7 +46,8 @@ module modulation0 #(
 
     // ---- 中间量 ----
     logic signed [31:0] alpha_q, alpha1_q, inv_a_q, alpha2_q;
-    logic signed [31:0] c0_l, s0_l, gam_l, th_l, g_l;
+    logic signed [31:0] c0_l, s0_l, gam_l, th_l, g_l, k12_l, k21_l;
+    logic signed [31:0] a12_f, a21_f;
     logic signed [31:0] D_q, d_q, c_q, s_q, ea_q, a1_q, a12a_q, a12_q, t_q, pp_q, w0_q, w2_q, a21_q;
 
     typedef enum logic [3:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY } mst_e;
@@ -75,6 +78,8 @@ module modulation0 #(
             4'd11: begin mul_a = th_l;        mul_b = 32'(FS);   end   // omega0
             4'd12: begin mul_a = w0_q;        mul_b = w0_q;     end   // omega0^2
             4'd13: begin mul_a = pp_q;        mul_b = w2_q;     end   // a21
+            4'd14: begin mul_a = a12_q;       mul_b = k12_l;    end   // a12 归一化
+            4'd15: begin mul_a = a21_q;       mul_b = k21_l;    end   // a21 归一化
             default: ;
         endcase
     end
@@ -86,6 +91,7 @@ module modulation0 #(
             mul_a_q <= '0; mul_b_q <= '0; prod_q <= '0;
             alpha_q <= '0; alpha1_q <= '0; inv_a_q <= '0; alpha2_q <= '0;
             c0_l <= '0; s0_l <= '0; gam_l <= '0; th_l <= '0; g_l <= '0;
+            k12_l <= '0; k21_l <= '0; a12_f <= '0; a21_f <= '0;
             D_q <= '0; d_q <= '0; c_q <= '0; s_q <= '0; ea_q <= '0; a1_q <= '0;
             a12a_q <= '0; a12_q <= '0; t_q <= '0; pp_q <= '0; w0_q <= '0; w2_q <= '0; a21_q <= '0;
             co_we <= 4'b0000; co_mode <= '0; co_wdata <= '0;
@@ -115,6 +121,7 @@ module modulation0 #(
                 S_W: begin
                     c0_l <= p_c0;  s0_l <= p_s0;  gam_l <= p_gam;
                     th_l <= p_theta0; g_l <= p_g;
+                    k12_l <= p_k12;   k21_l <= p_k21;
                     alpha2_q <= 32'(ONE + 2*64'(alpha1_q) + ((64'(alpha1_q)*64'(alpha1_q)) >>> 30));
                     inv_a_q  <= 32'(ONE - 64'(alpha1_q) + ((64'(alpha1_q)*64'(alpha1_q)) >>> 30));
                     alpha_q  <= 32'(ONE + 64'(alpha1_q));
@@ -149,15 +156,16 @@ module modulation0 #(
                         4'd11: w0_q     <= 32'(prod_q >>> 14);          // omega0 * 2^16
                         4'd12: w2_q     <= 32'((prod_q >>> 32));        // omega0^2
                         4'd13: a21_q    <= 32'(-(prod_q >>> 7));
+                        4'd14: a12_f    <= 32'((prod_q >>> 30));
+                        4'd15: a21_f    <= 32'((prod_q >>> 30));
                         default: ;
                     endcase
 
-                    if (step >= 4'd13) begin
+                    if (step >= 4'd15) begin
                         co_mode      <= mode[$clog2(N_MODES)-1:0];
                         co_wdata.a11 <= 32'((ea_q + t_q) >>> 2);      // Q28
-                        co_wdata.a12 <= a12_q;                        // Q30
-                        // a21 直接用本拍乘法结果（a21_q 要到下一拍才更新）
-                        co_wdata.a21 <= 32'(-(prod_q >>> 7));           // Q23
+                        co_wdata.a12 <= a12_f;                        // Q30（已乘 sq/sv）
+                        co_wdata.a21 <= 32'(prod_q >>> 30);           // Q23（本拍刚乘完 sv/sq）
                         co_wdata.a22 <= 32'((ea_q - t_q) >>> 2);      // Q28
                         co_we <= ((th_l < TH_GATE) && (fmap_i != 8'd0)) ? 4'b1111 : 4'b0000;
                         if (mode + 1 >= nmod_lat) begin

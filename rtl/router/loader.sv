@@ -87,6 +87,8 @@ module weight_loader #(
                     ld_pm.gam    <= {lfsr[11:0], lfsr[31:12]};
                     ld_pm.theta0 <= {lfsr[15:0], lfsr[31:16]};
                     ld_pm.g      <= {lfsr[19:0], lfsr[31:20]};
+                    ld_pm.k12    <= 32'sd1 << 30;      // 占位：默认 1.0
+                    ld_pm.k21    <= 32'sd1 << 30;
                     if (wa + 1'b1 == 2*SLOTS*N_MODES) begin
                         qspi_cs_n <= 1'b1;
                         st        <= W_DONE;

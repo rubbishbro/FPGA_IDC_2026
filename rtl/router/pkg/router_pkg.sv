@@ -29,6 +29,8 @@ package router_pkg;
         logic signed [31:0] gam;      // gamma, Q16.16
         logic signed [31:0] theta0;   // theta0 = omega0*dt, Q1.30
         logic signed [31:0] g;        // dt/theta0, Q1.30
+        logic signed [31:0] k12;      // a12 的状态归一化系数 sq/sv, Q1.30
+        logic signed [31:0] k21;      // a21 的状态归一化系数 sv/sq, Q1.30
     } mod_par_t;
 
     // 参数表基地址 = 乐器号 × TABLE_SIZE（TABLE_SIZE 固定为钢琴表大小）

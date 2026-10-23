@@ -12,7 +12,7 @@ module tb_modulation;
 
     logic p_re;
     logic [$clog2(NM)-1:0] p_mode, co_mode;
-    logic signed [31:0] p_c0, p_s0, p_gam, p_theta0, p_g;
+    logic signed [31:0] p_c0, p_s0, p_gam, p_theta0, p_g, p_k12, p_k21;
     logic [3:0] co_we;
     modal_step_pkg::coeff_t co_wdata;
 
@@ -21,6 +21,7 @@ module tb_modulation;
         .busy(busy), .done(done),
         .p_re(p_re), .p_mode(p_mode),
         .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
+        .p_k12(p_k12), .p_k21(p_k21),
         .co_we(co_we), .co_mode(co_mode), .co_wdata(co_wdata)
     );
 
@@ -29,6 +30,7 @@ module tb_modulation;
     always_comb begin
         p_c0 = mc0[p_mode]; p_s0 = ms0[p_mode]; p_gam = mgam[p_mode];
         p_theta0 = mth[p_mode]; p_g = mg[p_mode];
+        p_k12 = 32'sd1 << 30;   p_k21 = 32'sd1 << 30;   // 归一化系数 = 1.0
     end
 
     // 写回捕获（按字段）

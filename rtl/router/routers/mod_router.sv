@@ -20,6 +20,8 @@ module mod_router #(
     input  logic signed [31:0]          p_gam,
     input  logic signed [31:0]          p_theta0,
     input  logic signed [31:0]          p_g,
+    input  logic signed [31:0]          p_k12,
+    input  logic signed [31:0]          p_k21,
 
     output logic [3:0]                  co_we,
     output logic [$clog2(N_MODES)-1:0]  co_mode,
@@ -45,6 +47,7 @@ module mod_router #(
         .busy(busy), .done(mod_done_i),
         .p_re(p_re), .p_mode(p_mode),
         .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
+        .p_k12(p_k12), .p_k21(p_k21),
         .co_we(co_we), .co_mode(co_mode), .co_wdata(co_wdata)
     );
 endmodule

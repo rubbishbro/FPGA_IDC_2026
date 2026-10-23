@@ -60,6 +60,14 @@ module voice_router #(
     import modal_step_pkg::*;
     import router_pkg::*;
 
+    // fmap 先寄存一拍再分发给三个部件：它扇出很大（激励/包络/note_on 比较），
+    // 直接从端口进组合逻辑会把路径拉长
+    pad_driver_pkg::mat4x4 fmap_q;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) fmap_q <= '0;
+        else        fmap_q <= fmap;
+    end
+
     localparam int IW     = $clog2(N_MODES);
     localparam int JW     = $clog2(X_DEPTH);
     localparam int VWID   = $clog2(SLOTS);
@@ -85,6 +93,8 @@ module voice_router #(
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*PM_MODES-1];
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*PM_MODES-1];
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*PM_MODES-1];
 
     (* syn_ramstyle = "block_ram" *) logic signed [XW-1:0] x_ram  [0:SLOTS*X_DEPTH-1];
     (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_out  [0:X_DEPTH-1];
@@ -132,8 +142,8 @@ module voice_router #(
     logic [VWID-1:0]  no_clr_v;
 
     always_comb for (int i = 0; i < SLOTS; i++)
-        note_gate[i] = gate_r[i] ? (fmap.flat_d[i].val >= NOTE_OFF_TH)
-                                 : (fmap.flat_d[i].val >  NOTE_ON_TH);
+        note_gate[i] = gate_r[i] ? (fmap_q.flat_d[i].val >= NOTE_OFF_TH)
+                                 : (fmap_q.flat_d[i].val >  NOTE_ON_TH);
 
     // note_on：门控上升沿置位，**粘住**到该声部首帧处理完才清
     // （否则换乐器/加载期间按下的音符会被吃掉）
@@ -151,13 +161,13 @@ module voice_router #(
     end
 
     exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
         .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
     env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
         .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
         .emap(emap), .emap_valid(emap_valid)
     );
@@ -168,6 +178,7 @@ module voice_router #(
     logic [3:0]              mod_co_we;
     coeff_t                  mod_co_wdata;
     logic signed [31:0]      mod_c0_r, mod_s0_r, mod_gam_r, mod_theta0_r, mod_g_r;
+    logic signed [31:0]      mod_k12_r, mod_k21_r;
     logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g;
 
     assign mod_c0     = mod_c0_r;
@@ -178,11 +189,12 @@ module voice_router #(
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_start),
-        .fmap_i(fmap.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
+        .fmap_i(fmap_q.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
         .inst(inst_lat), .busy(mod_busy), .done(mod_done),
         .p_re(mod_p_re), .p_mode(mod_p_mode),
         .p_c0(mod_c0), .p_s0(mod_s0), .p_gam(mod_gam),
         .p_theta0(mod_theta0), .p_g(mod_g),
+        .p_k12(mod_k12_r), .p_k21(mod_k21_r),
         .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata)
     );
 
@@ -318,6 +330,7 @@ module voice_router #(
         if (!rst_n) begin
             co_a11_r <= '0; co_a12_r <= '0; co_a21_r <= '0; co_a22_r <= '0;
             mod_c0_r <= '0; mod_s0_r <= '0; mod_gam_r <= '0; mod_theta0_r <= '0; mod_g_r <= '0;
+            mod_k12_r <= '0; mod_k21_r <= '0;
             co_gq_r  <= '0; co_gv_r  <= '0; co_wo_r  <= '0;
             st_q_r   <= '0; st_v_r   <= '0; x_r      <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
@@ -347,6 +360,8 @@ module voice_router #(
                 pm_gam[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.gam;
                 pm_th [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.theta0;
                 pm_g  [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.g;
+                pm_k12[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.k12;
+                pm_k21[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.k21;
             end
             // 参数表读出后**再打一拍**：否则 BSRAM 的 CLK->Q 会和调制器第一级乘法
             // 串在同一条路径上（实测 15.2 ns）。这一拍只做寄存，调制器多等一拍。
@@ -356,6 +371,8 @@ module voice_router #(
                 mod_gam_r    <= pm_gam[{mod_slot, mod_p_mode}];
                 mod_theta0_r <= pm_th [{mod_slot, mod_p_mode}];
                 mod_g_r      <= pm_g  [{mod_slot, mod_p_mode}];
+                mod_k12_r    <= pm_k12[{mod_slot, mod_p_mode}];
+                mod_k21_r    <= pm_k21[{mod_slot, mod_p_mode}];
             end
 
             if (eng_co_re) begin
