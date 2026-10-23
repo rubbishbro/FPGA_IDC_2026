@@ -34,15 +34,15 @@ module tb_eng1_g;
         .y_valid(yv), .y_data(yd)
     );
 
-    always @(posedge clk) begin
-        if (st_re) begin
-            st_q_r  <= q_mem[st_addr];
-            st_qd_r <= v_mem[st_addr];
-        end
-        if (st_we) begin
-            q_mem[st_wa] <= qw;
-            v_mem[st_wa] <= qdw;
-        end
+    // 读：地址在 S_RD 给出，下一拍（posedge 结束 S_RD）采数据
+    always @(posedge clk) if (st_re) begin
+        st_q_r  <= q_mem[st_addr];
+        st_qd_r <= v_mem[st_addr];
+    end
+    // 写：st_we 只在高电平这一拍有效，用 negedge 采样才不会漏
+    always @(negedge clk) if (st_we) begin
+        q_mem[st_wa] <= qw;
+        v_mem[st_wa] <= qdw;
     end
 
 
