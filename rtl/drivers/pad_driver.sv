@@ -153,9 +153,6 @@ logic           conv_start;
 logic           adc_rdy;
 logic           adc_req;
 logic  [13:0]   adc_val;
-//row_s reset by timer
-shift_timer #(.N(4)) row_scan (.cr({cr.clk, (chn_s == 2'b11) & cr.clk_en, cr.rst_n}), .val(row_s));
-
 Gowin_ADC adc_inst(
         .adcrdy(adc_rdy),
         .adcvalue(adc_val),
@@ -172,6 +169,11 @@ cart2polar #(.IN_L(14), .OUT_L(8)) c2p_inst (.cr({cr.clk, cr.clk_en, cr.rst_n}),
 assign ch_s = {(state == S_READ_JOYSTICK), chn_s[1:0]};
 
 logic [7:0] cnt;//internal clock divsion, eff clk T = 100us
+
+wire adc_step = cr.clk_en & (cnt == '1) & adc_rdy;
+
+//row_s reset by timer
+shift_timer #(.N(4)) row_scan (.cr({cr.clk, (chn_s == 2'b11) & adc_step, cr.rst_n}), .val(row_s));
 
 always_ff @(posedge cr.clk or negedge cr.rst_n) begin
     if(!cr.rst_n) begin
@@ -205,7 +207,7 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         case(state)
         S_READ_SENSEPAD: begin
             conv_start <= 1'b0;
-            fmap.flat_d[idx] <= adc_val[13:6];
+            fmap.flat_d[idx] <= adc_val[13] ? 8'd0 : adc_val[13:6];
             idx <= idx + 1'b1; //never out of bound
             chn_s <= chn_s + 1'b1; //never out of bound
             if(idx == '1) begin

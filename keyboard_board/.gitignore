@@ -1,0 +1,5 @@
+/board/impl/
+/board/*.gprj.user
+/sim/work/
+/sim/*.wlf
+/sim/transcript

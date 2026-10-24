@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AST-138B" pn="GW5AST-LV138FPG676AES">gw5ast138b-002</Device>
+    <FileList>
+        <File path="../../rtl/drivers/pkg/clk_rst_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/drivers/pkg/pad_driver_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/math/pkg/fxp_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/math/math.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/drivers/gowin_adc/gowin_adc.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/drivers/pad_driver.sv" type="file.verilog" enable="1"/>
+        <File path="../src/keyboard_board_top.sv" type="file.verilog" enable="1"/>
+        <File path="keyboard_board.cst" type="file.cst" enable="1"/>
+        <File path="timing.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>
