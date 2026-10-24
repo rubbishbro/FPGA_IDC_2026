@@ -16,14 +16,21 @@ add_file "$here/engines/eng1.sv"
 add_file "$here/parts/envelope.sv"
 add_file "$here/parts/excitation.sv"
 add_file "$here/parts/modulation.sv"
+# 注意：parts/comb_reverb.sv 和 routers/reverb_router.sv 已经写好并单独验证过
+#       （tb_reverb），但**还没接进 voice_router**，所以先不加进这条流程；
+#       接的时候把这两个文件一起加进来。
+add_file "$here/parts/body_biquad.sv"
+add_file "$here/parts/comb_reverb.sv"
 add_file "$here/routers/exc_router.sv"
+add_file "$here/routers/body_router.sv"
+add_file "$here/routers/reverb_router.sv"
 add_file "$here/routers/env_router.sv"
 add_file "$here/routers/mod_router.sv"
 add_file "$here/loader.sv"
 add_file "$here/voice_router.sv"
 add_file "$here/fmax_router.sv"
-add_file "D:/PythonProject/SythSound/rtl/simsynth/fmax.sdc"
-add_file "D:/PythonProject/SythSound/rtl/simsynth/fmax.cst"
+add_file "$here/voice_router.sdc"
+add_file "$here/voice_router.cst"
 puts "FILES_ADDED $top"
 run syn
 run pnr

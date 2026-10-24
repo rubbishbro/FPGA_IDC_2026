@@ -4,12 +4,23 @@
 //   职责：
 //     1. 持有全部存储（系数 / 状态 / 激励 / 结果）
 //     2. 按乐器号把存储口 mux 到两套互斥的引擎之一（modal_engine7 / eng_alt）
-//     3. 调度：采样 x 声部，每个（采样, 声部）一个作业；结果按采样求和输出
+//     3. 调度：采样 x 声部，每个（采样, 声部）一个作业
 //     4. 激励来自 force_pre（整张 fmap -> 整张 xmap），按槽位分配到 x_ram
 //     5. 换乐器 = 停机 -> weight_loader 重灌系数表 -> 再跑
 //
+//   后级（在本文件末尾，顺序固定）：
+//     6. 逐声部过自己的包络 -> 全部声部按采样加和 -> **统一过一遍腔体**
+//        （body_router，乐器号选系数）-> 混响（reverb_router）-> y_data 输出
+//     7. 混响（reverb_router）：预设由上层输入 reverb_preset 选，NONE 时是逐位直通
+//        （只是多 6 拍延迟），HALL/BATHROOM 才真的加湿声
+//
 //   注意：本文件是新的一版，不改动 modal_voice_top；两者可以并行存在。
 //   占位：force_pre / weight_loader / eng_alt 见 router_stubs.sv
+//
+//   加载是**阻塞**的（S_LOAD 等 ld_done）：这段时间 input_hold=1，fmap 冻结、
+//   note 事件不产生，也不出任何 y_valid —— 上层看到的就是"静音 + not ready"。
+//   这是有意的设计选择（最省逻辑，代价是换乐器头 1~2 ms 没声音），不是遗漏；
+//   要边放边载得改成双缓冲，以后再说。加载出错的处理仍然待定（loader 有 err 输出）。
 // -----------------------------------------------------------------------------
 
 `timescale 1ns/1ps
@@ -29,6 +40,7 @@ module voice_router #(
     // ---- 上游 ----
     input  pad_driver_pkg::mat4x4                    fmap,
     input  router_pkg::instrument_e                   inst,
+    input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器
     input  logic                                     start,
     input  logic [$clog2(SLOTS+1)-1:0]                n_voices,
@@ -61,11 +73,11 @@ module voice_router #(
     import router_pkg::*;
 
     // fmap 先寄存一拍再分发给三个部件：它扇出很大（激励/包络/note_on 比较），
-    // 直接从端口进组合逻辑会把路径拉长
+    // 直接从端口进组合逻辑会把路径拉长；加载系数期间冻结（忽略外部输入）
     pad_driver_pkg::mat4x4 fmap_q;
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) fmap_q <= '0;
-        else        fmap_q <= fmap;
+        if (!rst_n)           fmap_q <= '0;
+        else if (!input_hold) fmap_q <= fmap;
     end
 
     localparam int IW     = $clog2(N_MODES);
@@ -103,7 +115,6 @@ module voice_router #(
     router_pkg::instrument_e inst_lat;
     logic [VWID:0]           nv_lat;
     logic [IW:0]             nm_lat;
-    logic [SLOTS-1:0]        zero_lat;   // 仅用于 note_on 的旧路径（保留待删）
     coeff_t                  co_r;
 
     // =========================================================================
@@ -133,36 +144,47 @@ module voice_router #(
     logic signed [15:0][31:0] emap;      // 打包：emap[i] 是第 i 个声部的包络
     logic                     emap_valid;
 
-    // ---- 音符事件：由 fmap 双阈值在 router 里统一生成（带回滞）----
+    // ---- 音符事件：由 fmap 双阈值在 router 里统一生成 ----
+    //   note_on 就是**滞回判定后的门控电平**：这个键现在按着就是 1。
+    //     * 只看当前 fmap + 上一次的门控状态（gate_r 做滞回），不取沿、不粘住；
+    //     * 按下要 > NOTE_ON_TH，松开要掉到 < NOTE_OFF_TH 才算松；
+    //     * 谁要"起音事件"谁自己取沿：激励/包络内部各有一个 prev 寄存器，
+    //       router 自己需要的那份在下面取成 note_ev。
+    //   note_gate 与 note_on 是同一个电平（保留旧端口名，部件那边还在用）。
+    //   加载系数期间 fmap_q 冻结，这个电平也就跟着冻住——等于忽略外部输入，
+    //   装完之后按当前键态重新判：装的过程中按下的键照样能起音。
     localparam logic [7:0] NOTE_ON_TH  = 8'd2;
     localparam logic [7:0] NOTE_OFF_TH = 8'd1;
 
     logic [SLOTS-1:0] gate_r, note_gate, note_on;
-    logic             no_clr;
-    logic [VWID-1:0]  no_clr_v;
+    logic [SLOTS-1:0] note_on_q, note_ev;      // router 内部的起音沿
+    logic [SLOTS-1:0] note_pend, note_f;       // 攒到帧头的那份（给引擎/调制器）
+    logic             input_hold;              // 1 = 忽略外部输入（驱动见调度器上方）
 
-    always_comb for (int i = 0; i < SLOTS; i++)
-        note_gate[i] = gate_r[i] ? (fmap_q.flat_d[i].val >= NOTE_OFF_TH)
-                                 : (fmap_q.flat_d[i].val >  NOTE_ON_TH);
-
-    // note_on：门控上升沿置位，**粘住**到该声部首帧处理完才清
-    // （否则换乐器/加载期间按下的音符会被吃掉）
+    // 滞回判定直接决定 note_on。判完打一拍再出去：fmap_q 是 128 位、扇出很大，
+    // "16 个比较 -> note_on -> note_ev" 挤在一拍 PnR 实测 11.6 ns；下游（激励/
+    // 包络/腔体）本来就只在 smp_tick 看它，晚一拍完全无所谓。
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            gate_r  <= '0;
             note_on <= '0;
-        end else if (no_clr) begin
-            note_on[no_clr_v] <= 1'b0;
-            if (smp_tick) gate_r <= note_gate;
-        end else if (smp_tick) begin
-            note_on <= note_on | (note_gate & ~gate_r);
-            gate_r  <= note_gate;
+        end else begin
+            for (int i = 0; i < SLOTS; i++)
+                note_on[i] <= gate_r[i] ? (fmap_q.flat_d[i].val >= NOTE_OFF_TH)
+                                        : (fmap_q.flat_d[i].val >  NOTE_ON_TH);
         end
+    end
+
+    assign note_gate = note_on;                // 同一个电平，只是换了名字
+
+    // 滞回用的上一次门控状态
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n)        gate_r <= '0;
+        else if (smp_tick) gate_r <= note_on;
     end
 
     exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
-        .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
+        .note_on(note_on), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
@@ -411,52 +433,163 @@ module voice_router #(
     assign st_v_wd = sel_alt ? e1_vwd : e0_vwd;
 
     // =========================================================================
-    // 结果：每采样把各声部求和
+    // 结果：逐声部过自己的包络 -> 全声部混音
+    //   y_env = (eng_y * emap[voi]) >>> 31   包络 Q1.31
+    //   y_acc = Σ_voi y_env                  帧内跨声部求和
+    //   分三拍走（S_RUN_V 取操作数 / S_ENVMUL 乘 / S_ENVACC 累加）：
+    //     原来 emap 的 16:1 读 + 96 位乘法 + 64 位累加挤在一拍里，实测 PnR
+    //     25.6 ns（Fmax 50 MHz）。分开之后每拍只剩一级：
+    //     mux 单独一拍、乘法器两个输入都是寄存器、累加也自己一拍。
+    //   y_acc 是 64 位；16 个声部同时满量程理论上会回绕（实际信号远不到）。
     // =========================================================================
-    logic signed [AW-1:0] y_acc;
-    logic signed [AW-1:0] y_last;
-    logic signed [AW-1:0] y_now;
+    logic signed [AW-1:0] y_acc;       // Σ y_env（帧内跨声部混音）
+    logic signed [AW-1:0] y_lat;       // eng_y 打一拍：乘法器的输入必须是寄存器
+    logic signed [31:0]   e_lat;       // emap[voi] 打一拍：16:1 读单独占一拍
+    logic signed [AW-1:0] y_env;       // 本声部过包络后的输出
+    logic signed [95:0]   y_mul;
 
-    assign y_now = (voi == '0) ? eng_y : (y_acc + eng_y);
-
-    // 包络：y * emap（Q1.31）>>> 31 —— 引擎逐声部串行，所以只要一个乘法器
-    logic signed [95:0] y_mul;
-    logic signed [63:0] y_env;
-    assign y_mul = y_now * $signed(emap[voi[VWID-1:0]]);
-    assign y_env = y_mul[94:31];
+    assign y_mul = y_lat * e_lat;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            y_acc  <= '0;
-            y_last <= '0;
-        end else if (eng_yv) begin
-            y_acc  <= y_now;      // 帧内跨声部求和
-            y_last <= y_env;      // 本声部乘过包络后的结果（给 S_ADV 写输出用）
+            y_lat <= '0;
+            e_lat <= '0;
+            y_env <= '0;
+            y_acc <= '0;
+        end else begin
+            if (state == S_RUN_V && eng_yv) begin
+                y_lat <= eng_y;
+                e_lat <= $signed(emap[voi[VWID-1:0]]);
+            end
+            // 乘法结果先落一拍，下一拍才做 64 位累加（原来是 mul + add 同一拍）
+            if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
+            if (state == S_ENVACC)
+                y_acc <= (voi == '0) ? y_env : (y_acc + y_env);
+        end
+    end
+
+    // =========================================================================
+    // 后级：全声部混音 -> 腔体 -> 混响 -> y_data
+    //   mix_v / mix_q : 一笔待接走的混音；腔体 93 拍/样本，忙时 in_ready=0
+    //   mix_outstd    : 已经交出去、还没从腔体出来的样本数
+    //   rev_outstd    : 已经进混响、还没出来的样本数（混响是固定 6 拍流水）
+    //   两者都排空才能报 done，否则最后一帧的 y_data 会丢
+    // =========================================================================
+    logic                 mix_v;
+    logic signed [AW-1:0] mix_q;
+    logic                 body_in_ready, body_accept, body_out_valid;
+    logic signed [63:0]   body_y;
+    logic                 rev_out_valid;
+    logic signed [63:0]   rev_y;
+    logic [3:0]           mix_outstd, rev_outstd;
+
+    assign body_accept = mix_v && body_in_ready;
+    assign y_valid     = rev_out_valid;      // 混响之后才是"data"
+    assign y_data      = rev_y;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            mix_outstd <= '0;
+            rev_outstd <= '0;
+        end else begin
+            case ({body_accept, body_out_valid})
+                2'b10:   mix_outstd <= mix_outstd + 1'b1;
+                2'b01:   mix_outstd <= mix_outstd - 1'b1;
+                default: ;
+            endcase
+            case ({body_out_valid, rev_out_valid})
+                2'b10:   rev_outstd <= rev_outstd + 1'b1;
+                2'b01:   rev_outstd <= rev_outstd - 1'b1;
+                default: ;
+            endcase
         end
     end
 
     // =========================================================================
     // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
-    typedef enum logic [2:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_MOD, S_ADV, S_DONE } st_e;
+    // S_ENVMUL / S_ENVACC：包络乘法流水（取操作数 -> 乘 -> 累加），见上面结果段
+    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_MOD,
+                               S_ENVMUL, S_ENVACC, S_ADV, S_DONE } st_e;
     st_e                 state;
     logic [JW:0]         ns_lat;
     instrument_e         inst_prev;
     logic                wait_xmap;
 
-    // st_zero：note-on 首帧 或 该声部包络已归零（< ENV_ZERO_TH）时清零状态
+    // ------------------------------------------------------------------
+    // 外部输入采样：加载系数期间一律忽略（fmap_q 冻结，见文件开头）
+    //   第一次装载（inst_prev 还是 NONE）也算加载中——否则上电时按下的键
+    //   会被 gate_r 记成"已经按下"，装完之后就不再算新起音
+    // ------------------------------------------------------------------
+    assign input_hold = (state == S_LOAD) || (inst_prev == INST_NONE);
+
+    // router 自己要的那份"起音事件"：note_on 是电平，这里取一拍沿
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) note_on_q <= '0;
+        else        note_on_q <= note_on;
+    end
+    assign note_ev = note_on & ~note_on_q;
+
+    // 引擎是逐声部串行跑的，等它跑到某个声部时沿早没了：事件先攒进 note_pend，
+    // 到**帧头**（S_RUN_X -> S_XWR）一次性交给 note_f，note_f 只在这一帧里有效：
+    // 不跨帧粘住，也不会跨加载残留。
+    logic             frame_start;
+
+    assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            note_f    <= '0;
+            note_pend <= '0;
+        end else if (frame_start) begin
+            note_f    <= note_pend | note_ev;
+            note_pend <= '0;
+        end else if (|note_ev) begin
+            note_pend <= note_pend | note_ev;
+        end
+    end
+
+    // st_zero：note-on 首帧 或 该声部**刚刚**归零（< ENV_ZERO_TH）时清零状态
+    //
+    //   注意这里是"归零的那一帧"清一次，不是"归零期间每帧都清"：
+    //   eng0 的清零 pass 要 n_modes 拍，全静音时 16 个声部每帧都清 = 16x80 拍，
+    //   实测一个采样 2754 拍（48 kHz 要 132 MHz）。只在包络掉到 0 的那一帧清，
+    //   状态被清成正好 0，之后激励也是 0，状态就一直保持 0 了。
     localparam logic [31:0] ENV_ZERO_TH = 32'd1;
 
     // 比较结果打一拍：原来 emap -> 比较 -> eng_zero 是一条长组合链
     // （包络每采样才更新一次，晚一拍对 st_zero 没有影响）
-    logic [SLOTS-1:0] voice_dead;
+    logic [SLOTS-1:0] voice_dead, voice_dead_q;
+    logic [SLOTS-1:0] dead_ev;         // 归零的那一拍
+    logic [SLOTS-1:0] dead_pend, dead_f;   // 攒到帧头的那份（和 note_f 一个套路）
+
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) voice_dead <= '0;
-        else for (int i = 0; i < SLOTS; i++)
-            voice_dead[i] <= (32'(emap[i]) < ENV_ZERO_TH);
+        if (!rst_n) begin
+            voice_dead   <= '0;
+            voice_dead_q <= '0;
+        end else begin
+            for (int i = 0; i < SLOTS; i++)
+                voice_dead[i] <= (32'(emap[i]) < ENV_ZERO_TH);
+            voice_dead_q <= voice_dead;
+        end
     end
 
-    assign eng_zero = note_on[voi[VWID-1:0]] | voice_dead[voi[VWID-1:0]];
+    assign dead_ev = voice_dead & ~voice_dead_q;
+
+    // 帧头把 note 事件和"刚归零"事件一起交给本帧
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            dead_f    <= '0;
+            dead_pend <= '0;
+        end else if (frame_start) begin
+            dead_f    <= dead_pend | dead_ev;
+            dead_pend <= '0;
+        end else if (|dead_ev) begin
+            dead_pend <= dead_pend | dead_ev;
+        end
+    end
+
+    assign eng_zero = note_f[voi[VWID-1:0]] | dead_f[voi[VWID-1:0]];
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -464,14 +597,13 @@ module voice_router #(
             ready      <= 1'b0;
             busy       <= 1'b0;
             done       <= 1'b0;
-            y_valid    <= 1'b0;
-            y_data     <= '0;
+            mix_v      <= 1'b0;
+            mix_q      <= '0;
             voi        <= '0;
             fidx       <= '0;
             nv_lat     <= '0;
             ns_lat     <= '0;
             nm_lat     <= '0;
-            zero_lat   <= '0;
             inst_lat   <= INST_NONE;
             inst_prev  <= INST_NONE;
             sel_alt    <= 1'b0;
@@ -480,12 +612,9 @@ module voice_router #(
             xw_run     <= 1'b0;
             xw_i       <= '0;
             wait_xmap  <= 1'b0;
-            no_clr     <= 1'b0;
-            no_clr_v   <= '0;
         end else begin
             done      <= 1'b0;
-            no_clr    <= 1'b0;
-            y_valid   <= 1'b0;
+            if (body_accept) mix_v <= 1'b0;      // 这一笔混音已经被腔体接走
             eng_start <= 1'b0;
             ld_start  <= 1'b0;
 
@@ -548,38 +677,43 @@ module voice_router #(
 
                 S_RUN_V: begin
                     if (eng_yv) begin
-                        // y_last 由累加器那个 always_ff 一并寄存（单一驱动者）
-                        if (note_on[voi[VWID-1:0]]) begin
+                        if (note_f[voi[VWID-1:0]]) begin
                             mod_slot  <= voi[VWID-1:0];   // 只调这一个声部
                             mod_start <= 1'b1;
                             state     <= S_MOD;
-                        end else state <= S_ADV;
+                        end else state <= S_ENVMUL;
                     end
                 end
 
                 S_MOD: begin
                     if (mod_done) begin
                         mod_start <= 1'b0;
-                        state     <= S_ADV;
+                        state     <= S_ENVMUL;
                     end
                 end
 
+                // 包络乘法：这一拍把乘法结果打进 y_env
+                S_ENVMUL: state <= S_ENVACC;
+
+                // 这一拍把 y_env 累加进 y_acc
+                S_ENVACC: state <= S_ADV;
+
                 S_ADV: begin
-                    if (fidx == '0) begin
-                        no_clr   <= 1'b1;
-                        no_clr_v <= voi[VWID-1:0];
-                    end
                     if (voi + 1'b1 >= nv_lat) begin
-                        y_out[fidx[JW-1:0]] <= y_last;
-                        y_data  <= 64'(y_last);
-                        y_valid <= 1'b1;
-                        voi     <= '0;
-                        if (fidx + 1'b1 >= ns_lat) begin
-                            state <= S_DONE;
-                        end else begin
-                            fidx      <= fidx + 1'b1;
-                            wait_xmap <= 1'b1;
-                            state     <= S_RUN_X;
+                        // 这一帧所有声部都算完了：把混音交给腔体。
+                        // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
+                        if (!mix_v) begin
+                            y_out[fidx[JW-1:0]] <= y_acc;   // 腔体前的混音（调试用）
+                            mix_q <= y_acc;
+                            mix_v <= 1'b1;
+                            voi   <= '0;
+                            if (fidx + 1'b1 >= ns_lat) begin
+                                state <= S_DONE;
+                            end else begin
+                                fidx      <= fidx + 1'b1;
+                                wait_xmap <= 1'b1;
+                                state     <= S_RUN_X;
+                            end
                         end
                     end else begin
                         voi       <= voi + 1'b1;
@@ -589,15 +723,39 @@ module voice_router #(
                 end
 
                 S_DONE: begin
-                    done  <= 1'b1;
-                    busy  <= 1'b0;
-                    ready <= 1'b1;
-                    state <= S_IDLE;
+                    // 等腔体 + 混响都把最后几笔吐完再报 done，否则最后一帧的 y_data 会丢
+                    if (mix_outstd == '0 && !mix_v && rev_outstd == '0) begin
+                        done  <= 1'b1;
+                        busy  <= 1'b0;
+                        ready <= 1'b1;
+                        state <= S_IDLE;
+                    end
                 end
 
                 default: state <= S_IDLE;
             endcase
         end
     end
+
+    // =========================================================================
+    // 后级实例：混音 -> 腔体 -> 混响 -> y_data
+    //   腔体：乐器号选系数（body_router 内部 = 常量表 + body_biquad），用 inst_lat
+    //         （一次作业里乐器号不变，系数就不会中途跳）
+    //   混响：预设由上层给（reverb_preset），NONE 时是逐位直通的延迟
+    // =========================================================================
+    body_router #(
+        .SLOTS(SLOTS), .NSEC(5), .NTAP(5), .COEFF_FRAC(27), .GUARD_BITS(4)
+    ) u_body (
+        .clk(clk), .rst_n(rst_n),
+        .inst(inst_lat),
+        .in_valid(mix_v), .in_ready(body_in_ready), .x(mix_q),
+        .out_valid(body_out_valid), .y(body_y)
+    );
+
+    reverb_router #(.N(2048)) u_rev (
+        .clk(clk), .rst_n(rst_n), .preset(reverb_preset),
+        .in_valid(body_out_valid), .x(body_y),
+        .out_valid(rev_out_valid), .y(rev_y)
+    );
 
 endmodule

@@ -32,6 +32,8 @@
 //
 // 一帧 = 1（取 x）+ 1（装配、发第 1 个读地址）+ N+4（流水排空）+ 1（y_sum 取用）
 //      + 1（写结果） = N + 8 拍。N=48 时 56 拍（modal_bank_ram 是 530 拍）。
+// note-on 不再多跑一趟 N 拍的清零 pass：st_zero 只是让读口把旧状态当 0
+// （q_eff/v_eff），结果与"先清零再算"逐位相同，省掉 N 拍/声部/次。
 //
 // 逐位等价：每个乘积"先独立舍入成整数、再相加"，整数加法可交换/结合（64 位回绕一致），
 // 所以 7 路并行 + 树形相加 + 五级流水与 modal_bank_ram 的逐项累加结果完全相同。
@@ -108,11 +110,11 @@ module eng0 #(
     localparam logic signed [AW-1:0] R_WO  = 64'sd1 <<< (SH_WO  - 1);
 
     // ---- 作业状态 ---------------------------------------------------------
-    typedef enum logic [2:0] { S_IDLE, S_ZERO, S_X, S_SETUP, S_RUN, S_WB, S_YWR } state_t;
+    typedef enum logic [2:0] { S_IDLE, S_X, S_SETUP, S_RUN, S_WB, S_YWR } state_t;
     state_t               state;
     logic [IW:0]          ri;            // 读指针 = 流水序号
     logic [IW:0]          si;            // 写回序号 = ri - 4
-    logic [IW:0]          zi;            // 清零 pass 的计数
+    logic                 zero_job;      // 本作业按 note-on 处理：读状态时当 0
     logic [IW:0]          n_mod_lat;
     logic signed [AW-1:0] y_acc, y_sum;
     logic signed [XW-1:0] x_lat;
@@ -120,6 +122,11 @@ module eng0 #(
     assign si = ri - 4'd4;
 
     // ---- 流水寄存器 -------------------------------------------------------
+    // note-on 不再单独跑一趟清零 pass：读口直接按 0 参与运算，等价但省 n_modes 拍
+    logic signed [QW-1:0] q_eff, v_eff;
+    assign q_eff = zero_job ? '0 : st_q;
+    assign v_eff = zero_job ? '0 : st_qdot;
+
     logic signed [AW-1:0] p_a11, p_a12, p_gq, p_a21, p_a22, p_gv, p_wo;   // M 级
     logic signed [AW-1:0] t_a11, t_a12, t_gq, t_a21, t_a22, t_gv, t_wo;   // N 级
     logic signed [AW-1:0] qn_q, vn_q, two_q;                              // S 级
@@ -140,13 +147,13 @@ module eng0 #(
             p_a11 <= '0; p_a12 <= '0; p_gq <= '0;
             p_a21 <= '0; p_a22 <= '0; p_gv <= '0; p_wo <= '0;
         end else if (mul_en) begin
-            p_a11 <= mul64(st_q,    co_data.a11);
-            p_a12 <= mul64(st_qdot, co_data.a12);
+            p_a11 <= mul64(q_eff, co_data.a11);
+            p_a12 <= mul64(v_eff, co_data.a12);
             p_gq  <= mul64(x_lat, co_data.gq);
-            p_a21 <= mul64(st_q,    co_data.a21);
-            p_a22 <= mul64(st_qdot, co_data.a22);
+            p_a21 <= mul64(q_eff, co_data.a21);
+            p_a22 <= mul64(v_eff, co_data.a22);
             p_gv  <= mul64(x_lat, co_data.gv);
-            p_wo  <= mul64(st_q,    co_data.wo);
+            p_wo  <= mul64(q_eff, co_data.wo);
         end
     end
 
@@ -191,10 +198,10 @@ module eng0 #(
 
         // W 级：饱和后写回（序号 ri-4）
         // 写口两个来源：计算写回（ri-4）与 note-on 的清零 pass
-        st_we         = wb_en || (state == S_ZERO);
-        st_waddr      = (state == S_ZERO) ? zi[IW-1:0] : si[IW-1:0];
-        st_q_wdata    = (state == S_ZERO) ? '0 : sat_q(qn_q);
-        st_qdot_wdata = (state == S_ZERO) ? '0 : sat_v(vn_q);
+        st_we         = wb_en;
+        st_waddr      = si[IW-1:0];
+        st_q_wdata    = sat_q(qn_q);
+        st_qdot_wdata = sat_v(vn_q);
 
         x_re   = (state == S_X);
         x_addr = '0;                       // 一次 start 只跑一个采样；帧号由顶层补进地址
@@ -213,6 +220,7 @@ module eng0 #(
             y_acc      <= '0;
             y_sum      <= '0;
             x_lat      <= '0;
+            zero_job   <= 1'b0;
         end else begin
 
             // W 级：串行累加本帧的 y（每模态一次，与 bank_ram 的 y_acc 一致）
@@ -228,15 +236,9 @@ module eng0 #(
                         ri         <= '0;
                         y_acc      <= '0;
                         y_sum      <= '0;
-                        zi         <= '0;
-                        state      <= st_zero ? S_ZERO : S_X;
+                        zero_job   <= st_zero;      // 本作业读状态当 0（note-on）
+                        state      <= S_X;
                     end
-                end
-
-                S_ZERO: begin
-                    // 把本声部的状态清 0（note-on）：N 拍，一次性
-                    if (zi + 1'b1 >= n_mod_lat) state <= S_X;
-                    else                        zi    <= zi + 1'b1;
                 end
 
                 S_X: begin
@@ -265,7 +267,8 @@ module eng0 #(
 
                 S_YWR: begin
                     // 这一拍 y_valid=1、y_data=y_sum；下一拍照样回到 IDLE 等下一次 start
-                    state <= S_IDLE;
+                    zero_job <= 1'b0;
+                    state    <= S_IDLE;
                 end
 
                 default: state <= S_IDLE;

@@ -2,7 +2,7 @@
 // 包络生成：每声部一个包络，输出 emap[16]
 //   * 全局统一 Q1.31：1.0 = 2^31-1（router 用 (y*emap)>>>31）
 //   * 采样节拍由 router 统一给（smp_tick），不再自己分频
-//   * ADSR 参数走 parameter
+//   * ADSR 参数（含释放速率 R_STEP）由 router 的常量表按乐器选
 // -----------------------------------------------------------------------------
 module envelope_ADSR #(
     parameter int CLK_HZ  = 100_000_000,
@@ -16,6 +16,7 @@ module envelope_ADSR #(
     input  logic [31:0]                 A_STEP,
     input  logic [31:0]                 D_STEP,
     input  logic [31:0]                 S_LEVEL,
+    input  logic [31:0]                 R_STEP,        // 松键后的每采样下降量
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
@@ -23,13 +24,22 @@ module envelope_ADSR #(
     output logic                        emap_valid
 );
 
-    typedef enum logic [2:0] { E_IDLE, E_ATK, E_DEC, E_SUS } est_e;
+    typedef enum logic [2:0] { E_IDLE, E_ATK, E_DEC, E_SUS, E_REL } est_e;
     est_e        st  [0:SLOTS-1];
     logic [31:0] lvl [0:SLOTS-1];
     logic [SLOTS-1:0] gate;
 
     // 门控直接来自 router（阈值判断已经在那里统一做了）
     assign gate = note_gate;
+
+    // note_on 是"按着就是 1"的滞回电平，不是脉冲：起音门必须自己取一拍沿，
+    // 否则按住期间每个采样都会把 lvl 清 0，包络永远升不上去
+    logic [SLOTS-1:0] note_on_q, onset;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) note_on_q <= '0;
+        else        note_on_q <= note_on;
+    end
+    assign onset = note_on & ~note_on_q;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -39,12 +49,18 @@ module envelope_ADSR #(
             end
         end else if (smp_tick) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (note_on[i]) begin
+                if (onset[i]) begin
                     lvl[i] <= '0;
                     st[i]  <= E_ATK;
                 end else if (!gate[i]) begin
-                    lvl[i] <= '0;              // 低于松开阈值：立即归零（任何状态）
-                    st[i]  <= E_IDLE;
+                    // 松开：进释放段，按 R_STEP 线性降到 0（不会再回 IDLE 之前被清掉）
+                    if (lvl[i] <= R_STEP) begin
+                        lvl[i] <= '0;
+                        st[i]  <= E_IDLE;
+                    end else begin
+                        lvl[i] <= lvl[i] - R_STEP;
+                        st[i]  <= E_REL;
+                    end
                 end else begin
                     case (st[i])
                         E_IDLE: if (gate[i]) st[i] <= E_ATK;
@@ -60,6 +76,7 @@ module envelope_ADSR #(
                             end else lvl[i] <= lvl[i] - D_STEP;
                         end
                         E_SUS: ;
+                        E_REL: st[i] <= E_IDLE;   // 释放段的 lvl 处理在 !gate 分支里
                         default: st[i] <= E_IDLE;
                     endcase
                 end

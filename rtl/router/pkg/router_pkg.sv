@@ -22,6 +22,12 @@ package router_pkg;
         INST_NONE     = 4'hF
     } instrument_e;
 
+    typedef enum logic [1:0] {
+        REVERB_BATHROOM,
+        REVERB_HALL,
+        REVERB_NONE
+    } reverb_preset;
+
     // 调制参数记录（每个 槽×模态 一条，5 个字段）
     typedef struct packed {
         logic signed [31:0] c0;       // cos(theta0), Q1.30
