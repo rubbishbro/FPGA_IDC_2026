@@ -107,12 +107,14 @@ E2 使用七个系数 `a11/a12/a21/a22/gq/gv/wo` 和两个状态 `q/qdot`，同�
 
 ### 3.3 逐样本激励和声部生命周期
 
-核心输入 x 是 **signed 32-bit、30 fractional bits**：
+ABC 路径的输入 x 是 **signed 32-bit、30 fractional bits**：
 
 ```text
 x_q30 = saturate_int32(round(x_normalized * 2^30))
 1.0 → 0x40000000
 ```
+
+E2 不应直接套用此格式：`rtl/simsynth/modal_step_pkg.sv` 声明 `XF=28`，其物理激励与系数生成应配套。正式 top 共用压力覆盖信号不代表两种核的物理激励定标已经统一。
 
 - A：起音后产生有限力脉冲，随后 x=0，让模态状态继续衰减。既有系数生成与参考模型按短 raised-cosine 力脉冲配套；单样本脉冲可以验证核可工作，但不能直接视为同样的音色。
 - B：必须产生持续、带周期/包络等参数的激励。仅置 active 不会自动持续吹奏或拉奏。
@@ -141,6 +143,20 @@ x_q30 = saturate_int32(round(x_normalized * 2^30))
 5. 扩表还须检查容量：当前 A offset 仅 13 bit、8192 个可寻址系数；不能认为增加任意数量音符只需增加 `.mem` 行数。
 
 当前工作树未见正式 top 默认引用的 `b_coeff.mem/b_index.mem/b_ctrl.mem/c_seed.mem` 及 E2 默认 ROM。B 有 flute69 demo，仿真目录有小型 fixture；这些不等于完整 B/C/E2 乐器资源库。
+
+### 4.1 补充复核：`sythsound` 模型具有连续音高生成能力
+
+上表统计的是已导出的 A 类硬件 ROM，**不是所有模型可生成音高的上限**。此前未同时核对这条模型路径，不能据此断言钢琴只能生成稀疏音高。
+
+- `sythsound/sim_piano.py:218` 的 `piano_generator()` 明确支持 **MIDI 40..80，共 41 个连续音高**。
+- `piano_f0()` 对五个 octave stretch 锚点做分段线性插值，得到拉伸调律后的基频；41 项 `INHARMONICITY_1024X`、41 项 `GAMMA_KEY` 和击弦位置函数进一步补全各音高的模态参数。不是仅凭一个 f0 就得到完整音色。
+- 每音使用两个轻微失谐的 bank，总模态数按音域为 80、70 或 44，不能未经验证直接压成旧 A 路径的 48 模态。
+- 该模型用 q/qdot 精确状态更新；`rtl/simsynth/modal_step_pkg.sv` 明确将它列为 E2 数学来源，应沿 E2 的系数布局、定标与激励链导出，不能直接替换旧 A core72 表。
+- `sythsound/sim_guitar.py:171` 的生成器同样声明支持 MIDI 40..80；应与提取参数驱动的 A 类 guitar 区分。
+
+因此，32 键位可以从钢琴已有模型的连续 41 音中截取，例如 **48..79**；这时可用 `midi = 48 + bank*16 + key`，不必依赖旧 ROM 的稀疏键位。具体选段尚未冻结，模型参数仍需导出、量化并验证后才能当作板端资源。
+
+本次对钢琴 40..80 全部 41 个音高运行了构建、48 kHz reset、64 样本脉冲响应，系数及输出均有限；这不是长时或定点验收。另发现 MIDI 80 存在不低于 24 kHz 的模态，硬件导出时需要处理 Nyquist 限制；示例选段 48..79 未出现该问题。
 
 ## 5. 为什么已有 Event64 还不能直接当成完整适配器
 

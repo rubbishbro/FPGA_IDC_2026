@@ -91,6 +91,7 @@ python python/modal_sim/run.py                   # pitched demos + comparison fi
 python python/modal_sim/drumkit.py               # drum groove (+ guitar/piano)
 python python/modal_sim/kit_eval.py              # drum held-out verification
 python python/modal_sim/song.py                  # a real song excerpt
+python python/modal_sim/bella_ciao.py            # Bella Ciao, Class-A mandolin
 python python/modal_sim/sustain_demo.py          # Class B
 ```
 

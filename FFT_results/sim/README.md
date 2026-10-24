@@ -7,9 +7,12 @@ End-to-end simulation of the agreed architecture, driven by the parameters extra
 python python/modal_sim/run.py                 # pitched demos, every instrument
 python python/modal_sim/run.py banjo mandolin  # or a subset
 python python/modal_sim/song.py                # a real song excerpt
+python python/modal_sim/bella_ciao.py          # Bella Ciao on the Class-A mandolin
 python python/modal_sim/drumkit.py             # drum groove (+ guitar/piano)
 python python/modal_sim/drumkit.py --drums     # drums only
 python python/modal_sim/roll_compare.py        # roll-vs-repeated-hit experiment
+python python/modal_sim/vibrato_coeff.py       # a1 vibrato modulation experiment
+python python/modal_sim/vibrato_demo.py        # listen: vibrato exact/linear/Q2.20/Q2.24
 python python/modal_sim/plot_chain.py          # filter-chain figure
 ```
 
@@ -65,10 +68,13 @@ sim/
   drums/drums_{only,band}.{wav,json,png}, cymbal_compare.json + cymbal_<piece>.png,
         kit_eval.json                                          drum kit demos
   song/beyond_chorus.{wav,json,png}        a real song excerpt
+  song/bella_ciao_mandolin.{wav,json,png}  Bella Ciao on the Class-A mandolin
   roll_compare/roll_compare.json + rollcmp_*.png             roll experiment
   crosscheck/timbre_{guitar,piano}.png, timbre_check.json, filter_chain.png
   vibrato_coeff/README.md + fig_*.png + coeff_sweep.csv   a1 vibrato-modulation
         experiment (linear approximation vs Q2.20/Q2.24 fixed point)
+  vibrato_coeff/DEMO.md + demo_*.wav + demo_decay_*.wav   A/B audio: exact vs
+        linear vs current RTL Q2.20 vs proposed Q2.24
 ```
 
 One folder per topic: each holds its own audio, figures and data. Cross-instrument
@@ -179,6 +185,33 @@ that agree (Cm, 4/4, ~150 BPM). The **melody is transcribed from public jianpu c
 (生产队 / 刘传 arrangements, marked `1=Eb`, `6=C` = Cm tonic, `♩=150`), including the
 repeated-note hook and the `#4 -> 6` cadence. Free versions of those sheets are
 partial/pay-walled, so a note or two in the syllable alignment may still be off.
+
+## Song demo: Bella Ciao on the Class-A mandolin
+
+`python python/modal_sim/bella_ciao.py` plays the Italian resistance song **Bella Ciao**
+on the *mandolin* patch — same pulse → modal bank → body path as `run.py`, driven only
+by the extracted tables, plus the gestures a player would add:
+
+* **lead** — the melody with *tremolo*. A plucked mandolin note dies in ~0.25 s here
+  (median γ ≈ 4.2 1/s), so every note longer than an 8th is re-struck every 80 ms with
+  jittered timing/velocity instead of being held by an envelope.
+* **chop** — mandolin backbeat chords on beats 2 and 4, damped 100 ms after the attack
+  (`release_factor`), in their own voice pool so `note_off` cannot damp the melody.
+* **bass** — the guitar patch (the other Class-A plucked instrument), root-fifth march.
+
+Pass 1 is the bare lead, pass 2 adds chop + bass, then a Dm cadence: 32 bars, 67.0 s,
+D minor, ♩=120, `render_s` 235 s. Kills lead/chop/bass = 136/0/12, `hard=0`, `finite`,
+peak 0.9. The lead's 136 kills are scheme C working as designed on a tremolo whose
+tails outlive their strokes; no voice is ever hard-cut.
+
+**Score provenance.** The melody is transcribed from the public-domain MIDI
+[`File:Bella ciao.mid`](https://commons.wikimedia.org/wiki/File:Bella_ciao.mid) on
+Wikimedia Commons (Italian setting by Rabanus Flavus), read note by note, quantised to
+the 1/8 grid and re-barred into 4/4. That reading agrees with the note list in the
+BellaCiao-CPP sketch and with the lyric-aligned staff notation on the Irish folk-song
+letter-note sheet (verse hook 5-1-2-3-1, `E A B C A` in Am). The MIDI is in F# minor;
+the table is transposed a major third down to **D minor** so the tune stays in the
+mandolin's singing register (A3–G5) instead of its thin top octave.
 
 ## Verified (measured, not assumed)
 

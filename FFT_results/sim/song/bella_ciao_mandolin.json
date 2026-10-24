@@ -1,0 +1,32 @@
+{
+  "song": "Bella Ciao (trad. Italian)",
+  "instrument": "mandolin (Class A)",
+  "key": "Dm",
+  "tempo_bpm": 120.0,
+  "bars": 32,
+  "beats_per_bar": 4,
+  "seconds": 67.0,
+  "render_s": 234.9,
+  "arrangement": "pass 1 lead only; pass 2 lead + mandolin chop + guitar bass",
+  "lead": {
+    "notes": 472,
+    "kills": 136,
+    "hard": 0,
+    "max_active": 38
+  },
+  "chop": {
+    "notes": 96,
+    "kills": 0,
+    "hard": 0,
+    "max_active": 6
+  },
+  "bass": {
+    "notes": 33,
+    "kills": 12,
+    "hard": 0,
+    "max_active": 11
+  },
+  "mix_peak": 0.9,
+  "finite": true,
+  "body_rmse_db": 0.11
+}

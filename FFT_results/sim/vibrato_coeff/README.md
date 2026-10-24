@@ -121,4 +121,5 @@ python python/modal_sim/vibrato_coeff.py --quick    # fewer points
 - `summary.json` — 机器可读的汇总
 - `coeff_sweep.csv` — 每个乐器/音/配置一行
 - `fig_a1_curve.png`, `fig_pitch_error.png`, `fig_error_vs_note.png`, `fig_staircase.png`, `fig_free_decay.png`, `fig_driven.png`
-- `audio_cello_C2_*.wav` — 试听（float / Q2.20 / Q2.24）
+- `audio_cello_C2_*.wav` — 单音试听（float / Q2.20 / Q2.24）
+- `demo_*.wav`, `demo_decay_*.wav`, `DEMO.md` — `vibrato_demo.py` 用 `SustainSynth` 渲染的 A/B 试听
