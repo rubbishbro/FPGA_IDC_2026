@@ -1,12 +1,14 @@
 # Gowin-generated implementation outputs and temporary work files
 /impl/
 /work/
+/board/impl/
 /sim/work/
 /sim/*.wlf
 /sim/transcript
 
 # Per-user Gowin project settings
 /*.gprj.user
+/board/*.gprj.user
 
 # Editor and operating-system files
 .vscode/
