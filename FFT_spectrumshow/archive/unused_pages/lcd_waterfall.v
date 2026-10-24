@@ -16,6 +16,7 @@ module lcd_waterfall (
     input  logic        lcd_valid,
     input  logic [9:0]  pix_x,
     input  logic [9:0]  pix_y,
+    input  logic        theme,
 
     // wf_base_row：最新历史行号（来自 waterfall_store）
     // wf_rd_data ：当前读地址对应的历史柱高
@@ -80,11 +81,20 @@ module lcd_waterfall (
     assign wf_rd_col = bar_idx_next;
     assign wf_rd_row = hist_row;
 
-    // Palette: height 0 -> blue, high -> red/white-ish.
     wire [9:0] h = wf_rd_data;
-    assign wf_r = {h[9:5], 1'b0};
-    assign wf_g = h[8:4];
-    assign wf_b = 6'h3F - {h[9:5], 1'b0};
+
+    always_comb begin
+        if (theme) begin
+            wf_r = h[9:4];
+            wf_g = h[9:4];
+            wf_b = h[9:4];
+        end
+        else begin
+            wf_r = {h[9:5], 1'b0};
+            wf_g = h[8:4];
+            wf_b = 6'h3F - {h[9:5], 1'b0};
+        end
+    end
 
     assign wf_hit = lcd_valid && (pxx < 10'd768) && (pxy < 10'd480) && (pxy < 10'd480);
 

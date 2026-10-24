@@ -1,127 +1,182 @@
-# 可视化核心（PCM → FFT → 频谱/瀑布）
+# FFT Spectrum Show
 
-当前目录只保留核心逻辑，不再包含 demo 音频 ROM 和板级调试 top。
-板级 top、Gowin 工程、约束、bitstream 已归档到 `archive/debug_board/`。
+面向 GW5AST-138B + 800×480 LCD 的频谱可视化 demo。当前所有逻辑运行在
+33.333 MHz 像素时钟域，主引擎 PCM 接入和 100 MHz 跨时钟域尚未开始。
 
-> 2026-10-22 实现复核（`cdc4e8a2`）：核心尚未接入主合成器。本轮按下列链级源文件用 Icarus 编译 `chain_tb`，因 `src/spectrum/spectrum_map.v` 引用未声明的 `xk_re_r`、`xk_im_r` 而失败，未进入仿真。下方 CHAIN PASS 是原有历史记录，不是当前提交的可复现验收结论；本轮仅更新文档，未修 RTL。
+## 当前页面
 
-## 核心接口
+| page | 页面 | 内容 |
+|---|---|---|
+| `00` | BARS | 128 根 FFT 柱 + 峰值光点 |
+| `01` | WAVE | 时域波形 |
+| `10` | FALL | 0 线居中、上下镜像的 4 条时间曲线 |
+| `11` | SETTINGS | SMTH / PEAK / THEM / GRID 开关 |
+
+FALL 的时间曲线：
 
 ```text
-主引擎 PCM 输入（33.3 MHz 侧）
-  pcm_valid      ：当前 PCM 样本有效
-  pcm_data[23:0] ：24-bit 有符号 PCM
-
-显示读接口（33.3 MHz）
-  rd_bar_idx     ：当前像素对应柱子编号 0..127
-  rd_valid       ：当前像素在有效柱状图区域
-  rd_q_y         ：柱高 0..479
-  rd_q_ov        ：光点超调目标 0..479
-
-瀑布读接口（33.3 MHz）
-  wf_base_row    ：最新历史行号
-  wf_rd_row      ：显示要读的历史行
-  wf_rd_col      ：显示要读的柱子编号
-  wf_rd_data     ：历史柱高 0..1023
+current = age 0   （黄）
+recent  = age 3   （青）
+mid     = age 7   （紫）
+old     = age 15  （蓝）
 ```
 
-## 数据流
+上半屏四条曲线，下半屏四条镜像线；下半屏只画线，不填充。
+
+按键：
 
 ```text
-pcm_valid/pcm_data
-  → time_pingpong（1024 × 24 bit，双 bank）
-  → fft_ctrl（Hann 1024）
-  → fft1024_iter（1024 点 DIF）
-  → spectrum_map（512 正 bin → 128 bar）
-  → display_frame_buffer + waterfall_store（64 帧）
-  → lcd_draw / lcd_fft / lcd_waterfall（33.3 MHz）
+key0 短按 = 下一页 / 设置页下一项
+key1 短按 = 上一页 / 设置页上一项
+key0 长按 = 进入设置 / 切换当前项
+key1 长按 = 返回 BARS
 ```
 
-当前所有核心/显示逻辑都在 **33.333 MHz**。
-接入主引擎时，只需在 100 MHz 侧加：
+## 音频源
+
+正常 bitstream 使用 440 / 880 / 1320 Hz 三音正弦测试源。
+
+扫频 bitstream 使用 `sweep_source`：
 
 ```text
-pcm_tap：mix_sum[63:0] → pcm_data[23:0]
-async FIFO：100 MHz 写 / 33.3 MHz 读
+1 kHz -> 10 kHz，约 10 秒线性扫频
+48.03 kHz sample tick
 ```
 
-FIFO 满时丢弃显示样本，不能反压主引擎。
+用途是检查 FALL 的 0/3/7/15 帧时间关系，不是正式音频输入。
 
-## 当前源码
+## 目录
 
 ```text
+board/
+  ui_demo_top.v        正常板级 top（三音正弦）
+  sweep_demo_top.v     扫频测试 top（参数覆盖）
+  ui_demo.gprj         Gowin 工程
+  flow.tcl             正常 bitstream
+  flow_sweep.tcl       扫频 bitstream
+  ui_demo.cst          引脚约束
+  timing.sdc           时钟约束
+  *.mem                ROM 初始化文件
+  gowin_pll.v          33.333 MHz 像素时钟
+
 src/
-├─ audio/
-│  ├─ real_audio_chain.v    PCM → 时域窗口 → FFT → 频谱/瀑布
-│  └─ time_pingpong.v       1024×24 双 bank 时域窗口
-├─ fft/
-│  ├─ fft1024_iter.sv       1024 点基 2 DIF、单蝶形
-│  └─ fft_ctrl.v            Hann + FFT 控制
-├─ spectrum/
-│  └─ spectrum_map.v        bin→bar、峰值、平滑、flush
-├─ display/
-│  ├─ display_frame_buffer.sv  当前柱高/超调双 bank
-│  ├─ waterfall_store.sv       64 帧频谱历史
-│  ├─ lcd_timing.v             800×480 扫描
-│  ├─ lcd_draw.v               页面选择/优先级
-│  ├─ lcd_fft.v                柱状图/光点/颜色
-│  ├─ lcd_waterfall.v          瀑布图
-│  ├─ lcd_wave.v               旧波形占位
-│  └─ lcd_background.v         网格/边框
-└─ input/key_debounce.v
+  ui/
+    ui_pkg.sv          页面/事件常量
+    key_ui_event.sv    按键去抖 + 短按/长按事件
+    ui_ctrl.sv         页面、设置项、特效状态机
+  audio/
+    real_audio_chain.v PCM -> 时域窗口 -> FFT -> 频谱/波形/曲线链
+    time_pingpong.v    1024×24 时域双 bank
+    wave_capture.v     时域波形抽取
+    sweep_source.sv    1k->10k 扫频相位累加器
+  fft/
+    fft1024_iter.sv    1024 点基 2 DIF FFT
+    fft_ctrl.v         Hann 窗 + FFT 控制
+  spectrum/
+    spectrum_map.v     512 bin -> 128 bar，AGC/门限
+  display/
+    lcd_timing.v       800×480 扫描
+    lcd_draw.v         页面选择/优先级
+    lcd_background.v   网格/边框
+    lcd_fft.v          BARS + 峰值/平滑/主题
+    lcd_wave.v         WAVE
+    lcd_curve_spectrum.sv  FALL 曲线和镜像
+    trail_calc.sv      0/3/7/15 帧抽取 + 3 点平滑
+    trail_store.sv     128×40 历史数据
+    curve_calc.sv      Catmull-Rom 768 列插值
+    curve_store.sv     768×40 双 bank 曲线
+    display_frame_buffer.sv  BARS 柱高/超调双 bank
+    waterfall_store.sv 64×128 历史（FALL 的 age 来源）
+    wave_frame_buffer.sv 波形双 bank
+    lcd_ui.sv          顶部 tab、设置页
+  input/
+    key_debounce.v     基础按键去抖
+
+sim/
+  run_regression.ps1   全部可视化回归
+  *_tb.sv             自检 testbench
+
+archive/
+  3d_spectrum/         已放弃的 3D 频谱
+  unused_pages/        lcd_trail_spectrum / lcd_waterfall
+  legacy/              旧 FFT、旧板级 demo、旧 testbench
+  debug_board/         早期板级工程
 ```
 
-## 数据文件和表
+## 构建
+
+正常 bitstream：
+
+```powershell
+cd board
+& "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow.tcl
+```
+
+输出：
 
 ```text
-bin2bar.mem        512 个正 bin → 128 根柱子
-hann1024.mem       1024 点 Hann 窗
-twiddle1024.mem    1024 点 FFT 旋转因子
-waterfall_zero.mem 瀑布历史初始化
+board/impl/pnr/ui_demo.fs
 ```
 
-## 仿真
+扫频 bitstream：
 
-`bin2bar.mem`、`hann1024.mem`、`twiddle1024.mem`、`waterfall_zero.mem`、
-`ode_to_joy.mem` 已复制到 `sim/`。
+```powershell
+cd board
+& "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow_sweep.tcl
+Copy-Item impl/pnr/ui_demo.fs impl/pnr/sweep_demo.fs -Force
+
+# 恢复正常 bitstream
+& "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow.tcl
+```
+
+烧录：
+
+```text
+正常：board/impl/pnr/ui_demo.fs
+扫频：board/impl/pnr/sweep_demo.fs
+```
+
+## 回归
 
 ```powershell
 cd sim
-vlib work
-vlog -sv ..\src\fft\fft1024_iter.sv `
-    ..\src\display\display_frame_buffer.sv `
-    ..\src\display\waterfall_store.sv `
-    ..\src\fft\fft_ctrl.v `
-    ..\src\audio\time_pingpong.v `
-    ..\src\spectrum\spectrum_map.v `
-    ..\src\audio\real_audio_chain.v `
-    .\chain_tb.v
-vsim -c -do "run -all; quit" chain_tb
+powershell -ExecutionPolicy Bypass -File .\run_regression.ps1
 ```
 
-历史链级结果（当前源码编译阻塞，需修复后重跑）：
+当前回归结果：
 
 ```text
-=== CHAIN TEST PASSED ===
-max bar height = 280
+SWEEP SOURCE TEST PASSED
+SPECTRUM MAP TEST PASSED
+WAVE CAPTURE TEST PASSED
+WATERFALL TEST PASSED
+TRAIL CALC TEST PASSED
+CURVE CALC TEST PASSED
+LCD CURVE SPECTRUM TEST PASSED
+LCD UI TEST PASSED
+LCD EFFECTS TEST PASSED
+UI KEY/CTRL TEST PASSED
+UI DUAL KEY TEST PASSED
+LCD FFT TEST PASSED
+LCD FFT ALIGN TEST PASSED
+CHAIN TEST PASSED
+=== REGRESSION PASSED ===
 ```
 
-`chain_tb.v` 里的 `ode_to_joy.mem` 只是仿真激励，不参与综合。
+## 当前时序
 
-## 已知问题
+```text
+正常 bitstream : SETUP +2.163 ns, HOLD +0.140 ns
+扫频 bitstream : SETUP +5.951 ns, HOLD +0.144 ns
+```
 
-- 当前链级编译阻塞：`spectrum_map.v` 输入寄存器 `xk_re_r`、`xk_im_r` 未声明。
-- `spectrum_map` 的 ACCUM 流水线 bin/bar 延迟不一致，
-  会把 bin n 写到 bar n-1，并和 bar n-3 的旧值比较；
-  表现为频谱左移、空洞和斜边。
-- `bin2bar` 在低频有空 bar，需要改成最近 bin 分配或提高 FFT 点数。
-- 没有峰值归一化，安静输入的柱高偏低。
-- 时域波形尚未实现，`lcd_wave.v` 仍是旧占位。
+两者都在 33.333 MHz 下通过。Catmull-Rom 是当前主要 LUT/时序开销。
 
-## 归档
+## 已知限制
 
-- `archive/debug_board/`：原 `top.v`、`.gprj`、`.cst`、`.sdc`、PLL、`flow.tcl`、`impl/`
-- `archive/legacy/`：原 Gowin FFT IP、旧 512 点 FFT、旧 testbench、`audio_if.v`
-- `archive/data/`：旧 `gc_6s.mem`、`twiddle512.mem`、`ode_to_joy.mem`
-- `archive/tools/`：旧生成脚本
-- `archive/logs/`：旧构建日志
+- 还没有接主引擎 `mix_sum[63:0]` PCM tap。
+- 还没有 100 MHz 可视化 PnR；主引擎与显示仍是单 33.3 MHz demo。
+- 还没有异步 FIFO / 跨时钟域历史 RAM。
+- 还没有摇杆输入。
+- FALL 的 Catmull-Rom 曲线仍能看出控制点节点。
+- `lcd_trail_spectrum`、`lcd_waterfall` 和 3D 代码已归档，不参与当前构建。

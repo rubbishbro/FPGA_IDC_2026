@@ -55,8 +55,10 @@ rtl/simsynth/local/
 # FFT_spectrumshow 的 Gowin/ModelSim 生成物（可重新生成，不入库）
 FFT_spectrumshow/impl/
 FFT_spectrumshow/archive/debug_board/impl/
+FFT_spectrumshow/board/impl/
 FFT_spectrumshow/*.gprj.user
 FFT_spectrumshow/archive/debug_board/*.gprj.user
+FFT_spectrumshow/board/*.gprj.user
 FFT_spectrumshow/archive/logs/
 FFT_spectrumshow/sim/work/
 FFT_spectrumshow/sim/transcript

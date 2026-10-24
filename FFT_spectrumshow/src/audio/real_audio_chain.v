@@ -39,10 +39,11 @@ module real_audio_chain (
     // wf_rd_row  ：显示当前像素要读的历史行
     // wf_rd_col  ：显示当前像素要读的柱子编号（0..127）
     // wf_rd_data ：该历史单元保存的柱高（0..1023，显示时缩放到 0..479）
-    output      [5:0]   wf_base_row,
-    input       [5:0]   wf_rd_row,
-    input       [6:0]   wf_rd_col,
-    output      [9:0]   wf_rd_data
+    input       [9:0]   wave_rd_addr,
+    output      [9:0]   wave_rd_data,
+
+    input       [9:0]   curve_rd_addr,
+    output      [39:0]  curve_rd_data
 );
 
     // ============================================================
@@ -53,13 +54,44 @@ module real_audio_chain (
     wire        tp_rd_valid, tp_rd_req, tp_rd_done;
     wire [9:0]  tp_rd_addr;
     wire [23:0] tp_rd_data;
+    wire [9:0]  wave_wf_addr;
+    wire [23:0] wave_wf_data;
 
     time_pingpong #(.N_SAMPLES(1024), .WIDTH(24)) u_tp(
         .rst_ni(rst_core_n),
         .wr_clk_i(clk_pix), .wr_data_i(pcm_data), .wr_valid_i(pcm_valid), .wr_ready_o(),
         .rd_clk_i(clk_core), .rd_req_i(tp_rd_req), .rd_addr_i(tp_rd_addr),
         .rd_data_o(tp_rd_data), .rd_valid_o(tp_rd_valid), .rd_done_i(tp_rd_done),
-        .wf_clk_i(clk_core), .wf_addr_i(10'd0), .wf_data_o()
+        .wf_clk_i(clk_core), .wf_addr_i(wave_wf_addr), .wf_data_o(wave_wf_data)
+    );
+
+    wire        wave_wr_en, wave_frame_done;
+    wire [9:0]  wave_wr_addr, wave_wr_data;
+
+    wave_capture #(.N_POINTS(768)) u_wave_cap (
+        .clk        (clk_core),
+        .rst_n      (rst_core_n),
+        .start      (tp_rd_done),
+        .wf_addr    (wave_wf_addr),
+        .wf_data    (wave_wf_data),
+        .wr_en      (wave_wr_en),
+        .wr_addr    (wave_wr_addr),
+        .wr_data    (wave_wr_data),
+        .frame_done (wave_frame_done)
+    );
+
+    wave_frame_buffer #(.N_POINTS(768)) u_wave_fb (
+        .wr_clk        (clk_core),
+        .wr_rst_n      (rst_core_n),
+        .wr_en         (wave_wr_en),
+        .wr_addr       (wave_wr_addr),
+        .wr_data       (wave_wr_data),
+        .wr_frame_done (wave_frame_done),
+        .rd_clk        (clk_pix),
+        .rd_rst_n      (rst_pix_n),
+        .rd_addr       (wave_rd_addr),
+        .rd_data       (wave_rd_data),
+        .rd_frame_pulse(frame_pulse)
     );
 
     // ============================================================
@@ -98,6 +130,20 @@ module real_audio_chain (
     //  centralized display frame buffer (100 MHz write / 33.3 MHz read)
     // ============================================================
     wire [23:0] fb_rd_data;
+    wire [5:0]  wf_base_row;
+    wire [5:0]  trail_scan_row;
+    wire [6:0]  trail_scan_col;
+    wire [9:0]  trail_scan_data;
+    wire        trail_wr_en;
+    wire [6:0]  trail_wr_addr;
+    wire [39:0] trail_wr_data;
+    wire [6:0]  curve_scan_addr;
+    wire [39:0] curve_scan_data;
+    wire        curve_wr_en;
+    wire [9:0]  curve_wr_addr;
+    wire [39:0] curve_wr_data;
+    wire        curve_frame_done;
+    wire        trail_frame_done;
 
     waterfall_store u_wf (
         .clk             (clk_pix),
@@ -106,10 +152,60 @@ module real_audio_chain (
         .wr_col          (sm_bar_addr),
         .wr_data         (sm_bar_w),
         .wr_frame_done   (sm_frame_done),
-        .rd_row          (wf_rd_row),
-        .rd_col          (wf_rd_col),
-        .rd_data         (wf_rd_data),
+        .rd_row          (trail_scan_row),
+        .rd_col          (trail_scan_col),
+        .rd_data         (trail_scan_data),
         .base_row        (wf_base_row)
+    );
+
+    trail_calc u_trail_calc (
+        .clk        (clk_pix),
+        .rst_n      (rst_pix_n),
+        .start      (sm_frame_done),
+        .base_row   (wf_base_row),
+        .scan_row   (trail_scan_row),
+        .scan_col   (trail_scan_col),
+        .scan_data  (trail_scan_data),
+        .wr_en      (trail_wr_en),
+        .wr_addr    (trail_wr_addr),
+        .wr_data    (trail_wr_data),
+        .frame_done (trail_frame_done)
+    );
+
+    trail_store u_trail (
+        .clk     (clk_pix),
+        .rst_n   (rst_pix_n),
+        .wr_en   (trail_wr_en),
+        .wr_addr (trail_wr_addr),
+        .wr_data (trail_wr_data),
+        .rd_addr (curve_scan_addr),
+        .rd_data (curve_scan_data)
+    );
+
+    curve_calc u_curve_calc (
+        .clk        (clk_pix),
+        .rst_n      (rst_pix_n),
+        .start      (trail_frame_done),
+        .scan_addr  (curve_scan_addr),
+        .scan_data  (curve_scan_data),
+        .wr_en      (curve_wr_en),
+        .wr_addr    (curve_wr_addr),
+        .wr_data    (curve_wr_data),
+        .frame_done (curve_frame_done)
+    );
+
+    curve_store u_curve (
+        .wr_clk        (clk_pix),
+        .wr_rst_n      (rst_pix_n),
+        .wr_en         (curve_wr_en),
+        .wr_addr       (curve_wr_addr),
+        .wr_data       (curve_wr_data),
+        .wr_frame_done (curve_frame_done),
+        .rd_clk        (clk_pix),
+        .rd_rst_n      (rst_pix_n),
+        .rd_addr       (curve_rd_addr),
+        .rd_data       (curve_rd_data),
+        .rd_frame_pulse(frame_pulse)
     );
 
     display_frame_buffer u_fb (

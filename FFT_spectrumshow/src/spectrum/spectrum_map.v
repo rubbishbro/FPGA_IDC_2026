@@ -1,200 +1,164 @@
-// spectrum_map.v - 1024 点 FFT 的 512 个正频率 bin → 128 根对数柱
-//
-// 频率关系：
-//   采样率 48 kHz，FFT 1024 点，bin 间隔 = 48k/1024 = 46.875 Hz
-//   只处理正频率 bin 0..511；负频率 bin 512..1023 忽略
-//   bin2bar.mem 有 512 项，每项表示该 bin 归属哪根柱子
-//
-// 状态机：
-//   ACCUM：逐 bin 找每根柱子的最大幅度
-//   FLUSH：把 bar_max 转成显示高度，做 attack/decay 平滑，写帧缓冲
-//   CLEAR：清空 bar_max，准备下一帧
-//
-// 注意：ACCUM 目前存在 bin/bar 延迟不一致的问题，
-// 会表现为频谱左移、空洞和斜边；后续需要按注释里的延迟对齐修复。
 module spectrum_map #(
-    parameter N_BARS = 128,   // 柱子数量
-    parameter BIN_W  = 10     // 柱子高度位宽
+    parameter N_BARS = 128,
+    parameter BIN_W  = 10
 ) (
-    // 33.333 MHz 可视化时钟与低有效复位
     input               clk_i,
     input               rst_ni,
 
-    // ---------------- FFT bin 输入 ----------------
-    // xk_re_i / xk_im_i：当前 bin 的实部/虚部（16-bit）
-    // bin_idx_i        ：bin 编号 0..1023
-    // bin_valid_i      ：当前 bin 有效（FFT opd）
-    // eoud_i           ：所有 bin 输出结束（FFT eoud），触发 FLUSH
     input       [15:0]  xk_re_i,
     input       [15:0]  xk_im_i,
     input       [9:0]   bin_idx_i,
     input               bin_valid_i,
     input               eoud_i,
 
-    // ---------------- 柱状图输出（写帧缓冲/瀑布） ----------------
-    // bar_addr_o  ：柱子编号 0..127
-    // bar_w_o     ：平滑后的柱高 0..479
-    // ov_w_o      ：光点超调目标 0..479
-    // bar_we_o    ：本拍写柱高有效
-    // frame_done_o：一帧柱高全部输出完成（单拍）
-    output reg  [6:0]   bar_addr_o,
+    output reg  [6:0]       bar_addr_o,
     output reg  [BIN_W-1:0] bar_w_o,
     output reg  [BIN_W-1:0] ov_w_o,
-    output reg          bar_we_o,
-    output reg          frame_done_o
+    output reg              bar_we_o,
+    output reg              frame_done_o
 );
 
-    // 单级输入寄存器
-    reg [9:0]  bin_idx_r;
-    reg        bin_valid_r, eoud_r;
-    always @(posedge clk_i) begin
-        xk_re_r    <= xk_re_i;
-        xk_im_r    <= xk_im_i;
-        bin_idx_r  <= bin_idx_i;
-        bin_valid_r <= bin_valid_i;
-        eoud_r     <= eoud_i;
-    end
-    // bin->bar ROM (log axis), 256 entries for the 512-point FFT.
-    // bin_idx_i[8] = 1 是反频率，忽略
-    // REGISTERED read: break the combinational index->array glitch path.
-    reg [6:0] bin2bar [0:511];
-    initial $readmemh("bin2bar.mem", bin2bar);
-    reg [6:0] cur_bar_r;
-    always @(posedge clk_i) cur_bar_r <= bin2bar[bin_idx_r[8:0]];   // sync read
+    localparam logic [2:0] S_ACCUM = 3'd0;
+    localparam logic [2:0] S_RANGE = 3'd1;
+    localparam logic [2:0] S_SCAN  = 3'd2;
+    localparam logic [2:0] S_CMP   = 3'd3;
+    localparam logic [2:0] S_WRITE = 3'd4;
+    localparam logic [2:0] S_DONE  = 3'd5;
 
-    // magnitude approx: |re| + |im|/4
-    wire [15:0] re_abs = xk_re_r[15] ? (~xk_re_r + 16'd1) : xk_re_r;
-    wire [15:0] im_abs = xk_im_r[15] ? (~xk_im_r + 16'd1) : xk_im_r;
-    wire [15:0] mag_big   = (re_abs > im_abs) ? re_abs : im_abs;
-    wire [15:0] mag_sml   = (re_abs > im_abs) ? im_abs : re_abs;
-    wire [17:0] mag   = {2'b0, mag_big} + {2'b0, mag_sml[15:2]};
+    localparam logic [9:0] SMOOTH_DECAY = 10'd6;
 
-    // bar_max: single write port + single registered read port (shared).
-    // rd_sel picks accumulate-addr vs flush-addr. Avoids dual-read inference.
-    // initial 0 (RAM can't reliably for-loop reset in Gowin inference).
-    reg [17:0] bar_max [0:N_BARS-1];
-    integer bm;
+    reg [2:0]  phase;
+    reg [6:0]  bar_idx;
+    reg [9:0]  scan_bin;
+    reg [9:0]  range_end;
+    reg [17:0] bar_acc;
+    reg [17:0] mag_q;
+    reg [9:0]  smooth_val;
+    reg [4:0]  peak_msb;
+    reg [17:0] frame_peak;
+    reg        eoud_r;
+
+    reg [17:0] bin_mag [0:511];
+    reg [19:0] bar_range [0:N_BARS-1];
+    reg [9:0]  smooth_ram [0:N_BARS-1];
+
+    integer i;
     initial begin
-        for (bm = 0; bm < N_BARS; bm = bm + 1) bar_max[bm] = 18'd0;
+        for (i = 0; i < 512; i = i + 1)
+            bin_mag[i] = 18'd0;
+        for (i = 0; i < N_BARS; i = i + 1)
+            smooth_ram[i] = 10'd0;
+        $readmemh("bar2bin.mem", bar_range);
     end
 
-    // smooth_ram: per-bar smoothed height (attack+decay), single write+read port.
-    // 10-bit smoothed height per bar. Initialized 0.
-    reg [9:0] smooth_ram [0:N_BARS-1];
-    initial begin
-        for (bm = 0; bm < N_BARS; bm = bm + 1) smooth_ram[bm] = 10'd0;
-    end
-    reg [9:0] smooth_rd;     // registered read during FLUSH
+    wire [15:0] re_abs = xk_re_i[15] ? (~xk_re_i + 16'd1) : xk_re_i;
+    wire [15:0] im_abs = xk_im_i[15] ? (~xk_im_i + 16'd1) : xk_im_i;
+    wire [15:0] mag_big = (re_abs > im_abs) ? re_abs : im_abs;
+    wire [15:0] mag_sml = (re_abs > im_abs) ? im_abs : re_abs;
+    wire [17:0] mag_in  = {2'b0, mag_big} + {2'b0, mag_sml[15:2]};
 
-    // smoothing params
-    localparam SMOOTH_DECAY = 10'd6;   // per-frame release step (px)
+    localparam logic [4:0] SPECTRUM_SPAN = 5'd8;
+    wire [4:0] bar_msb = msb_of(bar_acc);
+    wire [4:0] floor_msb = (peak_msb > SPECTRUM_SPAN) ? (peak_msb - SPECTRUM_SPAN) : 5'd0;
+    wire [4:0] level = (bar_msb > floor_msb) ? (bar_msb - floor_msb) : 5'd0;
+    wire [10:0] raw_h = level * 6'd60;
+    wire [9:0] raw_lim = (raw_h > 11'd479) ? 10'd479 : raw_h[9:0];
+    wire [9:0] release_h = (smooth_val > SMOOTH_DECAY) ? (smooth_val - SMOOTH_DECAY) : 10'd0;
+    wire [9:0] sm_new = (raw_lim > smooth_val) ? raw_lim : release_h;
 
-    // state
-    reg [8:0]  flush_cnt;    // 0 .. N_BARS+3
-    reg [1:0]  phase;        // 0=accum 1=flush 2=clear
-    reg [7:0]  clr_cnt;
-
-    // One registered read port shared by ACCUM and FLUSH.
-    reg [6:0]  rd_addr_d;
-    reg [17:0] bar_max_rd;
-    always @(posedge clk_i) begin
-        if (phase == 2'd1) rd_addr_d <= flush_cnt[6:0];
-        else               rd_addr_d <= cur_bar_r;
-
-        bar_max_rd <= bar_max[rd_addr_d];
-        smooth_rd  <= smooth_ram[rd_addr_d];
-    end
-
-    // Flush pipeline: S1 = msb + smooth, S2 = smoothed height, S3 = output.
-    reg [4:0] msb_s1;
-    reg [9:0] smooth_s1;
-    reg [6:0] addr_s1;
-    reg       v1;
-
-    reg [9:0] sm_s2;
-    reg [6:0] addr_s2;
-    reg       v2;
-
-    wire [9:0] sm_rel_s2 = (smooth_s1 > SMOOTH_DECAY) ? (smooth_s1 - SMOOTH_DECAY) : 10'd0;
-    wire [9:0] sm_raw_s2 = (msb_s1 * 10'd28 > 10'd479) ? 10'd479 : msb_s1 * 10'd28;
-    wire [9:0] sm_new_s2 = (sm_raw_s2 > smooth_s1) ? sm_raw_s2 : sm_rel_s2;
-    wire [9:0] ov_s3     = ov_target(sm_s2);
-
-    // linear sequence machine: ACCUM -> FLUSH -> CLEAR -> ACCUM
     always @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
-            phase <= 2'd0;
-            flush_cnt <= 0;
-            clr_cnt <= 0;
-            bar_we_o <= 1'b0;
+            phase        <= S_ACCUM;
+            bar_idx      <= 7'd0;
+            scan_bin     <= 10'd0;
+            range_end    <= 10'd0;
+            bar_acc      <= 18'd0;
+            mag_q        <= 18'd0;
+            smooth_val   <= 10'd0;
+            peak_msb     <= 5'd0;
+            frame_peak   <= 18'd0;
+            eoud_r       <= 1'b0;
+            bar_addr_o   <= 7'd0;
+            bar_w_o      <= 10'd0;
+            ov_w_o       <= 10'd0;
+            bar_we_o     <= 1'b0;
             frame_done_o <= 1'b0;
-            bar_addr_o <= 7'd0;
-            bar_w_o <= 10'd0;
-            ov_w_o <= 10'd0;
-            msb_s1 <= 0; smooth_s1 <= 0; addr_s1 <= 0; v1 <= 1'b0;
-            sm_s2 <= 0; addr_s2 <= 0; v2 <= 1'b0;
         end
         else begin
+            bar_we_o     <= 1'b0;
             frame_done_o <= 1'b0;
-            bar_we_o <= 1'b0;
 
-            // Stage 3: write one bar.
-            if (v2) begin
-                bar_addr_o <= addr_s2;
-                bar_w_o    <= sm_s2;
-                ov_w_o     <= ov_s3;
-                bar_we_o   <= 1'b1;
-                smooth_ram[addr_s2] <= sm_s2;
-            end
-
-            // Stage 2: smooth/limit.
-            v2 <= v1;
-            if (v1) begin
-                addr_s2 <= addr_s1;
-                sm_s2   <= sm_new_s2;
-            end
-
-            // Stage 1 capture.
-            v1 <= 1'b0;
+            if (eoud_i)
+                eoud_r <= 1'b1;
+            else
+                eoud_r <= 1'b0;
 
             case (phase)
-                2'd0: begin  // ACCUM
-                    if (bin_valid_r && !bin_idx_r[9]) begin
-                        if (mag > bar_max_rd) bar_max[cur_bar_r] <= mag;
+                S_ACCUM: begin
+                    if (bin_valid_i && !bin_idx_i[9]) begin
+                        bin_mag[bin_idx_i[8:0]] <= mag_in;
+                        if (mag_in > frame_peak)
+                            frame_peak <= mag_in;
                     end
+
                     if (eoud_r) begin
-                        phase <= 2'd1;
-                        flush_cnt <= 0;
+                        peak_msb  <= msb_of(frame_peak);
+                        frame_peak <= 18'd0;
+                        bar_idx   <= 7'd0;
+                        phase     <= S_RANGE;
                     end
                 end
 
-                2'd1: begin  // FLUSH
-                    if ((flush_cnt >= 1) && (flush_cnt <= N_BARS)) begin
-                        msb_s1    <= msb_of(bar_max_rd);
-                        smooth_s1 <= smooth_rd;
-                        addr_s1   <= rd_addr_d;
-                        v1        <= 1'b1;
-                    end
-                    if (flush_cnt == N_BARS + 3) begin
-                        phase <= 2'd2;
-                        clr_cnt <= 0;
-                        frame_done_o <= 1'b1;
-                    end
-                    else flush_cnt <= flush_cnt + 1'b1;
+                S_RANGE: begin
+                    scan_bin   <= bar_range[bar_idx][9:0];
+                    range_end  <= bar_range[bar_idx][19:10];
+                    bar_acc    <= 18'd0;
+                    smooth_val <= smooth_ram[bar_idx];
+                    phase      <= S_SCAN;
                 end
 
-                2'd2: begin  // CLEAR
-                    bar_max[clr_cnt[6:0]] <= 18'd0;
-                    if (clr_cnt == N_BARS-1)
-                        phase <= 2'd0;
-                    else
-                        clr_cnt <= clr_cnt + 1'b1;
+                S_SCAN: begin
+                    mag_q <= bin_mag[scan_bin];
+                    phase <= S_CMP;
                 end
+
+                S_CMP: begin
+                    if (mag_q > bar_acc)
+                        bar_acc <= mag_q;
+
+                    if (scan_bin == range_end)
+                        phase <= S_WRITE;
+                    else begin
+                        scan_bin <= scan_bin + 10'd1;
+                        phase    <= S_SCAN;
+                    end
+                end
+
+                S_WRITE: begin
+                    bar_addr_o <= bar_idx;
+                    bar_w_o    <= sm_new;
+                    ov_w_o     <= ov_target(sm_new);
+                    bar_we_o   <= 1'b1;
+                    smooth_ram[bar_idx] <= sm_new;
+
+                    if (bar_idx == N_BARS - 1)
+                        phase <= S_DONE;
+                    else begin
+                        bar_idx <= bar_idx + 7'd1;
+                        phase   <= S_RANGE;
+                    end
+                end
+
+                S_DONE: begin
+                    frame_done_o <= 1'b1;
+                    phase        <= S_ACCUM;
+                end
+
+                default: phase <= S_ACCUM;
             endcase
         end
     end
 
-    // Highest set bit (approx log2) -- separated into its own pipeline stage.
     function [4:0] msb_of(input [17:0] x);
         begin
             if (x[17:16])      msb_of = 5'd17;
@@ -217,13 +181,11 @@ module spectrum_map #(
         end
     endfunction
 
-    // overshoot target = +20% of bar height (effect B bounce)
-    // 1.2x �?h + h/4 - h/32 (shift approx), clamp 479
     function [9:0] ov_target(input [9:0] h);
         reg [11:0] t;
         begin
-            t = h + (h >> 2) - (h >> 5);   // ~1.21875x �?1.2x
-            ov_target = (t > 10'd479) ? 10'd479 : t[9:0];
+            t = h + (h >> 2) - (h >> 5);
+            ov_target = (t > 12'd479) ? 10'd479 : t[9:0];
         end
     endfunction
 

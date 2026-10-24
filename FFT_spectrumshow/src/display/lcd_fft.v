@@ -3,6 +3,9 @@ module lcd_fft (
     input               rst_n,
     input               frame_pulse,   // one pulse per frame -> hue cycles
     input               dot_en,        // gate dot physics to active FFT pixels (lcd_en & fft page)
+    input               peak_en,
+    input               theme,
+    input               smooth_en,
     input       [9:0]   q_y,        // bar height 0..479 (from data_source, table lookup)
     input       [9:0]   q_ov,       // overshoot target 0..479 (frame-precomputed)
     input       [9:0]   pix_x,
@@ -18,7 +21,7 @@ module lcd_fft (
     localparam TOP_R = 6'h00, TOP_G = 6'h34, TOP_B = 6'h34;
     parameter PEAK_HYST = 10'd12;     // bar must rise this much above peak to snap up
     parameter PEAK_FALL = 10'd1;      // peak drifts down by this on each decay event
-    parameter FALL_PERIOD = 10'd300;  // clocks between decay events (faster fall ~9px/frame)
+    parameter FALL_PERIOD = 10'd96;   // line updates between decay steps
 
 // ===== bar geometry: 128 bars, each 6 px wide (768 px used) =====
     // q_y/q_ov now arrive 1 clock after pix_x (registered RAM read in data_source).
@@ -56,8 +59,14 @@ module lcd_fft (
 
     wire [6:0] bar_idx = bar_idx_c;
 
-    // bar body: from bottom (y=479) up to (479 - q_y)
-    wire in_bar = (q_y > 10'd0) && (pxy >= 10'd479 - q_y);
+    localparam logic [9:0] BASE_Y = 10'd479;
+    localparam logic [9:0] MAX_H  = 10'd439;
+    wire [9:0] q_y_lim  = (q_y  > MAX_H) ? MAX_H : q_y;
+    wire [9:0] q_ov_lim = (q_ov > MAX_H) ? MAX_H : q_ov;
+    wire [9:0] bar_top  = BASE_Y - q_y_lim;
+
+    // bar body: from bottom up to bar_top
+    wire in_bar = (q_y_lim > 10'd0) && (pxy >= bar_top) && (pxy <= BASE_Y);
 
 // ===== hue shift: color band ROTATES (circular), not ping-pong =====
     // band is 192 long, wraps 191->0. The whole window slides around the ring.
@@ -84,7 +93,8 @@ module lcd_fft (
     end
 
     // color index = (bar + shift) mod 192 : circular rotation
-    wire [9:0]  idx_sum  = {1'b0, bar_idx} + {1'b0, hue_shift};   // 0..191+127
+    wire [8:0]  hue_use = theme ? 9'd0 : hue_shift;
+    wire [9:0]  idx_sum  = {1'b0, bar_idx} + {1'b0, hue_use};   // 0..191+127
     wire [8:0]  color_idx = (idx_sum >= 9'd192) ? (idx_sum - 9'd192) : idx_sum[8:0];
 
     // ===== color lookup: 128-bar rainbow (red->blue-cyan) =====
@@ -286,6 +296,12 @@ module lcd_fft (
 
 default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
         endcase
+
+        if (theme) begin
+            c_r = {color_idx[7:3], 1'b0};
+            c_g = {color_idx[7:3], 1'b0};
+            c_b = {color_idx[7:3], 1'b0};
+        end
     end
 
 // ===== output: LED array style =====
@@ -296,7 +312,7 @@ default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
     // Top "light dot": the topmost LED, shown white.
 
     // distance below the bar top: 0 at topmost pixel
-    wire [9:0] dist_top = pxy - (10'd479 - q_y);   // 0..q_y-1 inside bar
+    wire [9:0] dist_top = pxy - bar_top;
     // LED body in vertical: within a 5-row group (4 body + 1 gap), aligned from top
     wire [2:0] yg = dist_top % 10'd5;                // 0..4
     wire led_v = (yg <= 3'd3);                       // 4 rows on, 1 row gap
@@ -330,20 +346,20 @@ default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
                 fall_ram[pi] <= 10'd0;
             end
         end
-        else if (dot_en) begin
+        else if (dot_en && peak_en && (xm == 3'd1)) begin
             // physical bounce: bash up when bar rises past the dot -> overshoot,
             // then gravity pulls it down to rest on the bar top.
-            if (q_y > dot_ram[bar_idx]) begin
-                dot_ram[bar_idx] <= q_ov;        // to bar_top + overshoot
+            if (q_y_lim > dot_ram[bar_idx]) begin
+                dot_ram[bar_idx] <= q_ov_lim;
                 fall_ram[bar_idx] <= 10'd0;
             end
-            else if (dot_ram[bar_idx] > q_y) begin
+            else if (dot_ram[bar_idx] > q_y_lim) begin
                 if (fall_ram[bar_idx] >= FALL_PERIOD - 10'd1) begin
                     fall_ram[bar_idx] <= 10'd0;
-                    if (dot_ram[bar_idx] - PEAK_FALL > q_y)
+                    if (dot_ram[bar_idx] - PEAK_FALL > q_y_lim)
                         dot_ram[bar_idx] <= dot_ram[bar_idx] - PEAK_FALL;
                     else
-                        dot_ram[bar_idx] <= q_y; // rest on the bar
+                        dot_ram[bar_idx] <= q_y_lim;
                 end
                 else
                     fall_ram[bar_idx] <= fall_ram[bar_idx] + 10'd1;
@@ -355,16 +371,25 @@ default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
     // The dot is INDEPENDENT of the bar body: drawn whenever we are in the bar's
     // column (6px wide) at the dot's height. So an overshooting dot above the
     // bar top is still visible (it is NOT gated by in_bar).
-    wire [9:0] peak_h = dot_ram[bar_idx];
+    wire [9:0] peak_h = (dot_ram[bar_idx] > MAX_H) ? MAX_H : dot_ram[bar_idx];
+    wire [9:0] peak_top = BASE_Y - peak_h;
     wire in_bar_col  = (pxx >= {3'b0, bar_idx} * 10'd6) && (pxx < {3'b0, bar_idx} * 10'd6 + 10'd6);
-    wire is_peak_dot = in_bar_col && (pxy >= 10'd479 - peak_h) && (pxy <= 10'd479 - peak_h + 10'd3);
+    wire is_peak_dot = peak_en && (peak_h > 10'd0) && in_bar_col &&
+                       (xm >= 3'd1) && (xm <= 3'd4) &&
+                       (pxy >= peak_top) && (pxy <= peak_top + 10'd2);
 
     // LED gaps are black (in_bar but not in_led -> 0). Outside bar -> 0.
     // Priority: peak dot > LED body > gap.
     assign fft_hit = in_bar || is_peak_dot;
-    assign fft_r = is_peak_dot ? TOP_R : in_bar ? (in_led ? c_r : 6'h00) : 6'h00;
-    assign fft_g = is_peak_dot ? TOP_G : in_bar ? (in_led ? c_g : 6'h00) : 6'h00;
-    assign fft_b = is_peak_dot ? TOP_B : in_bar ? (in_led ? c_b : 6'h00) : 6'h00;
+
+    wire edge_dim = smooth_en && ((xm == 3'd1) || (xm == 3'd4));
+    wire [5:0] body_r = in_led ? (edge_dim ? {c_r[5:1], 1'b0} : c_r) : 6'h00;
+    wire [5:0] body_g = in_led ? (edge_dim ? {c_g[5:1], 1'b0} : c_g) : 6'h00;
+    wire [5:0] body_b = in_led ? (edge_dim ? {c_b[5:1], 1'b0} : c_b) : 6'h00;
+
+    assign fft_r = is_peak_dot ? TOP_R : in_bar ? body_r : 6'h00;
+    assign fft_g = is_peak_dot ? TOP_G : in_bar ? body_g : 6'h00;
+    assign fft_b = is_peak_dot ? TOP_B : in_bar ? body_b : 6'h00;
 
 endmodule
 
