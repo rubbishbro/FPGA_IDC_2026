@@ -59,7 +59,7 @@ module env_router #(
     end
 
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_adsr (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),
         .note_on(note_on), .note_gate(note_gate),
@@ -67,7 +67,7 @@ module env_router #(
     );
 
     envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_dyn (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
         .note_on(note_on), .note_gate(note_gate),
         .emap(m_dyn), .emap_valid(v_dyn)
     );

@@ -82,7 +82,7 @@ module exc_router #(
     assign clear = (inst != inst_q);
 
     excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_gen (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
         .SHIFT(shift_r), .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
         .clear(clear), .fmap(fmap), .note_on(note_on),
         .xmap(xmap), .xmap_valid(xmap_valid)

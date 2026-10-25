@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // =============================================================================
-// 激励生成：整张 fmap -> 整张 xmap（每个 smp_tick 一个样本）
+// 激励生成：整张 fmap -> 整张 xmap（每个 clk_en 一个样本）
 //
 // 每个声部一个小状态机，**只看 note_on（按下电平，带滞回）**：
 //   按下上升沿 -> 开始一串脉冲：高 PW_LEN 个采样 -> 低 GAP_LEN 个采样 -> 再来一个...
@@ -23,7 +23,7 @@ module excitation_gen #(
 )(
     input  logic                        clk,
     input  logic                        rst_n,
-    input  logic                        smp_tick,
+    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     input  logic [5:0]                  SHIFT,      // 8 位力值 -> 32 位定点的左移量
     input  logic [15:0]                 PW_LEN,     // 脉冲宽度（采样数，>=1）
     input  logic [15:0]                 GAP_LEN,    // 脉冲间距（采样数，0 = 不留低电平）
@@ -46,7 +46,7 @@ module excitation_gen #(
     // 上一拍的门控，用来取沿
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)        note_q <= '0;
-        else if (smp_tick) note_q <= note_on;
+        else if (clk_en) note_q <= note_on;
     end
 
     // 这个脉冲之后还能不能接着发
@@ -62,7 +62,7 @@ module excitation_gen #(
                 num[i]  <= '0;
                 xmap[i] <= '0;
             end
-        end else if (smp_tick) begin
+        end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
                 if (clear) begin
                     st[i]   <= X_IDLE;
@@ -149,6 +149,6 @@ module excitation_gen #(
         end
     end
 
-    assign xmap_valid = smp_tick;
+    assign xmap_valid = clk_en;
 
 endmodule

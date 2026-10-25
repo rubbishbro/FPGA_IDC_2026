@@ -37,7 +37,7 @@ module tb_excitation;
     logic        xmap_valid;
 
     excitation_gen #(.SLOTS(SLOTS)) dut (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),   // 内部叫 clk_en，当使能用
         .SHIFT(SHIFT), .PW_LEN(PW_LEN), .GAP_LEN(GAP_LEN), .N_PULSE(N_PULSE),
         .clear(clear), .fmap(fmap), .note_on(note_on),
         .xmap(xmap), .xmap_valid(xmap_valid)

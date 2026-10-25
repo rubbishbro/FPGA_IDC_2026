@@ -1,7 +1,7 @@
 // -----------------------------------------------------------------------------
 // 包络生成：每声部一个包络，输出 emap[16]
 //   * 全局统一 Q1.31：1.0 = 2^31-1（router 用 (y*emap)>>>31）
-//   * 采样节拍由 router 统一给（smp_tick），不再自己分频
+//   * 采样节拍由 router 统一给（clk_en，当**时钟使能**用），不再自己分频
 //   * ADSR 参数（含释放速率 R_STEP）由 router 的常量表按乐器选
 // -----------------------------------------------------------------------------
 module envelope_ADSR #(
@@ -11,7 +11,7 @@ module envelope_ADSR #(
 )(
     input  logic                        clk,
     input  logic                        rst_n,
-    input  logic                        smp_tick,
+    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     // 包络参数（由 router 的常量表按乐器选择；综合成常量网络）
     input  logic [31:0]                 A_STEP,
     input  logic [31:0]                 D_STEP,
@@ -35,9 +35,12 @@ module envelope_ADSR #(
     // note_on 是"按着就是 1"的滞回电平，不是脉冲：起音门必须自己取一拍沿，
     // 否则按住期间每个采样都会把 lvl 清 0，包络永远升不上去
     logic [SLOTS-1:0] note_on_q, onset;
+    // 注意：必须用 clk_en 采样。跟着时钟每拍走的话 onset 只有一拍宽，
+    // 而下面那个状态机只在节拍上跑 —— 没撞上节拍的起音就丢了（retrigger 时
+    // 更明显：lvl 不会被清 0，直接从旧的包络高度接着走）。
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) note_on_q <= '0;
-        else        note_on_q <= note_on;
+        if (!rst_n)      note_on_q <= '0;
+        else if (clk_en) note_on_q <= note_on;
     end
     assign onset = note_on & ~note_on_q;
 
@@ -47,7 +50,7 @@ module envelope_ADSR #(
                 st[i]  <= E_IDLE;
                 lvl[i] <= '0;
             end
-        end else if (smp_tick) begin
+        end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
                 if (onset[i]) begin
                     lvl[i] <= '0;
@@ -84,10 +87,16 @@ module envelope_ADSR #(
         end
     end
 
-    always_ff @(posedge clk) begin
-        for (int i = 0; i < SLOTS; i++) emap[i] <= signed'(lvl[i]);
+    // 输出寄存器也走时钟使能（省得每个时钟都翻一次）；emap 只在节拍上更新，
+    // 和 emap_valid 对齐
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            for (int i = 0; i < SLOTS; i++) emap[i] <= '0;
+        end else if (clk_en) begin
+            for (int i = 0; i < SLOTS; i++) emap[i] <= signed'(lvl[i]);
+        end
     end
-    assign emap_valid = smp_tick;
+    assign emap_valid = clk_en;
 
 endmodule
 
@@ -104,7 +113,7 @@ module envelope_dyn0 #(
 )(
     input  logic                        clk,
     input  logic                        rst_n,
-    input  logic                        smp_tick,
+    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,
     input  logic [SLOTS-1:0]            note_gate,
@@ -115,7 +124,7 @@ module envelope_dyn0 #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int i = 0; i < SLOTS; i++) emap[i] <= '0;
-        end else if (smp_tick) begin
+        end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
                 if (note_gate[i])
                     emap[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
@@ -124,7 +133,7 @@ module envelope_dyn0 #(
             end
         end
     end
-    assign emap_valid = smp_tick;
+    assign emap_valid = clk_en;
 
 endmodule
 
@@ -138,18 +147,19 @@ module envelope_const #(
 )(
     input  logic                        clk,
     input  logic                        rst_n,
-    input  logic                        smp_tick,
+    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid
 );
 
+    // 常数包络只需要在节拍上写一次（跟着时钟每拍写是白翻 512 个触发器）
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
-        end else begin
+        end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
         end
     end
-    assign emap_valid = smp_tick;
+    assign emap_valid = clk_en;
 
 endmodule

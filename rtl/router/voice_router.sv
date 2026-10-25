@@ -569,7 +569,29 @@ module voice_router #(
         end
     end
 
-    assign dead_ev = voice_dead & ~voice_dead_q;
+    // 起音后头几个采样里 emap 还是 0（ADSR 从 0 起爬），这时候 voice_dead 也会
+    // 抬起来 —— 但那个 0 只是"起音过程的第一个采样"，不是"这个声部没人弹"。
+    // 要是照清不误，就会把刚打进去的激励清掉（retrigger 时听感是"没声音"）。
+    // 所以 note_f 之后压 7 个采样不清。
+    logic [SLOTS-1:0] nh0, nh1, nh2, nh_busy;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            nh0 <= '0; nh1 <= '0; nh2 <= '0;
+        end else begin
+            for (int i = 0; i < SLOTS; i++) begin
+                if (note_f[i]) begin
+                    nh0[i] <= 1'b1; nh1[i] <= 1'b1; nh2[i] <= 1'b1;
+                end else if (smp_tick) begin
+                    nh0[i] <= nh1[i];
+                    nh1[i] <= nh2[i];
+                    nh2[i] <= 1'b0;
+                end
+            end
+        end
+    end
+    assign nh_busy = nh0 | nh1 | nh2;
+
+    assign dead_ev = voice_dead & ~voice_dead_q & ~nh_busy;
 
     // 帧头把 note 事件和"刚归零"事件一起交给本帧
     always_ff @(posedge clk or negedge rst_n) begin

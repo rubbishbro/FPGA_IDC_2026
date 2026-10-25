@@ -38,6 +38,7 @@ module comb_reverb #(
     input  logic [$clog2(N)-1:0]         n1, n2, n3, n4,     // 实际用的延迟（1..N）
     input  logic signed [31:0]          g1, g2, g3, g4,     // 反馈 Q4.27
     input  logic signed [31:0]          w1c, w2c, w3c, w4c, // 加权 Q4.27
+    input  logic                        clr,        // 清空请求（一拍脉冲）：复位 / 换预设时由上层给
     input  logic                        in_valid,
     input  logic signed [63:0]          in_data,
     output logic                        out_valid,
@@ -57,12 +58,13 @@ module comb_reverb #(
     logic signed [63:0]  s1, s2, s3, s4;              // RAM 读出
     logic signed [63:0]  din_a, din_b;                // 输入，跟着流水走
     logic signed [63:0]  fb1, fb2, fb3, fb4;          // (s*g)>>>F
-    logic signed [63:0]  t1, t2, t3, t4;              // (s*w)>>>F
+    logic signed [68:0]  t1, t2, t3, t4;              // (s*w)>>>F，保留完整 69 位（先不截断）
     logic signed [63:0]  sum_q;
     logic                v1, v2, v3;
 
     // 清空标志：置位期间"读作 0"，写照常；跑满 N 个采样后落
     logic                clr_run;
+    logic                clr_q;                     // 取 clr 的上升沿
     logic [AW-1:0]       clr_cnt;
     logic signed [63:0]  z0;
     logic signed [63:0]  s1_r, s2_r, s3_r, s4_r;
@@ -72,6 +74,23 @@ module comb_reverb #(
     assign s2_r = clr_run ? z0 : s2;
     assign s3_r = clr_run ? z0 : s3;
     assign s4_r = clr_run ? z0 : s4;
+
+    // ---- 加权输出：保留 69 位，只在求和那一级饱和一次 --------------------
+    //   (s*w) 是 96 位、>>>G_FRAC 之后还有 69 位。直接赋给 64 位就是**截断**：
+    //   加权系数 > 1.0 或者后面 4 路求和超范围时，高位会被悄悄丢掉（听感是
+    //   爆音 / 极性翻转）。这里先判高 32 位是不是全等于符号位，不是就钳位。
+    // 4 路求和：71 位加法，只有最后饱和一次（原来 64 位直接加，超了会回绕）
+    //   每项 69 位 + 2 位余量给 4 路和，比较只看高 8 位是不是全符号位 —— 比
+    //   在乘法那一级塞 4 个 32 位比较器便宜得多（那个版本 PnR 直接掉到 57 MHz）。
+    logic signed [70:0]  sum4;
+    logic                sum_ok;
+    logic signed [63:0]  sum_sat;
+
+    assign sum4    = {{2{t1[68]}}, t1} + {{2{t2[68]}}, t2} +
+                     {{2{t3[68]}}, t3} + {{2{t4[68]}}, t4};
+    assign sum_ok  = (sum4[70:63] == {8{sum4[63]}});
+    assign sum_sat = sum_ok ? sum4[63:0] :
+                     (sum4[63] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
 
     // 回写数据：din_b + fb，65 位加法 + 饱和（组合，直接进 RAM 的 D）
     logic signed [64:0]  sm1, sm2, sm3, sm4;
@@ -93,7 +112,8 @@ module comb_reverb #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            clr_run <= 1'b1;
+            clr_run <= 1'b1;      // 上电先当"清空中"；上层复位时也会给 clr
+            clr_q   <= 1'b0;
             clr_cnt <= '0;
             p1 <= '0;  p2 <= '0;  p3 <= '0;  p4 <= '0;
             ad_a1 <= '0; ad_a2 <= '0; ad_a3 <= '0; ad_a4 <= '0;
@@ -107,6 +127,13 @@ module comb_reverb #(
             v1 <= 1'b0; v2 <= 1'b0; v3 <= 1'b0;
             out_valid <= 1'b0;
         end else begin
+            clr_q <= clr;
+            // 清空请求：任何一拍都能启动/重启（不用等有样本进来）
+            if (clr && !clr_q) begin
+                clr_run <= 1'b1;
+                clr_cnt <= '0;
+            end
+
             v1        <= in_valid;
             v2        <= v1;
             v3        <= v2;
@@ -150,7 +177,7 @@ module comb_reverb #(
                 c2[ad_b2] <= wd2;
                 c3[ad_b3] <= wd3;
                 c4[ad_b4] <= wd4;
-                sum_q <= t1 + t2 + t3 + t4;
+                sum_q <= sum_sat;
             end
 
             // D：输出

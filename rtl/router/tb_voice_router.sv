@@ -36,9 +36,11 @@ module tb_voice_router;
     logic signed [31:0] ns_rd_data;
     logic        ns_rd_valid;
 
-    // 功能性 tb：把采样节拍调快（每 100 拍一个采样），好让 release 段在几百个作业里跑完。
-    // 注意节拍周期要 >= 一个作业的长度（这里 4 模态、1 声部，作业只有几十拍）。
-    voice_router #(.SR_HZ(1_000_000)) dut (
+    // 功能性 tb：把采样节拍调快，好让 release 段在几百个作业里跑完。
+    // **节拍周期必须 >= 一个作业的长度**：1 作业 = 1 采样，一个作业约 120 拍
+    // （引擎 17 + 腔体排空 93 + 混响 6），这里给 500 拍。太快的话激励那一拍
+    // 脉冲会落在两个作业之间被丢掉。
+    voice_router #(.SR_HZ(200_000)) dut (
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst), .reverb_preset(preset),
         .reload(reload), .start(start),
         .n_voices(n_voices), .n_modes(n_modes),

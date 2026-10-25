@@ -91,11 +91,23 @@ module reverb_router #(
     logic                    wet_valid;
     logic signed [63:0]      wet;
 
+    // ------------------------------------------------------------------
+    // 清空延迟线：复位 + 换预设时给 comb_reverb 一拍 clr（旧尾音不串到新预设）
+    // ------------------------------------------------------------------
+    router_pkg::reverb_preset preset_q;
+    logic                      comb_clr;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) preset_q <= router_pkg::REVERB_NONE;
+        else        preset_q <= preset;
+    end
+    assign comb_clr = !rst_n || (preset != preset_q);
     comb_reverb #(.N(N), .G_FRAC(G_FRAC)) u_comb (
         .clk(clk), .rst_n(rst_n),
         .n1(len[0]), .n2(len[1]), .n3(len[2]), .n4(len[3]),
         .g1(gc[0]),  .g2(gc[1]),  .g3(gc[2]),  .g4(gc[3]),
         .w1c(wc[0]), .w2c(wc[1]), .w3c(wc[2]), .w4c(wc[3]),
+        .clr(comb_clr),
         .in_valid(in_valid), .in_data(x),
         .out_valid(wet_valid), .wet(wet)
     );
@@ -107,16 +119,27 @@ module reverb_router #(
     //   out_valid = vq[5]，比 in_valid 晚 6 拍
     // ------------------------------------------------------------------
     logic signed [63:0] xd [0:3];
-    logic signed [63:0] p_dry, p_wet;
+    logic signed [68:0] dry_w, wet_w;      // 干/湿乘积移位后保留 69 位（先不饱和）
     logic [5:0]         vq;
 
     assign out_valid = vq[5];
 
+
+    // ------------------------------------------------------------------
+    // 干 + 湿：70 位加法 + 一次饱和（原来是 64 位直接加，超了回绕 -> 爆音）
+    //   饱和判决放在**相加这一级**，乘法那一级只存 69 位不比较：在乘法后面
+    //   塞 32 位比较器会把这条路拖到 57 MHz（教训）。
+    // ------------------------------------------------------------------
+    logic signed [69:0] y_sum;
+    logic               ys_ok;
+    assign y_sum = {{1{dry_w[68]}}, dry_w} + {{1{wet_w[68]}}, wet_w};
+    assign ys_ok = (y_sum[69:63] == {7{y_sum[63]}});
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int k = 0; k < 4; k++) xd[k] <= '0;
-            p_dry <= '0;
-            p_wet <= '0;
+            dry_w <= '0;
+            wet_w <= '0;
             y     <= '0;
             vq    <= '0;
         end else begin
@@ -125,11 +148,15 @@ module reverb_router #(
             xd[0] <= x;
             for (int k = 1; k < 4; k++) xd[k] <= xd[k-1];
 
-            if (vq[3]) begin                // 湿声 + 干声同一拍
-                p_dry <= 64'((xd[3] * gd) >>> G_FRAC);
-                p_wet <= 64'((wet  * gw) >>> G_FRAC);
+            if (vq[3]) begin                // 湿声 + 干声同一拍，只寄存不饱和
+                dry_w <= (xd[3] * gd) >>> G_FRAC;
+                wet_w <= (wet  * gw) >>> G_FRAC;
             end
-            if (vq[4]) y <= p_dry + p_wet;
+            // 相加这一级才饱和
+            if (vq[4]) begin
+                if (ys_ok) y <= y_sum[63:0];
+                else y <= y_sum[69] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF;
+            end
         end
     end
 

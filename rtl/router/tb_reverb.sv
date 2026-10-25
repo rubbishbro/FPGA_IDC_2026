@@ -52,6 +52,7 @@ module tb_reverb;
         for (int i = 0; i < NSAMP; i++) yout[i] = '0;
     endtask
 
+
     // 静音灌 N 个样本：comb_reverb 的清空标志要跑满 N 个采样才落（这期间
     // 读作 0，也就是湿声为 0），所以冲激要放在清空完成之后。
     task automatic warmup(input int n);
@@ -96,7 +97,7 @@ module tb_reverb;
     // ------------------------------------------------------------------
     task automatic case_none();
         int bad;
-        preset = router_pkg::REVERB_NONE;
+        @(negedge clk); preset = router_pkg::REVERB_NONE;
         clear_stats();
         bad = 0;
         for (int i = 0; i < 64; i++) begin
@@ -136,7 +137,10 @@ module tb_reverb;
         case_none();
 
         // ---- HALL ----
-        preset = router_pkg::REVERB_HALL;
+        // 注意：preset 要在 negedge 改。在 posedge 同一 delta 里改的话，
+        // reverb_router 里的 preset_q 会同时采到新值，(preset != preset_q)
+        // 这个清空脉冲就观察不到了（仿真竞争，硬件上不会）。
+        @(negedge clk); preset = router_pkg::REVERB_HALL;
         warmup(2200);                       // 先让清空标志落下
         run("HALL", 1'b1);
         n_hall = n_out;
@@ -149,7 +153,7 @@ module tb_reverb;
         if (hall_tail > hall_mid)   $display("   !! 尾部比中部还响（发散了？）");
 
         // ---- BATHROOM ----
-        preset = router_pkg::REVERB_BATHROOM;
+        @(negedge clk); preset = router_pkg::REVERB_BATHROOM;
         warmup(2200);
         run("BATHROOM", 1'b1);
         n_bath = n_out;
