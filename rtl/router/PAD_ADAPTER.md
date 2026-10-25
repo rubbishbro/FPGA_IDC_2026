@@ -100,6 +100,42 @@ n_samples = X_DEPTH = 64
 start     = run
 ```
 
+
+## 3.1 运行时音源切换
+
+`USE_PAD_DRIVER` 是**编译期**参数，只决定 `pad_driver` 是否综合进去，不能运行时改。
+
+真正运行时切换用：
+
+```systemverilog
+input logic src_sel;      // 0=pad_driver, 1=fmap_ext
+logic       src_sel_r;    // 打一拍，避免组合毛刺直接进 fmap mux
+
+always_ff @(posedge clk)
+    src_sel_r <= src_sel;
+
+assign fmap_use = (USE_PAD_DRIVER && !src_sel_r) ? pad_in.fmap : fmap_ext;
+```
+
+含义：
+
+```text
+src_sel=0 → 4×4 压力垫
+src_sel=1 → fmap_ext（外部 MIDI/上位机桥接输出）
+```
+
+切换发生在 `fmap` 层，`voice_router` 内部不需要知道音源是谁。
+
+注意：
+
+```text
+pad_driver 仍然一直在跑（上板模式）
+MIDI 前端必须自己把 note 事件变成 4×4 fmap
+切换时外部 fmap 要清零/保持合法，否则会留下持续音
+```
+
+如果 MIDI 是 note_on/note_off 事件而不是 fmap，需要一个
+`midi_note → slot → fmap[slot]` 的桥接；这个桥接不属于本文件。
 ## 4. 为什么不是“16 键键盘驱动”
 
 `pad_driver` 给的是：

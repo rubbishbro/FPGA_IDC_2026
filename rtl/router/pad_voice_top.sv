@@ -25,6 +25,10 @@ module pad_voice_top #(
     input  logic                      reload,
     input  logic                      run,          // 高电平=持续出采样
 
+    // 运行时音源选择：0=pad_driver，1=fmap_ext（外部 MIDI/上位机桥接）
+    // 注意：这是寄存器输入，不是 parameter；切换时只换 fmap 源。
+    input  logic                      src_sel,
+
     // 仿真/旁路：USE_PAD_DRIVER=0 时使用外部 fmap
     input  pad_driver_pkg::mat4x4     fmap_ext,
 
@@ -103,9 +107,17 @@ module pad_voice_top #(
     assign pad_fmap  = pad_in.fmap;
     assign pad_pos   = pad_in.pos;
 
-    // ---- 唯一的 fmap 选择：接真 pad 或外部旁路 ----
+    // ---- 运行时音源选择 ----
+    // USE_PAD_DRIVER 只决定 pad_driver 是否综合进去；
+    // src_sel_r 才是运行时可切换的寄存器。
+    logic src_sel_r;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) src_sel_r <= 1'b0;
+        else        src_sel_r <= src_sel;
+    end
+
     pad_driver_pkg::mat4x4 fmap_use;
-    assign fmap_use = USE_PAD_DRIVER ? pad_in.fmap : fmap_ext;
+    assign fmap_use = (USE_PAD_DRIVER && !src_sel_r) ? pad_in.fmap : fmap_ext;
 
     // ---- 端到端：fmap 直接进 voice_router ----
     // voice_router 内部用滞回阈值生成 note_on/note_gate；
