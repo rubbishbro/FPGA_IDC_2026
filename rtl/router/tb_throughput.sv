@@ -121,6 +121,19 @@ module tb_throughput;
         run_job("dead", 8'd0);      // 全静音
         run_job("live", 8'd200);    // 全在响（首帧带 note-on）
 
+        // ---- 吉他：带揉弦，16 个键同时按下 = 首帧要串行跑 16 次调制（F07）----
+        inst = router_pkg::INST_GUITAR;
+        for (int i = 0; i < SLOTS; i++) fmap.flat_d[i].val = 8'd0;
+        one_sample();                  // 先松键，保证下一次是上升沿
+        repeat (5) @(posedge clk);
+        run_job("gtr-on", 8'd200);   // 首帧：带 note-on + 16 次调制
+        run_job("gtr-ss", 8'd200);   // 稳态：没有 note-on
+        // 再来一次 16 键齐按，但**不换乐器**（不用重新加载表）-> 只剩调制的开销
+        for (int i = 0; i < SLOTS; i++) fmap.flat_d[i].val = 8'd0;
+        one_sample();
+        repeat (5) @(posedge clk);
+        run_job("gtr-mod", 8'd200);  // 只有调制、没有加载
+
         $finish;
     end
 endmodule

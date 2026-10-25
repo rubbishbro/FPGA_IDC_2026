@@ -40,8 +40,11 @@ module tb_reverb;
 
     // 采集输出
     logic signed [63:0] yout [0:NSAMP-1];
+    logic signed [63:0] yout_hold;      // 最近一次有效输出（大值直通用例逐拍比）
+    int                 big_bad = 0;
     int  n_out = 0;
     always @(posedge clk) if (out_valid) begin
+        yout_hold = y;
         if (n_out < NSAMP) yout[n_out] = y;
         n_out++;
     end
@@ -119,6 +122,67 @@ module tb_reverb;
     endtask
 
     // ------------------------------------------------------------------
+    // 用例 1b：大半幅直通 —— 64x32 乘法截断/量化会在这里露馅（原报告 F09：
+    //   NONE 输入 2^40 应原样输出）。用 +-2^40、+-2^40-1、满量程附近各来一发。
+    //   注意 reverb 有 LAT 拍延迟：先把 8 个值全灌进去，再回头比 yout[0..7]。
+    // ------------------------------------------------------------------
+    task automatic case_big();
+        int bad;
+        longint v, exp_v;
+        clear_stats();
+        bad = 0;
+        for (int i = 0; i < 8; i++) begin
+            case (i)
+                0: v =  64'sd1 << 40;
+                1: v = -64'sd1 << 40;
+                2: v = (64'sd1 << 40) - 64'sd1;
+                3: v = -((64'sd1 << 40) - 64'sd1);
+                4: v =  64'sd1 << 20;
+                5: v = -64'sd1 << 20;
+                6: v =  64'sd12345;
+                default: v = -64'sd12345;
+            endcase
+            @(negedge clk); in_valid = 1'b1; x = v;
+            @(posedge clk);
+        end
+        @(negedge clk); in_valid = 1'b0;
+        repeat (LAT + 4) @(posedge clk);
+        for (int i = 0; i < 8; i++) begin
+            case (i)
+                0: exp_v =  64'sd1 << 40;
+                1: exp_v = -64'sd1 << 40;
+                2: exp_v = (64'sd1 << 40) - 64'sd1;
+                3: exp_v = -((64'sd1 << 40) - 64'sd1);
+                4: exp_v =  64'sd1 << 20;
+                5: exp_v = -64'sd1 << 20;
+                6: exp_v =  64'sd12345;
+                default: exp_v = -64'sd12345;
+            endcase
+            if (yout[i] !== exp_v) begin
+                bad++;
+                $display("   大值直通不一致 i=%0d y=%0d exp=%0d", i, yout[i], exp_v);
+            end
+        end
+        $display("[NONE-BIG] 8 个大幅值：不一致 %0d 处", bad);
+        if (bad != 0) big_bad = bad;
+    endtask
+
+    // ------------------------------------------------------------------
+    // 把四条延迟线灌成非零：验证"切预设时清空"是真的（原报告 F10：NONE 只用到
+    // 地址 0，扩到 HALL 时会读到没写过的区域）。灌完再切 HALL，第一个抽头之前
+    // 必须仍然静音。
+    // ------------------------------------------------------------------
+    task automatic poison_ram(input longint v);
+        for (int i = 0; i < N; i++) begin
+            dut.u_comb.c1[i] = v;
+            dut.u_comb.c2[i] = v + 64'sd1;
+            dut.u_comb.c3[i] = ~v;
+            dut.u_comb.c4[i] = -v;
+        end
+        $display("   延迟线已灌成非零（%0d）", v);
+    endtask
+
+    // ------------------------------------------------------------------
     longint hall_mid, hall_tail, bath_mid, bath_tail;
     int     n_hall, n_bath;
 
@@ -133,10 +197,12 @@ module tb_reverb;
 
         $display("== reverb_router：N=%0d，每个用例 %0d 样本 ==", N, NSAMP);
 
-        // ---- NONE 直通 ----
+        // ---- NONE 直通 + 大半幅直通 ----
         case_none();
+        case_big();
 
         // ---- HALL ----
+        poison_ram(64'sd123456789);   // 先把旧数据灌进去，切 HALL 时必须被清掉
         // 注意：preset 要在 negedge 改。在 posedge 同一 delta 里改的话，
         // reverb_router 里的 preset_q 会同时采到新值，(preset != preset_q)
         // 这个清空脉冲就观察不到了（仿真竞争，硬件上不会）。
@@ -165,7 +231,7 @@ module tb_reverb;
                  (hall_tail * 1000) / ((hall_mid == 0) ? 1 : hall_mid),
                  (bath_tail * 1000) / ((bath_mid == 0) ? 1 : bath_mid));
 
-        if (n_hall == NSAMP && n_bath == NSAMP && hall_mid != 0 && bath_mid != 0 &&
+        if (big_bad == 0 && n_hall == NSAMP && n_bath == NSAMP && hall_mid != 0 && bath_mid != 0 &&
             hall_tail <= hall_mid && bath_tail <= bath_mid)
             $display("RESULT: PASS");
         else

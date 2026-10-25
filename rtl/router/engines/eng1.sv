@@ -64,7 +64,9 @@ module eng1 #(
     typedef enum logic [2:0] { S_IDLE, S_RD, S_MUL, S_RND, S_SHR, S_WB, S_DONE } est_e;
     est_e st;
 
-    logic [IW-1:0] mi, mi_q, nmod_lat;
+    logic [IW-1:0] mi, mi_q;
+    // 模态**数量**要比索引宽一位：N_MODES=64 时 IW=6，装不下 64（截成 0 -> 整个作业空转）
+    logic [IW:0]   nmod_lat;
 
     logic signed [63:0] p_g, p_a1, p_a2;
     logic signed [31:0] y1_cur, y2_cur, y_new;
@@ -73,9 +75,14 @@ module eng1 #(
     logic               st_zero_lat;
 
     // ---- 三个并行乘法（操作数在 S_MUL 这一拍都有效）----
+    //   注意：y1/y2 必须用**这一拍同步 RAM 刚返回的** st_q/st_qdot（清零时按 0），
+    //   不能用 y1_cur/y2_cur —— 那两个在 S_MUL 同拍被赋成新值，非阻塞赋值下乘法
+    //   看到的是**上一个模态**的状态，等于整条历史错开一个模态。
+    wire signed [31:0] y1_eff = st_zero_lat ? 32'sd0 : st_q;
+    wire signed [31:0] y2_eff = st_zero_lat ? 32'sd0 : st_qdot;
     wire signed [63:0] x_ext  = {{32{x_data[31]}}, x_data};
-    wire signed [63:0] y1_ext = {{32{y1_cur[31]}}, y1_cur};
-    wire signed [63:0] y2_ext = {{32{y2_cur[31]}}, y2_cur};
+    wire signed [63:0] y1_ext = {{32{y1_eff[31]}}, y1_eff};
+    wire signed [63:0] y2_ext = {{32{y2_eff[31]}}, y2_eff};
 
     wire signed [63:0] mul_g  = mul64(x_ext,  {{38{co_data.a11[25]}}, co_data.a11[25:0]});
     wire signed [63:0] mul_a1 = mul64(y1_ext, {{38{co_data.a12[21]}}, co_data.a12[21:0], 4'b0});
@@ -123,7 +130,7 @@ module eng1 #(
                     y_acc <= '0;
                     if (start) begin
                         mi          <= '0;
-                        nmod_lat    <= n_modes[IW-1:0];
+                        nmod_lat    <= n_modes;
                         st_zero_lat <= st_zero;
                         st          <= S_RD;
                     end
@@ -140,8 +147,9 @@ module eng1 #(
                     // 清零：**每个模态**的历史都读作 0（和 eng0 的 q_eff/v_eff 一个套路）。
                     //   原来只对第一个模态生效（多了个 first_done 条件），后面模态照样
                     //   用旧状态算 —— note-on 之后旧的谐振还在，等于没清干净。
-                    y1_cur <= st_zero_lat ? 32'sd0 : st_q;
-                    y2_cur <= st_zero_lat ? 32'sd0 : st_qdot;
+                    // y1_cur 只用来写回 y2'（y2' = y1），不再参与乘法
+                    y1_cur <= y1_eff;
+                    y2_cur <= y2_eff;
                     mi_q   <= mi;
                     st     <= S_RND;
                 end

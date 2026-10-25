@@ -85,7 +85,9 @@ module weight_loader #(
     logic [23:0] base24;        // 本乐器的 flash 基地址 = inst * TABLE_BYTES
     logic [4:0]  wr_i;          // 写 slot：0..SLOTS-1 写系数表，SLOTS..2*SLOTS-1 写参数表
     logic        blank;         // 第一个字是 FFFFFFFF -> 这表没烧
-    logic [BLANK_WAIT-1:0] wait_cnt;
+    // 按计数终值开位宽（BLANK_WAIT 位太浪费；BLANK_WAIT=1 时也要能编过）
+    localparam int BWW = (BLANK_WAIT > 1) ? $clog2(BLANK_WAIT) : 1;
+    logic [BWW-1:0] wait_cnt;
 
     assign base24     = 24'(32'(inst) * 32'(TBL_BYTES));
     assign ph_last    = (dph == DPW'(DIV4 - 1));

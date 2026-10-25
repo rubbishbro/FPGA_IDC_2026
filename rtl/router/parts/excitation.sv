@@ -41,12 +41,22 @@ module excitation_gen #(
     logic [15:0]      cnt [0:SLOTS-1];      // 本状态已过的采样数
     logic [3:0]       num [0:SLOTS-1];      // 本串第几个脉冲（从 1 起）
     logic [SLOTS-1:0] note_q;
+    // clear 是上层给的一拍脉冲，状态机只在 clk_en 上跑 —— 不挂起会漏掉（F11）
+    logic             clr_pend;
 
 
     // 上一拍的门控，用来取沿
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n)        note_q <= '0;
+        if (!rst_n)      note_q <= '0;
         else if (clk_en) note_q <= note_on;
+    end
+
+    // clear 挂起：任何一拍来都记住，等下一个节拍消费（上层给的是一拍脉冲，
+    // 而状态机只在 clk_en 上跑，不挂起就会漏掉）
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n)      clr_pend <= 1'b0;
+        else if (clk_en) clr_pend <= 1'b0;
+        else if (clear)  clr_pend <= 1'b1;
     end
 
     // 这个脉冲之后还能不能接着发
@@ -64,7 +74,7 @@ module excitation_gen #(
             end
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (clear) begin
+                if (clear || clr_pend) begin
                     st[i]   <= X_IDLE;
                     cnt[i]  <= '0;
                     num[i]  <= '0;

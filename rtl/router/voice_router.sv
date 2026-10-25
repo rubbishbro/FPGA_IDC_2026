@@ -300,7 +300,7 @@ module voice_router #(
     logic signed [31:0] e0_qwd, e0_vwd, e1_qwd, e1_vwd;
     eng0 #(.N_MODES(N_MODES)) u_eng0 (
         .clk(clk), .rst_n(rst_n),
-        .start(e0_start), .st_zero(e0_zero), .n_modes(n_modes),
+        .start(e0_start), .st_zero(e0_zero), .n_modes(nm_lat),
         .y_valid(e0_yv), .y_data(e0_y),
         .co_re(e0_co_re), .co_addr(e0_co_addr), .co_data(co_r),
         .st_re(e0_st_re), .st_addr(e0_st_addr),
@@ -312,7 +312,7 @@ module voice_router #(
 
     eng1 #(.N_MODES(N_MODES)) u_eng1 (
         .clk(clk), .rst_n(rst_n),
-        .start(e1_start), .st_zero(e1_zero), .n_modes(n_modes),
+        .start(e1_start), .st_zero(e1_zero), .n_modes(nm_lat),
         .y_valid(e1_yv), .y_data(e1_y),
         .co_re(e1_co_re), .co_addr(e1_co_addr), .co_data(co_r),
         .st_re(e1_st_re), .st_addr(e1_st_addr),
@@ -327,10 +327,14 @@ module voice_router #(
     // =========================================================================
     logic [VWID:0]        voi;
     logic [CO_SLOT-1:0]   st_rd_idx, st_wr_idx, co_idx;
+    logic [CO_SLOT-1:0]   pm_idx;         // 调制参数读地址 = mod_slot*N_MODES + mode
 
-    assign co_idx    = {voi[VWID-1:0], eng_co_addr};
-    assign st_rd_idx = {voi[VWID-1:0], eng_st_addr};
-    assign st_wr_idx = {voi[VWID-1:0], eng_st_waddr};
+    // 地址 = slot*N_MODES + mode（显式乘，不靠 {slot,mode} 拼接：N_MODES 不是 2 的
+    // 幂时拼接的步长会和 RAM 深度/loader 布局对不上）。N_MODES=2^k 时综合成移位。
+    assign pm_idx    = CO_SLOT'(32'(mod_slot) * 32'(N_MODES) + 32'(mod_p_mode));
+    assign co_idx    = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_co_addr));
+    assign st_rd_idx = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_st_addr));
+    assign st_wr_idx = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_st_waddr));
 
     always_comb begin
         co_r.a11 = co_a11_r;  co_r.a12 = co_a12_r;  co_r.a21 = co_a21_r;
@@ -353,7 +357,8 @@ module voice_router #(
             st_q_r   <= '0; st_v_r   <= '0; x_r      <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
         end else begin
-            ns_vld <= ns_rd_en & DEBUG_PORT;
+            // 引擎占用状态口时 debug 读根本没执行，valid 不能报（F11/其它接口表）
+            ns_vld <= ns_rd_en & DEBUG_PORT & ~eng_st_re;
 
             // 系数：加载器 / 调制器 写（loader 优先），引擎读
             if (ld_co_we) begin
@@ -384,13 +389,13 @@ module voice_router #(
             // 参数表读出后**再打一拍**：否则 BSRAM 的 CLK->Q 会和调制器第一级乘法
             // 串在同一条路径上（实测 15.2 ns）。这一拍只做寄存，调制器多等一拍。
             if (mod_p_re) begin
-                mod_c0_r     <= pm_c0 [{mod_slot, mod_p_mode}];
-                mod_s0_r     <= pm_s0 [{mod_slot, mod_p_mode}];
-                mod_gam_r    <= pm_gam[{mod_slot, mod_p_mode}];
-                mod_theta0_r <= pm_th [{mod_slot, mod_p_mode}];
-                mod_g_r      <= pm_g  [{mod_slot, mod_p_mode}];
-                mod_k12_r    <= pm_k12[{mod_slot, mod_p_mode}];
-                mod_k21_r    <= pm_k21[{mod_slot, mod_p_mode}];
+                mod_c0_r     <= pm_c0 [pm_idx];
+                mod_s0_r     <= pm_s0 [pm_idx];
+                mod_gam_r    <= pm_gam[pm_idx];
+                mod_theta0_r <= pm_th [pm_idx];
+                mod_g_r      <= pm_g  [pm_idx];
+                mod_k12_r    <= pm_k12[pm_idx];
+                mod_k21_r    <= pm_k21[pm_idx];
             end
 
             if (eng_co_re) begin
