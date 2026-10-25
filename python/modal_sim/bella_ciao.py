@@ -185,6 +185,10 @@ def render(bars=16, verbose=True):
     guitar = P.Patch("guitar", band_hz=16_000.0)
 
     rng = np.random.default_rng(5)
+    # max_poly/high_water count voices (notes), not modes: each mandolin voice
+    # carries up to 64 modes. A tremolo re-strikes every 80 ms while a plucked
+    # note rings ~250 ms, so one sustained pitch overlaps ~3 voices; hence a
+    # 40-voice pool rather than the RTL's 16.
     lead = ModalSynth(mando, max_poly=40, high_water=36, seed=3, **MANDO)
     chop = ModalSynth(mando, max_poly=24, high_water=20, release_factor=4.0,
                       seed=4, **MANDO)

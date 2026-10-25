@@ -142,6 +142,13 @@ class CoeffTable:
 # polyphonic fixed-point synth (A-class: static per-note coefficients)
 # ---------------------------------------------------------------------------
 class FixedModalSynth:
+    """Fixed-point mirror of ModalSynth's voice pool.
+
+    `max_poly` / `high_water` count voices (notes), not modes. One voice owns
+    up to `max_modes` IIR resonators, so the state is
+    `max_poly x max_modes` words plus the excitation state.
+    """
+
     def __init__(self, table: CoeffTable, sr: int = SR, max_poly: int = 32,
                  max_modes: int = 48, high_water: int | None = None,
                  tau_forte: float = 1.5e-4, tau_piano: float = 2.5e-4,
@@ -180,6 +187,7 @@ class FixedModalSynth:
 
     # ------------------------------------------------------------------
     def note_on(self, midi, vel=1.0):
+        """Allocate one voice; a full pool steals the quietest voice."""
         dyn = "forte" if vel >= 0.55 else "piano"
         ent = self.table.get(midi, dyn)
 
@@ -212,6 +220,9 @@ class FixedModalSynth:
         self.fast[v] = False
         self.key[v] = int(midi)
         self.nm[v] = n
+        # Peak-follower seed used to rank kill candidates. On the first step()
+        # the quantised pulse is still zero (raised cosine at n=0), so this
+        # seed, not the attack peak, is what the high-water check sees.
         self.level[v] = 1e-3
         return v
 
@@ -248,7 +259,14 @@ class FixedModalSynth:
         self.level = np.maximum(np.abs(rawf), self.level * self.level_decay)
         out = float(rawf[self.active].sum())
 
-        # high-water proactive kill (mirrors engine.step); control stays float
+        # High-water proactive kill (mirrors engine.step); control stays float.
+        # `act` / `high_water` are voice counts. The quietest voice is chosen by
+        # `level`, which on a newborn's first sample is still the 1e-3 seed,
+        # not its attack peak (the pulse is zero at n=0).
+        #
+        # FIXME: add `& (self.pr == 0)` to the mask below; the float engine has
+        # the same issue. Here a kill only sets `fast` (the coefficient rescale
+        # is not frozen yet), so the bug is latent rather than audible.
         act = int(self.active.sum())
         nfast = int((self.active & self.fast).sum())
         if act > self.high_water and nfast < (act - self.high_water):
