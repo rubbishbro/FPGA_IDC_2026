@@ -253,6 +253,30 @@ clk 放到专用时钟脚再复测，否则 Fmax 会被低估。
 
 ---
 
+
+## 3.11 板级适配：pad_driver → voice_router
+
+新增 [`pad_voice_top.sv`](pad_voice_top.sv)：
+
+```text
+pad_driver (4×4 压力矩阵)
+  → voice_router (内部 fmap→note_on→引擎→后级)
+  → y_valid / y_data
+```
+
+`voice_router` 已经直接接收 `pad_driver_pkg::mat4x4 fmap`，所以 16 个压力单元
+不需要外部 keycode/voice 分配器。`pad_voice_top` 只负责：
+
+```text
+100MHz → 2.5MHz clk_en 给 pad_driver
+run → start（高电平自动连续 block）
+inst / reverb_preset / reload
+QSPI、y_valid/y_data、LED 占位
+```
+
+摇杆 `pos` 仍未接进调制器；外部 MIDI 仍缺 note 接口。详见
+[`PAD_ADAPTER.md`](PAD_ADAPTER.md)。
+
 ## 4. 怎么跑
 
 ### 4.1 一键脚本（推荐）
