@@ -299,12 +299,14 @@ S_RUN_V: if (note_f[voi]) mod_req[voi] <= 1'b1;   state <= S_ENVMUL;   // 不停
 - 标准 1 线 SPI、模式 0、命令 `0x03`，`SCK = CLK/SCK_DIV`（默认 /4 ≈ 22 MHz，上限 50 MHz）。
 - 布局（**和 `tools/flash_image.py` 是同一份契约**）：
   ```
-  base = inst * N_MODES * 64
-  第 m 个模态 64 字节：+0 a11  +4 a12  +8 a21  +12 a22  +16 gq  +20 gv  +24 wo
-                     +32 c0  +36 s0  +40 gam +44 theta0 +48 g  +52 k12 +56 k21
+  base = inst * TABLE_BYTES      TABLE_BYTES = SLOTS * N_MODES * 64
+  记录顺序 = RAM 地址顺序（slot-major）：slot 0 的 N_MODES 条，然后 slot 1 ...
+  第 (slot, mode) 条记录 64 字节：+0 a11  +4 a12  +8 a21  +12 a22  +16 gq  +20 gv  +24 wo
+                                +32 c0  +36 s0  +40 gam +44 theta0 +48 g  +52 k12 +56 k21
   字段：大端 signed 32-bit；没用的字节填 0
   ```
-- 一个乐器一张表，16 个 slot 共用 → loader 读一遍、写 16 份。
+- **每个声部一张表**：flash 里可以给 16 个 slot 预置**不同音高**的数据，loader 每条记录
+  只写它自己那个 `(slot, mode)`，不再复制。
 - **写口地址 = `{sel, addr}`**：最高位 `sel` 选表（0 = 系数表，1 = 调制参数表），
   低位 `addr = {slot, mode}`。`voice_router` 直接拿 `ld_addr[CO_SLOT]` 当选择、
   `ld_addr[CO_SLOT-1:0]` 当索引 —— **地址是纯拼接，路径上没有乘法器/比较器**。
@@ -312,9 +314,10 @@ S_RUN_V: if (note_f[voi]) mod_req[voi] <= 1'b1;   state <= S_ENVMUL;   // 不停
   `SLOTS*NMP`）：`N_MODES=64` 时 `NMP=64` 完全等价，非 2 的幂时多占一点 RAM 但
   地址仍然只靠移位。两张表宽度一样，都按 `N_MODES` 开（不再有单独的 `PM_MODES`，
   但是物理槽数是 `NMP`）。
-  注意：flash 里仍然只存真实模态（`TBL_BYTES = N_MODES*64`），补齐只影响 RAM 寻址。
+  注意：flash 里只存真实模态（`TBL_BYTES = SLOTS*N_MODES*64`），补齐只影响 RAM 寻址。
 
-- 四线模式下一个模态 ≈ 1078 拍（`SCK_DIV=8`）：64 模态 ≈ 69k 拍 ≈ 0.8 ms @87 MHz。
+- 加载量 = `SLOTS*N_MODES` 条记录（64 模态时 1024 条 = 64 KB），
+  约 **520 拍/条 ≈ 53 万拍 ≈ 6.5 ms**（`SCK_DIV=4`）；是**阻塞**的（换乐器那一下）。
 - **物理层：标准四线（Quad）SPI，模式 0，命令 `0x6B`**（Fast Read Quad Output）：
   8 钟指令（只有 DQ0 出）→ 24 位地址 4 位一拍（6 钟）→ 8 钟 dummy → 之后数据 4 位
   一拍。`SCK = CLK / SCK_DIV`（`SCK_DIV` 必须 ≥ 4、取 4 的倍数，一个 SCK 的四个相位
@@ -548,6 +551,31 @@ fmap ──┬─► voice_router #0  (inst=A, preset=X)  ──┐
 1. `comb_reverb` 写 RAM 那段（现在 −1.73 ns）：把"加 + 饱和"和"写 RAM"拆成两级。
 2. 包络的 64×32 乘法（之前 −1.68 ns）：拆成两级流水。
 3. `eng1` 的累加链（−1.4 ns 左右）。
+
+---
+
+## 7.4 用 xsim 直接"渲染"一段音频
+
+`tb_music.sv` 不是自检 TB，而是把 `voice_router` 当渲染器用：逐采样跑作业，把
+`y_data` 一行一个十进制写出来，再用 `_analysis/dec2wav.py` 转成 16-bit WAV。
+
+```powershell
+# 1 秒 = 48000 个采样；NPER 是触键间隔（采样数）
+xelab tb_music -s tb_mu --debug typical -timescale 1ns/1ps -generic_top "NSAMP=48000"
+xsim tb_mu --runall
+python _analysis/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 48000
+```
+
+- **仿真速度**（实测，本机）：约 **11.5 万拍/秒**。1 秒音频在 1000 拍/采样（48 MHz /
+  48 kHz）下是 4800 万拍 → **约 7 分钟**；按真实配置 100 MHz / 48 kHz（2083 拍/采样）
+  是 1.0 亿拍 → **约 15 分钟**。所以"1 秒片段"完全跑得动，分钟级。
+- `CLK_HZ` 只是给 tick 分频器用的参数，仿真时钟本身还是 10 ns；一次作业 865 拍，
+  所以 `CLK_HZ/SR_HZ` 必须 > 865（用 1000 留 135 拍余量）。
+- loader 现在是**每个声部一张表**（表 3.8），flash 里给 16 个 slot 预置不同音高的表就能
+  出旋律；这段 demo 还是把同一张表灌给全部声部（只有 4 个模态的真实数据），所以听起来
+  是同一音高的节奏。
+- 系数用 `tools/golden_seq_piano.txt` 的 4 个真实模态；TB 会跳过第一次 loader
+  （假 flash 读出来全是 0），直接把 4 个模态灌给全部 16 个声部。
 
 ---
 

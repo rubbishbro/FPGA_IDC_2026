@@ -62,7 +62,7 @@ module weight_loader #(
     localparam int LDW  = AW + 1;                    // 最高位选表
     localparam int REC_WORDS = 16;                    // 每模态 16 个 32-bit 字
     localparam int TABLE_WORDS = N_MODES * REC_WORDS;
-    localparam int TBL_BYTES = N_MODES * 64;
+    localparam int TBL_BYTES = SLOTS * N_MODES * 64;   // 每个声部一张表
     localparam int MW = (N_MODES > 1) ? $clog2(N_MODES) : 1;
     localparam logic [7:0] CMD_QUAD = 8'h6B;          // Fast Read Quad Output
 
@@ -84,6 +84,7 @@ module weight_loader #(
     logic [2:0]  nib_i;         // 数据阶段：本字已收几个 nibble（0..7）
     logic [3:0]  word_i;        // 本记录第几个字（0..15）
     logic [MW-1:0] mode_i;      // 第几个模态
+    logic [VW_-1:0] slot_i;     // 第几个声部（flash 里每个声部一条独立的表）
     logic [31:0] rx_sh;
 
     logic [23:0] base24;        // 本乐器的 flash 基地址 = inst * TABLE_BYTES
@@ -174,6 +175,7 @@ module weight_loader #(
                         nib_i     <= 3'd0;
                         word_i    <= 4'd0;
                         mode_i    <= '0;
+                        slot_i    <= '0;
                         rx_sh     <= 32'd0;
                         st        <= W_HDR;
                     end
@@ -205,7 +207,7 @@ module weight_loader #(
                                     if (nib_i == 3'd7) begin
                                         nib_i <= 3'd0;
                                         decode_word(word_i, rx_sh);
-                                        if (word_i == 4'd0 && mode_i == '0 && !blank)
+                                        if (word_i == 4'd0 && mode_i == '0 && slot_i == '0 && !blank)
                                             blank <= (rx_sh == 32'hFFFF_FFFF);
                                         if (word_i == REC_WORDS-1) begin
                                             word_i <= 4'd0;
@@ -228,19 +230,25 @@ module weight_loader #(
                 end
 
                 // ------------------------------------------------------------
-                // 把这个模态的记录写进全部 slot（上半段系数表、下半段参数表）
+                // 一条记录只写**它自己那个声部**（flash 里每个 slot 是不同音高的表）
+                //   一次记录 = 16 个字 = 8 个系数 + 8 个调制参数 -> 两笔写（选表位不同）
                 W_WR: begin
-                    // 地址 = {sel, slot, mode}：最高位选表，低 AW 位是 {slot, mode}
-                    ld_we   <= 1'b1;
-                    // 低 AW 位 = {slot, mode}（NMP 是 2 的幂，直接拼；不出现乘法）
-                    if (wr_i < 5'(SLOTS))
-                        ld_addr <= {1'b0, VW_'(wr_i), mode_i};
-                    else
-                        ld_addr <= {1'b1, VW_'(wr_i - 5'(SLOTS)), mode_i};
-                    if (wr_i == 5'(2*SLOTS-1)) begin
+                    ld_we <= 1'b1;
+                    // 地址 = {sel, 声部, 模态}，sel 最高位选表
+                    if (wr_i == 5'd0) ld_addr <= {1'b0, slot_i[VW_-1:0], mode_i};
+                    else              ld_addr <= {1'b1, slot_i[VW_-1:0], mode_i};
+                    if (wr_i == 5'd1) begin
                         wr_i <= 5'd0;
-                        if (mode_i == MW'(N_MODES-1)) st <= W_END;
-                        else begin
+                        // 下一个模态；一个声部写完就换下一个声部（顺序 = RAM 地址顺序）
+                        if (mode_i == MW'(N_MODES-1)) begin
+                            mode_i <= '0;
+                            if (slot_i == VW_'(SLOTS-1)) st <= W_END;
+                            else begin
+                                slot_i <= slot_i + 1'b1;
+                                nib_i  <= 3'd0;
+                                st     <= W_DATA;
+                            end
+                        end else begin
                             mode_i <= mode_i + 1'b1;
                             nib_i  <= 3'd0;
                             st     <= W_DATA;

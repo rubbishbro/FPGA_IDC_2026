@@ -85,7 +85,7 @@ module tb_loader_flash;
     localparam int NMP        = 1 << MW_;               // 每声部补齐后的槽数
     localparam int AW         = $clog2(SLOTS) + MW_;    // 低位 {slot, mode}
     localparam int LDW        = AW + 1;                 // 最高位选表
-    localparam int TBL_BYTES  = N_MODES * 64;   // flash 里只放真实模态数，不带补齐
+    localparam int TBL_BYTES  = SLOTS * N_MODES * 64;   // 每个声部一张表
     localparam int INST       = 2;         // 用 2 号乐器，验证基地址乘对了
     localparam int FLASH_BYTES = 4096;
 
@@ -121,20 +121,23 @@ module tb_loader_flash;
     // ------------------------------------------------------------------
     // 表内容：第 m 个模态的第 w 个字 = 0x1000_0000 | m<<8 | w<<4 | 5
     // ------------------------------------------------------------------
-    function automatic logic [31:0] pat(input int m, input int w);
-        pat = 32'h1000_0000 | (32'(m) << 8) | (32'(w) << 4) | 32'h5;
+    // 图样带上声部号：flash 里每个 slot 是**独立**的一张表（不同音高）
+    function automatic logic [31:0] pat(input int sl, input int m, input int w);
+        pat = 32'h1000_0000 | (32'(sl) << 16) | (32'(m) << 8) | (32'(w) << 4) | 32'h5;
     endfunction
 
     task automatic program_table(input int ins, input bit blank_ff);
         int base;
         logic [31:0] w32;
         base = ins * TBL_BYTES;
-        for (int m = 0; m < N_MODES; m++) begin
-            for (int w = 0; w < 16; w++) begin
-                w32 = pat(m, w);
-                for (int k = 0; k < 4; k++)
-                    u_flash.mem[base + m*64 + w*4 + k]
-                        = blank_ff ? 8'hFF : w32[31-8*k -: 8];
+        for (int sl = 0; sl < SLOTS; sl++) begin
+            for (int m = 0; m < N_MODES; m++) begin
+                for (int w = 0; w < 16; w++) begin
+                    w32 = pat(sl, m, w);
+                    for (int k = 0; k < 4; k++)
+                        u_flash.mem[base + (sl*N_MODES + m)*64 + w*4 + k]
+                            = blank_ff ? 8'hFF : w32[31-8*k -: 8];
+                end
             end
         end
     endtask
@@ -153,8 +156,8 @@ module tb_loader_flash;
         if (sel == 0) begin
             slot = addr / NMP;
             mode = addr % NMP;
-            if (chk_data && (ld_co.a11 !== pat(mode, 0) || ld_co.gq !== pat(mode, 4) ||
-                ld_co.wo  !== pat(mode, 6))) begin
+            if (chk_data && (ld_co.a11 !== pat(slot, mode, 0) || ld_co.gq !== pat(slot, mode, 4) ||
+                ld_co.wo  !== pat(slot, mode, 6))) begin
                 n_bad++;
                 if (n_bad <= 6)
                     $display("  BAD co  addr=%0d (slot %0d mode %0d) a11=%h gq=%h wo=%h",
@@ -163,7 +166,7 @@ module tb_loader_flash;
         end else begin
             slot = addr / NMP;
             mode = addr % NMP;
-            if (chk_data && (ld_pm.c0 !== pat(mode, 8) || ld_pm.k21 !== pat(mode, 14))) begin
+            if (chk_data && (ld_pm.c0 !== pat(slot, mode, 8) || ld_pm.k21 !== pat(slot, mode, 14))) begin
                 n_bad++;
                 if (n_bad <= 6)
                     $display("  BAD pm  addr=%0d (slot %0d mode %0d) c0=%h k21=%h",
