@@ -31,6 +31,11 @@ module envelope_ADSR #(
 
     est_e        st  [0:SLOTS-1];
     logic [31:0] lvl [0:SLOTS-1];
+    // 衰减阈值只算一次（16 个声部共用）：S_LEVEL 是参数，配大了加法会绕回
+    logic [31:0] dec_th;
+    always_comb begin
+        dec_th = (S_LEVEL > 32'h7FFF_FFFF - D_STEP) ? 32'h7FFF_FFFF : (S_LEVEL + D_STEP);
+    end
     logic [SLOTS-1:0] dead_r;
     logic [SLOTS-1:0] gate;
 
@@ -79,13 +84,28 @@ module envelope_ADSR #(
                     dead_r[i] <= 1'b0;      // 按着（哪怕还在衰减/保持）都不算空
                     case (st[i])
                         E_IDLE: if (gate[i]) st[i] <= E_ATK;
+                        // 起音：用 33 位和，只要超过 0x7FFF_FFFF 就钳住并转衰减。
+                        //   原来靠 (lvl + A_STEP < lvl) 判溢出，那只抓得住"绕回"
+                        //   （结果 >= 2^32）；落在 [2^31, 2^32) 的和判不出来，而有
+                        //   符号 Q1.31 把 0x8000_0000 读成 -1.0。默认 A_STEP =
+                        //   0x0100_0000 从 0 加上去正好命中 0x8000_0000，等于每次
+                        //   起音峰值都打一个满幅负峰。
+                        // 起音：**按有符号语义判越界**。lvl 就是 Q1.31，加法结果
+                        //   只要第 31 位翻上去（>= 2^31）就说明超过 +1.0 了 ——
+                        //   直接看符号位即可，不用 33 位加法，也不用跟 0x7FFFFFFF 比。
+                        //   （默认 A_STEP = 0x0100_0000 正好会加到 0x8000_0000，
+                        //     旧的无符号绕回判据漏掉了这一段，起音峰值会打一个负峰。）
                         E_ATK: begin
-                            lvl[i] <= (lvl[i] + A_STEP < lvl[i]) ? 32'h7FFF_FFFF
-                                    : (lvl[i] + A_STEP);
-                            if (lvl[i] + A_STEP >= 32'h7FFF_FFFF) st[i] <= E_DEC;
+                            if (($signed(lvl[i]) + $signed(A_STEP)) < 0) begin
+                                lvl[i] <= 32'h7FFF_FFFF;
+                                st[i]  <= E_DEC;
+                            end else begin
+                                lvl[i] <= lvl[i] + A_STEP;
+                            end
                         end
+                        // 衰减：阈值也用 33 位算（S_LEVEL 是参数，配大了加法会绕回）
                         E_DEC: begin
-                            if (lvl[i] <= S_LEVEL + D_STEP) begin
+                            if (lvl[i] <= dec_th) begin
                                 lvl[i] <= S_LEVEL;
                                 st[i]  <= E_SUS;
                             end else lvl[i] <= lvl[i] - D_STEP;
@@ -105,7 +125,9 @@ module envelope_ADSR #(
         if (!rst_n) begin
             for (int i = 0; i < SLOTS; i++) emap[i] <= '0;
         end else if (clk_en) begin
-            for (int i = 0; i < SLOTS; i++) emap[i] <= signed'(lvl[i]);
+            // 兜底也按有符号语义：符号位是 1 就说明 lvl 已经越过 +1.0，钳到最大正数。
+            for (int i = 0; i < SLOTS; i++)
+                emap[i] <= ($signed(lvl[i]) < 0) ? 32'sh7FFF_FFFF : signed'(lvl[i]);
         end
     end
     assign emap_valid = clk_en;

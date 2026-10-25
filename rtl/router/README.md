@@ -151,10 +151,16 @@ fmap(16×8bit 压力) ──► note_on/note_gate(滞回电平) ─┬─► exc
 > （吉他/贝斯/颤音琴），"无包络"那一路在 `env_router` 里直接用常数 1.0
 > （原来的 `envelope_const` 模块没人用，已删）。两个模块都输出 `dead`。
 >
-> `envelope_dyn0` 里 `fmap << SHIFT` 加了钳位（≤ 0x7FFF_FFFF）：`emap` 是有符号
-> Q1.31，进位到 bit31 就会被解读成负数（极性翻转）。ADSR 的 `lvl` 是无符号数，
-> 加法溢出靠 `lvl + A_STEP < lvl` 判、钳在 0x7FFF_FFFF，所以按有符号读回来永远
-> 是正的（≤ +1.0）。
+> 有符号钳位（`emap` 是 Q1.31，一旦超到 bit31 就会被读成负数）：
+> - `envelope_dyn0`：`fmap << SHIFT` 钳在 0x7FFF_FFFF。
+> - `envelope_ADSR` 起音：**这里原来有个真 bug**。旧写法靠 `lvl + A_STEP < lvl`
+>   判溢出，它只抓得住"绕回"（结果 ≥ 2^32）；落在 `[2^31, 2^32)` 的和判不出来，
+>   而有符号 Q1.31 把 `0x8000_0000` 读成 −1.0。默认 `A_STEP = 0x0100_0000` 从 0
+>   一路加上去**正好命中 0x8000_0000**，于是每次起音峰值都会打一个满幅负峰（一个
+>   采样，听感是"啪"一下）。现在用 33 位和：`atk_sum[32] || atk_sum[31:0] >= 0x7FFF_FFFF`
+>   就钳住并转衰减；衰减阈值也用 33 位算（`S_LEVEL` 配大了同样会绕回）。
+> - `emap` 输出寄存器再加一道兜底：`lvl > 0x7FFF_FFFF` 就输出 `0x7FFF_FFFF`。
+> - `tb_envelope` 盯着这条：起音全程 `emap >= 0`。
 >
 > 激励和包络里的采样节拍端口叫 `clk_en`（**当时钟使能用**，不是数据）：两个模块里
 > 每个 `always_ff` 都必须带 `else if (clk_en)`。顺手修了两个问题：
@@ -257,14 +263,14 @@ fmap(16×8bit 压力) ──► note_on/note_gate(滞回电平) ─┬─► exc
 
 | 项 | 数值 |
 |---|---|
-| Fmax（100 MHz 约束） | **87.40 MHz**（slack −1.44 ns） |
+| Fmax（100 MHz 约束） | **82.11 MHz**（slack −2.18 ns） |
 | 最坏路径 | `u_rev/u_comb/c4`——混响梳状线写 RAM 的数据路径（乘法 + 65 位加 + 饱和），11.4 ns |
-| Logic | 10868（7787 LUT + 3081 ALU）/138240 = 8% |
-| Register | 5483 /139140 = 4% |
+| Logic | 10631（7673 LUT + 2958 ALU）/138240 = 8% |
+| Register | 5397 /139140 = 4% |
 | BSRAM | 77 / 340（腔体历史 8 + 混响 32 + 其余 37）|
 | DSP | 26 × MULT27X36 |
 
-**满足 48 kHz**（需要 75.7 MHz），余量约 **15%**。想再多点余量就按 3.3 说的把
+**满足 48 kHz**（需要 75.7 MHz），余量约 **8.5%**。想再多点余量就按 3.3 说的把
 腔体排空从 `done` 里摘出去（省 99 拍 → 1478 拍，只要 71 MHz），或者给 eng1 的累加链
 插一级寄存器。
 
@@ -359,6 +365,7 @@ cst 里的引脚是占位的，上板前要按原理图重写。
 | `tb_loader_flash.sv` | W25Q64 行为模型 + 写口逐笔比对 + 空白片 err（表由 Python 打包）| ✅ PASS |
 | `tb_reverb.sv` | NONE 逐位直通 / HALL、BATHROOM 的抽头位置与衰减（延迟线由 DUT 自己清）| ✅ PASS |
 | `tb_excitation.sv` | 脉冲串：1 脉冲 / N=2 三脉冲 / N=7 持续 / clear / 声部独立 | ✅ PASS |
+| `tb_envelope.sv` | 定点边界：起音不许翻负（A_STEP 正好命中 0x8000_0000）、dyn0 的 `fmap<<SHIFT` 越界钳位、`dead` 只在 release 走完才给 | ✅ PASS |
 | `tb_modulation.sv` | 调制器递推 | ✅ PASS |
 | `tb_eng1_g.sv` | ABC 引擎的 golden 值（y = 3×−2²⁸）| ✅ PASS |
 | `tb_fmax_router.sv` | 探针顶层冒烟（打印 y_valid 脉冲数/状态，无 PASS 判据）| ⚠️ 仅冒烟 |
