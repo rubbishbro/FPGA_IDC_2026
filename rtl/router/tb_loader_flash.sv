@@ -80,10 +80,12 @@ endmodule
 module tb_loader_flash;
 
     localparam int SLOTS      = 4;         // 小规模跑得快；布局与 16 声部一致
-    localparam int N_MODES    = 4;
-    localparam int AW         = $clog2(SLOTS*N_MODES);   // 低位 {slot, mode}
+    localparam int N_MODES    = 4;         // 和 tools/flash_demo.mem 的布局一致
+    localparam int MW_        = $clog2(N_MODES);
+    localparam int NMP        = 1 << MW_;               // 每声部补齐后的槽数
+    localparam int AW         = $clog2(SLOTS) + MW_;    // 低位 {slot, mode}
     localparam int LDW        = AW + 1;                 // 最高位选表
-    localparam int TBL_BYTES  = N_MODES * 64;
+    localparam int TBL_BYTES  = N_MODES * 64;   // flash 里只放真实模态数，不带补齐
     localparam int INST       = 2;         // 用 2 号乐器，验证基地址乘对了
     localparam int FLASH_BYTES = 4096;
 
@@ -149,8 +151,8 @@ module tb_loader_flash;
         addr = int'(ld_addr[LDW-2:0]);
         n_wr = n_wr + 1;
         if (sel == 0) begin
-            slot = addr / N_MODES;
-            mode = addr % N_MODES;
+            slot = addr / NMP;
+            mode = addr % NMP;
             if (chk_data && (ld_co.a11 !== pat(mode, 0) || ld_co.gq !== pat(mode, 4) ||
                 ld_co.wo  !== pat(mode, 6))) begin
                 n_bad++;
@@ -159,8 +161,8 @@ module tb_loader_flash;
                              addr, slot, mode, ld_co.a11, ld_co.gq, ld_co.wo);
             end
         end else begin
-            slot = addr / N_MODES;
-            mode = addr % N_MODES;
+            slot = addr / NMP;
+            mode = addr % NMP;
             if (chk_data && (ld_pm.c0 !== pat(mode, 8) || ld_pm.k21 !== pat(mode, 14))) begin
                 n_bad++;
                 if (n_bad <= 6)

@@ -32,7 +32,7 @@ module tb_voice_router;
     logic        ready, busy, done, y_valid;
     logic signed [63:0] y_data;
     logic        ns_rd_en = 0, ns_rd_sel = 0;
-    logic [11:0] ns_rd_addr = 0;
+    logic [9:0]  ns_rd_addr = 0;   // = CO_SLOT-1:0（VWID + clog2(N_MODES) = 4+6）
     logic signed [31:0] ns_rd_data;
     logic        ns_rd_valid;
 

@@ -54,8 +54,12 @@ module weight_loader #(
     input  logic [3:0]                  qspi_dq_i
 );
 
-    localparam int AW  = $clog2(SLOTS*N_MODES);      // {slot, mode} 的位宽
-    localparam int LDW = AW + 1;                     // 最高位选表
+    // 每声部的模态槽数补齐到 2 的幂：地址 = {slot, mode} 纯拼接，不做乘法
+    localparam int MW_  = $clog2(N_MODES);
+    localparam int NMP  = 1 << MW_;
+    localparam int VW_  = $clog2(SLOTS);
+    localparam int AW   = VW_ + MW_;                 // {slot, mode} 的位宽
+    localparam int LDW  = AW + 1;                    // 最高位选表
     localparam int REC_WORDS = 16;                    // 每模态 16 个 32-bit 字
     localparam int TABLE_WORDS = N_MODES * REC_WORDS;
     localparam int TBL_BYTES = N_MODES * 64;
@@ -228,11 +232,11 @@ module weight_loader #(
                 W_WR: begin
                     // 地址 = {sel, slot, mode}：最高位选表，低 AW 位是 {slot, mode}
                     ld_we   <= 1'b1;
+                    // 低 AW 位 = {slot, mode}（NMP 是 2 的幂，直接拼；不出现乘法）
                     if (wr_i < 5'(SLOTS))
-                        ld_addr <= {1'b0, AW'(32'(wr_i) * 32'(N_MODES) + 32'(mode_i))};
+                        ld_addr <= {1'b0, VW_'(wr_i), mode_i};
                     else
-                        ld_addr <= {1'b1, AW'(32'(wr_i - 5'(SLOTS)) * 32'(N_MODES) +
-                                             32'(mode_i))};
+                        ld_addr <= {1'b1, VW_'(wr_i - 5'(SLOTS)), mode_i};
                     if (wr_i == 5'(2*SLOTS-1)) begin
                         wr_i <= 5'd0;
                         if (mode_i == MW'(N_MODES-1)) st <= W_END;

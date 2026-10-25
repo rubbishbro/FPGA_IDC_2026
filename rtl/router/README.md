@@ -251,8 +251,12 @@ fmap(16×8bit 压力) ──► note_on/note_gate(滞回电平) ─┬─► exc
 - 一个乐器一张表，16 个 slot 共用 → loader 读一遍、写 16 份。
 - **写口地址 = `{sel, addr}`**：最高位 `sel` 选表（0 = 系数表，1 = 调制参数表），
   低位 `addr = {slot, mode}`。`voice_router` 直接拿 `ld_addr[CO_SLOT]` 当选择、
-  `ld_addr[CO_SLOT-1:0]` 当索引，不需要比较器/减法器。两张表宽度一样，都按
-  `N_MODES` 开（不再有单独的 `PM_MODES`）。
+  `ld_addr[CO_SLOT-1:0]` 当索引 —— **地址是纯拼接，路径上没有乘法器/比较器**。
+  为此每声部的模态槽数补齐到 2 的幂（`NMP = 1<<clog2(N_MODES)`，数组开
+  `SLOTS*NMP`）：`N_MODES=64` 时 `NMP=64` 完全等价，非 2 的幂时多占一点 RAM 但
+  地址仍然只靠移位。两张表宽度一样，都按 `N_MODES` 开（不再有单独的 `PM_MODES`，
+  但是物理槽数是 `NMP`）。
+  注意：flash 里仍然只存真实模态（`TBL_BYTES = N_MODES*64`），补齐只影响 RAM 寻址。
 
 - 四线模式下一个模态 ≈ 1078 拍（`SCK_DIV=8`）：64 模态 ≈ 69k 拍 ≈ 0.8 ms @87 MHz。
 - **物理层：标准四线（Quad）SPI，模式 0，命令 `0x6B`**（Fast Read Quad Output）：

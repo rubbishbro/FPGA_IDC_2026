@@ -61,7 +61,7 @@ module voice_router #(
 
     // ---- 调试 ----
     input  logic                                      ns_rd_en,
-    input  logic [$clog2(SLOTS*N_MODES)-1:0]          ns_rd_addr,
+    input  logic [CO_SLOT-1:0]                        ns_rd_addr,
     input  logic                                      ns_rd_sel,
     output logic signed [31:0]                        ns_rd_data,
     output logic                                      ns_rd_valid
@@ -80,30 +80,34 @@ module voice_router #(
 
     localparam int IW     = $clog2(N_MODES);
     localparam int VWID   = $clog2(SLOTS);
-    localparam int CO_SLOT = $clog2(SLOTS * N_MODES);
+    // 每声部的模态槽数**补齐到 2 的幂**：地址就退化成 {slot, mode} 的纯拼接（移位），
+    // 地址路径上不放乘法器。N_MODES=64 时 NMP 就是 64，和原来完全一样；
+    // N_MODES=48 时补齐成 64（RAM 多 33%，但地址不再错位）。
+    localparam int NMP    = 1 << IW;
+    localparam int CO_SLOT = VWID + IW;
 
     // =========================================================================
     // 存储（与 modal_voice_top 相同的布局；两个引擎互斥，所以只有一套）
     // =========================================================================
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq  [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gv  [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_wo  [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq  [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gv  [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_wo  [0:SLOTS*NMP-1];
 
-    (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram  [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram  [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram  [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram  [0:SLOTS*NMP-1];
 
     // 调制参数表（引擎不读；加载器写，调制器读）
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*N_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*NMP-1];
 
     // 激励快照：一次作业只有一个采样，所以就是 16 个寄存器（不再有按采样索引的 RAM）
     logic signed [XW-1:0] x_q [0:SLOTS-1];
@@ -223,7 +227,7 @@ module voice_router #(
     // =========================================================================
     logic                           ld_start, ld_busy, ld_done;
     logic                           ld_we;
-    logic [CO_SLOT:0]               ld_addr;          // 最高位选表：0=系数 1=调制参数
+    logic [CO_SLOT:0]               ld_addr;          // 最高位选表：0=系数 1=调制参数（低位 {slot, mode}）
     coeff_t                         ld_co_data;
     router_pkg::mod_par_t           ld_pm_data;
     logic                           ld_co_we, ld_pm_we;
@@ -331,10 +335,10 @@ module voice_router #(
 
     // 地址 = slot*N_MODES + mode（显式乘，不靠 {slot,mode} 拼接：N_MODES 不是 2 的
     // 幂时拼接的步长会和 RAM 深度/loader 布局对不上）。N_MODES=2^k 时综合成移位。
-    assign pm_idx    = CO_SLOT'(32'(mod_slot) * 32'(N_MODES) + 32'(mod_p_mode));
-    assign co_idx    = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_co_addr));
-    assign st_rd_idx = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_st_addr));
-    assign st_wr_idx = CO_SLOT'(32'(voi[VWID-1:0]) * 32'(N_MODES) + 32'(eng_st_waddr));
+    assign pm_idx    = {mod_slot, mod_p_mode};          // 地址 = {slot, mode}（NMP 是 2 的幂）
+    assign co_idx    = {voi[VWID-1:0], eng_co_addr};
+    assign st_rd_idx = {voi[VWID-1:0], eng_st_addr};
+    assign st_wr_idx = {voi[VWID-1:0], eng_st_waddr};
 
     always_comb begin
         co_r.a11 = co_a11_r;  co_r.a12 = co_a12_r;  co_r.a21 = co_a21_r;
