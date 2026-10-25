@@ -253,17 +253,21 @@ fmap(16×8bit 压力) ──► note_on/note_gate(滞回电平) ─┬─► exc
   低位 `addr = {slot, mode}`。`voice_router` 直接拿 `ld_addr[CO_SLOT]` 当选择、
   `ld_addr[CO_SLOT-1:0]` 当索引，不需要比较器/减法器。两张表宽度一样，都按
   `N_MODES` 开（不再有单独的 `PM_MODES`）。
-- 一次加载 = `N_MODES × 2090` 拍：64 模态 ≈ 134k 拍（1.5 ms @87 MHz）。
-- **物理层现在是标准 1 线 SPI**（模式 0、命令 `0x03`），不是四线/QSPI：只有
-  `qspi_dq_o[0]` 在动，`dq[3:2]` 是常高的 WP#/HOLD#。要上四线得换命令（0x6B）、
-  地址改 4 位一拍、加 dummy 周期，`tb_loader_flash` 里的 W25Q64 模型也要跟着改。
+
+- 四线模式下一个模态 ≈ 1078 拍（`SCK_DIV=8`）：64 模态 ≈ 69k 拍 ≈ 0.8 ms @87 MHz。
+- **物理层：标准四线（Quad）SPI，模式 0，命令 `0x6B`**（Fast Read Quad Output）：
+  8 钟指令（只有 DQ0 出）→ 24 位地址 4 位一拍（6 钟）→ 8 钟 dummy → 之后数据 4 位
+  一拍。`SCK = CLK / SCK_DIV`（`SCK_DIV` 必须 ≥ 4、取 4 的倍数，一个 SCK 的四个相位
+  各占 `SCK_DIV/4` 个时钟）。
+  **前提**：flash 的 QE 位（状态寄存器 2 的 bit1）必须已经置位 —— 那是一次性配置
+  （烧片/上电时做），loader 不做，否则每次加载都要写状态寄存器并等 tSR（~10 ms）。
 - `err` 输出：第一个字是 `FFFFFFFF` 判为没烧过。**目前没接进 `voice_router`**。
 
 ### 3.9 时序 / 面积现状（`TOP=voice_router`，N_MODES=64，含腔体+混响）
 
 | 项 | 数值 |
 |---|---|
-| Fmax（100 MHz 约束） | **82.11 MHz**（slack −2.18 ns） |
+| Fmax（100 MHz 约束） | **82.14 MHz**（slack −2.18 ns） |
 | 最坏路径 | `u_rev/u_comb/c4`——混响梳状线写 RAM 的数据路径（乘法 + 65 位加 + 饱和），11.4 ns |
 | Logic | 10631（7673 LUT + 2958 ALU）/138240 = 8% |
 | Register | 5397 /139140 = 4% |
@@ -367,7 +371,7 @@ cst 里的引脚是占位的，上板前要按原理图重写。
 | `tb_excitation.sv` | 脉冲串：1 脉冲 / N=2 三脉冲 / N=7 持续 / clear / 声部独立 | ✅ PASS |
 | `tb_envelope.sv` | 定点边界：起音不许翻负（A_STEP 正好命中 0x8000_0000）、dyn0 的 `fmap<<SHIFT` 越界钳位、`dead` 只在 release 走完才给 | ✅ PASS |
 | `tb_modulation.sv` | 调制器递推 | ✅ PASS |
-| `tb_eng1_g.sv` | ABC 引擎的 golden 值（y = 3×−2²⁸）| ✅ PASS |
+| `tb_eng1_g.sv` | ABC 引擎 golden 值；**另外验证 `st_zero` 对每个模态都生效**（历史灌非零、清零后 y 必须回 0），以及不清零时历史确实参与运算 | ✅ PASS |
 | `tb_fmax_router.sv` | 探针顶层冒烟（打印 y_valid 脉冲数/状态，无 PASS 判据）| ⚠️ 仅冒烟 |
 
 ---

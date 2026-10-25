@@ -70,7 +70,7 @@ module eng1 #(
     logic signed [31:0] y1_cur, y2_cur, y_new;
     logic signed [63:0] acc_q;
     logic signed [63:0] y_acc;
-    logic               st_zero_lat, first_done;
+    logic               st_zero_lat;
 
     // ---- 三个并行乘法（操作数在 S_MUL 这一拍都有效）----
     wire signed [63:0] x_ext  = {{32{x_data[31]}}, x_data};
@@ -117,7 +117,6 @@ module eng1 #(
             acc_q      <= '0;
             y_acc      <= '0;
             st_zero_lat<= 1'b0;
-            first_done <= 1'b0;
         end else begin
             case (st)
                 S_IDLE: begin
@@ -126,7 +125,6 @@ module eng1 #(
                         mi          <= '0;
                         nmod_lat    <= n_modes[IW-1:0];
                         st_zero_lat <= st_zero;
-                        first_done  <= 1'b0;
                         st          <= S_RD;
                     end
                 end
@@ -139,10 +137,12 @@ module eng1 #(
                     p_g    <= mul_g;
                     p_a1   <= mul_a1;
                     p_a2   <= mul_a2;
-                    y1_cur <= (st_zero_lat && !first_done) ? 32'sd0 : st_q;
-                    y2_cur <= (st_zero_lat && !first_done) ? 32'sd0 : st_qdot;
+                    // 清零：**每个模态**的历史都读作 0（和 eng0 的 q_eff/v_eff 一个套路）。
+                    //   原来只对第一个模态生效（多了个 first_done 条件），后面模态照样
+                    //   用旧状态算 —— note-on 之后旧的谐振还在，等于没清干净。
+                    y1_cur <= st_zero_lat ? 32'sd0 : st_q;
+                    y2_cur <= st_zero_lat ? 32'sd0 : st_qdot;
                     mi_q   <= mi;
-                    first_done <= 1'b1;
                     st     <= S_RND;
                 end
 

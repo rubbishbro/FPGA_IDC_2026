@@ -101,14 +101,7 @@ module comb_reverb #(
     assign sm3 = {din_b[63], din_b} + {fb3[63], fb3};
     assign sm4 = {din_b[63], din_b} + {fb4[63], fb4};
 
-    assign wd1 = (sm1[64] == sm1[63]) ? sm1[63:0] :
-                 (sm1[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-    assign wd2 = (sm2[64] == sm2[63]) ? sm2[63:0] :
-                 (sm2[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-    assign wd3 = (sm3[64] == sm3[63]) ? sm3[63:0] :
-                 (sm3[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-    assign wd4 = (sm4[64] == sm4[63]) ? sm4[63:0] :
-                 (sm4[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+    // wd 是**寄存器**（在 C 级算、D 级才写 RAM）：65 位加 + 饱和 mux 和
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -171,17 +164,27 @@ module comb_reverb #(
                 t4  <= (s4_r * w4c) >>> G_FRAC;
             end
 
-            // C：写 RAM（含反馈）+ 求和
+            // C：加 + 饱和（只打进寄存器）
             if (v2) begin
+                wd1 <= (sm1[64] == sm1[63]) ? sm1[63:0] :
+                       (sm1[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd2 <= (sm2[64] == sm2[63]) ? sm2[63:0] :
+                       (sm2[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd3 <= (sm3[64] == sm3[63]) ? sm3[63:0] :
+                       (sm3[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd4 <= (sm4[64] == sm4[63]) ? sm4[63:0] :
+                       (sm4[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                sum_q <= sum_sat;
+            end
+
+            // D：写 RAM（数据已经是寄存器了）+ 输出
+            if (v3) begin
                 c1[ad_b1] <= wd1;
                 c2[ad_b2] <= wd2;
                 c3[ad_b3] <= wd3;
                 c4[ad_b4] <= wd4;
-                sum_q <= sum_sat;
+                wet        <= sum_q;
             end
-
-            // D：输出
-            if (v3) wet <= sum_q;
         end
     end
 

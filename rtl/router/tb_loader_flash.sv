@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // =============================================================================
-// tb_loader_flash -- weight_loader（真 W25Q64 SPI 读）+ 行为级 flash 模型
+// tb_loader_flash -- weight_loader（真 W25Q64 四线 SPI 读）+ 行为级 flash 模型
 //
 //   1. 按 loader 的布局把一张"系数表"写进模型（大端字段）
 //   2. 跑一次加载：检查写口每一笔的地址/数据，检查 done/err
@@ -16,8 +16,10 @@
 // =============================================================================
 
 // -----------------------------------------------------------------------------
-// W25Q64 行为模型：标准 1 线 SPI（模式 0），只实现 0x03 READ
-//   上升沿收 MOSI、下降沿换 MISO（跟 loader 的相位对得上）
+// W25Q64 行为模型：**四线（Quad）SPI 模式 0**，只实现 0x6B（Fast Read Quad Output）
+//   8 钟指令（只有 DQ0 有数据）-> 6 钟地址（4 位一拍）-> 8 钟 dummy
+//   -> 数据 4 位一拍，地址按字节自增
+//   从机在下降沿换数据、主机在上升沿采（模式 0）
 // -----------------------------------------------------------------------------
 module w25q64_model #(
     parameter int BYTES = 4096
@@ -30,44 +32,45 @@ module w25q64_model #(
 );
 
     logic [7:0]  mem [0:BYTES-1];
-    logic [31:0] sh;              // 命令 + 地址
-    int          nb;              // 已收 bit 数
+    logic [7:0]  cmd;
     logic [23:0] addr;
+    int          nb;              // 已过的 SCK 上升沿数
+    int          dn;              // 数据阶段已过的 nibble 数
+    logic [3:0]  nib;             // 当前驱动的 4 位
     logic        data_ph;
-    logic [7:0]  cur;
-    int          bitn;
 
-    assign dq_i[1] = data_ph ? cur[bitn] : 1'b0;   // MISO
-    assign dq_i[0] = 1'b0;
-    assign dq_i[2] = 1'b0;
-    assign dq_i[3] = 1'b0;
+    assign dq_i = data_ph ? nib : 4'b0000;
 
     always @(negedge cs_n) begin
         nb      <= 0;
-        data_ph <= 1'b0;
-        sh      <= 32'd0;
-        bitn    <= 7;
+        dn      <= 0;
+        cmd     <= 8'h00;
         addr    <= 24'd0;
-        cur     <= 8'h00;
+        nib     <= 4'h0;
+        data_ph <= 1'b0;
     end
 
+    // 上升沿：收指令 / 收地址 / 数 dummy / 数据阶段推进
     always @(posedge sck) if (!cs_n) begin
-        if (nb < 32) begin
-            sh <= {sh[30:0], dq_o[0]};
-            nb <= nb + 1;
-            if (nb == 31) begin
-                addr    <= {sh[22:0], dq_o[0]};        // 后 24 bit 是地址
-                cur     <= mem[{sh[22:0], dq_o[0]}];
-                data_ph <= 1'b1;
-                bitn    <= 7;
-            end
+        if (nb < 8) begin
+            cmd <= {cmd[6:0], dq_o[0]};
+            nb  <= nb + 1;
+        end else if (nb < 14) begin
+            addr <= {addr[19:0], dq_o};
+            nb   <= nb + 1;
+        end else if (nb < 22) begin
+            nb   <= nb + 1;
+            if (nb == 21) data_ph <= 1'b1;
         end else begin
-            if (bitn == 0) begin
-                bitn <= 7;
-                addr <= addr + 24'd1;
-                cur  <= mem[addr + 24'd1];             // 连续读，地址自增
-            end else bitn <= bitn - 1;
+            // 数据阶段：每两个 nibble 前进一个字节
+            if (dn % 2 == 1) addr <= addr + 24'd1;
+            dn <= dn + 1;
         end
+    end
+
+    // 下降沿换数据（模式 0）
+    always @(negedge sck) if (!cs_n && data_ph) begin
+        nib <= (dn % 2 == 0) ? mem[addr][7:4] : mem[addr][3:0];
     end
 
 endmodule
@@ -100,7 +103,7 @@ module tb_loader_flash;
     // ------------------------------------------------------------------
     weight_loader #(
         .SLOTS(SLOTS), .N_MODES(N_MODES), .CLK_HZ(100_000_000),
-        .SCK_DIV(4), .BLANK_WAIT(8)
+        .SCK_DIV(8), .BLANK_WAIT(8)          // 顺便验证分频参数真的接进去了（SCK = CLK/8）
     ) dut (
         .clk(clk), .rst_n(rst_n), .inst(inst),
         .start(start), .busy(busy), .done(done), .err(err),
