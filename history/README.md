@@ -18,3 +18,15 @@ sim/unit/core/
 ```
 
 注意：`history/` 里的路径保持原仓库相对路径，方便对照；不要把它加回当前 RTL 构建。
+
+## FFT_results/sim 旧合成产物（2026-10-25）
+
+`FFT_results/sim/` 下旧的 A/B/C 合成输出（pitched / sustained / drums / song /
+roll_compare / crosscheck / vibrato_coeff，连同旧 README 和 report.json）整体移到：
+
+```text
+history/FFT_results/sim_pre_eng1_2026-10/
+```
+
+当前只保留新的 `FFT_results/sim/eng1/`（router 级 eng1 整数模型的两段 WAV）。
+旧生成脚本仍在 `python/modal_sim/`，没有删除。

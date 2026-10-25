@@ -17,6 +17,7 @@ Layout under ``FFT_results/``::
         roll_compare/             roll-vs-repeated-hit experiment
         crosscheck/               cross-instrument checks (timbre, filter chain)
         vibrato_coeff/            vibrato a1-coefficient modulation experiment
+        eng1/                     router-level eng1 (ABC) integer model renders
 """
 
 from __future__ import annotations
@@ -40,9 +41,11 @@ SIM_ROLL = os.path.join(SIM, "roll_compare")
 SIM_SUSTAIN = os.path.join(SIM, "sustained")
 SIM_CROSSCHECK = os.path.join(SIM, "crosscheck")
 SIM_VIBRATO = os.path.join(SIM, "vibrato_coeff")
+SIM_ENG1 = os.path.join(SIM, "eng1")
 
 ALL_DIRS = [PARAMS, FIG_EXTRACT, SIM, SIM_PITCHED, SIM_SONG,
-            SIM_DRUMS, SIM_ROLL, SIM_SUSTAIN, SIM_CROSSCHECK, SIM_VIBRATO]
+            SIM_DRUMS, SIM_ROLL, SIM_SUSTAIN, SIM_CROSSCHECK, SIM_VIBRATO,
+            SIM_ENG1]
 
 
 def param(inst: str, kind: str, ext: str = "npz") -> str:

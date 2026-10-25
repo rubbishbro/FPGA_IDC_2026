@@ -29,7 +29,7 @@ module pad_voice_top #(
     // 注意：这是寄存器输入，不是 parameter；切换时只换 fmap 源。
     input  logic                      src_sel,
 
-    // 仿真/旁路：USE_PAD_DRIVER=0 时使用外部 fmap
+    // 仿真/Midi解析：USE_PAD_DRIVER=0 时使用外部 fmap
     input  pad_driver_pkg::mat4x4     fmap_ext,
 
     // pad_driver 原始接口（调试/外部模拟前端）
@@ -57,7 +57,7 @@ module pad_voice_top #(
     import pad_driver_pkg::*;
 
     // pad_driver 要求有效时钟周期 400ns；100MHz 下 clk_en 每 40 拍一次。
-    localparam int PAD_DIV = (CLK_HZ / 2_500_000);
+    localparam int PAD_DIV = (CLK_HZ / 2_500_000); // 有效周期 400ns
     logic [7:0] pad_div;
     logic       pad_clk_en;
     clk_rst     pad_cr;

@@ -339,6 +339,7 @@ cst 里的引脚是占位的，上板前要按原理图重写。
 | `tb_excitation.sv` | 脉冲串：1 脉冲 / N=2 三脉冲 / N=7 持续 / clear / 声部独立 | ✅ PASS |
 | `tb_modulation.sv` | 调制器递推 | ✅ PASS |
 | `tb_eng1_g.sv` | ABC 引擎的 golden 值（y = 3×−2²⁸）| ✅ PASS |
+| `tb_eng1_cosim.sv` | 由 `python/modal_sim/eng1_cosim.py` 生成的 66 个作业，64 位 `y` 逐位对拍（当前 F05 状态用 `rtl_compat`）| ✅ PASS |
 | `tb_fmax_router.sv` | 探针顶层冒烟（打印 y_valid 脉冲数/状态，无 PASS 判据）| ⚠️ 仅冒烟 |
 
 ---
@@ -363,8 +364,9 @@ cst 里的引脚是占位的，上板前要按原理图重写。
    T60≈2.5 s；BATHROOM≈0.8 s），要按听感调。
 7. **`table_base()`（`router_pkg`）**：还是 `inst × 80` 的占位，加载基地址另算（`inst × N_MODES × 64`
    字节）。两处要统一，现在只有 loader 在用真值。
-8. **`eng_sel`**：CELESTA/PAD → eng1，其余 → eng0，是按乐器号拍脑袋分的；eng1 在整条链里
-   **从来没跑过真实音频**（只有 golden TB）。
+8. **`eng_sel`**：CELESTA/PAD → eng1，其余 → eng0，是按乐器号拍脑袋分的；eng1 现在有
+   Python 的 router 级整数模型能出声（`python/modal_sim/eng1_demo.py`，输出在
+   `FFT_results/sim/eng1/`），但 **RTL 本身仍只有 golden TB**，没有整链实时/板级音频验收。
 9. **`y_out[]`（64 深度）**：只写不读，纯调试遗留，占 BSRAM，可以删。
 10. **多声部混音的 64 位溢出**：16 个声部满量程理论上会回绕（实际信号远不到），
     要保险就加宽到 68 位再饱和。

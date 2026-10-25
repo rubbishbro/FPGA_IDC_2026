@@ -1,5 +1,7 @@
 # rtl/drivers
 
+协议分析层设计见 [`analyzer/README.md`](analyzer/README.md)：MIDI 标准／开源解析器参考、私有 UART 帧 v1 和 CRC/SLIP 测试向量。目前仅文档，尚无分析器 RTL。
+
 从 `history/rtl/drivers` 迁入的驱动依赖，供后续 16 按键键盘/矩阵扫描复用。
 
 ```text

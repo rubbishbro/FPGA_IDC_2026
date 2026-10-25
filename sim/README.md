@@ -51,3 +51,23 @@ printf 'source sim/synth/gowin_build.tcl\nexit\n' | "$HOME/gowin/IDE/bin/gw_sh" 
 ```
 
 报告输出在 `build/router_probe/router_probe/impl/pnr/`。
+
+## router 级 eng1 模型（Python + RTL 对拍）
+
+`python/modal_sim/router_eng1.py` 是当前 `rtl/router/engines/eng1.sv` 的逐样本整数
+模型；它同时也把激励、包络、腔体和混响包成一条可出声的链。回归入口在
+`sim/unit/eng1/`：
+
+```bash
+PATH=$HOME/micromamba/envs/torch312/bin:$PATH \
+  python -m pytest -q sim/unit/eng1/test_router_eng1.py
+
+# 生成 build/eng1_cosim/cases.txt 并跑 tb_eng1_cosim（需要 iverilog/vvp）
+PATH=$HOME/micromamba/envs/torch312/bin:$PATH \
+  python python/modal_sim/eng1_cosim.py
+```
+
+对拍当前跑 `rtl_compat=True`（当前 RTL 仍有 F05）；修完后用
+`--mode intended`。契约、F05/F08/F09 差异和未覆盖边界见
+[`docs/ENG1_PY_MODEL.md`](../docs/ENG1_PY_MODEL.md)。本节**不计入**上面的
+21 项 core 回归，也不代表整机/板级验收。

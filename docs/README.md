@@ -6,6 +6,7 @@
 |---|---|
 | [ENGINE_INTERNAL.md](ENGINE_INTERNAL.md) | §0 为当前源码／验证摘要；后文保留早期目标稿和阶段记录 |
 | [TIMING_RAM_ANALYSIS.md](TIMING_RAM_ANALYSIS.md) | 100MHz 时序余量与 BSRAM/逻辑/DSP 占用分析 |
+| [ENG1_PY_MODEL.md](ENG1_PY_MODEL.md) | router 级 eng1 整数 Python 模型：位宽契约、RTL 对拍、A/B 试听与未覆盖边界 |
 | [diagrams/README.md](diagrams/README.md) | 新架构三张图和 review 说明 |
 | [产品需求与竞品调研.md](产品需求与竞品调研.md) | 乐器硬件＋电脑上位机＋手机 App 的整套竞品比较；网页仅作次级参考（非实现报告） |
 | [上位机可行性分析.md](上位机可行性分析.md) | 上位机/MIDI/链路可行性评估（讨论稿） |
