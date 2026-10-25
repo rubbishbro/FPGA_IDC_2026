@@ -140,6 +140,7 @@ module voice_router #(
     logic                     xmap_valid;
     logic signed [15:0][31:0] emap;      // 打包：emap[i] 是第 i 个声部的包络
     logic                     emap_valid;
+    logic [SLOTS-1:0]         env_dead;  // 包络说
 
     // ---- 音符事件：由 fmap 双阈值在 router 里统一生成 ----
     //   note_on 就是**滞回判定后的门控电平**：这个键现在按着就是 1。
@@ -188,7 +189,7 @@ module voice_router #(
     env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
         .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
-        .emap(emap), .emap_valid(emap_valid)
+        .emap(emap), .emap_valid(emap_valid), .dead(env_dead)
     );
 
     logic                    mod_busy, mod_done, mod_start, mod_p_re;
@@ -544,13 +545,12 @@ module voice_router #(
         end
     end
 
-    // st_zero：note-on 首帧 或 该声部**刚刚**归零（< ENV_ZERO_TH）时清零状态
+    // st_zero：note-on 首帧 或 该声部**刚刚**变成
     //
     //   注意这里是"归零的那一帧"清一次，不是"归零期间每帧都清"：
     //   eng0 的清零 pass 要 n_modes 拍，全静音时 16 个声部每帧都清 = 16x80 拍，
     //   实测一个采样 2754 拍（48 kHz 要 132 MHz）。只在包络掉到 0 的那一帧清，
     //   状态被清成正好 0，之后激励也是 0，状态就一直保持 0 了。
-    localparam logic [31:0] ENV_ZERO_TH = 32'd1;
 
     // 比较结果打一拍：原来 emap -> 比较 -> eng_zero 是一条长组合链
     // （包络每采样才更新一次，晚一拍对 st_zero 没有影响）
@@ -558,40 +558,20 @@ module voice_router #(
     logic [SLOTS-1:0] dead_ev;         // 归零的那一拍
     logic [SLOTS-1:0] dead_pend, dead_f;   // 攒到帧头的那份（和 note_f 一个套路）
 
+    // "这个声部空了"由包络自己给（ADSR：release 走完才给；dyn0：没按住就给），
+    // 顶层不再拿 emap==0 去猜——起音头几个采样 emap 也是 0，猜错就会把刚打进去的
+    // 激励清掉（retrigger 的听感是"没声音"）。这里只打一拍当同步。
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             voice_dead   <= '0;
             voice_dead_q <= '0;
         end else begin
-            for (int i = 0; i < SLOTS; i++)
-                voice_dead[i] <= (32'(emap[i]) < ENV_ZERO_TH);
+            voice_dead   <= env_dead;
             voice_dead_q <= voice_dead;
         end
     end
 
-    // 起音后头几个采样里 emap 还是 0（ADSR 从 0 起爬），这时候 voice_dead 也会
-    // 抬起来 —— 但那个 0 只是"起音过程的第一个采样"，不是"这个声部没人弹"。
-    // 要是照清不误，就会把刚打进去的激励清掉（retrigger 时听感是"没声音"）。
-    // 所以 note_f 之后压 7 个采样不清。
-    logic [SLOTS-1:0] nh0, nh1, nh2, nh_busy;
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            nh0 <= '0; nh1 <= '0; nh2 <= '0;
-        end else begin
-            for (int i = 0; i < SLOTS; i++) begin
-                if (note_f[i]) begin
-                    nh0[i] <= 1'b1; nh1[i] <= 1'b1; nh2[i] <= 1'b1;
-                end else if (smp_tick) begin
-                    nh0[i] <= nh1[i];
-                    nh1[i] <= nh2[i];
-                    nh2[i] <= 1'b0;
-                end
-            end
-        end
-    end
-    assign nh_busy = nh0 | nh1 | nh2;
-
-    assign dead_ev = voice_dead & ~voice_dead_q & ~nh_busy;
+    assign dead_ev = voice_dead & ~voice_dead_q;
 
     // 帧头把 note 事件和"刚归零"事件一起交给本帧
     always_ff @(posedge clk or negedge rst_n) begin

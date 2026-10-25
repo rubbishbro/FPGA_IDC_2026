@@ -138,6 +138,7 @@ module tb_voice_router;
         fmap.flat_d[0].val = 8'd255;
         clear_stats();
         sample_n(64);
+
         n_eq = 0;
         for (int i = 0; i < 64; i++) if (ys[i] == mixs[i]) n_eq++;
         body_pass_ok = (n_eq == 64) && (n_yv == 64);

@@ -21,13 +21,20 @@ module envelope_ADSR #(
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
     output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
-    output logic                        emap_valid
+    output logic                        emap_valid,
+    // 这个声部"确实空了"（= 松键后 release 走完、电平降到 0）。顶层拿它去清引擎状态。
+    // 起音阶段 lvl 也是 0，但那时它是"刚开始响"，不是空的 —— 所以不能拿 emap==0 判断。
+    output logic [SLOTS-1:0]            dead
 );
 
     typedef enum logic [2:0] { E_IDLE, E_ATK, E_DEC, E_SUS, E_REL } est_e;
+
     est_e        st  [0:SLOTS-1];
     logic [31:0] lvl [0:SLOTS-1];
+    logic [SLOTS-1:0] dead_r;
     logic [SLOTS-1:0] gate;
+
+    assign dead = dead_r;
 
     // 门控直接来自 router（阈值判断已经在那里统一做了）
     assign gate = note_gate;
@@ -47,24 +54,29 @@ module envelope_ADSR #(
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int i = 0; i < SLOTS; i++) begin
-                st[i]  <= E_IDLE;
-                lvl[i] <= '0;
+                st[i]     <= E_IDLE;
+                lvl[i]    <= '0;
+                dead_r[i] <= 1'b1;      // 上电/没弹过 -> 让顶层先把状态清干净
             end
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
                 if (onset[i]) begin
-                    lvl[i] <= '0;
-                    st[i]  <= E_ATK;
+                    lvl[i]    <= '0;
+                    st[i]     <= E_ATK;
+                    dead_r[i] <= 1'b0;  // 开始响了，不算空
                 end else if (!gate[i]) begin
                     // 松开：进释放段，按 R_STEP 线性降到 0（不会再回 IDLE 之前被清掉）
                     if (lvl[i] <= R_STEP) begin
-                        lvl[i] <= '0;
-                        st[i]  <= E_IDLE;
+                        lvl[i]    <= '0;
+                        st[i]     <= E_IDLE;
+                        dead_r[i] <= 1'b1;   // release 走完、电平归零：这才是"真空了"
                     end else begin
-                        lvl[i] <= lvl[i] - R_STEP;
-                        st[i]  <= E_REL;
+                        lvl[i]    <= lvl[i] - R_STEP;
+                        st[i]     <= E_REL;
+                        dead_r[i] <= 1'b0;
                     end
                 end else begin
+                    dead_r[i] <= 1'b0;      // 按着（哪怕还在衰减/保持）都不算空
                     case (st[i])
                         E_IDLE: if (gate[i]) st[i] <= E_ATK;
                         E_ATK: begin
@@ -118,8 +130,23 @@ module envelope_dyn0 #(
     input  logic [SLOTS-1:0]            note_on,
     input  logic [SLOTS-1:0]            note_gate,
     output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
-    output logic                        emap_valid
+    output logic                        emap_valid,
+    output logic [SLOTS-1:0]            dead           // 没按住 = 这个声部是空的
 );
+
+    // 力值 << SHIFT 必须钳在 0x7FFF_FFFF 以内：emap 是有符号 Q1.31，
+    // 一旦进位到 bit31 就会被解读成负数（听感是极性翻转）。
+    localparam logic [31:0] ENV_MAX = 32'h7FFF_FFFF;
+    logic [31:0] lvl_c [0:SLOTS-1];
+    always_comb begin
+        for (int i = 0; i < SLOTS; i++) begin
+            logic [31:0] v;
+            v = 32'(fmap.flat_d[i].val) <<< SHIFT;
+            lvl_c[i] = (v > ENV_MAX) ? ENV_MAX : v;
+        end
+    end
+
+    assign dead = ~note_gate;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -127,37 +154,10 @@ module envelope_dyn0 #(
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
                 if (note_gate[i])
-                    emap[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
+                    emap[i] <= signed'(lvl_c[i]);
                 else
                     emap[i] <= '0;
             end
-        end
-    end
-    assign emap_valid = clk_en;
-
-endmodule
-
-// -----------------------------------------------------------------------------
-// envelope_const -- "无"包络：恒为 1.0（Q1.31）
-// -----------------------------------------------------------------------------
-module envelope_const #(
-    parameter int CLK_HZ = 100_000_000,
-    parameter int SR_HZ  = 48_000,
-    parameter int SLOTS  = 16
-)(
-    input  logic                        clk,
-    input  logic                        rst_n,
-    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
-    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
-    output logic                        emap_valid
-);
-
-    // 常数包络只需要在节拍上写一次（跟着时钟每拍写是白翻 512 个触发器）
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
-        end else if (clk_en) begin
-            for (int i = 0; i < SLOTS; i++) emap[i] <= 32'sh7FFF_FFFF;
         end
     end
     assign emap_valid = clk_en;

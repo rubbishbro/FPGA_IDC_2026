@@ -12,7 +12,10 @@ module env_router #(
     input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
     output logic signed [15:0][31:0] emap,
-    output logic                    emap_valid
+    output logic                    emap_valid,
+    // 每个声部"确实空了"的标志，由包络模块自己产生（顶层拿它清引擎状态）。
+    // 常数包络永远不空，所以那一路恒 0。
+    output logic [SLOTS-1:0]        dead
 );
     // 参数常量表：加乐器 = 加一行，不用再加硬件
     logic [31:0] a_step, d_step, s_level, r_step;
@@ -44,6 +47,7 @@ module env_router #(
 
     logic signed [15:0][31:0] m_adsr, m_dyn;
     logic               v_adsr, v_dyn;
+    logic [SLOTS-1:0]   d_adsr, d_dyn;
 
     // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
     logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r;
@@ -63,17 +67,18 @@ module env_router #(
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),
         .note_on(note_on), .note_gate(note_gate),
-        .emap(m_adsr), .emap_valid(v_adsr)
+        .emap(m_adsr), .emap_valid(v_adsr), .dead(d_adsr)
     );
 
     envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_dyn (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
         .note_on(note_on), .note_gate(note_gate),
-        .emap(m_dyn), .emap_valid(v_dyn)
+        .emap(m_dyn), .emap_valid(v_dyn), .dead(d_dyn)
     );
 
     always_comb begin
         emap_valid = smp_tick;
+        dead       = use_dyn ? d_dyn : (use_adsr ? d_adsr : '0);
         for (int i = 0; i < 16; i++)
             emap[i] = use_dyn ? m_dyn[i] : (use_adsr ? m_adsr[i] : 32'sh7FFF_FFFF);
     end
