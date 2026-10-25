@@ -1,7 +1,7 @@
 // mod_router -- 调制子路由：只有需要揉弦的乐器才启用 modulation0
 module mod_router #(
     parameter int SLOTS   = 16,
-    parameter int N_MODES = 48,
+    parameter int N_MODES = 64,
     parameter int FS      = 48000
 )(
     input  logic                        clk,

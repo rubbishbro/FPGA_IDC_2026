@@ -32,7 +32,7 @@
 // =============================================================================
 module weight_loader #(
     parameter int SLOTS      = 16,
-    parameter int N_MODES    = 48,
+    parameter int N_MODES    = 64,
     parameter int CLK_HZ     = 100_000_000,
     parameter int SCK_DIV    = 4,               // SCK = CLK / SCK_DIV（必须 >= 4）
     parameter int BLANK_WAIT = 100              // CS 拉高后至少等这么多拍（tSHSL）
@@ -49,7 +49,7 @@ module weight_loader #(
     //   地址 [0, SLOTS*N_MODES)               -> 系数表
     //   地址 [SLOTS*N_MODES, 2*SLOTS*N_MODES) -> 调制参数表
     output logic                                    ld_we,
-    output logic [$clog2(2*SLOTS*N_MODES)-1:0]      ld_addr,
+    output logic [$clog2(SLOTS*N_MODES):0]          ld_addr,   // {sel, slot, mode}
     output modal_step_pkg::coeff_t                  ld_co,
     output router_pkg::mod_par_t                    ld_pm,
 
@@ -61,7 +61,8 @@ module weight_loader #(
     input  logic [3:0]                  qspi_dq_i
 );
 
-    localparam int LDW = $clog2(2*SLOTS*N_MODES);
+    localparam int AW  = $clog2(SLOTS*N_MODES);      // {slot, mode} 的位宽
+    localparam int LDW = AW + 1;                     // 最高位选表
     localparam int REC_WORDS = 16;                    // 每模态 16 个 32-bit 字
     localparam int TABLE_WORDS = N_MODES * REC_WORDS;
     localparam int TBL_BYTES = N_MODES * 64;
@@ -201,17 +202,13 @@ module weight_loader #(
                 // ------------------------------------------------------------
                 // 把这个模态的记录写进全部 slot（上半段系数表、下半段参数表）
                 W_WR: begin
-                    if (wr_i < 5'(SLOTS)) begin
-                        ld_we          <= 1'b1;
-                        ld_addr        <= LDW'(32'(wr_i) * 32'(N_MODES) + 32'(mode_i));
-
-                    end else begin
-                        ld_we          <= 1'b1;
-                        ld_addr        <= LDW'(32'(SLOTS*N_MODES) +
-                                               32'(wr_i - 5'(SLOTS)) * 32'(N_MODES) +
-                                               32'(mode_i));
-
-                    end
+                    // 地址 = {sel, slot, mode}：最高位选表，低 AW 位是 {slot, mode}
+                    ld_we   <= 1'b1;
+                    if (wr_i < 5'(SLOTS))
+                        ld_addr <= {1'b0, AW'(32'(wr_i) * 32'(N_MODES) + 32'(mode_i))};
+                    else
+                        ld_addr <= {1'b1, AW'(32'(wr_i - 5'(SLOTS)) * 32'(N_MODES) +
+                                             32'(mode_i))};
                     if (wr_i == 5'(2*SLOTS-1)) begin
                         wr_i <= 5'd0;
                         if (mode_i == MW'(N_MODES-1)) st <= W_END;

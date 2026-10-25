@@ -31,7 +31,7 @@ import struct
 import sys
 
 REC_BYTES = 64
-N_MODES_DEFAULT = 80
+N_MODES_DEFAULT = 64     # 和 voice_router / loader 的 N_MODES 默认值一致
 
 FIELDS_CO = ("a11", "a12", "a21", "a22", "gq", "gv", "wo")
 FIELDS_PM = ("c0", "s0", "gam", "theta0", "g", "k12", "k21")

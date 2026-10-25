@@ -15,7 +15,7 @@
 // 存储复用 router 的阵列：ca_a11=G、ca_a12=a1、ca_a21=a2、q_ram=y1、v_ram=y2。
 // -----------------------------------------------------------------------------
 module eng1 #(
-    parameter int N_MODES = 48,
+    parameter int N_MODES = 64,
     parameter int X_DEPTH = 64
 ) (
     input  logic                                 clk,

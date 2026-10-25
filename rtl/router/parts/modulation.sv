@@ -7,7 +7,7 @@
 //   * 一轮 16 声部 x 48 模态 x ~15 拍 ≈ 11.5k 拍 = 115 us，远小于 1 ms 刷新周期
 module modulation0 #(
     parameter int SLOTS   = 16,
-    parameter int N_MODES = 48,
+    parameter int N_MODES = 64,
     parameter int FS      = 48000
 )(
     input  logic                      clk,

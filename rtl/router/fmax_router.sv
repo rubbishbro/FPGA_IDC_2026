@@ -5,8 +5,7 @@
 `timescale 1ns/1ps
 module fmax_router #(
     parameter int SLOTS   = 16,
-    parameter int N_MODES = 48,
-    parameter int X_DEPTH = 64
+    parameter int N_MODES = 64
 ) (
     input  logic clk,
     input  logic rst_n,
@@ -20,17 +19,16 @@ module fmax_router #(
     logic                    reload, start, mod_req;
     logic [$clog2(SLOTS+1)-1:0]     n_voices;
     logic [$clog2(N_MODES+1)-1:0]   n_modes;
-    logic [$clog2(X_DEPTH+1)-1:0]   n_samples;
     logic                    ready, busy, done, y_valid;
     logic signed [63:0]      y_data;
     logic signed [31:0]      ns_rd_data;
     logic                    ns_rd_valid;
 
-    voice_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .X_DEPTH(X_DEPTH), .DEBUG_PORT(1'b0)) u_vr (
+    voice_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .DEBUG_PORT(1'b0)) u_vr (
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst),
         .reverb_preset(router_pkg::REVERB_HALL),
         .reload(reload), .start(start),
-        .n_voices(n_voices), .n_modes(n_modes), .n_samples(n_samples),
+        .n_voices(n_voices), .n_modes(n_modes),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0101),
@@ -52,7 +50,6 @@ module fmax_router #(
             mod_req   <= 1'b0;
             n_voices  <= SLOTS[$clog2(SLOTS+1)-1:0];
             n_modes   <= N_MODES[$clog2(N_MODES+1)-1:0];
-            n_samples <= 6'd8;
             inst_cnt  <= '0;
         end else begin
             lfsr <= {lfsr[126:0], lfsr[127] ^ lfsr[125] ^ lfsr[120] ^ lfsr[118]};

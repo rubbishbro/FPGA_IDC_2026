@@ -5,7 +5,8 @@
 //     1. 持有全部存储（系数 / 状态 / 激励 / 结果）
 //     2. 按乐器号把存储口 mux 到两套互斥的引擎之一（modal_engine7 / eng_alt）
 //     3. 调度：采样 x 声部，每个（采样, 声部）一个作业
-//     4. 激励来自 force_pre（整张 fmap -> 整张 xmap），按槽位分配到 x_ram
+//     4. 激励来自 exc_router（整张 fmap -> 整张 xmap），**一次作业只跑一个采样**，
+//        所以 xmap 直接整张寄存一拍当快照（不再有 x_ram / 采样深度）
 //     5. 换乐器 = 停机 -> weight_loader 重灌系数表 -> 再跑
 //
 //   后级（在本文件末尾，顺序固定）：
@@ -27,9 +28,7 @@
 
 module voice_router #(
     parameter int   SLOTS      = 16,
-    parameter int   N_MODES    = 48,
-    parameter int   X_DEPTH    = 64,
-    parameter int   PM_MODES   = 80,          // 调制参数表按钢琴尺寸开
+    parameter int   N_MODES    = 64,          // 唯一的模态数：系数表/状态/激励/参数表都按它开
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
     parameter logic DEBUG_PORT = 1'b1
@@ -45,7 +44,6 @@ module voice_router #(
     input  logic                                     start,
     input  logic [$clog2(SLOTS+1)-1:0]                n_voices,
     input  logic [$clog2(N_MODES+1)-1:0]              n_modes,
-    input  logic [$clog2(X_DEPTH+1)-1:0]              n_samples,
     output logic                                      ready,       // 系数表就绪、可以 start
     output logic                                      busy,
     output logic                                      done,
@@ -81,7 +79,6 @@ module voice_router #(
     end
 
     localparam int IW     = $clog2(N_MODES);
-    localparam int JW     = $clog2(X_DEPTH);
     localparam int VWID   = $clog2(SLOTS);
     localparam int CO_SLOT = $clog2(SLOTS * N_MODES);
 
@@ -100,16 +97,16 @@ module voice_router #(
     (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram  [0:SLOTS*N_MODES-1];
 
     // 调制参数表（引擎不读；加载器写，调制器读）
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*PM_MODES-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*PM_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*N_MODES-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*N_MODES-1];
 
-    (* syn_ramstyle = "block_ram" *) logic signed [XW-1:0] x_ram  [0:SLOTS*X_DEPTH-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [YW-1:0] y_out  [0:X_DEPTH-1];
+    // 激励快照：一次作业只有一个采样，所以就是 16 个寄存器（不再有按采样索引的 RAM）
+    logic signed [XW-1:0] x_q [0:SLOTS-1];
 
     // 早期声明（parts 的选择逻辑要用）
     router_pkg::instrument_e inst_lat;
@@ -254,7 +251,7 @@ module voice_router #(
     logic [IW-1:0]        e0_co_addr;
     logic                 e0_co_re, e0_st_re, e0_st_we;
     logic [IW-1:0]        e0_st_addr, e0_st_waddr;
-    logic [JW-1:0]        e0_x_addr;
+    logic [0:0]           e0_x_addr;
     logic                 e0_x_re;
     logic signed [63:0]   e0_y;
 
@@ -263,7 +260,7 @@ module voice_router #(
     logic [IW-1:0]        e1_co_addr;
     logic                 e1_co_re, e1_st_re, e1_st_we;
     logic [IW-1:0]        e1_st_addr, e1_st_waddr;
-    logic [JW-1:0]        e1_x_addr;
+    logic [0:0]           e1_x_addr;
     logic                 e1_x_re;
     logic signed [63:0]   e1_y;
 
@@ -273,7 +270,7 @@ module voice_router #(
     logic                 eng_start, eng_zero, eng_yv;
     logic [IW-1:0]        eng_co_addr, eng_st_addr, eng_st_waddr;
     logic                 eng_co_re, eng_st_re, eng_st_we, eng_x_re;
-    logic [JW-1:0]        eng_x_addr;
+    logic [0:0]           eng_x_addr;
     logic signed [63:0]   eng_y;
 
     assign e0_start = eng_start && !sel_alt;
@@ -300,7 +297,7 @@ module voice_router #(
     logic signed [XW-1:0] x_r;
 
     logic signed [31:0] e0_qwd, e0_vwd, e1_qwd, e1_vwd;
-    eng0 #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH)) u_eng0 (
+    eng0 #(.N_MODES(N_MODES)) u_eng0 (
         .clk(clk), .rst_n(rst_n),
         .start(e0_start), .st_zero(e0_zero), .n_modes(n_modes),
         .y_valid(e0_yv), .y_data(e0_y),
@@ -312,7 +309,7 @@ module voice_router #(
         .x_re(e0_x_re), .x_addr(e0_x_addr), .x_data(x_r)
     );
 
-    eng1 #(.N_MODES(N_MODES), .X_DEPTH(X_DEPTH)) u_eng1 (
+    eng1 #(.N_MODES(N_MODES)) u_eng1 (
         .clk(clk), .rst_n(rst_n),
         .start(e1_start), .st_zero(e1_zero), .n_modes(n_modes),
         .y_valid(e1_yv), .y_data(e1_y),
@@ -328,7 +325,6 @@ module voice_router #(
     // 存储的读写（地址 = {声部槽, 引擎给的偏移}）
     // =========================================================================
     logic [VWID:0]        voi;
-    logic [JW:0]          fidx;
     logic [CO_SLOT-1:0]   st_rd_idx, st_wr_idx, co_idx;
 
     assign co_idx    = {voi[VWID-1:0], eng_co_addr};
@@ -341,8 +337,7 @@ module voice_router #(
         co_r.wo  = co_wo_r;
     end
 
-    // x 写入：把 xmap 的第 i 项写进 {i, fidx}
-    logic [$clog2(SLOTS)-1:0] xw_i;
+    // x 快照：整张 xmap 一拍抄进 x_q（一次作业一个采样，不需要按采样索引）
     logic                     xw_run;
 
     logic [31:0]            ns_r;
@@ -377,13 +372,13 @@ module voice_router #(
             end
             // 调制参数表：加载器统一写；调制器读（1 拍延迟）
             if (ld_pm_we) begin
-                pm_c0 [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.c0;
-                pm_s0 [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.s0;
-                pm_gam[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.gam;
-                pm_th [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.theta0;
-                pm_g  [{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.g;
-                pm_k12[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.k12;
-                pm_k21[{ld_idx[VWID-1:0], ld_idx[IW-1:0]}] <= ld_pm_data.k21;
+                pm_c0 [ld_idx] <= ld_pm_data.c0;
+                pm_s0 [ld_idx] <= ld_pm_data.s0;
+                pm_gam[ld_idx] <= ld_pm_data.gam;
+                pm_th [ld_idx] <= ld_pm_data.theta0;
+                pm_g  [ld_idx] <= ld_pm_data.g;
+                pm_k12[ld_idx] <= ld_pm_data.k12;
+                pm_k21[ld_idx] <= ld_pm_data.k21;
             end
             // 参数表读出后**再打一拍**：否则 BSRAM 的 CLK->Q 会和调制器第一级乘法
             // 串在同一条路径上（实测 15.2 ns）。这一拍只做寄存，调制器多等一拍。
@@ -408,8 +403,8 @@ module voice_router #(
             end
 
             // 激励：force_pre 分配写入；引擎读
-            if (xw_run) x_ram[{xw_i, fidx[JW-1:0]}] <= xmap[xw_i];
-            if (eng_x_re) x_r <= x_ram[{voi[VWID-1:0], eng_x_addr}];
+            if (xw_run) for (int i = 0; i < SLOTS; i++) x_q[i] <= xmap[i];
+            if (eng_x_re) x_r <= x_q[voi[VWID-1:0]];
 
             // 状态：引擎独占
             if (eng_st_re) begin
@@ -509,10 +504,10 @@ module voice_router #(
     // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
     // S_ENVMUL / S_ENVACC：包络乘法流水（取操作数 -> 乘 -> 累加），见上面结果段
-    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XWR, S_RUN_V, S_MOD,
+    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XS, S_RUN_V, S_MOD,
                                S_ENVMUL, S_ENVACC, S_ADV, S_DONE } st_e;
     st_e                 state;
-    logic [JW:0]         ns_lat;
+
     instrument_e         inst_prev;
     logic                wait_xmap;
 
@@ -531,7 +526,7 @@ module voice_router #(
     assign note_ev = note_on & ~note_on_q;
 
     // 引擎是逐声部串行跑的，等它跑到某个声部时沿早没了：事件先攒进 note_pend，
-    // 到**帧头**（S_RUN_X -> S_XWR）一次性交给 note_f，note_f 只在这一帧里有效：
+    // 到**作业头**（S_RUN_X 那一拍）一次性交给 note_f，note_f 只在这一次作业里有效：
     // 不跨帧粘住，也不会跨加载残留。
     logic             frame_start;
 
@@ -600,9 +595,7 @@ module voice_router #(
             mix_v      <= 1'b0;
             mix_q      <= '0;
             voi        <= '0;
-            fidx       <= '0;
             nv_lat     <= '0;
-            ns_lat     <= '0;
             nm_lat     <= '0;
             inst_lat   <= INST_NONE;
             inst_prev  <= INST_NONE;
@@ -610,7 +603,6 @@ module voice_router #(
             eng_start  <= 1'b0;
             ld_start   <= 1'b0;
             xw_run     <= 1'b0;
-            xw_i       <= '0;
             wait_xmap  <= 1'b0;
         end else begin
             done      <= 1'b0;
@@ -624,14 +616,12 @@ module voice_router #(
                     busy  <= 1'b0;
                     if (start) begin
                         nv_lat   <= (n_voices == 0) ? 1 : n_voices;
-                        ns_lat   <= n_samples;
                         nm_lat   <= n_modes;
                         inst_lat <= inst;
                         sel_alt  <= eng_sel(inst);
                         busy     <= 1'b1;
                         ready    <= 1'b0;
                         voi      <= '0;
-                        fidx     <= '0;
                         // 换乐器（或强制 reload）→ 先停机重灌系数表
                         if ((inst != inst_prev) || reload) begin
                             ld_start <= 1'b1;
@@ -647,32 +637,29 @@ module voice_router #(
                     if (ld_done) begin
                         inst_prev <= inst_lat;
                         voi       <= '0;
-                        fidx      <= '0;
                         wait_xmap <= 1'b1;
                         state     <= S_RUN_X;
                     end
                 end
 
                 // 等 force_pre 出这一采样的 xmap（它自己按 CLK/SR 分频）
+                // 一次作业只跑一个采样，所以 xmap 只要整张寄存进 x_q（一拍），
+                // 不需要再分 16 拍写 x_ram
                 S_RUN_X: begin
                     if (wait_xmap && xmap_valid) begin
                         wait_xmap <= 1'b0;
-                        xw_i      <= '0;
-                        xw_run    <= 1'b1;
-                        state     <= S_XWR;
+                        xw_run    <= 1'b1;          // 下一拍照抄 xmap -> x_q
+                        state     <= S_XS;
                     end
                 end
 
-                // 把 xmap 的 16 路依次写进 x_ram 的当前采样位
-                S_XWR: begin
-                    if (xw_i + 1'b1 >= SLOTS[$clog2(SLOTS)-1:0]) begin
-                        xw_run    <= 1'b0;
-                        voi       <= '0;
-                        eng_start <= 1'b1;          // 第 0 个声部的作业
-                        state     <= S_RUN_V;
-                    end else begin
-                        xw_i <= xw_i + 1'b1;
-                    end
+                // 一拍把 xmap 整张抄进 x_q（快照），然后才起引擎：
+                // 引擎第一拍就要读 x，抄和读挤同一拍会读到上一笔
+                S_XS: begin
+                    xw_run    <= 1'b0;
+                    voi       <= '0;
+                    eng_start <= 1'b1;              // 第 0 个声部的作业
+                    state     <= S_RUN_V;
                 end
 
                 S_RUN_V: begin
@@ -700,20 +687,13 @@ module voice_router #(
 
                 S_ADV: begin
                     if (voi + 1'b1 >= nv_lat) begin
-                        // 这一帧所有声部都算完了：把混音交给腔体。
+                        // 全部声部算完：把这一采样的混音交给腔体。
                         // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
                         if (!mix_v) begin
-                            y_out[fidx[JW-1:0]] <= y_acc;   // 腔体前的混音（调试用）
                             mix_q <= y_acc;
                             mix_v <= 1'b1;
                             voi   <= '0;
-                            if (fidx + 1'b1 >= ns_lat) begin
-                                state <= S_DONE;
-                            end else begin
-                                fidx      <= fidx + 1'b1;
-                                wait_xmap <= 1'b1;
-                                state     <= S_RUN_X;
-                            end
+                            state <= S_DONE;
                         end
                     end else begin
                         voi       <= voi + 1'b1;

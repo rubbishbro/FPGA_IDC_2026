@@ -42,7 +42,7 @@
 `timescale 1ns/1ps
 
 module eng0 #(
-    parameter int   N_MODES  = 48,
+    parameter int   N_MODES  = 64,
     parameter int   X_DEPTH  = 256
 ) (
     input  logic                                     clk,

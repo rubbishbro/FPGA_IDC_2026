@@ -78,7 +78,8 @@ module tb_loader_flash;
 
     localparam int SLOTS      = 4;         // 小规模跑得快；布局与 16 声部一致
     localparam int N_MODES    = 4;
-    localparam int LDW        = $clog2(2*SLOTS*N_MODES);
+    localparam int AW         = $clog2(SLOTS*N_MODES);   // 低位 {slot, mode}
+    localparam int LDW        = AW + 1;                 // 最高位选表
     localparam int TBL_BYTES  = N_MODES * 64;
     localparam int INST       = 2;         // 用 2 号乐器，验证基地址乘对了
     localparam int FLASH_BYTES = 4096;
@@ -140,27 +141,28 @@ module tb_loader_flash;
     bit chk_data = 1'b1;        // 空白片那一轮只看笔数和 err
 
     always @(posedge clk) if (ld_we) begin
-        int a, slot, mode;
-        a    = int'(ld_addr);
+        int sel, addr, slot, mode;
+        sel  = int'(ld_addr[LDW-1]);
+        addr = int'(ld_addr[LDW-2:0]);
         n_wr = n_wr + 1;
-        if (a < SLOTS*N_MODES) begin
-            slot = a / N_MODES;
-            mode = a % N_MODES;
+        if (sel == 0) begin
+            slot = addr / N_MODES;
+            mode = addr % N_MODES;
             if (chk_data && (ld_co.a11 !== pat(mode, 0) || ld_co.gq !== pat(mode, 4) ||
                 ld_co.wo  !== pat(mode, 6))) begin
                 n_bad++;
                 if (n_bad <= 6)
                     $display("  BAD co  addr=%0d (slot %0d mode %0d) a11=%h gq=%h wo=%h",
-                             a, slot, mode, ld_co.a11, ld_co.gq, ld_co.wo);
+                             addr, slot, mode, ld_co.a11, ld_co.gq, ld_co.wo);
             end
         end else begin
-            slot = (a - SLOTS*N_MODES) / N_MODES;
-            mode = (a - SLOTS*N_MODES) % N_MODES;
+            slot = addr / N_MODES;
+            mode = addr % N_MODES;
             if (chk_data && (ld_pm.c0 !== pat(mode, 8) || ld_pm.k21 !== pat(mode, 14))) begin
                 n_bad++;
                 if (n_bad <= 6)
                     $display("  BAD pm  addr=%0d (slot %0d mode %0d) c0=%h k21=%h",
-                             a, slot, mode, ld_pm.c0, ld_pm.k21);
+                             addr, slot, mode, ld_pm.c0, ld_pm.k21);
             end
         end
     end
