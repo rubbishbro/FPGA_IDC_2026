@@ -1,34 +1,28 @@
 # Keyboard Board Bring-up
 
-外接自绘键盘板的独立硬件测试工程。
+外接自绘 4×4 压力键盘板的独立 bring-up 工程。
 
-- FPGA：Tang Mega 138K Pro / GW5AST-138B
+## 当前状态
+
+已上板确认基本显示逻辑可用：
+
+- 按下某个压力点，对应 8×8 点阵的 2×2 区域变亮；
+- 旁边灯不再大面积误亮；
+- 8×8 点阵串行控制正常；
+- ADC、mux、行扫描已联调。
+
+当前版本还保留原驱动的摇杆通道扫描，等摇杆硬件到货后再处理。
+
+## 硬件接口
+
+- FPGA：Tang Mega 138K Pro / GW5AST-138
 - 时钟：50 MHz，P16
 - 供电：3.3 V
 - 数字接口：J22 / PMOD1
 - ADC：ADCV_P，ADCV_N 接 GND
-- 8×8 LED：使用现有 `led8x8` 驱动输出串行数据
+- LED：8×8 自带控制器点阵，串行数据输入
 
-当前没有修改 `FFT_spectrumshow/`、`rtl/core/` 或 `rtl/router/`。
-
----
-
-## 0. 时钟
-
-```text
-clk      50 MHz，P16，直接来自板级晶振
-clk_en   每 20 个 50 MHz 周期一个脉冲 = 2.5 MHz / 400 ns
-```
-
-`pad_driver` 的逻辑仍由 50 MHz 采样，但只在 `clk_en` 有效时推进，等价于 400 ns 节拍。
-LED 串行协议、行扫描、ADC 节拍都用这个 400 ns 时基。
-ADC 每通道约 100 us 更新一次，4×4 全扫约 1.6 ms。
-
----
-
-## 1. 引脚
-
-### 数字接口 J22 / PMOD1
+### J22 引脚
 
 | 键盘板信号 | FPGA 信号 | J22 pin | FPGA pin |
 |---|---|---|---:|
@@ -48,176 +42,165 @@ pin 1 / 2 = GND
 pin 3 / 4 = +3V3
 ```
 
-### ADC
+ADC：
 
 ```text
 键盘板 ADC 输出 -> ADCV_P (N12)
 ADCV_N (P11)   -> GND
 ```
 
-GoWin ADC 由 `Gowin_ADC` 原语使用专用 ADCV 引脚，不需要在 `.cst` 里写普通 `IO_LOC`。
+ADC 使用 Gowin 专用 ADC 引脚，不在 `.cst` 里写普通 `IO_LOC`。
 
----
-
-## 2. 工程结构
+## 时钟和基本节拍
 
 ```text
-keyboard_board/
-  src/
-    keyboard_board_top.sv   顶层：POR、400ns clk_en、ADC 亮度/固定图案
-  board/
-    keyboard_board.gprj     Gowin 工程
-    keyboard_board.cst      J22 数字引脚约束
-    timing.sdc              50 MHz 时钟约束 + LED 慢协议例外
-    flow.tcl                综合 / PnR / bitstream
-  README.md
+主时钟 clk       = 50 MHz
+clk_en           = 每 20 个 clk 一次 = 400 ns
+ADC 窗口         ≈ 102.4 us
+压力矩阵一行     ≈ 4 × 102.4 us = 409.6 us
 ```
 
-复用：
+LED 串行协议：
 
 ```text
-rtl/drivers/pad_driver.sv
-rtl/drivers/pkg/clk_rst_pkg.sv
-rtl/drivers/pkg/pad_driver_pkg.sv
-rtl/drivers/gowin_adc/gowin_adc.v
-rtl/math/math.sv
-rtl/math/pkg/fxp_pkg.sv
+内部节拍       400 ns
+一个 LED bit   3 × 400 ns = 1.2 us
+整屏 1536 bit  ≈ 1.84 ms
+加复位          ≈ 1.9 ms
 ```
 
-`pad_driver` 内部已经包含：
+顶层给 LED 留的刷新间隙：
 
 ```text
-led8x8
+6000 × 400 ns = 2.4 ms
+```
+
+## 驱动结构
+
+本工程没有修改 `rtl/drivers/pad_driver.sv`。
+为了保留原驱动，同时修正板级问题，复制了一份到：
+
+```text
+keyboard_board/board/pad_driver_board.sv
+```
+
+板级工程使用本地副本。
+
+内部模块：
+
+```text
 sense4x4_joystick
-shift_timer
+  ├─ shift_timer 行扫描
+  ├─ Gowin_ADC
+  └─ ch_s / fmap
+led8x8
+  └─ LED_DAT 串行输出
 ```
 
-所以没有重写矩阵扫描和 LED 逻辑。
+## 修复记录
 
----
+### 1. 行扫描 2.5MHz bug
 
-## 3. 当前默认：ADC 原始亮度
+原驱动里行扫描使能是：
+
+```verilog
+(chn_s == 2'b11) & cr.clk_en
+```
+
+`chn_s == 3` 会持续约 100us，所以行线在这段时间里每 400ns 就移一次，实际是 2.5MHz 乱转。
+
+本地副本改成单周期 `row_step`：
+
+```verilog
+wire adc_step = cr.clk_en & (cnt == '1) & adc_rdy;
+
+always_ff @(posedge cr.clk or negedge cr.rst_n) begin
+    if(!cr.rst_n)
+        row_step <= 1'b0;
+    else
+        row_step <= (chn_s == 2'b11) & adc_step;
+end
+
+shift_timer row_scan (.cr({cr.clk, row_step, cr.rst_n}), .val(row_s));
+```
+
+仿真结果：
 
 ```text
-FIXED_CENTER4  = 0
-FORCE_ADC_ZERO = 0
-P_THRESH       = 0
-BRIGHT_SHIFT   = 2
+row0 -> row1 : 409.6 us
+row1 -> row2 : 409.6 us
+row2 -> row3 : 409.6 us
+row3 -> row0 : 409.6 us
 ```
 
-映射：
+### 2. 2×2 灯阵映射错位
+
+旧顶层映射用了像素块内部低位，导致一个压力格子的 4 个像素去读 4 个不同压力值。
+
+现在改成：
+
+```verilog
+wire [2:0] led_x = fill_idx[2:0];
+wire [2:0] led_y = fill_idx[5:3];
+wire [3:0] cell_idx = {led_y[2:1], led_x[2:1]};
+```
+
+即：
 
 ```text
-cell_raw = fmap.flat_d[row*4 + col].val
-cell_p   = (cell_raw > 0) ? (cell_raw >> 2) : 0
-
-R = G = B = cell_p
+压力格行 = LED y / 2
+压力格列 = LED x / 2
+cell_idx = 行*4 + 列
 ```
 
-也就是：
+一个压力点只对应 2×2 四个像素。
+
+### 3. mux 切换后 ADC 采样太早
+
+本地副本加入了 10us 通道稳定时间：
 
 ```text
-空闲 -> 应接近黑
-按压力度越大 -> 对应 2×2 区域越亮
+ch_s 变化
+-> adc_req 保持低 25 个 400ns
+-> 再启动 ADC
 ```
 
-`BRIGHT_SHIFT=2` 把最大亮度从 255 降到 63，避免 64 个像素全亮时电流过大。
+这也减少了强按一个点后，旁边通道读到残压而导致弱亮的问题。
 
-注意：这是 8-bit 数字量直接映射，不是经过校准的电压值，也没有 gamma。
+### 4. 压力阈值
 
----
-
-## 4. 固定图案自检
-
-把 `FIXED_CENTER4` 设为 1：
+当前参数：
 
 ```text
-FIXED_CENTER4 = 1
+P_THRESH    = 16
+BRIGHT_SHIFT = 2
 ```
 
-LED 只亮最中心 2×2：
+ADC 是 14-bit signed，电压模式约：
 
 ```text
-(3,3) (3,4)
-(4,3) (4,4)
+实际电压 ≈ adc_val / 2048
 ```
 
-这个模式不经过 ADC，用来单独验证 LED。
+顶层取 `adc_val[13:6]`，所以：
 
----
+| 电压 | raw[7:0] |
+|---:|---:|
+| 0.25V | 8 |
+| 0.50V | 16 |
+| 0.75V | 24 |
+| 1.00V | 32 |
 
-## 5. ADC=0 对照 bitstream
+`P_THRESH=16` 相当于约 0.5V。
 
-为了区分 ADC 和 LED/电源问题，已经生成：
+## 当前显示行为
 
-```text
-keyboard_board/board/impl/pnr/keyboard_board_adc0.fs
-```
+- 4×4 压力格子映射到 8×8 点阵的 16 个 2×2 区块；
+- 亮度约为 `raw >> 2`；
+- 未达到阈值的格子保持黑色；
+- 固定测试模式可把 `FIXED_CENTER4` 设为 1，只亮中心 2×2。
 
-它把 `FORCE_ADC_ZERO` 置 1，所有像素数据强制为 0。
-
-预期：
-
-```text
-整屏全黑
-```
-
-- 全黑：LED 数据路径和供电基本没问题，问题在 ADC/扫描；
-- 仍然全亮/闪烁：LED 数据、供电、点阵控制器或地线问题。
-
-正常 ADC 亮度版本仍是：
-
-```text
-keyboard_board/board/impl/pnr/keyboard_board.fs
-```
-
----
-
-## 6. ADC 值在现有代码中的用途
-
-`sense4x4_joystick` 只做采集：
-
-```text
-ADC[13:6] -> fmap.flat_d[row*4+col].val
-```
-
-ADC 按 signed 14-bit 处理。负值钳到 0，避免未接/零输入时最高位为 1 被当成 0xFF 全亮。
-
-现有主引擎里：
-
-- `rtl/router` 用 `fmap` 做每个 slot 的 note_on/note_off 门限、激励幅度、包络和调制；
-  但没有从 4×4 格子到音高的映射。
-- `rtl/core/router_frontend` 只取 `fmap[7:0]` 作为压力，其他 15 格没有进入前端。
-- 当前 `keyboard_board_top` 把 16 个 `fmap` 值映射到 8×8 点阵的 2×2 区块。
-
----
-
-## 7. LED 写入方式
-
-`led8x8` 的接口是：
-
-```text
-x[2:0], y[2:0], pix[23:0], wr
-```
-
-- `wr=1`：写 gram；
-- `wr=0`：刷新整屏；
-- 有效节拍 400 ns；
-- 不能在 `S_TX` 期间写。
-
-顶层每帧扫描 64 个像素：
-
-```text
-fill_idx = 0..63
-x = fill_idx[2:0]
-y = fill_idx[5:3]
-```
-
-写完后 `wr` 拉低约 2.4ms，让 `led8x8` 串行刷新。
-
----
-
-## 8. 构建
+## 构建
 
 ```powershell
 cd board
@@ -227,66 +210,46 @@ cd board
 输出：
 
 ```text
-board/impl/pnr/keyboard_board.fs
+keyboard_board/board/impl/pnr/keyboard_board.fs
 ```
 
-当前 ADC 亮度版本 PnR：
+当前 PnR：
 
 ```text
-SETUP slack : +10.032 ns
+SETUP slack : +10.857 ns
 HOLD slack  : +0.275 ns
 ```
 
-ADC 报告中出现：
+## 仿真
 
-```text
-ADCV_P -> N12
-ADCV_N -> P11
+```powershell
+cd sim
+& D:\gowin\win64\vlog.exe -sv ..\..\rtl\drivers\pkg\clk_rst_pkg.sv `
+    ..\..\rtl\drivers\pkg\pad_driver_pkg.sv `
+    ..\..\rtl\math\pkg\fxp_pkg.sv `
+    ..\..\rtl\math\math.sv `
+    ..\board\pad_driver_board.sv adc_stub.sv tb_row_scan.sv
+
+& D:\gowin\win64\vsim.exe -c -do "run -all; quit" tb_row_scan
 ```
 
-LED 串行协议是 400ns 级慢协议，`idx`/`gram` 到 `trig` 的路径在 `timing.sdc` 里设为 false path。
-
----
-
-## 9. 上板验证
-
-### 先烧 ADC=0 对照
+结果：
 
 ```text
-keyboard_board_adc0.fs
+=== ROW SCAN TEST PASSED: ~409.6 us per row ===
 ```
 
-预期全黑。
+## 已知限制
 
-### 再烧 ADC 亮度版本
+- 4×4 压力到音高的映射尚未实现。
+- 当前只验证压力点和 LED，不包含正式主引擎接入。
+- 原驱动仍会扫描摇杆通道 4/5；未接摇杆时，某一行会比正常多保持约 200us。
+- LED 点阵协议兼容性以实物 8×8 点阵为准。
+- `rtl/drivers/pad_driver.sv` 保持原版；所有修改只在 `keyboard_board/board/pad_driver_board.sv`。
 
-```text
-keyboard_board.fs
-```
+## 后续
 
-预期：
-
-```text
-不按键：所有 2×2 区块接近黑色
-按压一个格子：对应 2×2 区块变亮
-压力越大：亮度越高
-```
-
-### 对照结论
-
-| `adc0` 结果 | `adc` 结果 | 判断 |
-|---|---|---|
-| 全黑 | 全亮/乱跳 | ADC 数据或扫描问题 |
-| 全黑 | 正常变化 | ADC 通路正常 |
-| 全亮 | 全亮 | LED 数据/供电/地线问题 |
-| 闪烁 | 闪烁 | 供电电流或 LED 刷新问题 |
-
----
-
-## 10. 已知限制
-
-- 4×4 压力格子到音高的映射尚未实现。
-- ADC 亮度是 8-bit 直接映射，没有校准/迟滞/gamma。
-- 摇杆未接，`pos` 未使用。
-- 如果行脉冲需要低有效，需要在顶层取反；当前沿用 `pad_driver` 原有 one-hot 高有效。
-- LED 协议兼容性仍以实板中心四点测试为准。
+1. 摇杆到货后决定通道 4/5 是独立读还是每行读；
+2. 把 4×4 压力值映射到音符/引擎 slot；
+3. 如需看原始 ADC 数值，再做一个最小 LCD/串口调试显示；
+4. 如需稳定对称行脉冲，可暂时关闭摇杆扫描，只扫 16 个压力点。

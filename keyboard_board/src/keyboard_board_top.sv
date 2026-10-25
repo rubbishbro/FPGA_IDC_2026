@@ -14,7 +14,7 @@ module keyboard_board_top #(
     localparam int CLK_EN_DIV = 20;
     localparam int FILL_LEN   = 64;
     localparam int FRAME_GAP  = 6000;
-    localparam int P_THRESH   = 0;
+    localparam int P_THRESH   = 16;
     localparam int BRIGHT_SHIFT = 2;
 
     logic [19:0] por_cnt = '0;
@@ -86,7 +86,7 @@ module keyboard_board_top #(
     wire       center4 = ((led_x == 3) || (led_x == 4)) &&
                          ((led_y == 3) || (led_y == 4));
 
-    wire [3:0] cell_idx = {fill_idx[4:3], fill_idx[1:0]};
+    wire [3:0] cell_idx = {led_y[2:1], led_x[2:1]};
     wire [7:0] cell_raw = FORCE_ADC_ZERO ? 8'd0 : input_p.fmap.flat_d[cell_idx].val;
     wire [7:0] cell_p   = (cell_raw > P_THRESH) ? (cell_raw >> BRIGHT_SHIFT) : 8'd0;
     wire [7:0] cell_r   = cell_p;
