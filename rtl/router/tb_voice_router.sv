@@ -51,7 +51,16 @@ module tb_voice_router;
         .ns_rd_data(ns_rd_data), .ns_rd_valid(ns_rd_valid)
     );
 
-    int fd, a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos;
+    // 临时调试：引擎 A 的端口
+    int e_cnt = 0;
+    always @(posedge clk) if (rst_n && e_cnt < 30 && dut.state == 4) begin
+        e_cnt <= e_cnt + 1;
+        if (dut.u_era.start || dut.u_era.co_re || dut.u_era.st_re || dut.u_era.st_we || dut.u_era.y_valid)
+            $display("    ENG start=%b co_re=%b co_addr=%0d a11=%0d st_re=%b st_q=%0d x=%0d st_we=%b qwd=%0d yv=%b y=%0d",
+                     dut.u_era.start, dut.u_era.co_re, dut.u_era.co_addr, dut.u_era.co_data.a11,
+                     dut.u_era.st_re, dut.u_era.st_q, dut.u_era.x_data,
+                     dut.u_era.st_we, dut.u_era.st_q_wdata, dut.u_era.y_valid, dut.u_era.y_data);
+    end    int fd, a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos;
     int n_yv = 0, n_nz = 0, n_mod_wr = 0;
     bit r2_ok = 0, body_ok = 0, rev_ok = 0;
     bit mod_drain_ok = 1'b1;      // 后台调制队列必须能排空（不挡引擎 ≠ 永远不算）
@@ -108,10 +117,18 @@ module tb_voice_router;
         for (int i = 0; i < 4; i++) begin
             void'($fscanf(fd, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                 a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos));
-            dut.ca_a11[i] = a11m; dut.ca_a12[i] = a12m;
-            dut.ca_a21[i] = a21m; dut.ca_a22[i] = a22m;
-            dut.ca_gq[i]  = gqm;  dut.ca_gv[i]  = gvm;
-            dut.ca_wo[i]  = wom;
+            // 系数阵列拆成两个 bank：bank 内地址 = {slot mod HS, mode}
+            if (i >= 8) begin        // 16 声部 -> bank A = 0..7, bank B = 8..15
+                dut.ca_a11_b[i] = a11m; dut.ca_a12_b[i] = a12m;
+                dut.ca_a21_b[i] = a21m; dut.ca_a22_b[i] = a22m;
+                dut.ca_gq_b[i]  = gqm;  dut.ca_gv_b[i]  = gvm;
+                dut.ca_wo_b[i]  = wom;
+            end else begin
+                dut.ca_a11_a[i] = a11m; dut.ca_a12_a[i] = a12m;
+                dut.ca_a21_a[i] = a21m; dut.ca_a22_a[i] = a22m;
+                dut.ca_gq_a[i]  = gqm;  dut.ca_gv_a[i]  = gvm;
+                dut.ca_wo_a[i]  = wom;
+            end
         end
         $fclose(fd);
         $display("coefs loaded: a11=%0d a12=%0d a21=%0d wo=%0d", a11m, a12m, a21m, wom);
@@ -169,8 +186,8 @@ module tb_voice_router;
         sample_n(1200);                      // release 满量程约 1024 个采样
         repeat (3) @(posedge clk);
         $display("R2: emap=%0d  q0=%0d v0=%0d  dead=%0b",
-                 dut.emap[0], dut.q_ram[0], dut.v_ram[0], dut.voice_dead[0]);
-        r2_ok = (dut.emap[0] == 0) && (dut.q_ram[0] == 0) && (dut.v_ram[0] == 0);
+                 dut.emap[0], dut.q_ram_a[0], dut.v_ram_a[0], dut.voice_dead[0]);
+        r2_ok = (dut.emap[0] == 0) && (dut.q_ram_a[0] == 0) && (dut.v_ram_a[0] == 0);
 
         // ---- R3: 吉他（有揉弦）—— 验证参数表读 + 调制器写系数 + 腔体 ----
         inst = router_pkg::INST_GUITAR;
@@ -218,7 +235,7 @@ module tb_voice_router;
         body_ok = (n_mix_nz >= 1) && (n_eq == n_mix_nz) && (ymax != 0) &&
                   ($signed(dut.u_body.coef_q[0]) == -1384742);   // 吉他段 0 的 b0
         $display("R3: guitar y_valid=%0d mod_writes=%0d a11=%0d emap=%0d",
-                 n_yv, n_mod_wr, dut.ca_a11[0], dut.emap[0]);
+                 n_yv, n_mod_wr, dut.ca_a11_a[0], dut.emap[0]);
         $display("R3b: body coef_q[0]=%0d ymax=%0d mix_nz=%0d differs=%0d body_ok=%0b",
                  $signed(dut.u_body.coef_q[0]), ymax, n_mix_nz, n_eq, body_ok);
 

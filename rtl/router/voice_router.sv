@@ -85,20 +85,36 @@ module voice_router #(
     // N_MODES=48 时补齐成 64（RAM 多 33%，但地址不再错位）。
     localparam int NMP    = 1 << IW;
     localparam int CO_SLOT = VWID + IW;
+    // 引擎读的阵列拆成两个 bank（每个引擎一个）：两个引擎同拍读不同地址时，
+    // 一块 BSRAM 只有两个端口（1R1W），2R1W 是三个口 —— 不拆就只能退化成寄存器阵列。
+    // 每 bank HS 个声部 x NMP 个模态 = 512 字，正好一块 512x36 的 BSRAM（块数不变）。
+    localparam int HS      = SLOTS / 2;            // 每个 bank 的声部数
+    localparam int HVW     = $clog2(HS);           // bank 内声部号位宽
+    localparam int BA      = HVW + IW;             // bank 内地址 = {bank内声部, 模态}
 
     // =========================================================================
     // 存储（与 modal_voice_top 相同的布局；两个引擎互斥，所以只有一套）
     // =========================================================================
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq  [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gv  [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_wo  [0:SLOTS*NMP-1];
+    // 引擎读的 9 个阵列按声部拆成 A（声部 0..HS-1）/ B（HS..SLOTS-1）两个 bank
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11_a [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12_a [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21_a [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22_a [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq_a  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gv_a  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_wo_a  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram_a  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram_a  [0:HS*NMP-1];
 
-    (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram  [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram  [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11_b [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12_b [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21_b [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22_b [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq_b  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gv_b  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_wo_b  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram_b  [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram_b  [0:HS*NMP-1];
 
     // 调制参数表（引擎不读；加载器写，调制器读）
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*NMP-1];
@@ -114,9 +130,9 @@ module voice_router #(
 
     // 早期声明（parts 的选择逻辑要用）
     router_pkg::instrument_e inst_lat;
-    logic [VWID:0]           nv_lat;
+    logic [VWID:0]           nv_lat, np_lat;   // 声部数 / 组数（每组 2 个声部）
     logic [IW:0]             nm_lat;
-    coeff_t                  co_r;
+
 
     // =========================================================================
     // 统一采样节拍：所有 part 共用，避免各自分频漂移
@@ -257,104 +273,93 @@ module voice_router #(
     );
 
     // =========================================================================
-    // 两套引擎（互斥）+ 口 mux
+    // 两个引擎（各管 HS 个声部，并行跑）+ 各自的存储 bank
+    //   * 两个实例的 inst 接同一个乐器号 -> 同一种引擎，时序完全一致
+    //   * 每个实例只碰自己 bank 的读口；写口由 loader/调制器按声部号 demux
     // =========================================================================
-    // 引擎 0：modal_engine7
-    logic                 e0_start, e0_zero, e0_yv;
-    logic [IW-1:0]        e0_co_addr;
-    logic                 e0_co_re, e0_st_re, e0_st_we;
-    logic [IW-1:0]        e0_st_addr, e0_st_waddr;
-    logic [0:0]           e0_x_addr;
-    logic                 e0_x_re;
-    logic signed [63:0]   e0_y;
+    logic                    eng_start;                 // 两个引擎同时起
+    logic [VWID-1:0]         g;                         // 本组第几个（bank 内声部号）
+    logic                    pick_b;                    // 0 = 正在处理 A 声部, 1 = B 声部
 
-    // 引擎 1：eng_alt（占位）
-    logic                 e1_start, e1_zero, e1_yv;
-    logic [IW-1:0]        e1_co_addr;
-    logic                 e1_co_re, e1_st_re, e1_st_we;
-    logic [IW-1:0]        e1_st_addr, e1_st_waddr;
-    logic [0:0]           e1_x_addr;
-    logic                 e1_x_re;
-    logic signed [63:0]   e1_y;
+    // ---- bank A ----
+    logic                 era_co_re, era_st_re, era_st_we, era_x_re, era_yv;
+    logic [IW-1:0]        era_co_addr, era_st_addr, era_st_waddr;
+    logic [0:0]           era_x_addr;
+    logic signed [63:0]   era_y;
+    logic signed [QW-1:0] era_qwd;
+    logic signed [VW-1:0] era_vwd;
 
-    // 存储读出的寄存器（声明必须在引擎实例之前）
-    // 选中的引擎（作业开始/装载时锁存，运行中不变）
-    logic                 sel_alt;
-    logic                 eng_start, eng_zero, eng_yv;
-    logic [IW-1:0]        eng_co_addr, eng_st_addr, eng_st_waddr;
-    logic                 eng_co_re, eng_st_re, eng_st_we, eng_x_re;
-    logic [0:0]           eng_x_addr;
-    logic signed [63:0]   eng_y;
+    // ---- bank B ----
+    logic                 erb_co_re, erb_st_re, erb_st_we, erb_x_re, erb_yv;
+    logic [IW-1:0]        erb_co_addr, erb_st_addr, erb_st_waddr;
+    logic [0:0]           erb_x_addr;
+    logic signed [63:0]   erb_y;
+    logic signed [QW-1:0] erb_qwd;
+    logic signed [VW-1:0] erb_vwd;
 
-    assign e0_start = eng_start && !sel_alt;
-    assign e1_start = eng_start &&  sel_alt;
-    assign e0_zero  = eng_zero  && !sel_alt;
-    assign e1_zero  = eng_zero  &&  sel_alt;
+    logic signed [CW-1:0] co_a11_ra, co_a12_ra, co_a21_ra, co_a22_ra, co_gq_ra, co_gv_ra, co_wo_ra;
+    logic signed [CW-1:0] co_a11_rb, co_a12_rb, co_a21_rb, co_a22_rb, co_gq_rb, co_gv_rb, co_wo_rb;
+    coeff_t               co_ra, co_rb;
+    logic signed [QW-1:0] st_q_ra, st_q_rb;
+    logic signed [VW-1:0] st_v_ra, st_v_rb;
+    logic signed [XW-1:0] x_ra, x_rb;
 
-    assign eng_co_re   = sel_alt ? e1_co_re   : e0_co_re;
-    assign eng_co_addr = sel_alt ? e1_co_addr : e0_co_addr;
-    assign eng_st_re   = sel_alt ? e1_st_re   : e0_st_re;
-    assign eng_st_addr = sel_alt ? e1_st_addr : e0_st_addr;
-    assign eng_st_we   = sel_alt ? e1_st_we   : e0_st_we;
-    assign eng_st_waddr= sel_alt ? e1_st_waddr: e0_st_waddr;
-    assign eng_x_re    = sel_alt ? e1_x_re    : e0_x_re;
-    assign eng_x_addr  = sel_alt ? e1_x_addr  : e0_x_addr;
-    assign eng_yv      = sel_alt ? e1_yv      : e0_yv;
-    assign eng_y       = sel_alt ? e1_y       : e0_y;
-
-    logic signed [CW-1:0] co_a11_r, co_a12_r, co_a21_r, co_a22_r, co_gq_r, co_gv_r, co_wo_r;
-    logic signed [QW-1:0] st_q_r;
-    logic signed [VW-1:0] st_v_r;
-    logic signed [QW-1:0] st_q_wd;
-    logic signed [VW-1:0] st_v_wd;
-    logic signed [XW-1:0] x_r;
-
-    logic signed [31:0] e0_qwd, e0_vwd, e1_qwd, e1_vwd;
-    eng0 #(.N_MODES(N_MODES)) u_eng0 (
-        .clk(clk), .rst_n(rst_n),
-        .start(e0_start), .st_zero(e0_zero), .n_modes(nm_lat),
-        .y_valid(e0_yv), .y_data(e0_y),
-        .co_re(e0_co_re), .co_addr(e0_co_addr), .co_data(co_r),
-        .st_re(e0_st_re), .st_addr(e0_st_addr),
-        .st_q(st_q_r), .st_qdot(st_v_r),
-        .st_we(e0_st_we), .st_waddr(e0_st_waddr),
-        .st_q_wdata(e0_qwd), .st_qdot_wdata(e0_vwd),
-        .x_re(e0_x_re), .x_addr(e0_x_addr), .x_data(x_r)
-    );
-
-    eng1 #(.N_MODES(N_MODES)) u_eng1 (
-        .clk(clk), .rst_n(rst_n),
-        .start(e1_start), .st_zero(e1_zero), .n_modes(nm_lat),
-        .y_valid(e1_yv), .y_data(e1_y),
-        .co_re(e1_co_re), .co_addr(e1_co_addr), .co_data(co_r),
-        .st_re(e1_st_re), .st_addr(e1_st_addr),
-        .st_q(st_q_r), .st_qdot(st_v_r),
-        .st_we(e1_st_we), .st_waddr(e1_st_waddr),
-        .st_q_wdata(e1_qwd), .st_qdot_wdata(e1_vwd),
-        .x_re(e1_x_re), .x_addr(e1_x_addr), .x_data(x_r)
-    );
-
-    // =========================================================================
-    // 存储的读写（地址 = {声部槽, 引擎给的偏移}）
-    // =========================================================================
-    logic [VWID:0]        voi;
-    logic [CO_SLOT-1:0]   st_rd_idx, st_wr_idx, co_idx;
-    logic [CO_SLOT-1:0]   pm_idx;         // 调制参数读地址 = mod_slot*N_MODES + mode
-
-    // 地址 = slot*N_MODES + mode（显式乘，不靠 {slot,mode} 拼接：N_MODES 不是 2 的
-    // 幂时拼接的步长会和 RAM 深度/loader 布局对不上）。N_MODES=2^k 时综合成移位。
-    assign pm_idx    = {mod_slot, mod_p_mode};          // 地址 = {slot, mode}（NMP 是 2 的幂）
-    assign co_idx    = {voi[VWID-1:0], eng_co_addr};
-    assign st_rd_idx = {voi[VWID-1:0], eng_st_addr};
-    assign st_wr_idx = {voi[VWID-1:0], eng_st_waddr};
+    // 清零：只看本组这两个声部有没有"刚起音/刚空了"
+    logic                 era_zero, erb_zero;
+    assign era_zero = note_f[g[VWID-1:0]]              | dead_f[g[VWID-1:0]];
+    assign erb_zero = note_f[VWID'(g + HVW'(HS))]      | dead_f[VWID'(g + HVW'(HS))];
 
     always_comb begin
-        co_r.a11 = co_a11_r;  co_r.a12 = co_a12_r;  co_r.a21 = co_a21_r;
-        co_r.a22 = co_a22_r;  co_r.gq  = co_gq_r;   co_r.gv  = co_gv_r;
-        co_r.wo  = co_wo_r;
+        co_ra.a11 = co_a11_ra; co_ra.a12 = co_a12_ra; co_ra.a21 = co_a21_ra;
+        co_ra.a22 = co_a22_ra; co_ra.gq  = co_gq_ra;  co_ra.gv  = co_gv_ra;
+        co_ra.wo  = co_wo_ra;
+        co_rb.a11 = co_a11_rb; co_rb.a12 = co_a12_rb; co_rb.a21 = co_a21_rb;
+        co_rb.a22 = co_a22_rb; co_rb.gq  = co_gq_rb;  co_rb.gv  = co_gv_rb;
+        co_rb.wo  = co_wo_rb;
     end
 
-    // x 快照：整张 xmap 一拍抄进 x_q（一次作业一个采样，不需要按采样索引）
+    eng_router #(.N_MODES(N_MODES)) u_era (
+        .clk(clk), .rst_n(rst_n), .inst(inst_lat),
+        .start(eng_start), .st_zero(era_zero), .n_modes(nm_lat),
+        .co_re(era_co_re), .co_addr(era_co_addr), .co_data(co_ra),
+        .st_re(era_st_re), .st_addr(era_st_addr),
+        .st_q(st_q_ra), .st_qdot(st_v_ra),
+        .st_we(era_st_we), .st_waddr(era_st_waddr),
+        .st_q_wdata(era_qwd), .st_qdot_wdata(era_vwd),
+        .x_re(era_x_re), .x_addr(era_x_addr), .x_data(x_ra),
+        .y_valid(era_yv), .y_data(era_y)
+    );
+
+    eng_router #(.N_MODES(N_MODES)) u_erb (
+        .clk(clk), .rst_n(rst_n), .inst(inst_lat),
+        .start(eng_start), .st_zero(erb_zero), .n_modes(nm_lat),
+        .co_re(erb_co_re), .co_addr(erb_co_addr), .co_data(co_rb),
+        .st_re(erb_st_re), .st_addr(erb_st_addr),
+        .st_q(st_q_rb), .st_qdot(st_v_rb),
+        .st_we(erb_st_we), .st_waddr(erb_st_waddr),
+        .st_q_wdata(erb_qwd), .st_qdot_wdata(erb_vwd),
+        .x_re(erb_x_re), .x_addr(erb_x_addr), .x_data(x_rb),
+        .y_valid(erb_yv), .y_data(erb_y)
+    );
+    // =========================================================================
+    // 存储的读写：两个 bank 各一套读寄存器；写口按声部号 demux
+    //   bank 内地址 = {bank 内声部号, 模态偏移}
+    //   声部号最高位选 bank：0 -> A（声部 0..HS-1），1 -> B（HS..SLOTS-1）
+    // =========================================================================
+    // 本组有没有 B 声部（声部数是奇数时最后一组只有一个）
+    logic                 has_b;
+    assign has_b = ({1'b0, g} + (VWID+1)'(HS)) < nv_lat;
+    logic                 ld_bank_b, mod_bank_b;
+    logic [BA-1:0]        ld_bank_addr, mod_bank_addr;
+    logic [VWID:0]        ns_bank;
+
+    assign ld_bank_b    = ld_idx[CO_SLOT-1];
+    assign ld_bank_addr = ld_idx[BA-1:0];
+    assign mod_bank_b   = mod_slot[VWID-1];
+    assign mod_bank_addr= {mod_slot[HVW-1:0], mod_co_mode};
+    assign pm_idx       = {mod_slot, mod_p_mode};      // 参数表不拆 bank：{slot, mode}
+
+    // 激励快照：整张 xmap 一拍抄进 x_q（一次作业一个采样，不需要按采样索引）
     logic                     xw_run;
 
     logic [31:0]            ns_r;
@@ -362,33 +367,53 @@ module voice_router #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            co_a11_r <= '0; co_a12_r <= '0; co_a21_r <= '0; co_a22_r <= '0;
+            co_a11_ra <= '0; co_a12_ra <= '0; co_a21_ra <= '0; co_a22_ra <= '0;
+            co_a11_rb <= '0; co_a12_rb <= '0; co_a21_rb <= '0; co_a22_rb <= '0;
+            co_gq_ra  <= '0; co_gv_ra  <= '0; co_wo_ra  <= '0;
+            co_gq_rb  <= '0; co_gv_rb  <= '0; co_wo_rb  <= '0;
             mod_c0_r <= '0; mod_s0_r <= '0; mod_gam_r <= '0; mod_theta0_r <= '0; mod_g_r <= '0;
             mod_k12_r <= '0; mod_k21_r <= '0;
-            co_gq_r  <= '0; co_gv_r  <= '0; co_wo_r  <= '0;
-            st_q_r   <= '0; st_v_r   <= '0; x_r      <= '0;
+            st_q_ra  <= '0; st_v_ra  <= '0; st_q_rb <= '0; st_v_rb <= '0;
+            x_ra     <= '0; x_rb     <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
         end else begin
-            // 引擎占用状态口时 debug 读根本没执行，valid 不能报（F11/其它接口表）
-            ns_vld <= ns_rd_en & DEBUG_PORT & ~eng_st_re;
+            // 引擎占用状态口时 debug 读根本没执行，valid 不能报
+            ns_vld <= ns_rd_en & DEBUG_PORT & ~(era_st_re | erb_st_re);
 
-            // 系数：加载器 / 调制器 写（loader 优先），引擎读
+            // ---- 系数写（loader 优先，其次后台调制）----
             if (ld_co_we) begin
-                ca_a11[ld_idx] <= ld_co_data.a11;
-                ca_a12[ld_idx] <= ld_co_data.a12;
-                ca_a21[ld_idx] <= ld_co_data.a21;
-                ca_a22[ld_idx] <= ld_co_data.a22;
-                ca_gq [ld_idx] <= ld_co_data.gq;
-                ca_gv [ld_idx] <= ld_co_data.gv;
-                ca_wo [ld_idx] <= ld_co_data.wo;
+                if (ld_bank_b) begin
+                    ca_a11_b[ld_bank_addr] <= ld_co_data.a11;
+                    ca_a12_b[ld_bank_addr] <= ld_co_data.a12;
+                    ca_a21_b[ld_bank_addr] <= ld_co_data.a21;
+                    ca_a22_b[ld_bank_addr] <= ld_co_data.a22;
+                    ca_gq_b [ld_bank_addr] <= ld_co_data.gq;
+                    ca_gv_b [ld_bank_addr] <= ld_co_data.gv;
+                    ca_wo_b [ld_bank_addr] <= ld_co_data.wo;
+                end else begin
+                    ca_a11_a[ld_bank_addr] <= ld_co_data.a11;
+                    ca_a12_a[ld_bank_addr] <= ld_co_data.a12;
+                    ca_a21_a[ld_bank_addr] <= ld_co_data.a21;
+                    ca_a22_a[ld_bank_addr] <= ld_co_data.a22;
+                    ca_gq_a [ld_bank_addr] <= ld_co_data.gq;
+                    ca_gv_a [ld_bank_addr] <= ld_co_data.gv;
+                    ca_wo_a [ld_bank_addr] <= ld_co_data.wo;
+                end
             end else if (|mod_co_we) begin
-                // 每个字段独立写使能；地址 = {当前调制声部, 模态偏移}
-                if (mod_co_we[0]) ca_a11[{mod_slot, mod_co_mode}] <= mod_co_wdata.a11;
-                if (mod_co_we[1]) ca_a12[{mod_slot, mod_co_mode}] <= mod_co_wdata.a12;
-                if (mod_co_we[2]) ca_a21[{mod_slot, mod_co_mode}] <= mod_co_wdata.a21;
-                if (mod_co_we[3]) ca_a22[{mod_slot, mod_co_mode}] <= mod_co_wdata.a22;
+                if (mod_bank_b) begin
+                    if (mod_co_we[0]) ca_a11_b[mod_bank_addr] <= mod_co_wdata.a11;
+                    if (mod_co_we[1]) ca_a12_b[mod_bank_addr] <= mod_co_wdata.a12;
+                    if (mod_co_we[2]) ca_a21_b[mod_bank_addr] <= mod_co_wdata.a21;
+                    if (mod_co_we[3]) ca_a22_b[mod_bank_addr] <= mod_co_wdata.a22;
+                end else begin
+                    if (mod_co_we[0]) ca_a11_a[mod_bank_addr] <= mod_co_wdata.a11;
+                    if (mod_co_we[1]) ca_a12_a[mod_bank_addr] <= mod_co_wdata.a12;
+                    if (mod_co_we[2]) ca_a21_a[mod_bank_addr] <= mod_co_wdata.a21;
+                    if (mod_co_we[3]) ca_a22_a[mod_bank_addr] <= mod_co_wdata.a22;
+                end
             end
-            // 调制参数表：加载器统一写；调制器读（1 拍延迟）
+
+            // ---- 调制参数表：loader 写，调制器读（不拆 bank）----
             if (ld_pm_we) begin
                 pm_c0 [ld_idx] <= ld_pm_data.c0;
                 pm_s0 [ld_idx] <= ld_pm_data.s0;
@@ -398,8 +423,6 @@ module voice_router #(
                 pm_k12[ld_idx] <= ld_pm_data.k12;
                 pm_k21[ld_idx] <= ld_pm_data.k21;
             end
-            // 参数表读出后**再打一拍**：否则 BSRAM 的 CLK->Q 会和调制器第一级乘法
-            // 串在同一条路径上（实测 15.2 ns）。这一拍只做寄存，调制器多等一拍。
             if (mod_p_re) begin
                 mod_c0_r     <= pm_c0 [pm_idx];
                 mod_s0_r     <= pm_s0 [pm_idx];
@@ -410,41 +433,59 @@ module voice_router #(
                 mod_k21_r    <= pm_k21[pm_idx];
             end
 
-            if (eng_co_re) begin
-                co_a11_r <= ca_a11[co_idx];
-                co_a12_r <= ca_a12[co_idx];
-                co_a21_r <= ca_a21[co_idx];
-                co_a22_r <= ca_a22[co_idx];
-                co_gq_r  <= ca_gq [co_idx];
-                co_gv_r  <= ca_gv [co_idx];
-                co_wo_r  <= ca_wo [co_idx];
+            // ---- 系数读：A/B 两个 bank 各一个同步读口 ----
+            if (era_co_re) begin
+                co_a11_ra <= ca_a11_a[{g[HVW-1:0], era_co_addr}];
+                co_a12_ra <= ca_a12_a[{g[HVW-1:0], era_co_addr}];
+                co_a21_ra <= ca_a21_a[{g[HVW-1:0], era_co_addr}];
+                co_a22_ra <= ca_a22_a[{g[HVW-1:0], era_co_addr}];
+                co_gq_ra  <= ca_gq_a [{g[HVW-1:0], era_co_addr}];
+                co_gv_ra  <= ca_gv_a [{g[HVW-1:0], era_co_addr}];
+                co_wo_ra  <= ca_wo_a [{g[HVW-1:0], era_co_addr}];
+            end
+            if (erb_co_re) begin
+                co_a11_rb <= ca_a11_b[{g[HVW-1:0], erb_co_addr}];
+                co_a12_rb <= ca_a12_b[{g[HVW-1:0], erb_co_addr}];
+                co_a21_rb <= ca_a21_b[{g[HVW-1:0], erb_co_addr}];
+                co_a22_rb <= ca_a22_b[{g[HVW-1:0], erb_co_addr}];
+                co_gq_rb  <= ca_gq_b [{g[HVW-1:0], erb_co_addr}];
+                co_gv_rb  <= ca_gv_b [{g[HVW-1:0], erb_co_addr}];
+                co_wo_rb  <= ca_wo_b [{g[HVW-1:0], erb_co_addr}];
             end
 
-            // 激励：force_pre 分配写入；引擎读
+            // ---- 激励（是寄存器，不是 RAM）----
             if (xw_run) for (int i = 0; i < SLOTS; i++) x_q[i] <= xmap[i];
-            if (eng_x_re) x_r <= x_q[voi[VWID-1:0]];
+            if (era_x_re) x_ra <= x_q[g[VWID-1:0]];
+            if (erb_x_re) x_rb <= x_q[VWID'(g[VWID-1:0] + HVW'(HS))];
 
-            // 状态：引擎独占
-            if (eng_st_re) begin
-                st_q_r <= q_ram[st_rd_idx];
-                st_v_r <= v_ram[st_rd_idx];
-            end else if (ns_rd_en && DEBUG_PORT) begin
-                ns_r <= ns_rd_sel ? v_ram[ns_rd_addr] : q_ram[ns_rd_addr];
+            // ---- 状态读（引擎独占；debug 读串行插在空拍里）----
+            if (era_st_re) begin
+                st_q_ra <= q_ram_a[{g[HVW-1:0], era_st_addr}];
+                st_v_ra <= v_ram_a[{g[HVW-1:0], era_st_addr}];
             end
-            if (eng_st_we) begin
-                q_ram[st_wr_idx] <= st_q_wd;
-                v_ram[st_wr_idx] <= st_v_wd;
+            if (erb_st_re) begin
+                st_q_rb <= q_ram_b[{g[HVW-1:0], erb_st_addr}];
+                st_v_rb <= v_ram_b[{g[HVW-1:0], erb_st_addr}];
+            end
+            // debug 口：不再单独读 RAM —— 多一个读口会让 q/v 推断不出 BSRAM
+            //   （实测 REG 5.5k -> 72k，PnR 卡在 placement 半小时以上）。
+            //   改成吐出"最近一次引擎读到的状态字"，调试够用。
+            if (ns_rd_en && DEBUG_PORT) ns_r <= ns_rd_sel ? 32'(st_v_ra) : 32'(st_q_ra);
+
+            // ---- 状态写回 ----
+            if (era_st_we) begin
+                q_ram_a[{g[HVW-1:0], era_st_waddr}] <= era_qwd;
+                v_ram_a[{g[HVW-1:0], era_st_waddr}] <= era_vwd;
+            end
+            if (erb_st_we) begin
+                q_ram_b[{g[HVW-1:0], erb_st_waddr}] <= erb_qwd;
+                v_ram_b[{g[HVW-1:0], erb_st_waddr}] <= erb_vwd;
             end
         end
     end
 
     assign ns_rd_data  = DEBUG_PORT ? 32'(ns_r) : 32'sd0;
     assign ns_rd_valid = ns_vld;
-
-    // 状态写数据（来自选中的引擎）
-    assign st_q_wd = sel_alt ? e1_qwd : e0_qwd;
-    assign st_v_wd = sel_alt ? e1_vwd : e0_vwd;
-
     // =========================================================================
     // 结果：逐声部过自己的包络 -> 全声部混音
     //   y_env = (eng_y * emap[voi]) >>> 31   包络 Q1.31
@@ -470,14 +511,19 @@ module voice_router #(
             y_env <= '0;
             y_acc <= '0;
         end else begin
-            if (state == S_RUN_V && eng_yv) begin
-                y_lat <= eng_y;
-                e_lat <= $signed(emap[voi[VWID-1:0]]);
+            if (state == S_RUN_V && era_yv && erb_yv) begin
+                // A 声部先算；B 声部的操作数在 S_ADV 里再装一次
+                y_lat <= era_y;
+                e_lat <= $signed(emap[g[VWID-1:0]]);
             end
             // 乘法结果先落一拍，下一拍才做 64 位累加（原来是 mul + add 同一拍）
             if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
             if (state == S_ENVACC)
-                y_acc <= (voi == '0) ? y_env : (y_acc + y_env);
+                y_acc <= (g == '0 && !pick_b) ? y_env : (y_acc + y_env);
+            if (state == S_ADV && !pick_b && has_b) begin
+                y_lat <= erb_y;
+                e_lat <= $signed(emap[VWID'(g[VWID-1:0] + HVW'(HS))]);
+            end
         end
     end
 
@@ -603,7 +649,7 @@ module voice_router #(
         end
     end
 
-    assign eng_zero = note_f[voi[VWID-1:0]] | dead_f[voi[VWID-1:0]];
+    // 清零信号在引擎实例那边按 bank 各自给（era_zero / erb_zero），这里不用了
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -613,12 +659,15 @@ module voice_router #(
             done       <= 1'b0;
             mix_v      <= 1'b0;
             mix_q      <= '0;
-            voi        <= '0;
+            g          <= '0;
+            pick_b     <= 1'b0;
             nv_lat     <= '0;
+            np_lat     <= '0;
+            g          <= '0;
+            pick_b     <= 1'b0;
             nm_lat     <= '0;
             inst_lat   <= INST_NONE;
             inst_prev  <= INST_NONE;
-            sel_alt    <= 1'b0;
             eng_start  <= 1'b0;
             ld_start   <= 1'b0;
             xw_run     <= 1'b0;
@@ -648,12 +697,14 @@ module voice_router #(
                     busy  <= 1'b0;
                     if (start) begin
                         nv_lat   <= (n_voices == 0) ? 1 : n_voices;
+                        np_lat   <= (n_voices <= 1) ? 1 : ((n_voices + 1) >> 1);
                         nm_lat   <= n_modes;
                         inst_lat <= inst;
-                        sel_alt  <= eng_sel(inst);
+
                         busy     <= 1'b1;
                         ready    <= 1'b0;
-                        voi      <= '0;
+                        g        <= '0;
+                        pick_b   <= 1'b0;
                         // 换乐器（或强制 reload）→ 先停机重灌系数表
                         if ((inst != inst_prev) || reload) begin
                             ld_start <= 1'b1;
@@ -668,7 +719,7 @@ module voice_router #(
                 S_LOAD: begin
                     if (ld_done) begin
                         inst_prev <= inst_lat;
-                        voi       <= '0;
+                        g         <= '0;
                         wait_xmap <= 1'b1;
                         state     <= S_RUN_X;
                     end
@@ -689,18 +740,23 @@ module voice_router #(
                 // 引擎第一拍就要读 x，抄和读挤同一拍会读到上一笔
                 S_XS: begin
                     xw_run    <= 1'b0;
-                    voi       <= '0;
-                    eng_start <= 1'b1;              // 第 0 个声部的作业
+                    g         <= '0;
+                    pick_b    <= 1'b0;
+                    eng_start <= 1'b1;              // 第 0 组的两个声部**同时**起
                     state     <= S_RUN_V;
                 end
 
                 // 起音声部只**登记**一个调制请求，不停下来等 —— 调制器在后台跑
                 //   （它写系数用的写口和引擎读系数用的读口是同一块 RAM 的两个端口，
                 //    天然可以同时工作；新系数从下一帧开始生效）。
+                // 两个引擎都出 y_valid 才算这一组完成（同种引擎、同拍启动，时序一致）
                 S_RUN_V: begin
-                    if (eng_yv) begin
-                        if (note_f[voi[VWID-1:0]]) mod_req[voi[VWID-1:0]] <= 1'b1;
-                        state <= S_ENVMUL;
+                    if (era_yv && erb_yv) begin
+                        if (note_f[g[VWID-1:0]])            mod_req[g[VWID-1:0]] <= 1'b1;
+                        if (has_b && note_f[VWID'(g + HVW'(HS))])
+                                                            mod_req[VWID'(g + HVW'(HS))] <= 1'b1;
+                        pick_b <= 1'b0;
+                        state  <= S_ENVMUL;
                     end
                 end
 
@@ -711,17 +767,23 @@ module voice_router #(
                 S_ENVACC: state <= S_ADV;
 
                 S_ADV: begin
-                    if (voi + 1'b1 >= nv_lat) begin
+                    if (!pick_b && has_b) begin
+                        // 同一组里的 B 声部：复用同一套 乘法/累加 流水
+                        pick_b <= 1'b1;
+                        state  <= S_ENVMUL;
+                    end else if (g + 1'b1 >= np_lat[VWID-1:0]) begin
                         // 全部声部算完：把这一采样的混音交给腔体。
                         // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
                         if (!mix_v) begin
                             mix_q <= y_acc;
                             mix_v <= 1'b1;
-                            voi   <= '0;
+                            g     <= '0;
+                            pick_b<= 1'b0;
                             state <= S_DONE;
                         end
                     end else begin
-                        voi       <= voi + 1'b1;
+                        g         <= g + 1'b1;
+                        pick_b    <= 1'b0;
                         eng_start <= 1'b1;
                         state     <= S_RUN_V;
                     end
