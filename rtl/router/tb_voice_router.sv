@@ -54,6 +54,7 @@ module tb_voice_router;
     int fd, a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos;
     int n_yv = 0, n_nz = 0, n_mod_wr = 0;
     bit r2_ok = 0, body_ok = 0, rev_ok = 0;
+    bit mod_drain_ok = 1'b1;      // 后台调制队列必须能排空（不挡引擎 ≠ 永远不算）
     longint ymax = 0;
 
     always @(posedge clk) if (|dut.mod_co_we) begin
@@ -191,6 +192,21 @@ module tb_voice_router;
         clear_stats();
         sample_n(64);
         repeat (5) @(posedge clk);
+        // 调制是后台跑的：再放若干采样把请求位图排空，确认它**真的算完**了
+        //   （不然"不挡引擎"可能变成"永远不算"）
+        begin
+            int guard;
+            guard = 0;
+            while ((|dut.mod_req) && guard < 400) begin
+                sample_n(1);
+                guard++;
+            end
+            $display("R3c: 排空调制队列用了 %0d 个采样，剩余请求=%b", guard, dut.mod_req);
+            if (|dut.mod_req) begin
+                mod_drain_ok = 1'b0;
+                $display("   !! 调制队列没排空（%b）", dut.mod_req);
+            end
+        end
         // 吉他腔体不是直通：凡是腔体前混音非零的采样，腔体后必须和它不同
         n_eq = 0; n_mix_nz = 0;
         for (int i = 0; i < 64; i++) begin
@@ -206,7 +222,7 @@ module tb_voice_router;
         $display("R3b: body coef_q[0]=%0d ymax=%0d mix_nz=%0d differs=%0d body_ok=%0b",
                  $signed(dut.u_body.coef_q[0]), ymax, n_mix_nz, n_eq, body_ok);
 
-        if (n_nz > 0 && ymax != 0 && r2_ok && n_mod_wr > 0 && body_ok && body_pass_ok && rev_ok)
+        if (n_nz > 0 && ymax != 0 && r2_ok && n_mod_wr > 0 && body_ok && body_pass_ok && rev_ok && mod_drain_ok)
             $display("RESULT: PASS");
         else
             $display("RESULT: FAIL");

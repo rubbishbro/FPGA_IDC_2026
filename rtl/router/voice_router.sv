@@ -198,6 +198,14 @@ module voice_router #(
 
     logic                    mod_busy, mod_done, mod_start, mod_p_re;
     logic [VWID-1:0]         mod_slot;
+    // 后台调制请求位图：起音的声部在这里置位，调制器空闲时按最低位服务，做完清那一位。
+    //   这样谁请求都不会丢（幂等的调制器重复跑也无害），而且**不挡引擎**。
+    logic [SLOTS-1:0]        mod_req;
+
+    function automatic logic [VWID-1:0] first_req(input logic [SLOTS-1:0] r);
+        first_req = '0;
+        for (int i = SLOTS-1; i >= 0; i--) if (r[i]) first_req = VWID'(i);
+    endfunction
     logic [IW-1:0]           mod_p_mode, mod_co_mode;
     logic [3:0]              mod_co_we;
     coeff_t                  mod_co_wdata;
@@ -514,7 +522,7 @@ module voice_router #(
     // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
     // S_ENVMUL / S_ENVACC：包络乘法流水（取操作数 -> 乘 -> 累加），见上面结果段
-    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XS, S_RUN_V, S_MOD,
+    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
                                S_ENVMUL, S_ENVACC, S_ADV, S_DONE } st_e;
     st_e                 state;
 
@@ -615,11 +623,24 @@ module voice_router #(
             ld_start   <= 1'b0;
             xw_run     <= 1'b0;
             wait_xmap  <= 1'b0;
+            mod_req    <= '0;
+            mod_start  <= 1'b0;
+            mod_slot   <= '0;
         end else begin
             done      <= 1'b0;
             if (body_accept) mix_v <= 1'b0;      // 这一笔混音已经被腔体接走
             eng_start <= 1'b0;
             ld_start  <= 1'b0;
+            mod_start <= 1'b0;
+
+            // ---- 后台调制：有请求 + 调制器空闲 + 没在加载 -> 发一拍 start ----
+            //   一次只发一个（busy 期间不发，发了也会被它忽略），做完清那一位。
+            if (mod_done)
+                mod_req[mod_slot] <= 1'b0;
+            else if (!mod_start && !mod_busy && !ld_busy && (|mod_req)) begin
+                mod_slot  <= first_req(mod_req);
+                mod_start <= 1'b1;
+            end
 
             case (state)
                 S_IDLE: begin
@@ -673,20 +694,13 @@ module voice_router #(
                     state     <= S_RUN_V;
                 end
 
+                // 起音声部只**登记**一个调制请求，不停下来等 —— 调制器在后台跑
+                //   （它写系数用的写口和引擎读系数用的读口是同一块 RAM 的两个端口，
+                //    天然可以同时工作；新系数从下一帧开始生效）。
                 S_RUN_V: begin
                     if (eng_yv) begin
-                        if (note_f[voi[VWID-1:0]]) begin
-                            mod_slot  <= voi[VWID-1:0];   // 只调这一个声部
-                            mod_start <= 1'b1;
-                            state     <= S_MOD;
-                        end else state <= S_ENVMUL;
-                    end
-                end
-
-                S_MOD: begin
-                    if (mod_done) begin
-                        mod_start <= 1'b0;
-                        state     <= S_ENVMUL;
+                        if (note_f[voi[VWID-1:0]]) mod_req[voi[VWID-1:0]] <= 1'b1;
+                        state <= S_ENVMUL;
                     end
                 end
 
