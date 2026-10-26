@@ -1,6 +1,16 @@
 # rtl/drivers
 
-协议分析层设计见 [`analyzer/README.md`](analyzer/README.md)：MIDI 标准／开源解析器参考、私有 UART 帧 v1 和 CRC/SLIP 测试向量。目前仅文档，尚无分析器 RTL。
+通信实现已按职责分层：
+
+| 目录 | 已实现内容 |
+|---|---|
+| [uart/](uart/README.md) | 通用 UART RX／TX、唯一 RX 字节 FIFO、物理错误检测 |
+| [bluetooth_hc05/](bluetooth_hc05/README.md) | 独立 HC-05 设备包装，内部复用 UART，附可选 STATE 状态 |
+| [common/](common/comm_fifo.sv) | 驱动、传输和事件队列共用的同步 FIFO |
+| [analyzer/](analyzer/README.md) | TYPE 分发、MIDI／Config 业务解析、接口和验证汇报 |
+| [../comm/](../comm/README.md) | 每路 transport、帧仲裁、回复路由、会话协调与通信集成顶层 |
+
+当前验证覆盖独立通信 RTL 与 mock 端点，尚无真实音频整机／HC-05 实物验收。历史方案保留在各模块文档的归档入口。
 
 从 `history/rtl/drivers` 迁入的驱动依赖，供后续 16 按键键盘/矩阵扫描复用。
 

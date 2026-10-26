@@ -1,6 +1,6 @@
 # 串口演奏／配置协议 v1
 
-日期：2026-10-26。状态：**字节级设计方案，供审阅与后续实现；无 RTL。** 外层消息不是 MIDI 标准的一部分；MIDI_DATA 内的 MIDI 字节保持标准含义。
+日期：2026-10-26。状态：**通信 RTL 已实现并完成独立仿真；本文记录当前线上协议。** 设备 RX 接受 MIDI_DATA／CONFIG，TX 生成 REPLY；真实音频／EQ 后级不在本目录实现。外层消息是私有封装，MIDI_DATA 内的 MIDI 字节保持标准含义。
 
 ## 1. 分帧方式
 
@@ -50,7 +50,7 @@ SLIP 只负责边界，不自带消息分类或校验；TYPE、LEN、SEQ 和 CRC
 | CONFIG | 1..16，且必须再匹配具体命令长度 |
 | REPLY | 固定 3 |
 
-`MAX_MIDI_PAYLOAD=32`，`MAX_CONFIG_PAYLOAD=16`；共享帧缓存按全局 `MAX_PAYLOAD=32` 设计，最大解码 body=40 字节，最坏转义后、含两个 C0 的线上帧长=82 字节。CONFIG 帧最多 24 字节 body、50 字节最坏线上长度。
+`MAX_MIDI_PAYLOAD=32`，`MAX_CONFIG_PAYLOAD=16`；每链路帧存储按 32-byte payload 槽实现，最大解码 body=40 字节，最坏转义后、含两个 C0 的线上帧长=82 字节。CONFIG 帧最多 24 字节 body、50 字节最坏线上长度。
 
 长度按实际内容填写，不补齐到上限：REVERB_SET 为 2 字节、单段 EQ_SET 为 10 字节。多段 EQ 分别发送配置帧；CONFIG payload 大于 16 字节即拒绝。
 
@@ -96,9 +96,9 @@ append crc[7:0], crc[15:8]
 3. 全部通过才发布一帧，demux 根据 TYPE 交给 MIDI／CONFIG FSM。
 4. 下游反压时持有已验证帧；不覆盖尚未消费的缓存。
 
-半帧接收设可参数化的**字节间超时**，初始建议 1000 ms，只在已经进入非空帧且等待后续线上字节时计时。每收到线上字节重置；完整帧等待下游消费不计该超时。空闲链路不视作断线，更不能拿它判断长音是否应该停止。
+半帧接收具有可参数化的**字节间超时**。`comm_top` 默认 `TIMEOUT_CYCLES=CLK_HZ`，即 1000 ms；计时由 SLIP RX 在非空候选帧等待输入时执行，接受新字节时重置，等待帧槽或完整帧下游消费不计时。空闲链路不视作断线，更不能拿它判断长音是否应该停止。
 
-超时／UART framing error／RX FIFO 溢出使当前半帧失效，并通知上层 `link_fault`。CRC 错、非法转义、长度错误也应有计数／错误标志；这些情况下不信任 SEQ，**不伪造 CONFIG ACK**。不可“发现 CRC 错但前面的 Note On 已执行”。
+超时／UART framing error／RX FIFO 溢出使当前半帧失效，并置对应来源的 `link_fault_pending`／`source_quarantine`。CRC 错、非法转义、长度错误记录在 `error_sticky` 和汇总错误周期计数中；这些情况下不信任 SEQ，**不伪造 CONFIG ACK**。不可“发现 CRC 错但前面的 Note On 已执行”。
 
 VERSION／TYPE 不认识：丢弃并计数；REPLY 不被当成 MIDI 或配置。错误恢复／清音由独立顶层负责，分帧 FSM 本身不修改 fmap。丢帧可能丢失 Note Off；CRC 不能保证可靠投递或消除挂音。
 
@@ -108,15 +108,15 @@ VERSION／TYPE 不认识：丢弃并计数；REPLY 不被当成 MIDI 或配置�
 - v1 使用**自包含的短 MIDI 数据包**：每个包独立建立 running status，不能依赖上一个包的状态，也不能把一条短消息拆跨包。
 - 允许同包内 running status；上位机优先每条消息都带 status，利于定位错误。
 - 每包开始清解析局部状态；每包结束清 pending／running status／SysEx skip 状态。包间 CONFIG 不会成为 MIDI 字节。
-- 完整且合法的支持消息按顺序产生事件。语法错误计数、丢弃不完整消息并按新 status 重同步；**先前已经产生的合法 MIDI 事件不做回滚**。CRC 帧提交不等于 MIDI payload 的事务回滚。
-- SysEx／System Common／Real-Time 等首版不产生业务动作，但必须按 MIDI_REFERENCE 中的规则识别／跳过，不能吞掉其后的 Note Off。
+- 完整且合法的支持消息按顺序产生事件。语法错误产生 `midi_parse_error` 单拍诊断、丢弃不完整消息并按新 status 重同步；**先前已经产生的合法 MIDI 事件不做回滚**。CRC 帧提交不等于 MIDI payload 的事务回滚。
+- SysEx／System Common／Real-Time 等首版不产生业务动作，按 [MIDI 解析说明](README.md#midi) 中的规则识别／跳过，不能吞掉其后的 Note Off。
 - 不按通道音色策略过滤 byte parser；事件保留 channel 0..15，实际播放能力另定。
 
-MIDI payload 的具体状态机和事件字段见 [MIDI_REFERENCE.md](MIDI_REFERENCE.md)。
+MIDI payload 的已实现行为和事件字段见 [MIDI 解析说明](README.md#midi)。
 
 ## 6. CONFIG payload
 
-一帧只包含一条配置命令，首字节为 COMMAND。配置仅作用于本机 EQ／共享混响，不假装是标准 MIDI 控制器。
+一帧只包含一条配置命令，首字节为 COMMAND。当前 RTL 实现 EQ／共享混响配置的字段校验、shadow、请求与完成握手；实际效果由外部后级完成。
 
 ### 6.1 `01 = EQ_SET`，LEN=10
 
@@ -126,13 +126,13 @@ MIDI payload 的具体状态机和事件字段见 [MIDI_REFERENCE.md](MIDI_REFER
 | 1 | band_id | u8 | 0-based 段号，必须小于实现的 EQ_BANDS |
 | 2 | enable | u8 | 0=旁路此段，1=启用 |
 | 3 | filter_type | u8 | v1 仅 0=peaking/bell；其他值拒绝，不偷偷换成别的滤波器 |
-| 4 | frequency_hz | u16 LE | 中心频率，20..20000 Hz，并满足设备采样率约束 |
-| 6 | gain_q8_8 | i16 LE | dB×256，二补码；设计范围 −12..+12 dB，即 −3072..3072 |
-| 8 | q_u8_8 | u16 LE | Q×256；设计范围 26..2560，约 0.1..10 |
+| 4 | frequency_hz | u16 LE | 中心频率，parser 校验 20..20000 Hz；采样率约束由实际后级校验 |
+| 6 | gain_q8_8 | i16 LE | dB×256，二补码；校验范围 −12..+12 dB，即 −3072..3072 |
+| 8 | q_u8_8 | u16 LE | Q×256；校验范围 26..2560，约 0.1..10 |
 
-以上是供实现评审的首版参数编码，实际 EQ_BANDS 和 DSP 能力仍待确认。未实现 EQ 时应报 NOT_READY，而不是接收成功却无效果。
+当前 `config_analyzer` 按上表校验，`EQ_BANDS` 默认 3，仅决定合法段号。高层参数到 IIR 系数的转换和 DSP 不在本目录实现；未就绪后级通过完成接口返回 NOT_READY。
 
-所有字段验证后写 shadow，并将该段作为完整更新提交。即使 enable=0 也校验其余字段。高层参数到 IIR 系数的计算、量化及稳定性检查另行设计，不在 UART/MIDI parser 中做；不能直接把未经检查的 32-bit 系数写进滤波器。
+整帧收齐并验证后，通过 `cfg_shadow` 提交完整请求；byte0 位于 [7:0]。即使 enable=0 也校验其余字段。parser 不计算或写入 IIR 系数。
 
 ### 6.2 `02 = REVERB_SET`，LEN=2
 
@@ -143,14 +143,14 @@ preset:u8  = 00 NONE / 01 HALL / 02 BATHROOM
 
 其他 preset 拒绝。v1 无 amount、反馈或延迟字段；不虚构当前 router 没有的参数接口。
 
-通信编号必须显式映射：当前 `router_pkg` 原生枚举为 `BATHROOM=0 / HALL=1 / NONE=2`，与线上编号不同，禁止直接强转。NONE 表示直通，不需要另发 enable。
+parser 保留线上 preset 编号并交给后级；当前 `router_pkg` 枚举为 `BATHROOM=0 / HALL=1 / NONE=2`，与线上编号不同。当前没有连接 router 的枚举转换端点，后级不能直接强转编号。
 
-不支持的 command 返回 UNSUPPORTED。未来扩展应分配新 command 或升版本，不改变现有 LEN=2 的含义。
+不支持的 command 返回 UNSUPPORTED。
 
 ## 7. 配置寄存器、顺序与回复
 
 ```text
-CONFIG 解码／校验 → shadow → 等待此前 MIDI 操作完成 → commit → active → ACK
+CONFIG 解码／校验 → shadow → MIDI 操作屏障 → cfg 请求握手 → 后级完成握手 → REPLY
 ```
 
 “此前 MIDI 操作完成”是事件 FIFO 已排空、消费者已完成对应操作且没有尚未退休的事件，不是所有声部已停止。配置等待期间不让后面的 MIDI 帧越过它；在 UART 入口缓冲，主机也须遵守 stop-and-wait。
@@ -160,9 +160,8 @@ CONFIG 解码／校验 → shadow → 等待此前 MIDI 操作完成 → commit 
 - MIDI_DATA 的 SEQ 是独立的 16-bit 帧标记，主机每个新 MIDI 帧递增模 65536；用于诊断，不自动重发、不依此丢弃合法同音重触发。
 - CONFIG 使用独立的 16-bit 请求计数器，每个新配置递增模 65536；重试必须使用相同 SEQ 和相同 payload。
 - 主机同一会话最多一条配置在途；收到最终回复前不发新的配置，也不发送需要该配置生效后的 MIDI。控制面滑杆在主机合并尚未发送的中间值。
-- 设备保留最近配置的 SEQ、完整 payload 和最终结果。同 SEQ／同 payload 只重放结果，不二次 commit；同 SEQ／不同 payload 返回 SEQ_CONFLICT。
-- 待处理配置的重复请求不排第二次；它们等原请求完成。缓存及影子状态在会话重建时由上层清除，不能把任意串口空闲误认为新会话。
-- 初始建议主机配置超时 1500 ms 后重试，最多 3 次；最终失败明确报错，不继续假定配置已生效。超时值应大于设备操作上限和允许的半帧间隔。
+- 设备为两个来源分别保留最近配置的 SEQ、完整 payload 和最终结果。同 SEQ／同 payload 只重放结果，不二次 commit；同 SEQ／不同 payload 返回 SEQ_CONFLICT。
+- 当前帧在 `frame_done` 前阻止后续帧进入 parser；在途配置完成后，排队的同源重复帧再查缓存，不二次提交。`comm_top` 在有序会话重建时清对应来源重试缓存；串口空闲不会触发会话重建。
 - ACK 是实际生效或明确失败的结果，不是“进入 RX FIFO”或“写了一半 shadow”。
 
 ### 7.2 REPLY，TYPE=80，LEN=3
@@ -185,7 +184,7 @@ result:u8       = 下表
 | 05 | SEQ_CONFLICT，同请求号内容不同 |
 | 06 | NOT_READY，对应后级未实现／未就绪，或提交失败且未生效 |
 
-OK 与错误结果都需缓存以便重复请求重放；错误不得部分修改 active。设备只为合法外层 CONFIG 生成该回复，不对 MIDI 或 REPLY 逐帧应答，不形成 ACK 循环。BUSY 失败若需再次尝试，主机用新的 CONFIG 请求号。
+校验错误和后级完成结果均缓存以便重放；SEQ_CONFLICT 保留原缓存。BUSY 可由后级完成接口返回，parser 在忙时通过背压等待。后级负责保证失败时没有部分生效。设备只为合法外层 CONFIG 生成该回复，不对 MIDI 或 REPLY 逐帧应答，不形成 ACK 循环。BUSY 失败若需再次尝试，主机用新的 CONFIG 请求号。
 
 ## 8. 可核对的线上例子
 
@@ -207,13 +206,6 @@ C0 01 80 01 00 03 00 02 02 00 61 50 C0
 
 完整六组向量见 [frame_vectors.json](frame_vectors.json)，含 EQ 1000 Hz／−6 dB／Q=1，以及 header 同时含 C0、DB 的转义情况。
 
-## 9. 后续实现的最低验证项
+## 9. 已有验证入口
 
-- 正常帧、连续帧、重复 C0、垃圾前缀；逐字节随机空隙与背压。
-- 在 header／payload／CRC 各处放 C0、DB，核对转义与 LEN。
-- 单字节损坏、错误 CRC、LEN 过长／过短／不匹配、截断帧、非法转义、字节间超时。
-- 未知 VERSION／TYPE／命令、CONFIG 长度错、EQ 越界、混响非法值均无部分副作用。
-- 验证 MIDI→CONFIG→MIDI 的保序、commit ACK 时点、重复配置不二次生效。
-- 下游停顿、event FIFO 满、RX 溢出报告与清音联动；不能靠丢掉 Note Off 让系统继续“看似可用”。
-
-参考：[RFC 1055](https://www.rfc-editor.org/rfc/rfc1055)、[CRC catalogue：CRC-16/IBM-3740](https://reveng.sourceforge.io/crc-catalogue/16.htm#crc.cat.crc-16-ibm-3740)。
+六组固定向量、CRC 标准检查与随机分片／粘包由 `sim/check_comm_vectors.py` 检查；RTL 仿真覆盖分帧、长度／转义／CRC 错误、背压、MIDI→CONFIG→MIDI 屏障、重复配置及来源故障恢复。具体测试和结果见 [VERIFICATION.md](../../comm/VERIFICATION.md)。

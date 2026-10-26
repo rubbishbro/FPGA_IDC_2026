@@ -1,0 +1,14 @@
+// Timing probe only; unassigned UART pins are tool-placed, not a board pinout.
+// G5 is MGCLKT_8 on this package. This is a dedicated-clock probe location,
+// not a claim about the board oscillator pin or an instruction to program it.
+IO_LOC "clk" G5;
+IO_PORT "clk" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+IO_LOC "rst_n" U4;
+IO_PORT "rst_n" PULL_MODE=NONE DRIVE=OFF BANK_VCCIO=3.3;
+IO_LOC "led" C21;
+IO_PORT "led" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_PORT "rx_i[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_PORT "rx_i[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_PORT "state_async" IO_TYPE=LVCMOS33 PULL_MODE=NONE;
+IO_PORT "tx_o[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;
+IO_PORT "tx_o[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8;

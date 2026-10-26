@@ -1,6 +1,6 @@
 {
   "protocol": "analyzer-v1",
-  "status": "design vectors; no RTL implementation",
+  "status": "协议向量；用于向量检查",
   "date": "2026-10-26",
   "byte_order": "little-endian",
   "crc": {
@@ -45,7 +45,7 @@
       "name": "eq_band0",
       "type": 2,
       "seq": 2,
-      "description": "band 0 enabled, peaking, 1000 Hz, -6 dB, Q=1",
+      "description": "band 0 启用，peaking，1000 Hz，-6 dB，Q=1",
       "payload_hex": "01 00 01 00 E8 03 00 FA 00 01",
       "crc_hex": "10FB",
       "body_hex": "01 02 02 00 0A 00 01 00 01 00 E8 03 00 FA 00 01 FB 10",
