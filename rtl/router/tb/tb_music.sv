@@ -37,7 +37,6 @@ module tb_music;
     router_pkg::instrument_e inst;
     router_pkg::reverb_preset preset;
     logic        reload = 0, start = 0;
-    logic [4:0]  n_voices;
     logic [6:0]  n_modes;
     logic        ready, busy, done, y_valid;
     logic signed [63:0] y_data;
@@ -54,7 +53,7 @@ module tb_music;
     ) dut (
         .clk(clk), .rst_n(rst_n),
         .fmap(fmap), .inst(inst), .reverb_preset(preset),
-        .reload(reload), .start(start), .n_voices(n_voices), .n_modes(n_modes),
+        .reload(reload), .start(start), .n_modes(n_modes),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
@@ -135,7 +134,6 @@ module tb_music;
         for (int i = 0; i < 16; i++) fmap.flat_d[i].val = 8'd0;
         inst     = router_pkg::INST_PIANO;
         preset   = router_pkg::REVERB_HALL;
-        n_voices = 5'd1;        // 单声部（系数表里 4 个模态）
         n_modes  = 7'd4;
         repeat (5) @(posedge clk);
         rst_n = 1;

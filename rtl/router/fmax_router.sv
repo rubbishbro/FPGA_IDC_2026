@@ -17,7 +17,6 @@ module fmax_router #(
     pad_driver_pkg::mat4x4   fmap;
     router_pkg::instrument_e inst;
     logic                    reload, start, mod_req;
-    logic [$clog2(SLOTS+1)-1:0]     n_voices;
     logic [$clog2(N_MODES+1)-1:0]   n_modes;
     logic                    ready, busy, done, y_valid;
     logic signed [63:0]      y_data;
@@ -28,7 +27,7 @@ module fmax_router #(
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst),
         .reverb_preset(router_pkg::REVERB_HALL),
         .reload(reload), .start(start),
-        .n_voices(n_voices), .n_modes(n_modes),
+        .n_modes(n_modes),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0101),
@@ -48,7 +47,6 @@ module fmax_router #(
             start     <= 1'b0;
             reload    <= 1'b0;
             mod_req   <= 1'b0;
-            n_voices  <= SLOTS[$clog2(SLOTS+1)-1:0];
             n_modes   <= N_MODES[$clog2(N_MODES+1)-1:0];
             inst_cnt  <= '0;
         end else begin

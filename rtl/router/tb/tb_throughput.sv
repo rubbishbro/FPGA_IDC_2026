@@ -28,7 +28,6 @@ module tb_throughput;
     pad_driver_pkg::mat4x4 fmap;
     router_pkg::instrument_e inst;
     logic        reload = 0, start = 0;
-    logic [4:0]  n_voices;
     logic [6:0]  n_modes;
     logic        ready, busy, done, y_valid;
     logic signed [63:0] y_data;
@@ -46,7 +45,7 @@ module tb_throughput;
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst),
         .reverb_preset(router_pkg::REVERB_NONE),
         .reload(reload), .start(start),
-        .n_voices(n_voices), .n_modes(n_modes),
+        .n_modes(n_modes),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0),
@@ -105,7 +104,7 @@ module tb_throughput;
     initial begin
         for (int i = 0; i < SLOTS; i++) fmap.flat_d[i].val = 8'd0;
         inst      = router_pkg::INST_PIANO;
-        n_voices  = SLOTS;
+        
         n_modes   = N_MODES;
         rst_n     = 1'b0;
         repeat (5) @(posedge clk);

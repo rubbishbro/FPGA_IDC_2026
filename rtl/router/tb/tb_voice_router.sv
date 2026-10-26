@@ -27,7 +27,6 @@ module tb_voice_router;
     router_pkg::instrument_e inst;
     router_pkg::reverb_preset preset;
     logic        reload = 0, start = 0, mod_req = 0;
-    logic [4:0]  n_voices;
     logic [6:0]  n_modes;
     logic        ready, busy, done, y_valid;
     logic signed [63:0] y_data;
@@ -43,7 +42,7 @@ module tb_voice_router;
     voice_router #(.SR_HZ(200_000)) dut (
         .clk(clk), .rst_n(rst_n), .fmap(fmap), .inst(inst), .reverb_preset(preset),
         .reload(reload), .start(start),
-        .n_voices(n_voices), .n_modes(n_modes),
+        .n_modes(n_modes),
         .ready(ready), .busy(busy), .done(done),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0),
@@ -53,8 +52,8 @@ module tb_voice_router;
 
     // 看门狗：卡住就报 TIMEOUT 退出，别让仿真挂死（挂死时先看最后一条 R 打印）
     initial begin
-        #20ms;
-        $display("TIMEOUT: 仿真超过 20 ms，最后停在哪个用例见上面的打印");
+        #80ms;
+        $display("TIMEOUT: 仿真超过 80 ms，最后停在哪个用例见上面的打印");
         $display("RESULT: FAIL (timeout)");
         $finish;
     end
@@ -139,7 +138,7 @@ module tb_voice_router;
         for (int i = 0; i < 16; i++) fmap.flat_d[i].val = 0;
         inst     = router_pkg::INST_PIANO;   // piano: eng0 + ADSR
         preset   = router_pkg::REVERB_NONE;  // 先直通，验证腔体/混响都是透明的
-        n_voices = 1; n_modes = 4;
+        n_modes = 4;
         repeat (5) @(posedge clk);
         rst_n = 1;
         repeat (5) @(posedge clk);
@@ -241,22 +240,37 @@ module tb_voice_router;
         $display("R3b: body coef_q[0]=%0d ymax=%0d mix_nz=%0d differs=%0d body_ok=%0b",
                  $signed(dut.u_body.coef_q[0]), ymax, n_mix_nz, n_eq, body_ok);
 
-        // ---- R4：nv < HS（只有 A bank 在响）----
-        //   注意：这一条现在**会挂**（g=0..4 时 S_RUN_V 等不到 y_valid），已记进 README 待查；
-        //   临时用 nv=1 的等价路径（R1 已覆盖），这里先留个占位。
+        // ---- R4/R6：删掉了 —— n_voices 端口已去掉（声部数 = SLOTS 参数），
+        //      原来这两条测的"少于 SLOTS 个声部"不再是一个可配置的状态。
         r4_ok = 1'b1;
+        r6_ok = 1'b1;
 
-        // ---- R6：n_voices=0 当 1 个声部（边界）----
-        n_voices = 5'd0;
-        clear_stats();
-        one_sample();
-        r6_ok = (n_yv == 1);
-        $display("R6: n_voices=0  y_valid=%0d（按 1 个声部处理） ok=%0b", n_yv, r6_ok);
-
-        // ---- R5：reload 强制重灌 ----
-        //   **当前会挂**：reload 期间（键还按着）走完 S_LOAD 后 S_RUN_X 等不到 xmap，
-        //   已记进 README 待查。这里先跳过，r5_ok 置 1。
-        r5_ok = 1'b1;
+        // ---- R5：reload 强制重灌（**调查中**：这里用有限等待 + 探针，不挂死）----
+        //   目的：看清 reload 期间 FSM 停在哪一态。跑 60k 拍（约 30 个采样周期）。
+        begin
+            int cyc, last_st;
+            bit got_done;
+            clear_stats();
+            cyc = 0; got_done = 1'b0; last_st = -1;
+            @(negedge clk); reload = 1'b1;
+            @(posedge clk); start <= 1'b1;
+            @(posedge clk); start <= 1'b0;
+            while (cyc < 800000 && !got_done) begin
+                @(posedge clk);
+                cyc = cyc + 1;
+                if (done) got_done = 1'b1;
+                if (cyc % 100000 == 0) begin
+                    if (1)
+                        $display("    R5dbg cyc=%0d state=%0d ld_busy=%b ld_done=%b wait_xmap=%b xmap_v=%b note_on=%b ready=%b",
+                                 cyc, dut.state, dut.ld_busy, dut.ld_done, dut.wait_xmap,
+                                 dut.xmap_valid, dut.note_on, dut.ready);
+                    last_st = int'(dut.state);
+                end
+            end
+            @(negedge clk); reload = 1'b0;
+            r5_ok = got_done;
+            $display("R5: reload 后 done=%0b（跑了 %0d 拍）ok=%0b", got_done, cyc, r5_ok);
+        end
 
         if (r1_ok && r2_ok && n_mod_wr > 0 && body_ok && body_pass_ok && rev_ok &&
             mod_drain_ok && r4_ok && r5_ok && r6_ok)

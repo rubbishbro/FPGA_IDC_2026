@@ -42,8 +42,7 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器
     input  logic                                     start,
-    input  logic [$clog2(SLOTS+1)-1:0]                n_voices,
-    input  logic [$clog2(N_MODES+1)-1:0]              n_modes,
+    input  logic [$clog2(N_MODES+1)-1:0]              n_modes,     // 本乐器用几个模态（<= N_MODES）
     output logic                                      ready,       // 系数表就绪、可以 start
     output logic                                      busy,
     output logic                                      done,
@@ -130,7 +129,7 @@ module voice_router #(
 
     // 早期声明（parts 的选择逻辑要用）
     router_pkg::instrument_e inst_lat;
-    logic [VWID:0]           nv_lat, np_lat;   // 声部数 / 组数（每组 2 个声部）
+
     logic [IW:0]             nm_lat;
 
 
@@ -345,10 +344,8 @@ module voice_router #(
     // 存储的读写：两个 bank 各一套读寄存器；写口按声部号 demux
     //   bank 内地址 = {bank 内声部号, 模态偏移}
     //   声部号最高位选 bank：0 -> A（声部 0..HS-1），1 -> B（HS..SLOTS-1）
+    //   一次作业固定跑 HS 组，每组 A 的 g + B 的 g+HS（全部 SLOTS 个声部）
     // =========================================================================
-    // 本组有没有 B 声部（声部数是奇数时最后一组只有一个）
-    logic                 has_b;
-    assign has_b = ({1'b0, g} + (VWID+1)'(HS)) < nv_lat;
     logic                 ld_bank_b, mod_bank_b;
     logic [BA-1:0]        ld_bank_addr, mod_bank_addr;
     logic [VWID:0]        ns_bank;
@@ -520,7 +517,7 @@ module voice_router #(
             if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
             if (state == S_ENVACC)
                 y_acc <= (g == '0 && !pick_b) ? y_env : (y_acc + y_env);
-            if (state == S_ADV && !pick_b && has_b) begin
+            if (state == S_ADV && !pick_b) begin
                 y_lat <= erb_y;
                 e_lat <= $signed(emap[VWID'(g[VWID-1:0] + HVW'(HS))]);
             end
@@ -661,10 +658,6 @@ module voice_router #(
             mix_q      <= '0;
             g          <= '0;
             pick_b     <= 1'b0;
-            nv_lat     <= '0;
-            np_lat     <= '0;
-            g          <= '0;
-            pick_b     <= 1'b0;
             nm_lat     <= '0;
             inst_lat   <= INST_NONE;
             inst_prev  <= INST_NONE;
@@ -696,11 +689,6 @@ module voice_router #(
                     ready <= 1'b1;
                     busy  <= 1'b0;
                     if (start) begin
-                        nv_lat   <= (n_voices == 0) ? 1 : n_voices;
-                        // 组数：A bank 管声部 0..HS-1、B bank 管 HS..SLOTS-1，
-                        //   一组 = A 的 g + B 的 g+HS。nv <= HS 时只有 A 在响（组数 = nv）；
-                        //   nv > HS 时组数封顶在 HS。
-                        np_lat   <= (n_voices <= 5'(HS)) ? ((n_voices == 0) ? 1 : n_voices) : 5'(HS);
                         nm_lat   <= n_modes;
                         inst_lat <= inst;
 
@@ -756,7 +744,7 @@ module voice_router #(
                 S_RUN_V: begin
                     if (era_yv && erb_yv) begin
                         if (note_f[g[VWID-1:0]])            mod_req[g[VWID-1:0]] <= 1'b1;
-                        if (has_b && note_f[VWID'(g + HVW'(HS))])
+                        if (note_f[VWID'(g + HVW'(HS))])
                                                             mod_req[VWID'(g + HVW'(HS))] <= 1'b1;
                         pick_b <= 1'b0;
                         state  <= S_ENVMUL;
@@ -770,11 +758,11 @@ module voice_router #(
                 S_ENVACC: state <= S_ADV;
 
                 S_ADV: begin
-                    if (!pick_b && has_b) begin
+                    if (!pick_b) begin
                         // 同一组里的 B 声部：复用同一套 乘法/累加 流水
                         pick_b <= 1'b1;
                         state  <= S_ENVMUL;
-                    end else if (g + 1'b1 >= np_lat[VWID-1:0]) begin
+                    end else if (g + 1'b1 >= HVW'(HS)) begin
                         // 全部声部算完：把这一采样的混音交给腔体。
                         // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
                         if (!mix_v) begin

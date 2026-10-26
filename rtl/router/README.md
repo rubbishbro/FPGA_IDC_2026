@@ -66,6 +66,7 @@ rtl/router/
     ├── bq_gen.py            腔体系数对账 + 生成回归向量
     ├── run_bq.ps1           腔体回归一键跑
     ├── run_flash.ps1        加载器回归一键跑
+    ├── run_all.ps1          **全部回归一键跑**（编译一次 + 逐个跑 + 汇总）
     ├── golden_seq_piano.txt 4 个真实钢琴模态的系数（TB 用）
     └── bq_*.mem / flash_demo.mem  回归向量 / 镜像（生成物，可重跑生成）
 ```
@@ -95,7 +96,8 @@ voice_router                      存储 + 调度 + 后级
 
 | 模块 | 职责 | 关键接口 | 周期/延迟 |
 |---|---|---|---|
-| `voice_router` | 存储、调度、混音 | `start/ready/busy/done`、`fmap[16]`、`inst`、`reverb_preset`、`n_voices`、`n_modes`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 865 拍/采样 |
+| `voice_router` | 存储、调度、混音 | `start/ready/busy/done`、`fmap[16]`、`inst`、`reverb_preset`、`n_modes`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 865 拍/采样 |
+| `voice_router` | **声部数是参数 `SLOTS`**（不是端口） | `SLOTS` 必须是 2 的幂 | — |
 | `weight_loader` | 四线 SPI 读 + 写口 | `start/busy/done/err`、`ld_we/ld_addr/ld_co/ld_pm`、`qspi_*` | ~520 拍/记录 |
 | `eng0` | 直接型引擎：`y = Σ (coef × 状态)` | `co_re/co_addr/co_data`、`st_re/st_addr/st_q/st_qdot`、`st_we/...`、`x_re/x_data` | 每模态 5 级流水，N+8 拍/作业 |
 | `eng1` | ABC 引擎：`y = clamp((G*x - a1*y1 - a2*y2)>>24)` | 同上 | 每模态 ~5 拍 |
@@ -139,11 +141,9 @@ addr = slot * NMP + mode          NMP = 1 << clog2(N_MODES)   // 补齐到 2 的
 ```
 
 - 补齐的意义：地址退化成 `{slot, mode}` 的**纯拼接**（移位），地址路径上不放乘法器/比较器。
-  `N_MODES=64` 时 `NMP=64` 和地址 = `slot*64+mode` 完全等价；非 2 的幂（如 48）时多占 33%
-  RAM，但不会错位。
+  `N_MODES=64` 时 `NMP=64` 和地址 = `slot*64+mode` 完全等价；非 2 的幂（如 48）时多占 33% RAM，但不会错位。
 - 引擎读的 9 个阵列按声部分成 **A/B 两个 bank**（`slot < HS` → A），bank 内地址 =
-  `{slot[HVW-1:0], mode}`。**两个引擎同拍读不同地址 = 2R1W**，一块 BSRAM 只有两个端口，
-  所以必须拆 bank（拆完块数不变，反而少 11 块）。
+  `{slot[HVW-1:0], mode}`。**两个引擎同拍读不同地址 = 2R1W**，一块 BSRAM 只有两个端口，所以必须拆 bank。
 - `pm_*` 参数表**不拆**：引擎不读，只有 `modulation0` 读、loader 写。
 
 **写口（loader / 调制器 → RAM）**
@@ -222,7 +222,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
   跑 8 组，每组两个声部同时起算，等两个 `y_valid` 都到齐后**复用同一套**包络乘/累加
   流水串行算两次。
 - **为什么必须拆 bank**：两个引擎同拍读不同地址 = 2R1W = 三个端口，BSRAM 只有两个。
-  拆分后每 bank 512 字 × 32 位正好一块 512×36，块数不变（还少了 11 块）。
+  拆分后每 bank 512 字 × 32 位正好一块 512×36。
 - **代价**：引擎逻辑翻倍（Logic 10.5k → 12.5k，LUT 7.6k → 8.8k）；地址要按声部分 bank
   （`slot[VWID-1]` 选 bank）。
 - **没选"复制阵列"**：那要多 32 块 BSRAM。
@@ -276,8 +276,9 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 
 ### 5.7 加载是阻塞的
 
-- 换乐器 → 停帧 → 重灌 → 继续。一次 64 KB（16 声部 × 64 模态 × 64 字节）= **~53 万拍
-  ≈ 6.5 ms**（`SCK_DIV=4`，四线模式）。
+- 换乐器 → 停帧 → 重灌 → 继续。一次 64 KB（16 声部 × 64 模态 × 64 字节）：
+  `tb_voice_router` 的 R5 实测 **526 994 拍 ≈ 5.3 ms**（`SCK_DIV=4`，四线模式）。
+  换句话说：**中途 reload 会丢掉约 250 个采样**，所以才有"等键全松再 reload"的策略问题（§8.2）。
 - **代价**：切换乐器时 6.5 ms 断音。要更快只能改 PHY（现在 4 拍/SCK，四线 20 MHz）。
 - Quad 模式要求 flash 的 **QE 位**已置位（状态寄存器 2 bit1）——一次性配置，loader 不做
   （否则每次加载都要写状态寄存器 + 等 tSR ~10 ms）。
@@ -291,8 +292,8 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 | 项 | 数值 |
 |---|---|
 | 每采样 | **865 拍**（48 kHz 只要 **41.5 MHz**） |
-| Fmax（100 MHz 约束） | **86.30 MHz**（slack −1.57 ns），48 kHz 余量 2 倍 |
-| Logic / Register / BSRAM | 12554（8905 LUT + 3649 ALU）/ 138240 = 10%；Register 6408 / 139140 = 5%；BSRAM **66** / 340 = 20% |
+| Fmax（100 MHz 约束） | **85.44 MHz**（slack −1.7 ns），48 kHz 余量 2 倍 |
+| Logic / Register / BSRAM | 10433（6787 LUT + 3646 ALU）/ 138240 = 8%；Register 5086 / 139140 = 4%；BSRAM **66** / 340 = 20% |
 | 关键路径 | 混响梳状写 RAM / 干湿相加（约 −1.4 ns） |
 
 瓶颈的顺序：混响（`u_rev`）> eng1 累加链 > eng0。要冲 100 MHz 按这个顺序拆。
@@ -316,13 +317,21 @@ xelab tb_voice_router -s tbv_body --debug typical -timescale 1ns/1ps
 xsim tbv_body --runall
 ```
 
-一键脚本：`pwsh -File rtl/router/tools/run_bq.ps1`（腔体）、`run_flash.ps1`（加载器）。
+一键脚本：
+
+```powershell
+pwsh -File rtl/router/tools/run_all.ps1              # 全部（编译一次，逐个跑，出汇总）
+pwsh -File rtl/router/tools/run_all.ps1 -SkipMusic    # 跳过 1 秒音频渲染
+pwsh -File rtl/router/tools/run_all.ps1 -Only tb_reverb
+pwsh -File rtl/router/tools/run_bq.ps1                # 腔体（会重跑 Python 生成向量）
+pwsh -File rtl/router/tools/run_flash.ps1             # 加载器（会重跑 Python 打包）
+```
 
 ### 7.2 清单与覆盖
 
 | TB | 覆盖什么 | 结果 |
 |---|---|---|
-| `tb_voice_router.sv` | R1 钢琴+混响 NONE（body+混响逐位直通）、R1b 切 HALL（输出和干声不同）、R2 松键后 release 走完状态归零、R3 吉他（调制器+腔体）、R3c 后台调制队列排空、R6 `n_voices=0` 按 1 个声部处理 | ✅ PASS |
+| `tb_voice_router.sv` | R1 钢琴+混响 NONE（body+混响逐位直通）、R1b 切 HALL（输出和干声不同）、R2 松键后 release 走完状态归零、R3 吉他（调制器+腔体）、R3c 后台调制队列排空、R5 reload 重灌（有限等待 80 万拍，实测 527k 拍完成）| ✅ PASS |
 | `tb_throughput.sv` | 80 模态 × 16 声部的每采样拍数（dead/live/gtr-on/gtr-ss/gtr-mod 五个相位）| ✅ 865 拍 |
 | `tb_reverb.sv` | NONE 逐位直通、**±2^40 大值直通**、延迟线灌非零后切 HALL、HALL/BATH 尾/中比、清空 | ✅ PASS |
 | `tb_excitation.sv` | 单脉冲 / 三脉冲 / N=7 持续 / burst 中途 clear / 声部独立 / **非节拍 clear（挂起）** | ✅ PASS |
@@ -334,11 +343,10 @@ xsim tbv_body --runall
 | `tb_music.sv` | **不是自检**：渲染 1 秒音频到 WAV（见 7.3） | — |
 | `tb_fmax_router.sv` | 面积/时序探针（`fmax_router` 外壳） | — |
 
-**已知没覆盖 / 暂时跳过**（见 §8）：
-- `n_voices < 8`（只有 A bank 在响）——**当前会挂**，`tb_voice_router` 里 R4 先跳过。
-- `reload` 强制重灌（键按着时）——**当前会挂**，R5 先跳过。
+**已知没覆盖**（见 §8）：
 - `DEBUG_PORT` 读口（TB 里 `ns_rd_en` 恒 0）。
 - `eng0` 没有独立的 golden 值测试（只在 `tb_voice_router` 里端到端跑）。
+- 少于 `SLOTS` 个声部的配置（`n_voices` 端口已删，要少声部就改 `SLOTS` 参数）。
 
 ### 7.3 渲染音频
 
@@ -358,12 +366,16 @@ python _analysis/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 48000
 
 ## 8. 待确定项 / 已知问题
 
-1. **`n_voices < SLOTS/2` 会挂**（`tb_voice_router` R4）：`np_lat = min(nv, HS)` 的路径下
-   `S_RUN_V` 等不到两个 `y_valid`。要查：B bank 在 `has_b=0` 时是否仍然必须产出 `y_valid`
-   （现在两个引擎都 start，理论上会有）。
-2. **`reload` 会挂**（R5）：键按着时走完 `S_LOAD` 后 `S_RUN_X` 等不到 `xmap_valid`
-   （激励只在起音沿发脉冲）。修法二选一：`reload` 也清激励（让它重新发一轮），
-   或者 `wait_xmap` 加超时兜底（用 0 当本帧激励）。
+1. ~~`n_voices < SLOTS/2` 会挂~~ **已解决**：`n_voices` 端口删掉了，声部数 = `SLOTS`
+   参数（必须是 2 的幂）。少声部就改参数重新综合。顺带省了 2k LUT / 1.3k REG。
+2. ~~`reload` 会挂~~ **不是 bug**：实测 reload = 完整重灌 527k 拍 ≈ **5.3 ms**（≈250 个
+   采样被丢掉）。前面以为"挂了"是我自己的 20 ms 看门狗到点了，不是 FSM 卡住。
+   **待定的是策略**：建议改成"等所有键松开（`note_on == 0`）才真正重灌"，
+   - gate 只对 `change_pend = (inst != inst_prev) || reload` 生效，否则按着键就再也不接帧；
+   - 锁住期间 `ready=0`（主机才知道暂时不接 `start`），`fmap` 照常采（否则看不到松键）；
+   - `inst_lat` 的锁存仍在 `S_IDLE`（和 load 同时切，各 part 与 RAM 内容始终一致）；
+   - 纯 `reload`（乐器没变）建议也清一次激励/腔体，重启更确定；
+   - 键一直按着 → 变更永不生效，这条要写进接口文档。
 3. **`loader.err` 没接进 `S_LOAD`**：加载失败（没烧过）会当成功用，输出静音。策略待定
    （重试？报警？保持静音？）。
 4. **`n_voices`/`n_modes` 是外部输入**：现在引擎和调制器都用 `start` 时锁存的那份，
