@@ -54,6 +54,7 @@ module tb_modulation;
 
     real th[0:NM-1], ex11[0:NM-1], ex12[0:NM-1], ex21[0:NM-1], ex22[0:NM-1];
     real gam, dt, maxerr;
+    int  fails = 0;
 
     task automatic prep(input int fm);
         real alpha, d, D, c, s, a12, t, w0;
@@ -104,7 +105,7 @@ module tb_modulation;
                  fm, checked, gated, maxerr, wmem[0].a11, ex11[0],
                  wmem[2].a21 / 8388608.0, ex21[2]);
         if (maxerr < 1.0e-3 && gated == 1) $display("  -> PASS");
-        else                               $display("  -> FAIL");
+        else begin                         $display("  -> FAIL"); fails++; end
     endtask
 
     initial begin
@@ -117,6 +118,24 @@ module tb_modulation;
         repeat (3) @(posedge clk);
         run_and_check(127);
         run_and_check(255);
+
+        // fmap=0：alpha=1.0，压不出揉弦 -> **一笔都不该写**（co_we 全 0）
+        begin
+            int nw;
+            prep(0);
+            for (int i = 0; i < NM; i++) wr_seen[i] = 1'b0;
+            @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
+            wait (done);
+            #20;
+            nw = 0;
+            for (int i = 0; i < NM; i++) if (wr_seen[i]) nw++;
+            $display("fmap=0 writes=%0d（期望 0）", nw);
+            if (nw == 0) $display("  -> PASS");
+            else begin   $display("  -> FAIL"); fails++; end
+        end
+
+        if (fails == 0) $display("RESULT: PASS");
+        else            $display("RESULT: FAIL (%0d)", fails);
         $finish;
     end
 endmodule

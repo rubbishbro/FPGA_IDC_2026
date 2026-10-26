@@ -23,12 +23,12 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "selftest failed ($LASTEXITCODE)" }
     # tb 里用的是 SLOTS=4 / N_MODES=4 / inst=2，这里必须一致
     & $Python rtl/router/tools/flash_image.py --demo rtl/router/tools/flash_demo.bin `
-        --modes 4 --inst 2 --mem-out rtl/router/tools/flash_demo.mem
+        --modes 4 --slots 4 --inst 2 --mem-out rtl/router/tools/flash_demo.mem
     if ($LASTEXITCODE -ne 0) { throw "demo failed ($LASTEXITCODE)" }
 
     $env:PATH = "$Vivado;" + $env:PATH
     Write-Output '--- xvlog / xelab / xsim ---'
-    & cmd /c 'xvlog.bat --nolog -sv rtl/math/pkg/fxp_pkg.sv rtl/router/pkg/modal_step_pkg.sv rtl/router/pkg/router_pkg.sv rtl/router/loader.sv rtl/router/tb_loader_flash.sv 2>&1'
+    & cmd /c 'xvlog.bat --nolog -sv rtl/math/pkg/fxp_pkg.sv rtl/router/pkg/modal_step_pkg.sv rtl/router/pkg/router_pkg.sv rtl/router/loader.sv rtl/router/tb/tb_loader_flash.sv 2>&1'
     if ($LASTEXITCODE -ne 0) { throw "xvlog failed ($LASTEXITCODE)" }
     & cmd /c 'xelab.bat --nolog tb_loader_flash -s tb_ld --debug typical -timescale 1ns/1ps 2>&1' |
         Select-String 'ERROR|Built'

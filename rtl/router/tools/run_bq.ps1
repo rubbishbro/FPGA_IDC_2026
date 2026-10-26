@@ -26,7 +26,7 @@ try {
 
     $env:PATH = "$Vivado;" + $env:PATH
     Write-Output '--- xvlog / xelab / xsim ---'
-    & cmd /c 'xvlog.bat --nolog -sv rtl/math/pkg/fxp_pkg.sv rtl/router/pkg/router_pkg.sv rtl/router/parts/body_biquad.sv rtl/router/routers/body_router.sv rtl/router/tb_body_biquad.sv 2>&1'
+    & cmd /c 'xvlog.bat --nolog -sv rtl/math/pkg/fxp_pkg.sv rtl/router/pkg/router_pkg.sv rtl/router/parts/body_biquad.sv rtl/router/routers/body_router.sv rtl/router/tb/tb_body_biquad.sv 2>&1'
     if ($LASTEXITCODE -ne 0) { throw "xvlog failed ($LASTEXITCODE)" }
     & cmd /c 'xelab.bat --nolog tb_body_biquad -s tb_bq --debug typical -timescale 1ns/1ps 2>&1' |
         Select-String 'ERROR|Built'

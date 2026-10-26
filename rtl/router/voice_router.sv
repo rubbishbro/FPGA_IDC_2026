@@ -697,7 +697,10 @@ module voice_router #(
                     busy  <= 1'b0;
                     if (start) begin
                         nv_lat   <= (n_voices == 0) ? 1 : n_voices;
-                        np_lat   <= (n_voices <= 1) ? 1 : ((n_voices + 1) >> 1);
+                        // 组数：A bank 管声部 0..HS-1、B bank 管 HS..SLOTS-1，
+                        //   一组 = A 的 g + B 的 g+HS。nv <= HS 时只有 A 在响（组数 = nv）；
+                        //   nv > HS 时组数封顶在 HS。
+                        np_lat   <= (n_voices <= 5'(HS)) ? ((n_voices == 0) ? 1 : n_voices) : 5'(HS);
                         nm_lat   <= n_modes;
                         inst_lat <= inst;
 

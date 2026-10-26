@@ -165,7 +165,7 @@ module tb_music;
         end
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
-                 NSAMP, (NSAMP*1000000)/SR_HZ, ($time - t0)/1000000, n_out);
+                 NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
         $fclose(fd);
         $finish;
     end

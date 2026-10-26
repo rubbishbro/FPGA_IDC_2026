@@ -142,6 +142,21 @@ module tb_excitation;
             if (seq[i] != 0) begin errors++; $display("   !! E slot0 被 slot1 影响了"); end
         $display("  [E] 声部独立");
 
+        // ---- F：clear 在**非节拍**的一拍上给 ----
+        //   状态机只在 clk_en（smp_tick）上跑，所以 clear 必须挂起到下一个节拍才生效
+        //   （F11：不挂起会漏掉，表现为"换了乐器还在发"）
+        note_on = '0; ticks(4);
+        PW_LEN = 16'd2; GAP_LEN = 16'd3; N_PULSE = 3'd7;
+        note_on[0] = 1'b1;
+        ticks(4);                              // 发到一半
+        @(negedge clk); clear = 1'b1;          // 故意不在 tick 里给
+        @(negedge clk); clear = 1'b0;
+        ticks(2);
+        n_cap = 0; ticks(10);
+        for (int i = 0; i < 8; i++)
+            if (seq[i] != 0) begin errors++; $display("   !! F 非节拍 clear 没生效"); end
+        $display("  [F] 非节拍 clear（挂起后生效）");
+
         if (errors == 0) $display("RESULT: PASS");
         else             $display("RESULT: FAIL (%0d)", errors);
         $finish;
