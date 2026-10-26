@@ -146,7 +146,8 @@ module tb_loader_flash;
     // 写口检查
     // ------------------------------------------------------------------
     int n_wr = 0, n_bad = 0;
-    bit chk_data = 1'b1;        // 空白片那一轮只看笔数和 err
+    bit chk_data = 1'b1;        // 好表那一轮比对图样
+    bit chk_zero = 1'b0;        // 坏表那一轮要求"写进去的全是 0"（填 0 兜底）
 
     always @(posedge clk) if (ld_we) begin
         int sel, addr, slot, mode;
@@ -163,6 +164,11 @@ module tb_loader_flash;
                     $display("  BAD co  addr=%0d (slot %0d mode %0d) a11=%h gq=%h wo=%h",
                              addr, slot, mode, ld_co.a11, ld_co.gq, ld_co.wo);
             end
+            if (chk_zero && (ld_co.a11 !== 32'sd0 || ld_co.gq !== 32'sd0 || ld_co.wo !== 32'sd0)) begin
+                n_bad++;
+                if (n_bad <= 6)
+                    $display("  BAD(fill) co addr=%0d a11=%h gq=%h wo=%h", addr, ld_co.a11, ld_co.gq, ld_co.wo);
+            end
         end else begin
             slot = addr / NMP;
             mode = addr % NMP;
@@ -171,6 +177,11 @@ module tb_loader_flash;
                 if (n_bad <= 6)
                     $display("  BAD pm  addr=%0d (slot %0d mode %0d) c0=%h k21=%h",
                              addr, slot, mode, ld_pm.c0, ld_pm.k21);
+            end
+            if (chk_zero && (ld_pm.c0 !== 32'sd0 || ld_pm.k21 !== 32'sd0)) begin
+                n_bad++;
+                if (n_bad <= 6)
+                    $display("  BAD(fill) pm addr=%0d c0=%h k21=%h", addr, ld_pm.c0, ld_pm.k21);
             end
         end
     end
@@ -225,9 +236,15 @@ module tb_loader_flash;
                  (cyc - t0) / N_MODES, ((cyc - t0) / N_MODES) * 80);
 
         program_table(INST, 1'b1);          // 没烧过的片子：全 FF
-        chk_data = 1'b0;                    // 数据不看了，只看 err
+        chk_data = 1'b0;
+        chk_zero = 1'b1;                    // 坏表要"填 0"：写进去的数据必须全是 0
         t0 = cyc;
         run_load("blank", 1'b1);
+
+        // 全 0 的片子（典型是 QE 位没置、四线读回全 0）：同样判坏 + 填 0
+        for (int i = 0; i < FLASH_BYTES; i++) u_flash.mem[i] = 8'h00;
+        t0 = cyc;
+        run_load("zero", 1'b1);
 
         $display("RESULT: PASS");
         $finish;

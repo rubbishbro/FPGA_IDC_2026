@@ -29,7 +29,7 @@ module exc_router #(
     input  pad_driver_pkg::mat4x4   fmap,
     input  logic [SLOTS-1:0]        note_on,
     input  router_pkg::instrument_e inst,
-    output logic signed [15:0][31:0] xmap,
+    output logic signed [SLOTS-1:0][31:0] xmap,
     output logic                    xmap_valid
 );
     logic [5:0]  shift;

@@ -11,7 +11,7 @@ module env_router #(
     input  logic [SLOTS-1:0]        note_on,
     input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
-    output logic signed [15:0][31:0] emap,
+    output logic signed [SLOTS-1:0][31:0] emap,
     output logic                    emap_valid,
     // 每个声部"确实空了"的标志，由包络模块自己产生（顶层拿它清引擎状态）。
     // 常数包络永远不空，所以那一路恒 0。
@@ -45,7 +45,7 @@ module env_router #(
         endcase
     end
 
-    logic signed [15:0][31:0] m_adsr, m_dyn;
+    logic signed [SLOTS-1:0][31:0] m_adsr, m_dyn;
     logic               v_adsr, v_dyn;
     logic [SLOTS-1:0]   d_adsr, d_dyn;
 

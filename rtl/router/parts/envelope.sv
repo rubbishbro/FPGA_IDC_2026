@@ -20,7 +20,7 @@ module envelope_ADSR #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
-    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
+    output logic signed [SLOTS-1:0][31:0] emap,         // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid,
     // 这个声部"确实空了"（= 松键后 release 走完、电平降到 0）。顶层拿它去清引擎状态。
     // 起音阶段 lvl 也是 0，但那时它是"刚开始响"，不是空的 —— 所以不能拿 emap==0 判断。
@@ -151,7 +151,7 @@ module envelope_dyn0 #(
     input  pad_driver_pkg::mat4x4       fmap,
     input  logic [SLOTS-1:0]            note_on,
     input  logic [SLOTS-1:0]            note_gate,
-    output logic signed [15:0][31:0]    emap,          // 打包：emap[i] 取第 i 个声部
+    output logic signed [SLOTS-1:0][31:0] emap,         // 打包：emap[i] 取第 i 个声部
     output logic                        emap_valid,
     output logic [SLOTS-1:0]            dead           // 没按住 = 这个声部是空的
 );

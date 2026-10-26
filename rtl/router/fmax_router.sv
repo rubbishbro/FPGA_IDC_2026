@@ -18,7 +18,7 @@ module fmax_router #(
     router_pkg::instrument_e inst;
     logic                    reload, start, mod_req;
     logic [$clog2(N_MODES+1)-1:0]   n_modes;
-    logic                    ready, busy, done, y_valid;
+    logic                    ready, done, y_valid, load_err;
     logic signed [63:0]      y_data;
     logic signed [31:0]      ns_rd_data;
     logic                    ns_rd_valid;
@@ -28,7 +28,7 @@ module fmax_router #(
         .reverb_preset(router_pkg::REVERB_HALL),
         .reload(reload), .start(start),
         .n_modes(n_modes),
-        .ready(ready), .busy(busy), .done(done),
+        .ready(ready), .done(done), .load_err(load_err),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0101),
         .ns_rd_en(1'b0), .ns_rd_addr('0), .ns_rd_sel(1'b0),
@@ -59,7 +59,8 @@ module fmax_router #(
             reload  <= 1'b0;
             mod_req <= lfsr[7] & lfsr[15];
 
-            if (ready && !busy) begin
+            // done 是电平：等它起来才发下一个 start
+            if (done) begin
                 start    <= 1'b1;
                 inst_cnt <= inst_cnt + 1'b1;
                 inst     <= instrument_e'(inst_cnt);

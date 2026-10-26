@@ -38,7 +38,7 @@ module tb_music;
     router_pkg::reverb_preset preset;
     logic        reload = 0, start = 0;
     logic [6:0]  n_modes;
-    logic        ready, busy, done, y_valid;
+    logic        ready, done, y_valid;
     logic signed [63:0] y_data;
     logic [9:0]  ns_rd_addr = 0;
     logic        ns_rd_en = 0, ns_rd_sel = 0;
@@ -54,7 +54,7 @@ module tb_music;
         .clk(clk), .rst_n(rst_n),
         .fmap(fmap), .inst(inst), .reverb_preset(preset),
         .reload(reload), .start(start), .n_modes(n_modes),
-        .ready(ready), .busy(busy), .done(done),
+        .ready(ready), .done(done), .load_err(),
         .y_valid(y_valid), .y_data(y_data),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
         .ns_rd_data(ns_rd_data), .ns_rd_valid(ns_rd_valid),
@@ -75,11 +75,13 @@ module tb_music;
     // ------------------------------------------------------------------
     // 一个作业 = 一个采样
     // ------------------------------------------------------------------
+    // done 是**电平**：先等空闲 -> 发 start -> 等它落下 -> 再等它起来
     task automatic one_sample();
-        @(posedge clk); start <= 1'b1;
-        @(posedge clk); start <= 1'b0;
-        wait (done);
-        @(posedge clk);
+        while (!done) @(posedge clk);
+        @(negedge clk); start <= 1'b1;
+        @(negedge clk); start <= 1'b0;
+        while (done)  @(posedge clk);
+        while (!done) @(posedge clk);
     endtask
 
     // 力度：8 位。0 = 松键

@@ -74,7 +74,7 @@ module weight_loader #(
     localparam int HDR_BEATS = 22;
     localparam logic [5:0] HDR_LAST = 6'(HDR_BEATS - 1);
 
-    typedef enum logic [2:0] { W_IDLE, W_HDR, W_DATA, W_WR, W_END } wstate_e;
+    typedef enum logic [2:0] { W_IDLE, W_HDR, W_DATA, W_WR, W_FILL, W_END } wstate_e;
     wstate_e     st;
 
     logic [1:0]  ph;            // SCK 相位：0 低(等上升沿), 1 高, 2 高(等下降沿), 3 低
@@ -89,13 +89,24 @@ module weight_loader #(
 
     logic [23:0] base24;        // 本乐器的 flash 基地址 = inst * TABLE_BYTES
     logic [4:0]  wr_i;          // 写 slot：0..SLOTS-1 写系数表，SLOTS..2*SLOTS-1 写参数表
-    logic        blank;         // 第一个字是 FFFFFFFF -> 这表没烧
+    // 第一条记录的健康检查：全 FF（没烧过）/ 全 0（QE 位不对、读不到）都算坏表
+    logic [4:0]  ff_cnt, z_cnt;
+    logic        err_rec;       // 判出来这表是坏的（保持到下次 start）
+    logic        bad_ff, bad_z;
+    // 坏表兜底：把两张表的全部地址写 0（比完整加载快得多）
+    //   用 {sel, slot, mode} 三重计数，N_MODES 不是 2 的幂时地址也对
+    logic           fill_sel;
+    logic [VW_-1:0] fill_s;
+    logic [MW-1:0]  fill_m;
     // 按计数终值开位宽（BLANK_WAIT 位太浪费；BLANK_WAIT=1 时也要能编过）
     localparam int BWW = (BLANK_WAIT > 1) ? $clog2(BLANK_WAIT) : 1;
     logic [BWW-1:0] wait_cnt;
 
     assign base24     = 24'(32'(inst) * 32'(TBL_BYTES));
     assign ph_last    = (dph == DPW'(DIV4 - 1));
+    // 判"全 FF / 全 0"要把**当前这个字**算进去（计数器是非阻塞更新的）
+    assign bad_ff     = (ff_cnt + 5'(rx_sh == 32'hFFFF_FFFF)) >= 5'(REC_WORDS);
+    assign bad_z      = (z_cnt  + 5'(rx_sh == 32'h0000_0000)) >= 5'(REC_WORDS);
     // SCK：相位 1、2 为高；只在收发状态翻钟
     assign qspi_sck   = (st == W_HDR || st == W_DATA) && (ph == 2'd1 || ph == 2'd2);
     // 只有"指令 + 地址"这 14 个 SCK 驱动总线；dummy 阶段松开（换向给 flash）
@@ -143,7 +154,12 @@ module weight_loader #(
             mode_i    <= '0;
             rx_sh     <= 32'd0;
             wr_i      <= 5'd0;
-            blank     <= 1'b0;
+            ff_cnt    <= '0;
+            z_cnt     <= '0;
+            err_rec   <= 1'b0;
+            fill_sel  <= 1'b0;
+            fill_s    <= '0;
+            fill_m    <= '0;
             wait_cnt  <= '0;
             busy      <= 1'b0;
             done      <= 1'b0;
@@ -167,7 +183,12 @@ module weight_loader #(
                     if (start) begin
                         busy      <= 1'b1;
                         err       <= 1'b0;
-                        blank     <= 1'b0;
+                        err_rec   <= 1'b0;
+                        ff_cnt    <= '0;
+                        z_cnt     <= '0;
+                        fill_sel  <= 1'b0;
+            fill_s    <= '0;
+            fill_m    <= '0;
                         qspi_cs_n <= 1'b0;
                         // 第 0 个 SCK 的指令位要在第一个上升沿之前就摆好
                         qspi_dq_o <= hdr_dq(6'd0);
@@ -207,12 +228,25 @@ module weight_loader #(
                                     if (nib_i == 3'd7) begin
                                         nib_i <= 3'd0;
                                         decode_word(word_i, rx_sh);
-                                        if (word_i == 4'd0 && mode_i == '0 && slot_i == '0 && !blank)
-                                            blank <= (rx_sh == 32'hFFFF_FFFF);
+                                        // 第一条记录逐字统计"全 FF"/"全 0"：
+                                        //   全 FF = 没烧过；全 0 = QE 位没置 / 四线读不到数据
+                                        if (slot_i == '0 && mode_i == '0) begin
+                                            if (rx_sh == 32'hFFFF_FFFF) ff_cnt <= ff_cnt + 1'b1;
+                                            if (rx_sh == 32'h0000_0000) z_cnt  <= z_cnt  + 1'b1;
+                                        end
                                         if (word_i == REC_WORDS-1) begin
                                             word_i <= 4'd0;
                                             wr_i   <= 5'd0;
-                                            st     <= W_WR;
+                                            if (slot_i == '0 && mode_i == '0 && (bad_ff || bad_z)) begin
+                                                // 表是坏的：别再把这堆垃圾当系数用，
+                                                //   收 CS 直接转"把 RAM 全填 0"
+                                                err_rec   <= 1'b1;
+                                                qspi_cs_n <= 1'b1;
+                                                qspi_dq_o <= 4'b1111;
+                                                st        <= W_FILL;
+                                            end else begin
+                                                st <= W_WR;
+                                            end
                                         end else begin
                                             word_i <= word_i + 4'd1;
                                         end
@@ -259,6 +293,35 @@ module weight_loader #(
                 end
 
                 // ------------------------------------------------------------
+                // 坏表兜底：把两张表的**每个地址**都写 0（2*SLOTS*N_MODES 笔，
+                //   比完整加载快得多）。这样即使键被按下，引擎算出来也是 0，
+                //   不会有非预期的声音；坏消息通过 err（电平）交给上层。
+                W_FILL: begin
+                    ld_we   <= 1'b1;
+                    ld_co   <= '0;
+                    ld_pm   <= '0;
+                    // 地址 = {sel, slot, mode}（= slot*NMP + mode，N_MODES 不是 2 的幂也对）
+                    ld_addr <= {fill_sel, fill_s, fill_m};
+                    if (fill_sel == 1'b1 && fill_s == VW_'(SLOTS-1) &&
+                        fill_m == MW'(N_MODES-1)) begin
+                        fill_sel <= 1'b0;
+                        fill_s   <= '0;
+                        fill_m   <= '0;
+                        st       <= W_END;
+                    end else if (fill_m == MW'(N_MODES-1)) begin
+                        fill_m <= '0;
+                        if (fill_s == VW_'(SLOTS-1)) begin
+                            fill_s   <= '0;
+                            fill_sel <= 1'b1;      // 系数表填完 -> 填参数表
+                        end else begin
+                            fill_s <= fill_s + 1'b1;
+                        end
+                    end else begin
+                        fill_m <= fill_m + 1'b1;
+                    end
+                end
+
+                // ------------------------------------------------------------
                 W_END: begin
                     qspi_cs_n  <= 1'b1;
                     qspi_dq_o  <= 4'b1111;
@@ -266,7 +329,7 @@ module weight_loader #(
                         wait_cnt <= '0;
                         busy     <= 1'b0;
                         done     <= 1'b1;
-                        err      <= blank;
+                        err      <= err_rec;
                         st       <= W_IDLE;
                     end else wait_cnt <= wait_cnt + 1'b1;
                 end

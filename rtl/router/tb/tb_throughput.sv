@@ -29,7 +29,7 @@ module tb_throughput;
     router_pkg::instrument_e inst;
     logic        reload = 0, start = 0;
     logic [6:0]  n_modes;
-    logic        ready, busy, done, y_valid;
+    logic        ready, done, y_valid;
     logic signed [63:0] y_data;
     logic        ns_rd_en = 0, ns_rd_sel = 0;
     logic [9:0]  ns_rd_addr = 0;   // = CO_SLOT-1:0（VWID + clog2(N_MODES) = 4+6）
@@ -46,7 +46,7 @@ module tb_throughput;
         .reverb_preset(router_pkg::REVERB_NONE),
         .reload(reload), .start(start),
         .n_modes(n_modes),
-        .ready(ready), .busy(busy), .done(done),
+        .ready(ready), .done(done), .load_err(),
         .y_valid(y_valid), .y_data(y_data),
         .qspi_cs_n(), .qspi_sck(), .qspi_dq_o(), .qspi_dq_oe(), .qspi_dq_i(4'b0),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
@@ -80,10 +80,13 @@ module tb_throughput;
         n_yv = 0; last_cyc = -1; dmin = 0; dmax = 0; dsum = 0;
     endtask
 
-    // 一个作业 = 一个采样
+    // 一个作业 = 一个采样。done 是**电平**：先等空闲 -> 发 start -> 等它落下 -> 再等它起来
     task automatic one_sample();
-        @(posedge clk); start <= 1'b1; @(posedge clk); start <= 1'b0;
-        wait (done);
+        while (!done) @(posedge clk);
+        @(negedge clk); start <= 1'b1;
+        @(negedge clk); start <= 1'b0;
+        while (done)  @(posedge clk);
+        while (!done) @(posedge clk);
     endtask
 
     task automatic run_job(input string name, input logic [7:0] press);

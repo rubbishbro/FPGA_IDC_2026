@@ -40,12 +40,16 @@ module voice_router #(
     input  pad_driver_pkg::mat4x4                    fmap,
     input  router_pkg::instrument_e                   inst,
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
-    input  logic                                     reload,      // 强制重灌当前乐器
+    input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
     input  logic [$clog2(N_MODES+1)-1:0]              n_modes,     // 本乐器用几个模态（<= N_MODES）
-    output logic                                      ready,       // 系数表就绪、可以 start
-    output logic                                      busy,
-    output logic                                      done,
+    // ---- 作业流控 ----
+    output logic                                      done,        // **电平**：1 = 空闲、可以 start；0 = 正在工作
+    // ---- 配置流控 ----
+    output logic                                      ready,       // 1 = 现在会执行挂起的 inst/reload 变更
+                                                                    //   （没有挂起变更时恒 1；有变更且还有键按着时为 0）
+    // ---- 状态给上层（UI 用；router 自己不处理）----
+    output logic                                      load_err,    // 1 = 本乐器的表是坏的（RAM 已被填 0）
 
     // ---- 输出（每采样一个）----
     output logic                                      y_valid,
@@ -155,9 +159,9 @@ module voice_router #(
     // =========================================================================
     // 三个部件子路由（各自按乐器号选实例，主 router 只连总线）
     // =========================================================================
-    logic signed [15:0][31:0] xmap;      // 打包：xmap[i] 是第 i 个声部的激励
+    logic signed [SLOTS-1:0][31:0] xmap;   // 打包：xmap[i] 是第 i 个声部的激励
     logic                     xmap_valid;
-    logic signed [15:0][31:0] emap;      // 打包：emap[i] 是第 i 个声部的包络
+    logic signed [SLOTS-1:0][31:0] emap;   // 打包：emap[i] 是第 i 个声部的包络
     logic                     emap_valid;
     logic [SLOTS-1:0]         env_dead;  // 包络说
 
@@ -199,13 +203,13 @@ module voice_router #(
         else if (smp_tick) gate_r <= note_on;
     end
 
-    exc_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
+    exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
         .note_on(note_on), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
-    env_router #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
+    env_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick), .fmap(fmap_q),
         .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
         .emap(emap), .emap_valid(emap_valid), .dead(env_dead)
@@ -248,7 +252,7 @@ module voice_router #(
     // =========================================================================
     // 系数加载
     // =========================================================================
-    logic                           ld_start, ld_busy, ld_done;
+    logic                           ld_start, ld_busy, ld_done, ld_err;
     logic                           ld_we;
     logic [CO_SLOT:0]               ld_addr;          // 最高位选表：0=系数 1=调制参数（低位 {slot, mode}）
     coeff_t                         ld_co_data;
@@ -265,7 +269,7 @@ module voice_router #(
 
     weight_loader #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_ld (
         .clk(clk), .rst_n(rst_n), .inst(4'(inst)),
-        .start(ld_start), .busy(ld_busy), .done(ld_done),
+        .start(ld_start), .busy(ld_busy), .done(ld_done), .err(ld_err),
         .ld_we(ld_we), .ld_addr(ld_addr), .ld_co(ld_co_data), .ld_pm(ld_pm_data),
         .qspi_cs_n(qspi_cs_n), .qspi_sck(qspi_sck),
         .qspi_dq_o(qspi_dq_o), .qspi_dq_oe(qspi_dq_oe), .qspi_dq_i(qspi_dq_i)
@@ -304,9 +308,10 @@ module voice_router #(
     logic signed [XW-1:0] x_ra, x_rb;
 
     // 清零：只看本组这两个声部有没有"刚起音/刚空了"
+    logic [CO_SLOT-1:0]   pm_idx;      // 调制参数读地址 = {slot, mode}（不拆 bank）
     logic                 era_zero, erb_zero;
     assign era_zero = note_f[g[VWID-1:0]]              | dead_f[g[VWID-1:0]];
-    assign erb_zero = note_f[VWID'(g + HVW'(HS))]      | dead_f[VWID'(g + HVW'(HS))];
+    assign erb_zero = note_f[VWID'(g + VWID'(HS))]      | dead_f[VWID'(g + VWID'(HS))];
 
     always_comb begin
         co_ra.a11 = co_a11_ra; co_ra.a12 = co_a12_ra; co_ra.a21 = co_a21_ra;
@@ -453,7 +458,7 @@ module voice_router #(
             // ---- 激励（是寄存器，不是 RAM）----
             if (xw_run) for (int i = 0; i < SLOTS; i++) x_q[i] <= xmap[i];
             if (era_x_re) x_ra <= x_q[g[VWID-1:0]];
-            if (erb_x_re) x_rb <= x_q[VWID'(g[VWID-1:0] + HVW'(HS))];
+            if (erb_x_re) x_rb <= x_q[VWID'(g[VWID-1:0] + VWID'(HS))];
 
             // ---- 状态读（引擎独占；debug 读串行插在空拍里）----
             if (era_st_re) begin
@@ -519,7 +524,7 @@ module voice_router #(
                 y_acc <= (g == '0 && !pick_b) ? y_env : (y_acc + y_env);
             if (state == S_ADV && !pick_b) begin
                 y_lat <= erb_y;
-                e_lat <= $signed(emap[VWID'(g[VWID-1:0] + HVW'(HS))]);
+                e_lat <= $signed(emap[VWID'(g[VWID-1:0] + VWID'(HS))]);
             end
         end
     end
@@ -565,9 +570,20 @@ module voice_router #(
     // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
     // S_ENVMUL / S_ENVACC：包络乘法流水（取操作数 -> 乘 -> 累加），见上面结果段
-    typedef enum logic [3:0] { S_IDLE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
-                               S_ENVMUL, S_ENVACC, S_ADV, S_DONE } st_e;
+    typedef enum logic [3:0] { S_DONE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
+                               S_ENVMUL, S_ENVACC, S_ADV, S_WAIT } st_e;
     st_e                 state;
+
+    // ---- 对外语义 ----
+    //   done  : 电平，1 = 空闲可以 start（= 在 S_DONE 等着）
+    //   ready : 电平，1 = 现在会执行 inst/reload 的变更（键全松开了）
+    //   load_err: loader 的 err 电平，转发给上层（UI 展示），router 自己不处理
+    logic                reload_q, reload_pend;
+    logic                change_pend;
+    assign change_pend = (inst != inst_prev) || reload_pend;
+    assign done        = (state == S_DONE);
+    assign ready       = !change_pend || (note_on == '0);
+    assign load_err    = ld_err;
 
     instrument_e         inst_prev;
     logic                wait_xmap;
@@ -650,10 +666,7 @@ module voice_router #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state      <= S_IDLE;
-            ready      <= 1'b0;
-            busy       <= 1'b0;
-            done       <= 1'b0;
+            state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
             g          <= '0;
@@ -668,39 +681,50 @@ module voice_router #(
             mod_req    <= '0;
             mod_start  <= 1'b0;
             mod_slot   <= '0;
+            reload_q   <= 1'b0;
+            reload_pend<= 1'b0;
         end else begin
-            done      <= 1'b0;
             if (body_accept) mix_v <= 1'b0;      // 这一笔混音已经被腔体接走
             eng_start <= 1'b0;
             ld_start  <= 1'b0;
             mod_start <= 1'b0;
 
+            // reload 在内部取上升沿（外部一直拉高也只认一次）
+            reload_q    <= reload;
+            if (reload && !reload_q) reload_pend <= 1'b1;
+
             // ---- 后台调制：有请求 + 调制器空闲 + 没在加载 -> 发一拍 start ----
             //   一次只发一个（busy 期间不发，发了也会被它忽略），做完清那一位。
             if (mod_done)
                 mod_req[mod_slot] <= 1'b0;
-            else if (!mod_start && !mod_busy && !ld_busy && (|mod_req)) begin
+            else if (!mod_start && !mod_busy && !ld_busy && !ld_start &&
+                     (state != S_LOAD) && (|mod_req)) begin
                 mod_slot  <= first_req(mod_req);
                 mod_start <= 1'b1;
             end
 
             case (state)
-                S_IDLE: begin
-                    ready <= 1'b1;
-                    busy  <= 1'b0;
+                // 空闲：done=1（上面组合输出），等 start。
+                //   ready=1 才真正执行 inst/reload 的变更（= 所有键都松开了）；
+                //   ready=0 时这一帧照常跑（用旧表），变更挂起等下一次。
+                S_DONE: begin
                     if (start) begin
                         nm_lat   <= n_modes;
-                        inst_lat <= inst;
-
-                        busy     <= 1'b1;
-                        ready    <= 1'b0;
                         g        <= '0;
                         pick_b   <= 1'b0;
-                        // 换乐器（或强制 reload）→ 先停机重灌系数表
-                        if ((inst != inst_prev) || reload) begin
-                            ld_start <= 1'b1;
-                            state    <= S_LOAD;
+                        if (change_pend) begin
+                            if (ready) begin
+                                inst_lat    <= inst;
+                                reload_pend <= 1'b0;
+                                ld_start    <= 1'b1;
+                                state       <= S_LOAD;
+                            end else begin
+                                // 键还按着：先出这一帧（旧系数、旧乐器号），别停摆
+                                wait_xmap <= 1'b1;
+                                state     <= S_RUN_X;
+                            end
                         end else begin
+                            inst_lat  <= inst;
                             wait_xmap <= 1'b1;
                             state     <= S_RUN_X;
                         end
@@ -744,8 +768,8 @@ module voice_router #(
                 S_RUN_V: begin
                     if (era_yv && erb_yv) begin
                         if (note_f[g[VWID-1:0]])            mod_req[g[VWID-1:0]] <= 1'b1;
-                        if (note_f[VWID'(g + HVW'(HS))])
-                                                            mod_req[VWID'(g + HVW'(HS))] <= 1'b1;
+                        if (note_f[VWID'(g + VWID'(HS))])
+                                                            mod_req[VWID'(g + VWID'(HS))] <= 1'b1;
                         pick_b <= 1'b0;
                         state  <= S_ENVMUL;
                     end
@@ -762,7 +786,7 @@ module voice_router #(
                         // 同一组里的 B 声部：复用同一套 乘法/累加 流水
                         pick_b <= 1'b1;
                         state  <= S_ENVMUL;
-                    end else if (g + 1'b1 >= HVW'(HS)) begin
+                    end else if (g + 1'b1 >= VWID'(HS)) begin
                         // 全部声部算完：把这一采样的混音交给腔体。
                         // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
                         if (!mix_v) begin
@@ -770,7 +794,7 @@ module voice_router #(
                             mix_v <= 1'b1;
                             g     <= '0;
                             pick_b<= 1'b0;
-                            state <= S_DONE;
+                            state <= S_WAIT;      // 先排空，排空完才回 S_DONE（done 才变 1）
                         end
                     end else begin
                         g         <= g + 1'b1;
@@ -780,17 +804,15 @@ module voice_router #(
                     end
                 end
 
-                S_DONE: begin
-                    // 等腔体 + 混响都把最后几笔吐完再报 done，否则最后一帧的 y_data 会丢
+                // 排空：等腔体 + 混响把最后几笔都吐完，才回 S_DONE（这时 done 才变 1）
+                //   这段时间 done=0，上层不会发新的 start。
+                S_WAIT: begin
                     if (mix_outstd == '0 && !mix_v && rev_outstd == '0) begin
-                        done  <= 1'b1;
-                        busy  <= 1'b0;
-                        ready <= 1'b1;
-                        state <= S_IDLE;
+                        state <= S_DONE;
                     end
                 end
 
-                default: state <= S_IDLE;
+                default: state <= S_DONE;
             endcase
         end
     end

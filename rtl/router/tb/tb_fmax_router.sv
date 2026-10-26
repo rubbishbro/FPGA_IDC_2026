@@ -9,8 +9,8 @@ module tb_fmax_router;
         repeat (10) @(posedge clk);
         rst_n = 1;
         repeat (400000) @(posedge clk);
-        $display("y_valid pulses=%0d  led=%0b  state=%0d ready=%0b busy=%0b",
-                 yv_cnt, led, dut.u_vr.state, dut.u_vr.ready, dut.u_vr.busy);
+        $display("y_valid pulses=%0d  led=%0b  state=%0d ready=%0b done=%0b load_err=%0b",
+                 yv_cnt, led, dut.u_vr.state, dut.u_vr.ready, dut.u_vr.done, dut.u_vr.load_err);
         $finish;
     end
 endmodule
