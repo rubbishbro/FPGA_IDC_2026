@@ -48,14 +48,14 @@ module reverb_router #(
     localparam logic signed [31:0] Q_0_40  = 32'sd53687091;    // 0.40
     localparam logic signed [31:0] Q_0_25  = 32'sd33554432;    // 0.25
 
-    logic [3:0][AW-1:0]       len;
+    logic [3:0][AW:0]         len;   // 比指针宽一位：要能装下 N（clog2(N) 位装不下 N 本身）
     logic signed [3:0][31:0]  gc, wc;
     logic signed [31:0]       gd, gw;
 
     always_comb begin
         // 默认 = 直通（延迟给 1，别让指针比较落在 0 上）
         for (int k = 0; k < 4; k++) begin
-            len[k] = AW'(1);
+            len[k] = (AW+1)'(1);
             gc[k]  = 32'sd0;
             wc[k]  = 32'sd0;
         end
@@ -64,8 +64,8 @@ module reverb_router #(
 
         case (preset)
             router_pkg::REVERB_HALL: begin
-                len[0] = AW'(1214); len[1] = AW'(1293);
-                len[2] = AW'(1390); len[3] = AW'(1476);
+                len[0] = (AW+1)'(1214); len[1] = (AW+1)'(1293);
+                len[2] = (AW+1)'(1390); len[3] = (AW+1)'(1476);
                 gc[0]  = Q_0_90;  gc[1]  = Q_0_90;
                 gc[2]  = Q_0_90;  gc[3]  = Q_0_90;
                 wc[0]  = Q_0_25;  wc[1]  = Q_0_25;
@@ -74,8 +74,8 @@ module reverb_router #(
                 gw = Q_0_50;
             end
             router_pkg::REVERB_BATHROOM: begin
-                len[0] = AW'(557);  len[1] = AW'(613);
-                len[2] = AW'(691);  len[3] = AW'(743);
+                len[0] = (AW+1)'(557);  len[1] = (AW+1)'(613);
+                len[2] = (AW+1)'(691);  len[3] = (AW+1)'(743);
                 gc[0]  = Q_0_82;  gc[1]  = Q_0_82;
                 gc[2]  = Q_0_82;  gc[3]  = Q_0_82;
                 wc[0]  = Q_0_25;  wc[1]  = Q_0_25;

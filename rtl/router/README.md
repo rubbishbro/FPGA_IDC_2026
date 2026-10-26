@@ -67,7 +67,7 @@ rtl/router/
 ├── tb/                      所有 testbench（见 §7）
 └── tools/
     ├── flash_image.py       flash 镜像打包（record/table/image/parse + 自检）
-    ├── piano_flash.py       把 sythsound/piano_coeff.txt（40 音 × 64 模态）打成镜像
+    ├── piano_flash.py       物理域表 -> (sq/sv 归一化) -> Q 整数 -> flash 镜像
     ├── piano_flash.bin      上一步的产物（inst=2，16 slot 各一个音，192 KB）
     ├── bq_gen.py            腔体系数对账 + 生成回归向量
     ├── run_bq.ps1           腔体回归一键跑
@@ -219,6 +219,95 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 
 **为什么要 `dead` 而不是拿 `emap==0` 判断**：ADSR 从 0 起爬，起音头几个采样 `emap` 也是 0；
 用它判断"空了"会把刚打进去的激励清掉（听感 = 没声音）。
+
+### 4.5 系数域：sq/sv 归一化（物理域 → 硬件域）
+
+> 这一节是**推导出来的**（没有别的文档写过）。系数生成器 `sythsound/piano_coeff_gen.py`
+> 输出的是物理域系数，**不能直接量化**给 RTL；中间这一步就是 sq/sv 归一化。
+
+每个模态的递推（`modal_step_pkg.sv` 头注释）：
+
+```
+q' = a11*q + a12*v + gq*x
+v' = a21*q + a22*v + gv*x
+y  = wo*q
+```
+
+`piano_coeff_gen.py` 给的是物理域（`a12 = es/ωd ~ Δt`、`a21 = es·ω0²/ωd ~ Δt·ω0²`，
+两者差 `ω0²` 倍，`a21` 能到 1e5 量级）。硬件把状态缩放过：`q_s = sq·q`、`v_s = sv·v`，
+代入上面两条得到**硬件该存的系数**（记 `k = sq/sv`）：
+
+| 字段 | 变换 | 说明 |
+|---|---|---|
+| `a11`、`a22` | 不变 | 本来就是 O(1) |
+| `a12` | `a12·k` | |
+| `a21` | `a21/k` | 与 a12 反比，**乘积 `a12·a21` 不变**（物理量没变） |
+| `gq` | `gq·sq` | |
+| `gv` | `gv·sv = gv·sq/k` | |
+| `wo` | `wo/sq` | `y` 的输出定标跟着 q 走 |
+
+**怎么挑 `k`**：令 `a12' = a21'` → `k = sqrt(a21/a12) = ω0`（rad/s）。
+这时两个矩阵元都等于 `sqrt(a12·a21) = ω0·Δt`，也就是**归一化角频率**（rad/采样），
+自然落在 O(1) 量级 —— 这正是 `modal_step_pkg` 说"四个矩阵元都是 O(1)"的由来。
+
+**怎么挑 `sq`**（`sv = sq/k`）：由 4 个 Q 范围夹出来
+
+```
+|gq·sq|   < 2^(31−31) = 1        →  sq < 1/|gq|
+|gv·sq/k| < 2^(31−27) = 16       →  sq < 16·k/|gv|
+|wo/sq|   < 2^(31−15) = 65536    →  sq > |wo|/65536
+|a12·k|、|a21/k| 自动满足（≈ ω0·Δt）
+```
+
+取可行区间里的一个 2 的幂即可（`tools/piano_flash.py` 自动挑）。
+
+**实测（钢琴表，`tools/piano_flash.py`）**：midi40 mode0 的 `k = 517.2`（= ω0 rad/s，
+82.4 Hz ✓），自动挑到 `sq = 2048`，结果
+
+```
+a12' = a21' = 0.010774 ≈ ω0·Δt    （两种字段的 Q 都只占 0.4~50%）
+gq'  = 0.0585（Q31 占 100%）      gv' = 10.86（Q27 占 99.4%）
+```
+
+**全部 1024 个模态零饱和**（不归一化时 `a21` 有 936 个撞 Q23 上限）。
+
+> 注意两个"约定"：
+> - `mod_par_t.k12 = sq/sv`、`k21 = sv/sq` —— 调制器改频率时必须重新乘这两个比值
+>   （见 §4.6），这也是它们存在的唯一理由。
+> - `tools/golden_seq_piano.txt`（`tb_voice_router` 用的）**不符合这条配方**：
+>   它的 `a21'/a12' ≈ 22`，按本节应该是 1。那份数据来自更早的生成器（或另一种
+>   定标），要做"物理模型逐位对比"就得用同一套配方重新生成。
+
+### 4.6 调制器（吉他揉弦）的公式
+
+`modulation0` 一次处理一个声部的 `n_modes` 个模态，**只改 a11/a12/a21/a22**（gq/gv/wo 不动）。
+输入是参数表里的 `c0/s0/gam/theta0/g/k12/k21` 加上从 `fmap` 得到的 `alpha`：
+
+```
+alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 123437）
+```
+
+然后每个模态按 15 步（单乘法器串行，每步 `S_LD → S_MUL → S_APPLY` 三拍）算：
+
+| step | 算的东西 | 含义 |
+|---|---|---|
+| 1 | `D  = (alpha−1)·theta0` | 频率偏移量 |
+| 2 | `d  = 1 − gam/FS` | 每采样的衰减因子（`gam` 是 Q16.16） |
+| 3 | `c  = c0 − s0·D` | `cos(theta0 + D)` 的一阶展开 |
+| 4 | `s  = s0 + c0·D` | `sin(theta0 + D)` 的一阶展开 |
+| 5 | `ea = d·c` | a11/a22 的对称部分 |
+| 7 | `a12a = d·s·g/alpha` | 未归一化的 a12（`g = Δt/theta0`） |
+| 8 | `a12  = a12a·k12` | **乘 sq/sv**，回到硬件的状态定标 |
+| 9 | `t  = a12·gam` | 反对称部分 |
+| 11/12 | `w0 = omega0·2^16`、`w2 = omega0²` | |
+| 13 | `a21 = −a12·alpha²·w0²·k21` | **乘 sv/sq** |
+| out | `a11' = (ea+t)>>2`、`a22' = (ea−t)>>2`、`a12'`、`a21'` | 写回（Q28/Q30/Q23） |
+
+- 门控：`theta0 >= 0.8 rad`（`TH_GATE`）或 `fmap == 0` 时 `co_we = 0`，一个字段都不写
+  （高模态的 theta0 很大，硬调会把谐振点推飞）。
+- `a21` 里那个 `alpha²` 和 `w0²`：频率改 alpha 倍后，a21（≈ `es·ω0²/ωd`）要按 `ω0²` 缩放；
+  `k21` 再把状态定标换回去。
+- 因为是"改频率 → 重新推系数"，所以**幂等**：同一个 `(声部, fmap)` 跑几遍结果一样。
 
 ---
 
@@ -404,11 +493,10 @@ python _analysis/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 48000
 5. **`DEBUG_PORT` 现在只吐"最近一次引擎读到的状态字"**（不能任意地址读），因为没有
    多余的 RAM 读口。要真调试得在外面加 ILA，或者接受多一块 RAM 复制的代价。
 6. **`eng0` 缺独立的 golden 值测试**（用 Python 模型逐样本对比），现在只有端到端。
-7. **音高 / 系数表**：flash 支持每声部一张表（§4.1），打包工具 `tools/piano_flash.py`
-   已经能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音 × 64 模态）按 16 个 slot 出镜像。
-   **但 Q 格式对不上**：那个表是物理域浮点，`a21` 峰值 **1.87e5**，而 `SH_A21=23`（±256）
-   → 936 个系数被饱和；`gv` 也占到 90%。要么表里给的是未做 sq/sv 缩放的量，要么
-   `modal_step_pkg` 的 SH_A21 该调小（比如 21）。这条要和系数生成那边对齐。
+7. **音高 / 系数表**：`tools/piano_flash.py` 能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音
+   × 64 模态）按 16 个 slot 出镜像。**sq/sv 归一化这一步已经补上**（§4.5 有推导）；
+   归一化后 1024 个模态零饱和。剩余：`golden_seq_piano.txt` 仍是老约定（§4.5 末尾），
+   要逐位对比得用它重新生成。
 8. **R7（bank B 独立性）没过**：只按声部 15 时 `note_on[15]=1`、`emap[15]=0.78`，
    但 `q_ram_b[56..59]` 一直是 0 —— 状态没被有效写入。怀疑 `erb_zero`/`dead_f` 或
    B 的写地址；暂时只在 TB 里打印、不拦 RESULT。
