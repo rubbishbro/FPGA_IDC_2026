@@ -94,29 +94,31 @@ def parse(path: Path) -> dict[int, list[dict]]:
 
 
 def pick_sq(co: dict, k: float) -> float:
-    """按 Q 范围挑一个 2 的幂的 sq。
+    """状态定标 sq 取 ~k（等价于 sv = sq/k ≈ 1），再夹进 Q 范围。
 
-    约束（见 README §4.5）：
-        |gq*sq|      < 2^(31-31) = 1
-        |gv*sq/k|    < 2^(31-27) = 16
-        |wo/sq|      < 2^(31-15) = 65536
-        |a12*k|      < 2      (Q30) ,  |a21/k| < 256 (Q23)   —— k 取 sqrt(a21/a12) 后自动满足
+    为什么是 sv≈1：状态是 s8.24（|state| < 128）。一次击弦注入的速度约
+        v ≈ gv * N_pulse * x_max      （x_max = 250<<20/2^28 ≈ 0.98）
+    若 sv 取大（比如 sq=2048 时 sv≈4），v 会到 286 -> **超出 s8.24 饱和**，
+    状态就变成单调爬升（直流）而不是振荡。sv≈1 时 v≈72、q≈v/ω0≈0.14，都在
+    范围里还有余量，所以 sq = k 是这套 Q 格式下的自然选择。
+
+    然后仍要过一遍 Q 范围：
+        |gq*sq| < 1 (Q31)  |gv*sq/k| < 16 (Q27)  |wo/sq| < 65536 (Q15)
     """
+    sq = max(1.0, 2.0 ** round(math.log2(max(k, 1e-9))))       # ≈ k -> sv ≈ 1
     lim_gq = 1.0 / abs(co["gq"]) if co["gq"] else float("inf")
     lim_gv = 16.0 * k / abs(co["gv"]) if co["gv"] else float("inf")
-    lo = abs(co["wo"]) / 65536.0 if co["wo"] else 0.0
-    hi = min(lim_gq, lim_gv)
-    if hi <= lo:
-        return max(1.0, 2.0 ** round(math.log2(max(lo, 1e-30))))
-    return max(1.0, 2.0 ** math.floor(math.log2(hi)))
+    # 只用到 Q 范围的一半，留余量（正好压边界会四舍五入到饱和）
+    return max(1.0, min(sq, math.floor(0.5 * min(lim_gq, lim_gv))))
 
 
 def scale_mode(co: dict, sq_user: float) -> tuple[dict, float, float]:
     """物理域 -> 硬件域；返回 (scaled, k, sq)。"""
     a12, a21 = co["a12"], co["a21"]
-    if a12 == 0.0 or a21 == 0.0 or a12 * a21 <= 0.0:
+    if a12 == 0.0 or a21 == 0.0:
         k = 1.0
     else:
+        # 注意 a21 是负的（回复力项），k 只用幅值；a21' = a21/k 仍然带负号
         k = math.sqrt(abs(a21) / abs(a12))
     sq = float(sq_user) if sq_user else pick_sq(co, k)
     out = dict(co)
@@ -126,6 +128,23 @@ def scale_mode(co: dict, sq_user: float) -> tuple[dict, float, float]:
     out["gv"] = co["gv"] * sq / k
     out["wo"] = co["wo"] / sq
     return out, k, sq
+
+
+def check_state(co: dict, sq: float, k: float, n_pulse: int = 5, x_max: float = 0.976,
+                n_samp: int = 4000) -> tuple[float, float]:
+    """按递推 `q' = a11 q + a12 v + gq x`、`v' = a21 q + a22 v + gv x` 跑一遍，
+    返回 (peak|q_s|, peak|v_s|)，单位是 Q24 的"1.0"（>128 就饱和了）。"""
+    a11, a12, a21, a22 = co["a11"], co["a12"] * k, co["a21"] / k, co["a22"]
+    sv = sq / k
+    gq, gv = co["gq"] * sq, co["gv"] * sv
+    q = v = 0.0
+    pq = pv = 0.0
+    for i in range(n_samp):
+        x = x_max if i < n_pulse else 0.0
+        q, v = (a11 * q + a12 * v + gq * x,
+                a21 * q + a22 * v + gv * x)
+        pq = max(pq, abs(q)); pv = max(pv, abs(v))
+    return pq, pv
 
 
 def to_int(v: float, sh: int, field: str) -> int:

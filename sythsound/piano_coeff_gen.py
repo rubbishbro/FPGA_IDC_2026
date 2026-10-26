@@ -57,7 +57,7 @@ def piano_f0(midi: int):
 #     vn = a21·q + a22·v + gv·x
 #     y = wo·q
 def gen_coeff7(mode_num: int, f0: float, inharmonicity: float,
-               strike_pos: float, amp: float, gamma: np.NDArray[np.float64]) :
+               strike_pos: float, amp: float, gamma: 'np.ndarray') :
     n = np.arange(1, mode_num + 1, dtype=float)
     f_n = n * f0 * np.sqrt(1.0 + inharmonicity * n * n)
     omega0_sq = (2.0 * np.pi * f_n) ** 2
@@ -72,9 +72,13 @@ def gen_coeff7(mode_num: int, f0: float, inharmonicity: float,
     es = decay * np.sin(damped_omega * DELTA_T)
     
     #完整系数预计算式
+    #  a21 必须是**负**的：这是回复力项（sim_piano.py::sim_step 里是
+    #  `ec*q_dot - es*(omega0_sq*q + g*q_dot)/wd`）。写成正号时 2x2 矩阵的
+    #  特征值变成实数 |lambda| = 1.0107 / 0.9892 -> 发散，状态单调爬升（直流），
+    #  听感就是"没激励起来"。改回负号后 |lambda| = 0.99999，正常衰减振荡。
     a11 = ec + gamma * es / damped_omega
     a12 = es / damped_omega
-    a21 = es * omega0_sq / damped_omega
+    a21 = -es * omega0_sq / damped_omega
     a22 = ec - gamma * es / damped_omega
     
     gq = static_weight * (1 - ec - gamma * es / damped_omega) * 10 ** (6)
