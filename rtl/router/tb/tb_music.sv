@@ -172,8 +172,10 @@ module tb_music;
                 for (int k = 0; k < 16; k++) press(k, 0);
             end
             if (n % n_step_ns == 40 && n_note < 8) begin
-                press(melody[n_note], 8'd120);
-                $display("    [%0d] 按 slot %0d（镜像里是第 %0d 个音高）",
+                // 力度 250 必须 > voice_router 的 NOTE_ON_TH(230)，否则按键根本不成立
+                // （阈值改了这里要跟着改；250 也比 120 的激励大得多）
+                press(melody[n_note], 8'd250);
+                $display("    [%0d] 按 slot %0d（第 %0d 个音高），力度 250",
                          n, melody[n_note], melody[n_note]);
             end
             one_sample();

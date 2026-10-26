@@ -177,8 +177,8 @@ module voice_router #(
     //   note_gate 与 note_on 是同一个电平（保留旧端口名，部件那边还在用）。
     //   加载系数期间 fmap_q 冻结，这个电平也就跟着冻住——等于忽略外部输入，
     //   装完之后按当前键态重新判：装的过程中按下的键照样能起音。
-    localparam logic [7:0] NOTE_ON_TH  = 8'd2;
-    localparam logic [7:0] NOTE_OFF_TH = 8'd1;
+    localparam logic [7:0] NOTE_ON_TH  = 8'd230;
+    localparam logic [7:0] NOTE_OFF_TH = 8'd26;
 
     logic [SLOTS-1:0] gate_r, note_gate, note_on;
     logic [SLOTS-1:0] note_on_q, note_ev;      // router 内部的起音沿
