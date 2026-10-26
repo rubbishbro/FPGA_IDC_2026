@@ -1,5 +1,5 @@
 // -----------------------------------------------------------------------------
-// 包络生成：每声部一个包络，输出 emap[16]
+// 包络生成：每声部一个包络，输出 emap[SLOTS]
 //   * 全局统一 Q1.31：1.0 = 2^31-1（router 用 (y*emap)>>>31）
 //   * 采样节拍由 router 统一给（clk_en，当**时钟使能**用），不再自己分频
 //   * ADSR 参数（含释放速率 R_STEP）由 router 的常量表按乐器选
@@ -31,7 +31,7 @@ module envelope_ADSR #(
 
     est_e        st  [0:SLOTS-1];
     logic [31:0] lvl [0:SLOTS-1];
-    // 衰减阈值只算一次（16 个声部共用）：S_LEVEL 是参数，配大了加法会绕回
+    // 衰减阈值只算一次（SLOTS 个声部共用）：S_LEVEL 是参数，配大了加法会绕回
     logic [31:0] dec_th;
     always_comb begin
         dec_th = (S_LEVEL > 32'h7FFF_FFFF - D_STEP) ? 32'h7FFF_FFFF : (S_LEVEL + D_STEP);

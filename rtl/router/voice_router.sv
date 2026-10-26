@@ -27,6 +27,9 @@
 `timescale 1ns/1ps
 
 module voice_router #(
+    // 声部数。硬件只有 16 个按键（fmap 是 mat4x4），所以 SLOTS 只能 <= 16，
+    // 且只用 fmap 的前 SLOTS 个键；地址是 {slot, mode} 纯拼接，所以必须 2 的幂；
+    // 还要拆两个 bank（HS = SLOTS/2 >= 2），所以实际可用 4 / 8 / 16。
     parameter int   SLOTS      = 16,
     parameter int   N_MODES    = 64,          // 唯一的模态数：系数表/状态/激励/参数表都按它开
     parameter int   CLK_HZ     = 100_000_000,
@@ -42,7 +45,7 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
-    input  logic [$clog2(N_MODES+1)-1:0]              n_modes,     // 本乐器用几个模态（<= N_MODES）
+    // 每个乐器用多少模态在内部按 inst 查 router_pkg::n_modes_of()，不再是端口
     // ---- 作业流控 ----
     output logic                                      done,        // **电平**：1 = 空闲、可以 start；0 = 正在工作
     // ---- 配置流控 ----
@@ -128,7 +131,7 @@ module voice_router #(
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*NMP-1];
 
-    // 激励快照：一次作业只有一个采样，所以就是 16 个寄存器（不再有按采样索引的 RAM）
+    // 激励快照：一次作业只有一个采样，所以就是 SLOTS 个寄存器（不再有按采样索引的 RAM）
     logic signed [XW-1:0] x_q [0:SLOTS-1];
 
     // 早期声明（parts 的选择逻辑要用）
@@ -401,7 +404,10 @@ module voice_router #(
                     ca_gv_a [ld_bank_addr] <= ld_co_data.gv;
                     ca_wo_a [ld_bank_addr] <= ld_co_data.wo;
                 end
-            end else if (|mod_co_we) begin
+            // 加载期间调制器的写一律丢弃：loader 的优先级只保证“同一拍”；
+            // 已经起跑的调制如果在 loader 写完之后才写同一个地址，会把新表改坏。
+            // 新表本来就会覆盖全部系数，丢掉这几笔没有副作用。
+            end else if ((|mod_co_we) && !ld_busy && !ld_start) begin
                 if (mod_bank_b) begin
                     if (mod_co_we[0]) ca_a11_b[mod_bank_addr] <= mod_co_wdata.a11;
                     if (mod_co_we[1]) ca_a12_b[mod_bank_addr] <= mod_co_wdata.a12;
@@ -496,7 +502,7 @@ module voice_router #(
     //     原来 emap 的 16:1 读 + 96 位乘法 + 64 位累加挤在一拍里，实测 PnR
     //     25.6 ns（Fmax 50 MHz）。分开之后每拍只剩一级：
     //     mux 单独一拍、乘法器两个输入都是寄存器、累加也自己一拍。
-    //   y_acc 是 64 位；16 个声部同时满量程理论上会回绕（实际信号远不到）。
+    //   y_acc 是 64 位；SLOTS 个声部同时满量程理论上会回绕（实际信号远不到）。
     // =========================================================================
     logic signed [AW-1:0] y_acc;       // Σ y_env（帧内跨声部混音）
     logic signed [AW-1:0] y_lat;       // eng_y 打一拍：乘法器的输入必须是寄存器
@@ -567,7 +573,7 @@ module voice_router #(
     end
 
     // =========================================================================
-    // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 16 路 -> RUN_V 跑声部] -> DONE
+    // 作业调度：IDLE -> (LOAD) -> 每采样 [RUN_X 等 xmap -> XWR 写 SLOTS 路 -> RUN_V 跑声部] -> DONE
     // =========================================================================
     // S_ENVMUL / S_ENVACC：包络乘法流水（取操作数 -> 乘 -> 累加），见上面结果段
     typedef enum logic [3:0] { S_DONE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
@@ -576,7 +582,7 @@ module voice_router #(
 
     // ---- 对外语义 ----
     //   done  : 电平，1 = 空闲可以 start（= 在 S_DONE 等着）
-    //   ready : 电平，1 = 现在会执行 inst/reload 的变更（键全松开了）
+    //   ready : 电平，1 = 现在会执行挂起的 inst/reload 变更（没有挂起变更时恒 1）
     //   load_err: loader 的 err 电平，转发给上层（UI 展示），router 自己不处理
     logic                reload_q, reload_pend;
     logic                change_pend;
@@ -584,6 +590,19 @@ module voice_router #(
     assign done        = (state == S_DONE);
     assign ready       = !change_pend || (note_on == '0);
     assign load_err    = ld_err;
+
+    // 这一拍会不会在 S_DONE 里真正启动加载（和 case 里的判定同一条件）。
+    //   必须用组合判据：always_ff 里调制器的门在 case 之前执行，非阻塞赋值下
+    //   它看不到同一拍稍后才置起的 ld_start / S_LOAD，只加 !ld_start 挡不住。
+    logic                load_now;
+    assign load_now = (state == S_DONE) && start && change_pend && ready;
+
+    // synthesis translate_off
+    // 硬件只有 16 个按键（fmap 是 mat4x4）：SLOTS 不能超过 16；同时它必须是
+    // 2 的幂（地址是 {slot, mode} 拼接），且 >= 4（要拆两个 bank，HS = SLOTS/2）。
+    initial if (SLOTS > 16 || SLOTS < 4 || (SLOTS & (SLOTS - 1)) != 0)
+        $error("voice_router: SLOTS must be 4/8/16 (2^n, <= 16 keys)");
+    // synthesis translate_on
 
     instrument_e         inst_prev;
     logic                wait_xmap;
@@ -624,7 +643,7 @@ module voice_router #(
     // st_zero：note-on 首帧 或 该声部**刚刚**变成
     //
     //   注意这里是"归零的那一帧"清一次，不是"归零期间每帧都清"：
-    //   eng0 的清零 pass 要 n_modes 拍，全静音时 16 个声部每帧都清 = 16x80 拍，
+    //   eng0 的清零 pass 要 n_modes 拍，全静音时 SLOTS 个声部每帧都清 = SLOTS×80 拍，
     //   实测一个采样 2754 拍（48 kHz 要 132 MHz）。只在包络掉到 0 的那一帧清，
     //   状态被清成正好 0，之后激励也是 0，状态就一直保持 0 了。
 
@@ -695,21 +714,26 @@ module voice_router #(
 
             // ---- 后台调制：有请求 + 调制器空闲 + 没在加载 -> 发一拍 start ----
             //   一次只发一个（busy 期间不发，发了也会被它忽略），做完清那一位。
+            //   load_now 挡“这一拍就要开始加载”：非阻塞下 ld_start/S_LOAD 下一拍才可见，
+            //   只靠 !ld_start / state!=S_LOAD 会漏掉 S_DONE 同拍首次加载。
             if (mod_done)
                 mod_req[mod_slot] <= 1'b0;
             else if (!mod_start && !mod_busy && !ld_busy && !ld_start &&
-                     (state != S_LOAD) && (|mod_req)) begin
+                     !load_now && (state != S_LOAD) && (|mod_req)) begin
                 mod_slot  <= first_req(mod_req);
                 mod_start <= 1'b1;
             end
 
             case (state)
                 // 空闲：done=1（上面组合输出），等 start。
-                //   ready=1 才真正执行 inst/reload 的变更（= 所有键都松开了）；
+                //   ready=1 才真正执行 inst/reload 的变更（没有挂起变更时恒 1）；
                 //   ready=0 时这一帧照常跑（用旧表），变更挂起等下一次。
                 S_DONE: begin
                     if (start) begin
-                        nm_lat   <= n_modes;
+                        // 每个乐器用多少模态由 router_pkg 定；超过表的物理深度就限幅
+                        //   （n_modes_of 不知道 N_MODES，所以夹在这里）
+                        nm_lat   <= (n_modes_of(inst) > N_MODES) ? (IW+1)'(N_MODES)
+                                                                 : (IW+1)'(n_modes_of(inst));
                         g        <= '0;
                         pick_b   <= 1'b0;
                         if (change_pend) begin
@@ -742,7 +766,7 @@ module voice_router #(
 
                 // 等 force_pre 出这一采样的 xmap（它自己按 CLK/SR 分频）
                 // 一次作业只跑一个采样，所以 xmap 只要整张寄存进 x_q（一拍），
-                // 不需要再分 16 拍写 x_ram
+                // 不需要再分 SLOTS 拍写 x_ram
                 S_RUN_X: begin
                     if (wait_xmap && xmap_valid) begin
                         wait_xmap <= 1'b0;

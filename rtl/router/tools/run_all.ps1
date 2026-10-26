@@ -1,104 +1,120 @@
 # -----------------------------------------------------------------------------
-# run_all.ps1 -- 一键跑 rtl/router 的全部回归
+# run_all.ps1 -- rtl/router 的唯一回归：**渲染一段音频**（tb_music）
 #
-#   1. 用一条 xvlog 编译 RTL + 所有 testbench（tb/ 目录）
-#   2. 逐个 xelab + xsim，抓每个 TB 的 RESULT
-#   3. 汇总 PASS/FAIL；任一 FAIL 就退出码 1
+#   模块级 TB 已经全部删掉（见 README §7.0）：它们要跟着内部信号改，同步成本高，
+#   而且照样漏 bug。现在只有一条端到端路径：
+#     喂 fmap -> voice_router -> 收 y_valid/y_data -> 自检 + 输出音频数据
+#
+#   步骤：
+#     1. 生成系数镜像：tools/piano_flash.py -> tools/piano_flash.mem
+#     2. 编译 RTL + tb/tb_music.sv（**逐个文件**编译：一条命令塞 20 个文件时
+#        xvlog 偶发长时间不返回，逐个编稳定在 1 s/个）
+#     3. xelab + xsim，抓 "RESULT: PASS"
+#     4. 判 RESULT: PASS
 #
 # 用法：
 #   pwsh -File rtl/router/tools/run_all.ps1
-#   pwsh -File rtl/router/tools/run_all.ps1 -SkipMusic     # 跳过 1 秒音频渲染
-#   pwsh -File rtl/router/tools/run_all.ps1 -Only tb_reverb
+#   pwsh -File rtl/router/tools/run_all.ps1 -SkipBuild    # 只跑，不重新编译
+#   pwsh -File rtl/router/tools/run_all.ps1 -SkipFlash    # 镜像已存在，不重新生成
 # -----------------------------------------------------------------------------
 param(
     [string]$Python = 'python',
     [string]$Vivado = 'E:\Xilinx\Vivado\2017.4\bin',
-    [string]$Only   = '',
-    [switch]$SkipMusic
+    [switch]$SkipBuild,
+    [switch]$SkipFlash           # 不重新生成 piano_flash.mem（镜像已存在时）
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 Push-Location $repo
 try {
-    $rtl = @(
-        'rtl/math/pkg/fxp_pkg.sv',
-        'rtl/drivers/pkg/clk_rst_pkg.sv',
-        'rtl/drivers/pkg/pad_driver_pkg.sv',
-        'rtl/router/pkg/modal_step_pkg.sv',
-        'rtl/router/pkg/router_pkg.sv',
-        'rtl/router/parts/envelope.sv',
-        'rtl/router/parts/excitation.sv',
-        'rtl/router/parts/modulation.sv',
-        'rtl/router/parts/body_biquad.sv',
-        'rtl/router/parts/comb_reverb.sv',
-        'rtl/router/engines/eng0.sv',
-        'rtl/router/engines/eng1.sv',
-        'rtl/router/routers/eng_router.sv',
-        'rtl/router/routers/env_router.sv',
-        'rtl/router/routers/exc_router.sv',
-        'rtl/router/routers/mod_router.sv',
-        'rtl/router/routers/body_router.sv',
-        'rtl/router/routers/reverb_router.sv',
-        'rtl/router/loader.sv',
-        'rtl/router/voice_router.sv',
-        'rtl/router/fmax_router.sv'
-    )
-    # TB / 快照名 / 看哪个字符串算 PASS / 说明
-    $tbs = @(
-        @{ tb='tb_voice_router'; snap='tbv_body'; pat='RESULT: PASS'; note='端到端：直通/混响/清零/吉他/reload' },
-        @{ tb='tb_throughput';   snap='tb_tp';    pat='->';           note='每采样拍数（865）' },
-        @{ tb='tb_reverb';       snap='tb_rv';    pat='RESULT: PASS'; note='NONE 直通 / 大值 / 切预设' },
-        @{ tb='tb_excitation';   snap='tb_ex';    pat='RESULT: PASS'; note='脉冲串 / clear（含非节拍）' },
-        @{ tb='tb_envelope';     snap='tb_env';   pat='RESULT: PASS'; note='起音钳位 / dead / dyn0' },
-        @{ tb='tb_modulation';   snap='tbma';     pat='RESULT: PASS'; note='系数数值 / 门控 / fmap=0' },
-        @{ tb='tb_eng1_g';       snap='tbg';      pat='RESULT: PASS'; note='eng1 golden / 清零 / 64 模态' },
-        @{ tb='tb_loader_flash'; snap='tb_ld';    pat='RESULT: PASS'; note='四线 SPI + 逐笔写口' },
-        @{ tb='tb_music';        snap='tb_mu';    pat='渲染完成';      note='渲染音频（不是自检）' },
-        @{ tb='tb_body_biquad';  snap='tb_bq';    pat='RESULT: PASS'; note='腔体 直通/单段/5段 对 Python 模型' }
-    )
+    $env:PATH = "$Vivado;$env:PATH"
+    $env:PYTHONIOENCODING = "utf-8"      # 让 python 的中文输出不乱码
 
-    $env:PATH = "$Vivado;" + $env:PATH
+    # ---- 1) 系数镜像 --------------------------------------------------------
+    $mem = 'rtl/router/tools/piano_flash.mem'
+    if (-not $SkipFlash) {
+        Write-Host '=== 1/4 生成系数镜像 (piano_flash.py) ===' -ForegroundColor Cyan
+        & $Python 'rtl/router/tools/piano_flash.py' 2>&1 |
+            Select-String '归一化|饱和|镜像|烧写地址' | ForEach-Object { "    $_" }
+        if ($LASTEXITCODE -ne 0) { throw "piano_flash.py 失败（exit $LASTEXITCODE）" }
+    }
+    if (-not (Test-Path $mem)) { throw "缺系数镜像 $mem（去掉 -SkipFlash 重跑）" }
+    $memLines = (Get-Content $mem | Measure-Object -Line).Lines
+    Write-Host "    $mem : $memLines 字节" -ForegroundColor DarkGray
 
-    $srcs = @()
-    $srcs += $rtl
-    foreach ($t in $tbs) { $srcs += "rtl/router/tb/$($t.tb).sv" }
-    $srcs += 'rtl/router/tb/tb_body_biquad.sv'
-    $srcs += 'rtl/router/tb/tb_fmax_router.sv'
-
-    Write-Output '=== xvlog（一次编译全部）==='
-    $log = & cmd /c ("xvlog.bat --nolog -sv " + ($srcs -join ' ') + ' 2>&1')
-    $errs = $log | Select-String 'ERROR'
-    if ($errs) { $errs | ForEach-Object { $_.Line }; throw 'xvlog failed' }
-
-    $results = @()
-    foreach ($t in $tbs) {
-        if ($Only -ne '' -and $t.tb -ne $Only) { continue }
-        if ($t.tb -eq 'tb_music' -and $SkipMusic) { continue }
-        Write-Output "=== $($t.tb)：$($t.note) ==="
-        $e = & cmd /c ("xelab.bat --nolog $($t.tb) -s $($t.snap) --debug typical -timescale 1ns/1ps 2>&1")
-        $ee = $e | Select-String 'ERROR'
-        if ($ee) {
-            $ee | ForEach-Object { $_.Line }
-            $results += ,@($t.tb, 'ELAB FAIL')
-            continue
+    # ---- 2) 编译 ------------------------------------------------------------
+    if (-not $SkipBuild) {
+        Write-Host '=== 2/4 编译 RTL + tb_music（逐个文件） ===' -ForegroundColor Cyan
+        if (Test-Path 'xsim.dir') { Remove-Item -Recurse -Force 'xsim.dir' }
+        $srcs = @(
+            'rtl/math/pkg/fxp_pkg.sv',
+            'rtl/drivers/pkg/clk_rst_pkg.sv',
+            'rtl/drivers/pkg/pad_driver_pkg.sv',
+            'rtl/router/pkg/modal_step_pkg.sv',
+            'rtl/router/pkg/router_pkg.sv',
+            'rtl/router/parts/envelope.sv',
+            'rtl/router/parts/excitation.sv',
+            'rtl/router/parts/modulation.sv',
+            'rtl/router/parts/body_biquad.sv',
+            'rtl/router/parts/comb_reverb.sv',
+            'rtl/router/engines/eng0.sv',
+            'rtl/router/engines/eng1.sv',
+            'rtl/router/routers/eng_router.sv',
+            'rtl/router/routers/env_router.sv',
+            'rtl/router/routers/exc_router.sv',
+            'rtl/router/routers/mod_router.sv',
+            'rtl/router/routers/body_router.sv',
+            'rtl/router/routers/reverb_router.sv',
+            'rtl/router/loader.sv',
+            'rtl/router/voice_router.sv',
+            'rtl/router/tb/tb_music.sv'
+        )
+        foreach ($f in $srcs) {
+            $out = & xvlog.bat --nolog -sv $f 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                $out | Select-String 'ERROR' | ForEach-Object { "    $_" }
+                throw "编译失败: $f"
+            }
         }
-        $r = & cmd /c ("xsim.bat $($t.snap) --nolog -runall 2>&1")
-        $r | Select-String 'TIMEOUT|RESULT|\[|渲染完成|个作业|->' | Select-Object -First 8 | ForEach-Object { "    " + $_.Line.Trim() }
-        if ($r | Select-String ([regex]::Escape($t.pat))) { $results += ,@($t.tb, 'PASS') }
-        else { $results += ,@($t.tb, 'FAIL') }
+        Write-Host "    $($srcs.Count) 个文件 OK" -ForegroundColor DarkGray
+
+        $out = & xelab.bat --nolog tb_music -s tb_mu --debug typical -timescale 1ns/1ps 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            $out | Select-String 'ERROR' | ForEach-Object { "    $_" }
+            throw 'xelab 失败'
+        }
     }
 
-    Write-Output ''
-    Write-Output '=== 汇总 ==='
-    $fail = 0
-    foreach ($r in $results) {
-        "{0,-20} {1}" -f $r[0], $r[1]
-        if ($r[1] -ne 'PASS') { $fail++ }
+    # ---- 3) 跑 --------------------------------------------------------------
+    Write-Host '=== 3/4 仿真（渲染音频） ===' -ForegroundColor Cyan
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    $log = & xsim.bat tb_mu --nolog -runall 2>&1
+    $sw.Stop()
+    $log | Select-String '渲染完成|自检|按 slot|RESULT' | ForEach-Object { "    $_" }
+    Write-Host ("    仿真墙钟 {0:N0} s" -f $sw.Elapsed.TotalSeconds) -ForegroundColor DarkGray
+
+    # ---- 4) 汇总 ------------------------------------------------------------
+    Write-Host '=== 4/4 汇总 ===' -ForegroundColor Cyan
+    $pass = ($log | Select-String 'RESULT: PASS').Count -gt 0
+    if ($pass) {
+        Write-Host 'tb_music             PASS' -ForegroundColor Green
+
+        # ---- 5) 导出 WAV --------------------------------------------------
+        Write-Host '=== 5/5 导出 WAV ===' -ForegroundColor Cyan
+        & $Python 'rtl/router/tools/dec2wav.py' '_analysis/music_dec.txt' '_analysis/music.wav' '48000' 2>&1 |
+            ForEach-Object { "    $_" }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host '    -> _analysis/music.wav' -ForegroundColor Green
+        } else {
+            Write-Host '    dec2wav 失败（仿真结论仍算 PASS，只是音频没导出）' -ForegroundColor Yellow
+        }
+        exit 0
+    } else {
+        Write-Host 'tb_music             FAIL' -ForegroundColor Red
+        $log | Select-String 'RESULT|ERROR|FATAL' | Select-Object -Last 8 | ForEach-Object { "    $_" }
+        exit 1
     }
-    if ($fail -eq 0) { Write-Output 'ALL PASS'; exit 0 }
-    else { Write-Output "$fail 个没过"; exit 1 }
-}
-finally {
+} finally {
     Pop-Location
 }

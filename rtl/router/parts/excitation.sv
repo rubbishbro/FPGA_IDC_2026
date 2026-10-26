@@ -11,7 +11,7 @@
 // GAP_LEN = 0 表示没有低电平间隔（连续给力，用来做持续激励的乐器）。
 //
 // 参数全部由上级 router（exc_router）按乐器填：SHIFT / PW_LEN / GAP_LEN / N_PULSE。
-// clear：换乐器时把 16 个声部的状态机全清（router 给一拍）。
+// clear：换乐器时把 SLOTS 个声部的状态机全清（router 给一拍）。
 //
 // 这版把原来的 pulse_single / pulse_train 合成一个：单次拨弦就是 N_PULSE=0、
 // 持续力就是 N_PULSE=7 + GAP_LEN=0。
@@ -21,18 +21,18 @@ module excitation_gen #(
     parameter int SR_HZ  = 48_000,
     parameter int SLOTS  = 16
 )(
-    input  logic                        clk,
-    input  logic                        rst_n,
-    input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
-    input  logic [5:0]                  SHIFT,      // 8 位力值 -> 32 位定点的左移量
-    input  logic [15:0]                 PW_LEN,     // 脉冲宽度（采样数，>=1）
-    input  logic [15:0]                 GAP_LEN,    // 脉冲间距（采样数，0 = 不留低电平）
-    input  logic [2:0]                  N_PULSE,    // 0..6 -> 最多 N+1 个；7 -> 按住期间无限
-    input  logic                        clear,      // 换乐器：清全部声部状态
-    input  pad_driver_pkg::mat4x4       fmap,
-    input  logic [SLOTS-1:0]            note_on,    // 按下电平（router 的滞回门控）
-    output logic signed [15:0][31:0]    xmap,       // 打包：xmap[i] 取第 i 个声部
-    output logic                        xmap_valid
+    input  logic                          clk,
+    input  logic                          rst_n,
+    input  logic                          clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
+    input  logic [5:0]                    SHIFT,      // 8 位力值 -> 32 位定点的左移量
+    input  logic [15:0]                   PW_LEN,     // 脉冲宽度（采样数，>=1）
+    input  logic [15:0]                   GAP_LEN,    // 脉冲间距（采样数，0 = 不留低电平）
+    input  logic [2:0]                    N_PULSE,    // 0..6 -> 最多 N+1 个；7 -> 按住期间无限
+    input  logic                          clear,      // 换乐器：清全部声部状态
+    input  pad_driver_pkg::mat4x4         fmap,
+    input  logic [SLOTS-1:0]              note_on,    // 按下电平（router 的滞回门控）
+    output logic signed [SLOTS-1:0][31:0] xmap,       // 打包：xmap[i] 取第 i 个声部
+    output logic                          xmap_valid
 );
 
     typedef enum logic [1:0] { X_IDLE, X_HIGH, X_GAP } xs_e;

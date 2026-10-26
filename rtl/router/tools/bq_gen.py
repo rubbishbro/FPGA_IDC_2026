@@ -43,6 +43,7 @@ import math
 import os
 import re
 import sys
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
@@ -115,18 +116,28 @@ def quantise_guitar():
     return rows, sos
 
 
-def read_body_router_literals(path: str = body_router_sv):
-    """``{index: int}`` for every ``coef_q[N] = [- ]32'sd<k>;`` in the file."""
+def read_body_router_literals(path: str = body_router_sv, marker: str = "INST_GUITAR: begin"):
+    """``{index: int}`` for the ``coef_q[N] = [- ]32'sd<k>;`` literals **of one case branch**.
+
+    只扫 ``INST_GUITAR`` 那一支：``body_router`` 里每个乐器都有自己的 25 个
+    ``coef_q[N]``（索引从 0 重新数），整文件扫会把它们当成重复赋值。
+    分支边界 = 下一个 ``router_pkg::INST_xxx: begin``。
+    """
     pat = re.compile(r"coef_q\[\s*(\d+)\s*\]\s*=\s*(-?)\s*32'sd\s*(\d+)\s*;")
+    txt = Path(path).read_text(encoding="utf-8")
+    i = txt.find(marker)
+    if i < 0:
+        raise BqGenError(f"{marker!r} not found in {path}")
+    j = txt.find("router_pkg::INST_", i + len(marker))
+    seg = txt[i:j] if j > 0 else txt[i:]
     out = {}
-    with open(path, "r", encoding="utf-8") as fh:
-        for line in fh:
-            m = pat.search(line)
-            if m:
-                idx, sign, val = int(m.group(1)), m.group(2), int(m.group(3))
-                if idx in out:
-                    raise BqGenError(f"coef_q[{idx}] assigned twice in {path}")
-                out[idx] = -val if sign == "-" else val
+    for line in seg.splitlines():
+        m = pat.search(line)
+        if m:
+            idx, sign, val = int(m.group(1)), m.group(2), int(m.group(3))
+            if idx in out:
+                raise BqGenError(f"coef_q[{idx}] assigned twice in {path} ({marker})")
+            out[idx] = -val if sign == "-" else val
     return out
 
 

@@ -6,7 +6,7 @@
 
 系数要过两道转换：
 
-1. **sq/sv 归一化**（`piano_coeff_gen.py` 没做，README §4.6 有推导）：
+1. **sq/sv 归一化**（`piano_coeff_gen.py` 没做，README §4.5 有推导）：
    设 q_s = sq*q、v_s = sv*v、k = sq/sv，则
 
        a11' = a11        a22' = a22
@@ -63,7 +63,7 @@ INT32 = (-(1 << 31), (1 << 31) - 1)
 
 SLOTS = 16
 MODES_DEFAULT = 64
-INST_DEFAULT = 2
+INST_DEFAULT = 0          # = router_pkg::INST_PIANO（枚举改了就跟这里改）
 DEFAULT_MIDI = [40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 67, 71, 76]
 
 CLAMPED = {k: 0 for k in FIELDS}
@@ -96,7 +96,7 @@ def parse(path: Path) -> dict[int, list[dict]]:
 def pick_sq(co: dict, k: float) -> float:
     """按 Q 范围挑一个 2 的幂的 sq。
 
-    约束（见 README §4.6）：
+    约束（见 README §4.5）：
         |gq*sq|      < 2^(31-31) = 1
         |gv*sq/k|    < 2^(31-27) = 16
         |wo/sq|      < 2^(31-15) = 65536

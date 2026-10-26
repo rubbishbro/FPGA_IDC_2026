@@ -11,15 +11,17 @@
 package router_pkg;
 
     typedef enum logic [3:0] {
-        INST_PIANO    = 4'd0,   // 模态引擎 + 无揉弦
-        INST_GUITAR   = 4'd1,   // 模态引擎 + 揉弦（aftertouch）
-        INST_E_PIANO  = 4'd2,
-        INST_MARIMBA  = 4'd3,
-        INST_VIBES    = 4'd4,
-        INST_BASS     = 4'd5,   // 模态引擎 + 揉弦
-        INST_CELESTA  = 4'd6,
-        INST_PAD      = 4'd7,
-        INST_NONE     = 4'hF
+        INST_PIANO      = 4'd0, // 模态引擎 + 无揉弦
+        INST_GUITAR     = 4'd1, // 模态引擎 + 揉弦（aftertouch）
+        INST_FLUTE      = 4'd2,
+        INST_TRUMPET    = 4'd3,
+        INST_CELLO      = 4'd4,
+        INST_VIOLIN     = 4'd5,
+        INST_OBOE       = 4'd6,
+        INST_DRUMS      = 4'd7, // iir引擎
+        INST_BANJO      = 4'd8,
+        INST_MANDOLIN   = 4'd9,
+        INST_NONE       = 4'hF
     } instrument_e;
 
     typedef enum logic [1:0] {
@@ -45,11 +47,20 @@ package router_pkg;
     //   留着的话谁拿来用就会静默算错基地址。
 
     // 引擎选择：0 = eng0，1 = eng1（队友的引擎，接口相同）
-    // 现阶段只是占位分配，后面按乐器真实的合成方式调整
+    // 每个乐器实际用多少个模态（N_MODES 是表的物理深度，这个才是"用多少"）。
+    // 加乐器/调模态数只改这里 —— 顶层不再有 n_modes 端口。
+    function automatic int unsigned n_modes_of(input instrument_e inst);
+        case (inst)
+            INST_PIANO:  return 64;      // 2 x 32 = 64
+            INST_GUITAR: return 20;      
+            default:     return 64;      // 其余乐器还没有系数表，先按满配
+        endcase
+    endfunction
+
     function automatic logic eng_sel(input instrument_e inst);
         case (inst)
-            INST_CELESTA, INST_PAD: return 1'b1;
-            default:                return 1'b0;
+            INST_PIANO, INST_GUITAR: return 1'b0;
+            default:                 return 1'b1;
         endcase
     endfunction
 

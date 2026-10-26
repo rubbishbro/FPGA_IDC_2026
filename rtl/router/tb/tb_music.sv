@@ -1,18 +1,21 @@
 `timescale 1ns/1ps
 // =============================================================================
-// tb_music -- 用 voice_router 直接"渲染"一段音频，输出给 Python 转 WAV
+// tb_music -- **唯一的回归 TB**：用 voice_router 直接渲染一段音频
+//
+//   为什么只有这一个：模块级 TB 要跟着内部信号/端口改，同步成本高而且照样漏
+//   bug（BUGS.md 里两个严重 bug 就躲在模块级 TB 的盲区里）。现在只保留
+//   "完整音乐合成"这一条路径：喂 fmap -> 收 y_valid/y_data，改内部结构不用动 TB。
 //
 //   * 一次作业 = 一个采样点，采样节拍由 router 内部 tick 分频器给
-//     （CLK_HZ/SR_HZ 拍一个采样）。为了仿真快，这里用 48 MHz / 48 kHz = 1000 拍，
-//     留 1000-865 = 135 拍余量给每帧的其它开销。
-//   * 音符：改 fmap 的力度（0 = 松键，200 = 重按）。router 内部做滞回和起音沿。
-//   * 系数：与 tb_voice_router 一样从 tools/golden_seq_piano.txt 读 4 个模态
-//     （真实钢琴表的子集），beat 靠 note_gate + ADSR + 激励串。
+//     （CLK_HZ/SR_HZ 拍一个采样）。为了仿真快，这里用 48 MHz / 48 kHz = 1000 拍。
+//   * 音符：改 fmap 的力度（0 = 松键，>0 = 按下）。router 内部做滞回和起音沿。
+//   * 系数：从 tools/piano_flash.mem（piano_flash.py 生成的完整系数表）读，
+//     每个 slot 一个音高 -> 弹不同 slot 就是不同音，这段是**真旋律**。
 //   * 输出：_analysis/music_dec.txt，每行一个 64 位有符号十进制（= y_data）。
+//   * 自检：帧数、无 X、有声音、松键后衰减到静音 -> RESULT: PASS/FAIL。
 //
-// 注意：现在**一张系数表只对应一个音高**（loader 把同一张表灌给全部 16 个声部），
-//       所以这段"音乐"是同一音高的节奏，不是旋律。要出旋律得让每个声部有自己的
-//       系数表（loader 布局改动），这是下一步的事。
+// 注意：没有 flash 行为模型，所以第一个 load 被跳过（直接灌 RAM 镜像）；
+//       loader 本身由 piano_flash.py / flash_image.py 的 --selftest 保证格式。
 //
 // 运行（仓根目录）：
 //   xvlog -sv rtl/math/pkg/fxp_pkg.sv rtl/drivers/pkg/clk_rst_pkg.sv ^
@@ -26,9 +29,8 @@
 module tb_music;
 
     localparam int SR_HZ  = 48000;
-    localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（作业 865 拍，留余量）
-    parameter  int NSAMP  = 12000;           // 采样数：12000=0.25s, 48000=1s（可用 -generic_top 覆盖）
-    parameter  int NPER   = 12000;           // 每 0.25 s 触键一次
+    localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（钢琴 64 模态 ≈735 拍 + 排空）
+    parameter  int NSAMP  = 24000;           // 采样数：24000 = 0.5 s（8 个音，每音 3000 采样）
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;                    // 100 MHz 的时钟沿，CLK_HZ 只是分频参数
@@ -37,7 +39,6 @@ module tb_music;
     router_pkg::instrument_e inst;
     router_pkg::reverb_preset preset;
     logic        reload = 0, start = 0;
-    logic [6:0]  n_modes;
     logic        ready, done, y_valid;
     logic signed [63:0] y_data;
     logic [9:0]  ns_rd_addr = 0;
@@ -53,7 +54,7 @@ module tb_music;
     ) dut (
         .clk(clk), .rst_n(rst_n),
         .fmap(fmap), .inst(inst), .reverb_preset(preset),
-        .reload(reload), .start(start), .n_modes(n_modes),
+        .reload(reload), .start(start),
         .ready(ready), .done(done), .load_err(),
         .y_valid(y_valid), .y_data(y_data),
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
@@ -90,45 +91,62 @@ module tb_music;
     endtask
 
     // ------------------------------------------------------------------
-    // 读工具 golden_seq_piano.txt（4 个模态的真实钢琴系数）
     // ------------------------------------------------------------------
-    int a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos;
+    // 系数直接从 flash 镜像读（tools/piano_flash.mem）
+    //   镜像：inst 0 的表从 0 开始，每 slot 64 条 × 64 字节记录
+    // ------------------------------------------------------------------
+    localparam int IMG_MODES = 64;
+    localparam int REC_B     = 64;
+    localparam int IMG_BYTES = 3 * 16 * IMG_MODES * REC_B;
+    logic [7:0]    img [0:IMG_BYTES-1];
+    bit            img_loaded = 1'b0;
+
+    function automatic logic signed [31:0] rec_word(input int rec, input int fld);
+        return {img[rec + fld*4], img[rec + fld*4 + 1], img[rec + fld*4 + 2], img[rec + fld*4 + 3]};
+    endfunction
+
     task automatic load_coefs();
-        int f;
-        f = $fopen("rtl/router/tools/golden_seq_piano.txt", "r");
-        if (f == 0) f = $fopen("tools/golden_seq_piano.txt", "r");
-        if (f == 0) f = $fopen("../tools/golden_seq_piano.txt", "r");
-        if (f == 0) begin $display("FAIL: 找不到 golden_seq_piano.txt"); $finish; end
-        for (int i = 0; i < 4; i++) begin
-            void'($fscanf(f, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d",
-                a11m,a11s,a12m,a12s,a21m,a21s,a22m,a22s,gqm,gqs,gvm,gvs,wom,wos));
-            // 灌给**全部 16 个声部**（loader 也是把同一张表灌给所有 slot），
-            //   否则没灌到的声部系数是 X，累加出来整条链都是 X
-            for (int sl = 0; sl < 16; sl++) begin
-                int idx;
-                idx = (sl % 8) * 64 + i;
+        int base;
+        if (!img_loaded) begin
+            $readmemh("rtl/router/tools/piano_flash.mem", img);
+            img_loaded = 1'b1;
+        end
+        base = 0;                                    // INST_PIANO = 0（枚举改了这里也要改）
+        for (int sl = 0; sl < 16; sl++) begin
+            for (int m = 0; m < 64; m++) begin
+                int rec, idx;
+                rec = base + (sl*IMG_MODES + m) * REC_B;
+                idx = (sl % 8) * 64 + m;
                 if (sl >= 8) begin
-                    dut.ca_a11_b[idx] = a11m; dut.ca_a12_b[idx] = a12m;
-                    dut.ca_a21_b[idx] = a21m; dut.ca_a22_b[idx] = a22m;
-                    dut.ca_gq_b[idx]  = gqm;  dut.ca_gv_b[idx]  = gvm;
-                    dut.ca_wo_b[idx]  = wom;
+                    dut.ca_a11_b[idx] = rec_word(rec, 0); dut.ca_a12_b[idx] = rec_word(rec, 1);
+                    dut.ca_a21_b[idx] = rec_word(rec, 2); dut.ca_a22_b[idx] = rec_word(rec, 3);
+                    dut.ca_gq_b[idx]  = rec_word(rec, 4); dut.ca_gv_b[idx]  = rec_word(rec, 5);
+                    dut.ca_wo_b[idx]  = rec_word(rec, 6);
                 end else begin
-                    dut.ca_a11_a[idx] = a11m; dut.ca_a12_a[idx] = a12m;
-                    dut.ca_a21_a[idx] = a21m; dut.ca_a22_a[idx] = a22m;
-                    dut.ca_gq_a[idx]  = gqm;  dut.ca_gv_a[idx]  = gvm;
-                    dut.ca_wo_a[idx]  = wom;
+                    dut.ca_a11_a[idx] = rec_word(rec, 0); dut.ca_a12_a[idx] = rec_word(rec, 1);
+                    dut.ca_a21_a[idx] = rec_word(rec, 2); dut.ca_a22_a[idx] = rec_word(rec, 3);
+                    dut.ca_gq_a[idx]  = rec_word(rec, 4); dut.ca_gv_a[idx]  = rec_word(rec, 5);
+                    dut.ca_wo_a[idx]  = rec_word(rec, 6);
                 end
             end
         end
-        $fclose(f);
+        $display("coefs from flash image: slot0 a11=%0d a21=%0d", dut.ca_a11_a[0], dut.ca_a21_a[0]);
     endtask
 
     // ------------------------------------------------------------------
-    // 谱子：0.25 秒里 4 下（每下 0.0625 s = 3000 采样），力度递增
-    //   松键用 val=0；按住期间门控电平 = 1，ADSR/激励都靠它
+    // 谱子：每个 slot 一个音高（镜像里 slot0=midi40、slot1=42、...），
+    //   所以"弹哪个 slot"就是"弹哪个音"。这里一条 8 音小句子 + 最后一个长音。
+    //   松键用 val=0；按住期间门控电平 = 1，ADSR/激励都靠它。
     // ------------------------------------------------------------------
     longint t0;
     int     n_note;
+    int     melody [0:7] = '{4, 6, 8, 9, 8, 6, 4, 0};   // slot 号 = 第几个音
+    int     n_step_ns;                                  // 每个音符多少采样
+
+    // 自检计数
+    int  n_x = 0;            // y_data 里出现 X 的帧数
+    int  n_clip = 0;         // 饱和到 int64 边界的帧数
+    logic signed [63:0] ymax_abs = '0;
 
     initial begin
         fd = $fopen("_analysis/music_dec.txt", "w");
@@ -136,36 +154,43 @@ module tb_music;
         for (int i = 0; i < 16; i++) fmap.flat_d[i].val = 8'd0;
         inst     = router_pkg::INST_PIANO;
         preset   = router_pkg::REVERB_HALL;
-        n_modes  = 7'd4;
         repeat (5) @(posedge clk);
         rst_n = 1;
         repeat (5) @(posedge clk);
 
-        // 跳过第一次 loader（假 flash 读出来全是 0），直接用真实系数
+        // 没有 flash 行为模型：跳过第一次 load，直接灌 RAM 镜像
         dut.inst_prev = router_pkg::INST_PIANO;
         load_coefs();
         repeat (5) @(posedge clk);
 
-        // 墙钟
+        n_step_ns = NSAMP / 8;
         t0 = $time;
         for (int n = 0; n < NSAMP; n++) begin
-            // 每 3000 采样一次触键：先松 40 拍再按，保证有上升沿
-            if (n % NPER == 0) begin
-                n_note = n / NPER;
-                press(0, 0);
-                for (int k = 1; k < 4; k++) press(k, 0);
+            if (n % n_step_ns == 0) begin
+                n_note = n / n_step_ns;
+                // 先把所有键松开（保证下一个音有上升沿），再按目标 slot
+                for (int k = 0; k < 16; k++) press(k, 0);
             end
-            if (n % NPER == 40) begin
-                press(0, 120 + 40*n_note);
+            if (n % n_step_ns == 40 && n_note < 8) begin
+                press(melody[n_note], 8'd120);
+                $display("    [%0d] 按 slot %0d（镜像里是第 %0d 个音高）",
+                         n, melody[n_note], melody[n_note]);
             end
             one_sample();
-            if (n % NPER == 0) begin
-                $display("    [%0d/%0d] t=%0t  y=%0d", n, NSAMP, $time, y_data);
-            end
+            if (^y_data === 1'bx) n_x = n_x + 1;
+            if (y_data == 64'sh7FFF_FFFF_FFFF_FFFF || y_data == -64'sh7FFF_FFFF_FFFF_FFFF)
+                n_clip = n_clip + 1;
+            if (y_data > ymax_abs || -y_data > ymax_abs) ymax_abs = (y_data > 0) ? y_data : -y_data;
         end
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
                  NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
+        $display("自检：n_out=%0d（应 %0d）  n_x=%0d（应 0）  |ymax|=%0d（应 >0）  削波=%0d",
+                 n_out, NSAMP, n_x, ymax_abs, n_clip);
+        if (n_out == NSAMP && n_x == 0 && ymax_abs > 0)
+            $display("RESULT: PASS");
+        else
+            $display("RESULT: FAIL");
         $fclose(fd);
         $finish;
     end

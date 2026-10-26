@@ -30,14 +30,10 @@ module env_router #(
         use_adsr = 1'b1;
         use_dyn  = 1'b0;
         case (inst)
-            router_pkg::INST_PIANO: ;
-            router_pkg::INST_MARIMBA, router_pkg::INST_E_PIANO: begin
-                a_step  = 32'd4_194_304;
-                d_step  = 32'd4_194_304;
-                s_level = 32'd1_073_741_824;
-                r_step  = 32'd2_097_152;   // 打击乐：短促一点（约 21 ms）
+            router_pkg::INST_PIANO: begin
+                use_adsr = 1'b1;
             end
-            router_pkg::INST_GUITAR, router_pkg::INST_BASS, router_pkg::INST_VIBES: begin
+            router_pkg::INST_GUITAR: begin
                 use_adsr = 1'b0;
                 use_dyn  = 1'b1;
             end
@@ -62,7 +58,7 @@ module env_router #(
         end
     end
 
-    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_adsr (
+    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_adsr (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),
@@ -70,7 +66,7 @@ module env_router #(
         .emap(m_adsr), .emap_valid(v_adsr), .dead(d_adsr)
     );
 
-    envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_dyn (
+    envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_dyn (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
         .note_on(note_on), .note_gate(note_gate),
         .emap(m_dyn), .emap_valid(v_dyn), .dead(d_dyn)
@@ -79,7 +75,7 @@ module env_router #(
     always_comb begin
         emap_valid = smp_tick;
         dead       = use_dyn ? d_dyn : (use_adsr ? d_adsr : '0);
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < SLOTS; i++)
             emap[i] = use_dyn ? m_dyn[i] : (use_adsr ? m_adsr[i] : 32'sh7FFF_FFFF);
     end
 endmodule

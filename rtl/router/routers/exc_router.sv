@@ -11,12 +11,7 @@
 //   GAP_LEN 脉冲间距（采样数，0 = 不留低电平，连续给力）
 //   N_PULSE 单次触发最多 N+1 个脉冲；7 = 按住期间一直发
 //
-// 换乐器时把 clear 打一拍照给 excitation_gen，清掉 16 个声部的状态机。
-//
-// 下面这些数值是"先能响"的占位值，要按听感调：
-//   GUITAR     一次拨弦（1 个脉冲，2 采样宽）
-//   BASS/PAD   持续激励（无限脉冲、不留低电平）
-//   其它       1 个脉冲、1 采样宽（原先 pulse_single 的行为）
+// 换乐器时把 clear 打一拍照给 excitation_gen，清掉 SLOTS 个声部的状态机。
 // -----------------------------------------------------------------------------
 module exc_router #(
     parameter int CLK_HZ = 100_000_000,
@@ -47,8 +42,8 @@ module exc_router #(
                 shift  = 6'd18;
                 pw_len = 16'd2;          // 拨弦：2 个采样宽
             end
-            router_pkg::INST_BASS, router_pkg::INST_PAD: begin
-                n_pulse = 3'd7;          // 按住就一直给力
+            router_pkg::INST_PIANO: begin
+                n_pulse = 3'd3; //钢琴击弦：一次按键最多产生四次激励(3+1)
             end
             default: ;
         endcase

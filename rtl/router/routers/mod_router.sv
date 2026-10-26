@@ -37,8 +37,8 @@ module mod_router #(
     assign done = en ? mod_done_i : start_d1;
 
     always_comb case (inst)
-        router_pkg::INST_GUITAR, router_pkg::INST_BASS: en = 1'b1;
-        default:                                        en = 1'b0;
+        router_pkg::INST_GUITAR: en = 1'b1;
+        default:                 en = 1'b0;
     endcase
 
     modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(FS)) u_mod0 (
