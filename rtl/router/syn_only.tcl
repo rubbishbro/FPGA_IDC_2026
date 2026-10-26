@@ -16,9 +16,6 @@ add_file "$here/engines/eng1.sv"
 add_file "$here/parts/envelope.sv"
 add_file "$here/parts/excitation.sv"
 add_file "$here/parts/modulation.sv"
-# 注意：parts/comb_reverb.sv 和 routers/reverb_router.sv 已经写好并单独验证过
-#       （tb_reverb），但**还没接进 voice_router**，所以先不加进这条流程；
-#       接的时候把这两个文件一起加进来。
 add_file "$here/parts/body_biquad.sv"
 add_file "$here/parts/comb_reverb.sv"
 add_file "$here/routers/exc_router.sv"

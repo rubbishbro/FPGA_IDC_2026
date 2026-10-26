@@ -1,6 +1,6 @@
 // -----------------------------------------------------------------------------
 // fmax_router.sv -- voice_router 的时序/面积探针（clk / rst_n / led）
-//   内部 LFSR 造 fmap、start/reload/mod_req 脉冲；结果异或进累加器驱动 LED
+//   内部 LFSR 造 fmap 和 start 节奏（done 电平 -> 发下一帧）；结果异或进累加器驱动 LED。
 // -----------------------------------------------------------------------------
 `timescale 1ns/1ps
 module fmax_router #(

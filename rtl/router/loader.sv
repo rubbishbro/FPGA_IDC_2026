@@ -13,11 +13,14 @@
 //   等 tSR（~10 ms）。
 //
 // flash 布局（和 tools/flash_image.py 是同一份契约）：
-//   base = inst * TABLE_BYTES          TABLE_BYTES = N_MODES * 64
-//   第 m 个模态占 64 字节（16 个 32-bit 大端字）：
+//   base = inst * TABLE_BYTES          TABLE_BYTES = SLOTS * N_MODES * 64
+//   记录顺序 = RAM 地址顺序（slot-major）：slot 0 的 N_MODES 条，然后 slot 1 ...
+//   第 (slot, mode) 条记录占 64 字节（16 个 32-bit 大端字）：
 //     +0 a11  +4 a12  +8 a21  +12 a22  +16 gq  +20 gv  +24 wo  (+28 保留)
 //     +32 c0  +36 s0  +40 gam +44 theta0 +48 g  +52 k12 +56 k21 (+60 保留)
-//   一个乐器读一遍、写 SLOTS 份（16 个声部共用同一张表）。
+//   **每个 slot 一张独立的表**（可以给 16 个声部预置不同音高），loader 一对一写入。
+//   坏表（第一条记录全 FF 或全 0，比如没烧过 / QE 位不对）→ 走 W_FILL 把两张表
+//   全填 0，并拉高 err（电平）交给上层；不做重试。
 //
 // 写口：{sel, addr} —— 最高位选表（0 = 系数表，1 = 调制参数表），低位 = {slot, mode}。
 //
@@ -88,7 +91,7 @@ module weight_loader #(
     logic [31:0] rx_sh;
 
     logic [23:0] base24;        // 本乐器的 flash 基地址 = inst * TABLE_BYTES
-    logic [4:0]  wr_i;          // 写 slot：0..SLOTS-1 写系数表，SLOTS..2*SLOTS-1 写参数表
+    logic [4:0]  wr_i;          // 本记录的第几笔写（0=系数表, 1=调制参数表；选表位在 ld_addr 最高位）
     // 第一条记录的健康检查：全 FF（没烧过）/ 全 0（QE 位不对、读不到）都算坏表
     logic [4:0]  ff_cnt, z_cnt;
     logic        err_rec;       // 判出来这表是坏的（保持到下次 start）

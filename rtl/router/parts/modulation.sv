@@ -4,7 +4,7 @@
 //   * 4 个字段独立写使能，gq/gv/wo 不写
 //   * **单乘法器串行**：一拍只做一次 32x32 乘法，用 step 计数复用它
 //     （原来 12 个乘法器、43 个 MULT27X36；串行后只需 2 个）
-//   * 一轮 16 声部 x 48 模态 x ~15 拍 ≈ 11.5k 拍 = 115 us，远小于 1 ms 刷新周期
+//   * 每模态 47 拍（S_RD + S_W + 15×(S_LD+S_MUL+S_APPLY)）：16 声部 x 48 模态 ≈ 36k 拍，
 module modulation0 #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 64,

@@ -4,9 +4,13 @@
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
 按乐器加载。
 
-- 采样率 48 kHz，目标主频 100 MHz（实测可跑到 87 MHz），**每采样 865 拍**。
-- 两套引擎：`eng0`（7 个并行乘法的直接型，钢琴/马林巴/电钢）和 `eng1`（ABC 递推，
-  吉他/贝斯/颤音琴）。同一时刻只用一种，但**两个引擎实例各管 8 个声部并行跑**。
+- 采样率 48 kHz，目标主频 100 MHz（实测可跑到 87 MHz），**每采样 735 拍**（`n_modes=64`；80 模态时 865 拍）。
+- 两套引擎：`eng0`（7 个并行乘法的直接型）和 `eng1`（ABC 递推）。
+  **当前 `eng_sel()` 只把 `INST_CELESTA`/`INST_PAD` 派给 `eng1`，其余（含钢琴/吉他/贝斯）
+  都走 `eng0`** —— 分配还是占位，见 `router_pkg.sv` 的注释。同一时刻只用一种，
+  但**两个引擎实例各管 8 个声部并行跑**。
+- 每采样拍数取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
+  `n_modes=64` 约 **735 拍**（`tb_throughput` 用的是 80）。
 
 本文档按"结构 → 约定 → 取舍 → 现状 → 测试 → 待定"组织。想改代码先看 §4（约定）和
 §5（取舍），那里写了"为什么不能那样改"。
@@ -16,7 +20,7 @@
 ## 1. 概览
 
 ```
-                        ┌──────────────── 一个采样（865 拍）──────────────┐
+                        ┌───────────── 一个采样（64 模态 735 拍）─────────────┐
  fmap[16]  ──滞回──► note_on ──┬─► excitation_gen ─► xmap ─► x_q ─┐
  (0..255 力度)                 │                                  ├─► eng A (声部 0..7)  ─┐
                                └─► envelope(ADSR/dyn0) ─► emap ──┐ │                        ├─► y_acc ─► mix
@@ -63,6 +67,8 @@ rtl/router/
 ├── tb/                      所有 testbench（见 §7）
 └── tools/
     ├── flash_image.py       flash 镜像打包（record/table/image/parse + 自检）
+    ├── piano_flash.py       把 sythsound/piano_coeff.txt（40 音 × 64 模态）打成镜像
+    ├── piano_flash.bin      上一步的产物（inst=2，16 slot 各一个音，192 KB）
     ├── bq_gen.py            腔体系数对账 + 生成回归向量
     ├── run_bq.ps1           腔体回归一键跑
     ├── run_flash.ps1        加载器回归一键跑
@@ -96,7 +102,7 @@ voice_router                      存储 + 调度 + 后级
 
 | 模块 | 职责 | 关键接口 | 周期/延迟 |
 |---|---|---|---|
-| `voice_router` | 存储、调度、混音 | `start/ready/busy/done`、`fmap[16]`、`inst`、`reverb_preset`、`n_modes`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 865 拍/采样 |
+| `voice_router` | 存储、调度、混音 | `start`、**`done`(电平：1=空闲可 start)**、**`ready`(1=会执行挂起的配置变更)**、`load_err`、`fmap[16]`、`inst`、`reverb_preset`、`n_modes`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 735 拍/采样（64 模态） |
 | `voice_router` | **声部数是参数 `SLOTS`**（不是端口） | `SLOTS` 必须是 2 的幂 | — |
 | `weight_loader` | 四线 SPI 读 + 写口 | `start/busy/done/err`、`ld_we/ld_addr/ld_co/ld_pm`、`qspi_*` | ~520 拍/记录 |
 | `eng0` | 直接型引擎：`y = Σ (coef × 状态)` | `co_re/co_addr/co_data`、`st_re/st_addr/st_q/st_qdot`、`st_we/...`、`x_re/x_data` | 每模态 5 级流水，N+8 拍/作业 |
@@ -112,20 +118,22 @@ voice_router                      存储 + 调度 + 后级
 ### 3.3 一次采样的调度（`voice_router` FSM）
 
 ```
-S_IDLE ──start──► (换乐器/reload? S_LOAD : S_RUN_X)
+S_DONE  ──start──► 有待执行的 inst/reload 变更且 ready? ──► S_LOAD
+        │                                          └─否──► S_RUN_X（用旧表先出这一帧）
+        └─无变更──────────────────────────────────────────► S_RUN_X
 S_LOAD  ──ld_done──► S_RUN_X
 S_RUN_X ──xmap_valid──► S_XS      （等激励发生器出一个采样；xmap 整张打进 x_q）
 S_XS    ─────────────► S_RUN_V    （g=0，两个引擎同时 start）
 S_RUN_V ──era_yv&&erb_yv──► S_ENVMUL   （取 A 声部的 y 和 emap[g]）
 S_ENVMUL/S_ENVACC ─► S_ADV        （乘 → 累加）
-S_ADV   ──还有 B?──► S_ENVMUL（pick_b=1，同一套流水再算一次）
+S_ADV   ──还没算 B──► S_ENVMUL（pick_b=1，同一套流水再算一次）
         ──这组完了──► g++ → S_RUN_V
-        ──全部声部完──► mix_v=1 → S_DONE
-S_DONE  ──腔体+混响排空──► S_IDLE（done）
+        ──全部声部完──► mix_v=1 → S_WAIT
+S_WAIT  ──腔体+混响排空──► S_DONE（done 才变 1）
 ```
 
-拍数：`2 + np_lat×(N_MODES+8 + 6) + 收尾`。`np_lat = min(n_voices, SLOTS/2)`，
-N_MODES=64 时 = 8×(72+6)+固定 ≈ **865 拍**。
+拍数：`固定 + HS×(n_modes + 8) + HS×6 + 排空`，`HS = SLOTS/2 = 8`。
+`n_modes=64` 时 ≈ **735 拍**；`n_modes=80` 时 ≈ **865 拍**（`tb_throughput` 实测）。
 
 ---
 
@@ -204,7 +212,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 | `note_on[i]` | **滞回门控电平**：按下 >2、松开 <1，不是脉冲 | `voice_router`（打一拍输出） |
 | `note_ev/note_f` | 起音沿 / 攒到帧头的那份 | 各消费模块自己取（`excitation_gen`、`envelope_*` 内部各有一份） |
 | `dead[i]` | 这个声部**真的空了**：ADSR 走完 release 才给；dyn0 没按住就给 | `envelope_*` |
-| `clear` | 换乐器：清激励状态机 / 腔体历史 | `voice_router`（`inst != inst_prev`） |
+| `clear` | 换乐器：清激励状态机 / 腔体历史 | **各子模块内部**比较自己的 `inst_q` 产生（`exc_router`/`body_router`）；混响的 `clr` 来自 `preset` 比较。`voice_router` 不产生 `clear` |
 | `mod_req[i]` | 后台调制请求位图 | `voice_router`，`modulation0` 空闲时按最低位服务 |
 | `reload` | 强制重灌系数（不清状态） | 外部 |
 | `input_hold` | 加载期间冻结 `fmap_q`（= 忽略输入） | `voice_router` |
@@ -216,7 +224,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 
 ## 5. 设计取舍（为什么这样 + 代价）
 
-### 5.1 两个引擎并行 + 双 bank —— 1577 → 865 拍
+### 5.1 两个引擎并行 + 双 bank —— 1577 → 735 拍（64 模态）
 
 - **做法**：`voice_router` 实例化两个 `eng_router`，各管 `SLOTS/2 = 8` 个声部；一次作业
   跑 8 组，每组两个声部同时起算，等两个 `y_valid` 都到齐后**复用同一套**包络乘/累加
@@ -262,9 +270,11 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
   跑满 N=2048 个采样后自动落。既不空转 2048 拍，也不会把 BSRAM 上电随机值放出来。
   `clr` 由 `reverb_router` 在**切预设时**给（外部控制），所以 NONE→HALL 不会读到
   没写过的区域。
-- **饱和**：梳状反馈的乘法保留 69 位，只在 4 路求和处做一次饱和；写 RAM 的数据先打
-  寄存器（`wd`），**不能**让"65 位加 + 饱和 mux"直接怼 RAM 的 D 口（实测那条路 13.8 ns，
-  72 MHz）。干湿相加也在 add 阶段饱和。
+- **饱和**一共有三处：① 4 路求和 `sum4`（71 位判断溢出）；② 每路写回 RAM 的 `wd`
+  （65 位加 + 饱和）；③ 干湿相加 `y_sum`。**湿声加权** `t1..t4` 保留 69 位，而反馈
+  `fb1..fb4` 是 64 位（乘积后截断再移位）。
+- **流水**：写 RAM 的数据必须先进寄存器（`wd`），**不能**让"65 位加 + 饱和 mux"直接怼
+  RAM 的 D 口（实测那条路 13.8 ns，72 MHz）。
 - **代价**：延迟 6 拍；饱和点只有两处（求和、相加），不会逐级截断。
 
 ### 5.6 包络/激励的采样节拍用 `clk_en`
@@ -291,7 +301,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 
 | 项 | 数值 |
 |---|---|
-| 每采样 | **865 拍**（48 kHz 只要 **41.5 MHz**） |
+| 每采样 | **735 拍**（n_modes=64）／**865 拍**（n_modes=80，`tb_throughput` 实测） → 48 kHz 只要 **35 / 41.5 MHz** |
 | Fmax（100 MHz 约束） | **85.44 MHz**（slack −1.7 ns），48 kHz 余量 2 倍 |
 | Logic / Register / BSRAM | 10433（6787 LUT + 3646 ALU）/ 138240 = 8%；Register 5086 / 139140 = 4%；BSRAM **66** / 340 = 20% |
 | 关键路径 | 混响梳状写 RAM / 干湿相加（约 −1.4 ns） |
@@ -301,6 +311,16 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 ---
 
 ## 7. 测试
+
+### 7.0 测试结构的方向（下一次重构）
+
+现在的 TB 是按模块拆的（`tb_reverb`/`tb_envelope`/`tb_modulation`/...），好处是定位快，
+坏处是**测试的驱动方式和 `voice_router` 的真实用法可能不一致**（例如只按声部 0、
+只查"有没有写"而不查数值），BUGS.md 里两个严重 bug 就躲在这种盲区里。
+
+方向：**主回归改成一个"总音频合成任务"** —— 只对 `voice_router` 下手：
+喂 fmap 序列（按键/力度/松键）+ `inst`/`reverb_preset`，收 `y_valid/y_data`，
+把输出和参考音频或统计量比对。模块级 TB 保留但只做快速定位，不作为发布判据。
 
 ### 7.1 怎么跑
 
@@ -332,7 +352,7 @@ pwsh -File rtl/router/tools/run_flash.ps1             # 加载器（会重跑 Py
 | TB | 覆盖什么 | 结果 |
 |---|---|---|
 | `tb_voice_router.sv` | R1 钢琴+混响 NONE（body+混响逐位直通）、R1b 切 HALL（输出和干声不同）、R2 松键后 release 走完状态归零、R3 吉他（调制器+腔体）、R3c 后台调制队列排空、R5 reload 重灌（有限等待 80 万拍，实测 527k 拍完成）| ✅ PASS |
-| `tb_throughput.sv` | 80 模态 × 16 声部的每采样拍数（dead/live/gtr-on/gtr-ss/gtr-mod 五个相位）| ✅ 865 拍 |
+| `tb_throughput.sv` | 80 模态 × 16 声部的每采样拍数（dead/live/gtr-on/gtr-ss/gtr-mod 五个相位）| ✅ 865 拍（脚本只查 `->`，不校验具体数字 —— 见 BUGS.md） |
 | `tb_reverb.sv` | NONE 逐位直通、**±2^40 大值直通**、延迟线灌非零后切 HALL、HALL/BATH 尾/中比、清空 | ✅ PASS |
 | `tb_excitation.sv` | 单脉冲 / 三脉冲 / N=7 持续 / burst 中途 clear / 声部独立 / **非节拍 clear（挂起）** | ✅ PASS |
 | `tb_envelope.sv` | 起音不翻负（`A_STEP` 正好命中 0x8000_0000）、`dead` 只在 release 走完给、dyn0 钳位 | ✅ PASS |
@@ -357,7 +377,7 @@ python _analysis/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 48000
 ```
 
 - `NSAMP` 是采样数（48000 = 1 秒），`NPER` 是触键间隔（采样数）。
-- `CLK_HZ=48 MHz`（1000 拍/采样；一次作业 865 拍，留 135 拍余量）。
+- `CLK_HZ=48 MHz`（1000 拍/采样；一次作业 n_modes=4 时更短，留足余量）。
 - 实测：1 秒音频 **231 秒**（约 12 万拍/秒的仿真速度）。100 MHz/48 kHz 配置要 ~2 倍。
 - 用 `tools/golden_seq_piano.txt` 的 4 个真实模态；现在灌给全部 16 个声部，所以是
   "同一音高的节奏"。要出旋律得在 flash 里给 16 个 slot 预置不同音高的表（§4.1 已支持）。
@@ -367,28 +387,34 @@ python _analysis/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 48000
 ## 8. 待确定项 / 已知问题
 
 1. ~~`n_voices < SLOTS/2` 会挂~~ **已解决**：`n_voices` 端口删掉了，声部数 = `SLOTS`
-   参数（必须是 2 的幂）。少声部就改参数重新综合。顺带省了 2k LUT / 1.3k REG。
-2. ~~`reload` 会挂~~ **不是 bug**：实测 reload = 完整重灌 527k 拍 ≈ **5.3 ms**（≈250 个
-   采样被丢掉）。前面以为"挂了"是我自己的 20 ms 看门狗到点了，不是 FSM 卡住。
-   **待定的是策略**：建议改成"等所有键松开（`note_on == 0`）才真正重灌"，
-   - gate 只对 `change_pend = (inst != inst_prev) || reload` 生效，否则按着键就再也不接帧；
-   - 锁住期间 `ready=0`（主机才知道暂时不接 `start`），`fmap` 照常采（否则看不到松键）；
-   - `inst_lat` 的锁存仍在 `S_IDLE`（和 load 同时切，各 part 与 RAM 内容始终一致）；
-   - 纯 `reload`（乐器没变）建议也清一次激励/腔体，重启更确定；
-   - 键一直按着 → 变更永不生效，这条要写进接口文档。
-3. **`loader.err` 没接进 `S_LOAD`**：加载失败（没烧过）会当成功用，输出静音。策略待定
-   （重试？报警？保持静音？）。
-4. **`n_voices`/`n_modes` 是外部输入**：现在引擎和调制器都用 `start` 时锁存的那份，
-   但 `tb_throughput` 用 `N_MODES=80` 而系数表只有 64 个模式——语义上应该限幅到
-   `N_MODES`。
+   参数。**注意 `SLOTS` 必须是 16**（`xmap/emap` 已参数化，但 `envelope/excitation` 的
+   打包端口、`tb_*`、`voice_router.cst` 都按 16 写的；要改先统一）。
+2. ~~`reload` 会挂~~ **不是 bug**：reload = 完整重灌 527k 拍 ≈ **5.3 ms**。
+   **推迟策略已实现**：`reload` 在 router 内部取上升沿 → `reload_pend`；
+   `change_pend = (inst != inst_prev) || reload_pend`；
+   `ready = !change_pend || (note_on == 0)`。有变更且还有键按着 → `ready=0`，
+   这一帧照常跑（旧表），等松键后的第一帧才真正重灌。
+   `tb_voice_router` 的 R5a–R5e 覆盖了这条链路。
+3. **`loader.err` 只送到端口（`load_err`），router 不处理**：坏表时 loader 把两张表
+   全填 0（`W_FILL`，实测 1244 拍）并拉高 `err` 电平 → 输出静音而不是乱响；
+   上层/UI 负责提示。"重试/报警"这类策略放上层。
+4. **`n_modes` 是外部输入**（`n_voices` 已删）：引擎和调制器都用 `start` 时锁存的那份。
+   `n_modes` 大于 `N_MODES` 时会越界读 RAM（`tb_throughput` 就用 80 跑 `N_MODES=80` 是对的；
+   但谁要 `N_MODES=64` 却传 80 就会读飞）—— 建议加限幅。
 5. **`DEBUG_PORT` 现在只吐"最近一次引擎读到的状态字"**（不能任意地址读），因为没有
    多余的 RAM 读口。要真调试得在外面加 ILA，或者接受多一块 RAM 复制的代价。
 6. **`eng0` 缺独立的 golden 值测试**（用 Python 模型逐样本对比），现在只有端到端。
-7. **音高**：flash 已支持每声部一张表（§4.1），但还没有生成 16 个音高系数表的流程
-   （需要 Python 模型批量算 → `flash_image.py` 打包）。
-8. **`voice_router.cst` 故意没有 `IO_LOC`**：P16/R15 在 GW5AST-LV138FPG676AES 上无效
+7. **音高 / 系数表**：flash 支持每声部一张表（§4.1），打包工具 `tools/piano_flash.py`
+   已经能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音 × 64 模态）按 16 个 slot 出镜像。
+   **但 Q 格式对不上**：那个表是物理域浮点，`a21` 峰值 **1.87e5**，而 `SH_A21=23`（±256）
+   → 936 个系数被饱和；`gv` 也占到 90%。要么表里给的是未做 sq/sv 缩放的量，要么
+   `modal_step_pkg` 的 SH_A21 该调小（比如 21）。这条要和系数生成那边对齐。
+8. **R7（bank B 独立性）没过**：只按声部 15 时 `note_on[15]=1`、`emap[15]=0.78`，
+   但 `q_ram_b[56..59]` 一直是 0 —— 状态没被有效写入。怀疑 `erb_zero`/`dead_f` 或
+   B 的写地址；暂时只在 TB 里打印、不拦 RESULT。
+9. **`voice_router.cst` 故意没有 `IO_LOC`**：P16/R15 在 GW5AST-LV138FPG676AES 上无效
    （PR2017/PR2028），要上板得按实际板子补。
-9. 想冲 100 MHz：混响写 RAM 已拆两级，下一个是干湿相加（`u_rev/y_63`）和 eng1 累加链。
+10. 想冲 100 MHz：混响写 RAM 已拆两级，下一个是干湿相加（`u_rev/y_63`）和 eng1 累加链。
 
 ---
 

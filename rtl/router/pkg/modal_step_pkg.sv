@@ -86,7 +86,7 @@ package modal_step_pkg;
     // 注意两点：
     //  1. 这里只借用 fx_shift_rnd / fx_sat，**没有**用 fxp_pkg::fx_mul_rnd —— 后者的
     //     操作数是 64 位载体，两个信号相乘会变成 64×64 乘法器；我们保持 32×24 的窄乘法器。
-    //  2. 不能 `import fxp_pkg::*`：它内部也有 CW（=64），会与本包的 CW（=24）冲突，
+    //  2. 不能 `import fxp_pkg::*`：它内部也有 CW（=64），会与本包的 CW（=32）冲突，
     //     所以一律用 `fxp_pkg::` 限定调用。
 
     // (a * m) >> s，移位前四舍五入（round-half-up，平局向 +∞）。

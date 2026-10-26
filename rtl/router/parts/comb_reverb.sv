@@ -35,7 +35,7 @@ module comb_reverb #(
 ) (
     input  logic                        clk,
     input  logic                        rst_n,
-    input  logic [$clog2(N)-1:0]         n1, n2, n3, n4,     // 实际用的延迟（1..N）
+    input  logic [$clog2(N+1)-1:0]       n1, n2, n3, n4,     // 实际用的延迟（1..N，2 的幂也要能到 N）
     input  logic signed [31:0]          g1, g2, g3, g4,     // 反馈 Q4.27
     input  logic signed [31:0]          w1c, w2c, w3c, w4c, // 加权 Q4.27
     input  logic                        clr,        // 清空请求（一拍脉冲）：复位 / 换预设时由上层给
@@ -139,10 +139,11 @@ module comb_reverb #(
                 s2 <= c2[p2];
                 s3 <= c3[p3];
                 s4 <= c4[p4];
-                p1 <= (p1 + 1'b1 >= n1) ? '0 : p1 + 1'b1;
-                p2 <= (p2 + 1'b1 >= n2) ? '0 : p2 + 1'b1;
-                p3 <= (p3 + 1'b1 >= n3) ? '0 : p3 + 1'b1;
-                p4 <= (p4 + 1'b1 >= n4) ? '0 : p4 + 1'b1;
+                // 比较加宽一位再做：n=N（比如 2048）时 p+1 不会回绕成 0 而误判
+                p1 <= ({1'b0, p1} + 1'b1 >= {1'b0, n1}) ? '0 : p1 + 1'b1;
+                p2 <= ({1'b0, p2} + 1'b1 >= {1'b0, n2}) ? '0 : p2 + 1'b1;
+                p3 <= ({1'b0, p3} + 1'b1 >= {1'b0, n3}) ? '0 : p3 + 1'b1;
+                p4 <= ({1'b0, p4} + 1'b1 >= {1'b0, n4}) ? '0 : p4 + 1'b1;
                 din_a <= in_data;
                 if (clr_run) begin
                     if (clr_cnt == AW'(N-1)) clr_run <= 1'b0;

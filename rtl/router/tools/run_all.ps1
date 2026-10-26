@@ -54,7 +54,8 @@ try {
         @{ tb='tb_modulation';   snap='tbma';     pat='RESULT: PASS'; note='系数数值 / 门控 / fmap=0' },
         @{ tb='tb_eng1_g';       snap='tbg';      pat='RESULT: PASS'; note='eng1 golden / 清零 / 64 模态' },
         @{ tb='tb_loader_flash'; snap='tb_ld';    pat='RESULT: PASS'; note='四线 SPI + 逐笔写口' },
-        @{ tb='tb_music';        snap='tb_mu';    pat='渲染完成';      note='渲染音频（不是自检）' }
+        @{ tb='tb_music';        snap='tb_mu';    pat='渲染完成';      note='渲染音频（不是自检）' },
+        @{ tb='tb_body_biquad';  snap='tb_bq';    pat='RESULT: PASS'; note='腔体 直通/单段/5段 对 Python 模型' }
     )
 
     $env:PATH = "$Vivado;" + $env:PATH

@@ -39,10 +39,10 @@ package router_pkg;
         logic signed [31:0] k21;      // a21 的状态归一化系数 sv/sq, Q1.30
     } mod_par_t;
 
-    // 参数表基地址 = 乐器号 × TABLE_SIZE（TABLE_SIZE 固定为钢琴表大小）
-    function automatic int unsigned table_base(input instrument_e inst);
-        return 32'(inst) * 32'd80;      // TODO: 正式值 = 每个乐器的槽数 x 模态数，先按 80 占位
-    endfunction
+    // 注意：**没有** table_base()。flash 的基地址公式在 loader 里（唯一契约）：
+    //   base = inst * (SLOTS * N_MODES * 64)
+    //   以前这里有个占位的 table_base()（内部写死 80），从没被调用过，已删 ——
+    //   留着的话谁拿来用就会静默算错基地址。
 
     // 引擎选择：0 = eng0，1 = eng1（队友的引擎，接口相同）
     // 现阶段只是占位分配，后面按乐器真实的合成方式调整
