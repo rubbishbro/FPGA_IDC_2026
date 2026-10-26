@@ -30,9 +30,10 @@ module tb_music;
 
     localparam int SR_HZ  = 48000;
     localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（钢琴 64 模态 ≈735 拍 + 排空）
-    parameter  int NSAMP  = 24000;            // 采样数：24000 = 0.5 s（8 个音，每音 3000 采样）
-    parameter  int NNOTE  = 8;               // 音符数（NSAMP/NNOTE = 每个音多长）；排查时可设 1
+    parameter  int NSAMP  = 24000;           // 采样数：24000 = 0.5 s（够 FFT 出 2 Hz 分辨率）
     parameter  int PROBE  = 0;               // 1 = 打印前 40 个非零采样的各节点值
+    parameter  int NOTE_SLOT = 4;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
+    parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;                    // 100 MHz 的时钟沿，CLK_HZ 只是分频参数
@@ -141,9 +142,6 @@ module tb_music;
     //   松键用 val=0；按住期间门控电平 = 1，ADSR/激励都靠它。
     // ------------------------------------------------------------------
     longint t0;
-    int     n_note;
-    int     melody [0:7] = '{4, 6, 8, 9, 8, 6, 4, 0};   // slot 号 = 第几个音
-    int     n_step_ns;                                  // 每个音符多少采样
 
     // 自检计数
     int  n_x = 0;            // y_data 里出现 X 的帧数
@@ -166,27 +164,25 @@ module tb_music;
         load_coefs();
         repeat (5) @(posedge clk);
 
-        n_step_ns = NSAMP / NNOTE;
         t0 = $time;
         for (int n = 0; n < NSAMP; n++) begin
-            if (n % n_step_ns == 0) begin
-                n_note = n / n_step_ns;
-                // 先把所有键松开（保证下一个音有上升沿），再按目标 slot
-                for (int k = 0; k < 16; k++) press(k, 0);
-            end
-            if (n % n_step_ns == 40 && n_note < NNOTE) begin
+            // ---- 单音：按一下，然后自由衰减（方便对频谱/衰减时间做 FFT）----
+            if (n == 40) begin
                 // 力度 250 必须 > voice_router 的 NOTE_ON_TH(230)，否则按键根本不成立
-                // （阈值改了这里要跟着改；250 也比 120 的激励大得多）
-                press(melody[n_note % 8], 8'd250);
-                $display("    [%0d] 按 slot %0d（第 %0d 个音高），力度 250",
-                         n, melody[n_note % 8], melody[n_note % 8]);
+                press(NOTE_SLOT, 8'd250);
+                $display("    [%0d] 按 slot %0d（镜像里 midi40 + 2*%0d），力度 250，按住 %0d 采样后松开",
+                         n, NOTE_SLOT, NOTE_SLOT, HOLD);
+            end
+            if (n == 40 + HOLD) begin
+                press(NOTE_SLOT, 8'd0);
+                $display("    [%0d] 松键，之后是 ADSR release + 自由衰减", n);
             end
             one_sample();
             // ---- 探针：这一帧的四个节点（只在 PROBE=1 时打印前 40 个非零）----
             if (PROBE != 0 && n_probe < 40 && (y_data != 0 || dut.mix_q != 0)) begin
-                $display("      probe[%0d] mix_q=%0d body_y=%0d emap4=%0d q4=%0d x4=%0d xmap4=%0d note_on=%b gate=%b",
-                         n, dut.mix_q, dut.body_y, dut.emap[4], dut.q_ram_a[4*64],
-                         dut.x_q[4], dut.xmap[4], dut.note_on[4], dut.note_gate[4]);
+                $display("      probe[%0d] mix_q=%0d body_y=%0d q4=%0d x4=%0d emap4=%0d",
+                         n, dut.mix_q, dut.body_y, dut.q_ram_a[NOTE_SLOT*64],
+                         dut.x_q[NOTE_SLOT], dut.emap[NOTE_SLOT]);
                 n_probe = n_probe + 1;
             end
             if (^y_data === 1'bx) n_x = n_x + 1;
