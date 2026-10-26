@@ -1,36 +1,32 @@
-// time_pingpong.v - Time-domain ping-pong buffer (audio in / FFT out / wave out)
-// 2026-09-29 架构重构 v2：写侧唯一状态源 + 完整握手 + 控制/数据分离
+// time_pingpong.v - dual-clock time-domain ping-pong buffer
 //
-//  FFT 读比音频写快 ~700 倍（30us vs 21ms），乒乓天然不冲突。
+// Write side: PCM sample domain (clk_wr_i, e.g. 100 MHz).
+// Read side : visualization domain (clk_rd_i, 33.333 MHz).
 //
-//  握手逻辑（已确认，重要）：
-//  - 块状态 EMPTY/FULL 由【写侧】唯一维护（full_exists + full_ptr）
-//  - 读侧只【同步 full_ptr/full_exists】（2-FF），读它指向的满块
-//  - 读侧读完发 rd_done_i，写侧同步后清满块（同时只一块满 → 必对应满块）
-//  - 写侧翻块若目标块仍 FULL（FFT 没读走）→ wr_ready=0 停写（防覆盖）
-//  - 波形读也用同步的满块指针（与 FFT 同源，无跨时钟直接索引写侧信号）
+// The two 1024-sample banks are the CDC boundary. The cross-domain control
+// signals are synchronized explicitly; tbuf_ram is a dual-clock RAM.
+//
+// Handshake:
+//  - block_state/full_exists/full_ptr are owned by the write side.
+//  - full_exists/full_ptr are synchronized into the read side with 2FF.
+//  - rd_done is converted to a toggle in the read domain and edge-detected
+//    in the write domain. A one-cycle pulse is not sent across directly.
+//  - wr_ready_o is low if the target bank is still FULL, preventing overwrite.
 module time_pingpong #(
-    parameter N_SAMPLES = 1024,   // 一个窗口的样本数
-    parameter WIDTH     = 16      // 每个样本位宽（当前接 24）
+    parameter N_SAMPLES = 1024,
+    parameter WIDTH     = 16
 ) (
-    // 低有效复位
-    input               rst_ni,
+    // Write-side reset (active low, synchronous deassert recommended)
+    input               wr_rst_ni,
 
-    // ---------------- 写侧：音频采样域 ----------------
-    // wr_data_i ：当前音频样本
-    // wr_valid_i：样本有效（每 1/48k 秒一拍）
-    // wr_ready_o：当前写 bank 为空，可以接收
+    // ---------------- Write side: PCM sample domain ----------------
     input               wr_clk_i,
     input  [WIDTH-1:0]  wr_data_i,
     input               wr_valid_i,
     output              wr_ready_o,
 
-    // ---------------- FFT 读侧：可视化域 ----------------
-    // rd_req_i ：请求读一个样本（单拍）
-    // rd_addr_i：窗口内地址 0..N-1
-    // rd_data_o：读出的样本
-    // rd_valid_o：已经有一整块满窗口可读
-    // rd_done_i ：FFT 读完这一块（单拍），释放给写侧
+    // ---------------- Read side: visualization domain ----------------
+    input               rd_rst_ni,
     input               rd_clk_i,
     input               rd_req_i,
     input  [$clog2(N_SAMPLES)-1:0] rd_addr_i,
@@ -38,83 +34,105 @@ module time_pingpong #(
     output              rd_valid_o,
     input               rd_done_i,
 
-    // ---------------- 波形读侧（当前未使用） ----------------
+    // ---------------- Waveform read side ----------------
     input               wf_clk_i,
     input  [$clog2(N_SAMPLES)-1:0] wf_addr_i,
     output [WIDTH-1:0]  wf_data_o
 );
 
     // ============================================================
-    //  数据通路：双块 RAM
+    //  Data path: two banks of dual-clock RAM
     // ============================================================
     reg [WIDTH-1:0] tbuf_ram [0:1][0:N_SAMPLES-1];
 
     // ============================================================
-    //  控制器（写侧 wr_clk 域）
+    //  Write-side controller (wr_clk_i domain)
     // ============================================================
     localparam EMPTY = 1'b0, FULL = 1'b1;
 
-    reg block_state [0:1];          // 每块 EMPTY/FULL（写侧唯一维护）
-    reg wr_block;                   // 当前写块
-    reg [$clog2(N_SAMPLES)-1:0] wr_addr;  // 块内写地址
-    reg full_exists;                // 是否有满块
-    reg full_ptr;                   // 满的是哪块
+    reg block_state [0:1];
+    reg wr_block;
+    reg [$clog2(N_SAMPLES)-1:0] wr_addr;
+    reg full_exists;
+    reg full_ptr;
 
-    // rd_done 同步（读→写，2-FF）
-    reg done_s1, done_s2;
-    always @(posedge wr_clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            done_s1 <= 1'b0;
-            done_s2 <= 1'b0;
+    // rd_done_i is a one-cycle pulse in the read domain. Convert it to a
+    // toggle there, then synchronize and edge-detect in the write domain.
+    reg rd_done_toggle;
+    always @(posedge rd_clk_i or negedge rd_rst_ni) begin
+        if (!rd_rst_ni)
+            rd_done_toggle <= 1'b0;
+        else if (rd_done_i)
+            rd_done_toggle <= ~rd_done_toggle;
+    end
+
+    (* ASYNC_REG = "TRUE" *) reg done_tog_meta;
+    (* ASYNC_REG = "TRUE" *) reg done_tog_sync;
+    reg done_tog_prev;
+
+    always @(posedge wr_clk_i or negedge wr_rst_ni) begin
+        if (!wr_rst_ni) begin
+            done_tog_meta <= 1'b0;
+            done_tog_sync <= 1'b0;
+            done_tog_prev <= 1'b0;
         end
         else begin
-            done_s1 <= rd_done_i;
-            done_s2 <= done_s1;
+            done_tog_meta <= rd_done_toggle;
+            done_tog_sync <= done_tog_meta;
+            done_tog_prev <= done_tog_sync;
         end
     end
 
-    // 写侧控制 FSM
-    always @(posedge wr_clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
+    wire done_pulse_wr = done_tog_sync ^ done_tog_prev;
+
+    always @(posedge wr_clk_i or negedge wr_rst_ni) begin
+        if (!wr_rst_ni) begin
             block_state[0] <= EMPTY;
             block_state[1] <= EMPTY;
-            wr_block <= 1'b0;
-            wr_addr  <= 0;
-            full_exists <= 1'b0;
-            full_ptr <= 1'b0;
+            wr_block       <= 1'b0;
+            wr_addr        <= 0;
+            full_exists    <= 1'b0;
+            full_ptr       <= 1'b0;
         end
         else begin
-            // 读侧读完 → 清满块（同时只一块满 → 清 full_ptr 指向的块）
-            if (done_s2) begin
+            // Read side finished the published bank: mark it EMPTY.
+            if (done_pulse_wr) begin
                 block_state[full_ptr] <= EMPTY;
-                full_exists <= 1'b0;
+                full_exists           <= 1'b0;
             end
 
-            // 写：当前写块 EMPTY 且来采样
+            // Accept a sample only when the current write bank is EMPTY.
             if (wr_valid_i && (block_state[wr_block] == EMPTY)) begin
                 tbuf_ram[wr_block][wr_addr] <= wr_data_i;
                 if (wr_addr == N_SAMPLES-1) begin
-                    block_state[wr_block] <= FULL;   // 攒满
-                    full_exists <= 1'b1;             // 有满块了
-                    full_ptr <= wr_block;            // 记满块
-                    wr_block <= ~wr_block;           // 翻块
-                    wr_addr  <= 0;
+                    block_state[wr_block] <= FULL;
+                    full_exists           <= 1'b1;
+                    full_ptr              <= wr_block;
+                    wr_block              <= ~wr_block;
+                    wr_addr               <= 0;
                 end
-                else wr_addr <= wr_addr + 1'b1;
+                else begin
+                    wr_addr <= wr_addr + 1'b1;
+                end
             end
         end
     end
+
     assign wr_ready_o = (block_state[wr_block] == EMPTY);
 
     // ============================================================
-    //  控制器（读侧 rd_clk 域）：同步满块指针 + 满块存在标志
+    //  Read-side controller (rd_clk_i domain)
+    //  Synchronize full_exists/full_ptr from the write domain.
     // ============================================================
-    reg full_ex_s1, full_ex_s2;     // full_exists 同步
-    reg full_ptr_s1, full_ptr_s2;   // full_ptr 同步
-    always @(posedge rd_clk_i or negedge rst_ni) begin
-        if (!rst_ni) begin
-            full_ex_s1 <= 1'b0;
-            full_ex_s2 <= 1'b0;
+    (* ASYNC_REG = "TRUE" *) reg full_ex_s1;
+    (* ASYNC_REG = "TRUE" *) reg full_ex_s2;
+    (* ASYNC_REG = "TRUE" *) reg full_ptr_s1;
+    (* ASYNC_REG = "TRUE" *) reg full_ptr_s2;
+
+    always @(posedge rd_clk_i or negedge rd_rst_ni) begin
+        if (!rd_rst_ni) begin
+            full_ex_s1  <= 1'b0;
+            full_ex_s2  <= 1'b0;
             full_ptr_s1 <= 1'b0;
             full_ptr_s2 <= 1'b0;
         end
@@ -125,19 +143,20 @@ module time_pingpong #(
             full_ptr_s2 <= full_ptr_s1;
         end
     end
-    assign rd_valid_o = full_ex_s2;              // 有满块可读
-    wire rd_block = full_ptr_s2;                 // 读满块
+
+    assign rd_valid_o = full_ex_s2;
+    wire rd_block = full_ptr_s2;
 
     // ============================================================
-    //  数据通路：FFT 读 + 波形读
+    //  Data path: FFT read + waveform read
     // ============================================================
     reg [WIDTH-1:0] rd_data_r;
     always @(posedge rd_clk_i) begin
-        if (rd_req_i) rd_data_r <= tbuf_ram[rd_block][rd_addr_i];
+        if (rd_req_i)
+            rd_data_r <= tbuf_ram[rd_block][rd_addr_i];
     end
     assign rd_data_o = rd_data_r;
 
-    // 波形读：读同步的满块（与 FFT 同源，无跨时钟直接索引）
     reg [WIDTH-1:0] wf_data_r;
     always @(posedge wf_clk_i) begin
         wf_data_r <= tbuf_ram[full_ptr_s2][wf_addr_i];

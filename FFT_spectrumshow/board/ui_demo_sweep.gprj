@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AST-138B" pn="GW5AST-LV138FPG676AES">gw5ast138b-002</Device>
+    <FileList>
+        <File path="../src/ui/ui_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/key_ui_event.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/ui_ctrl.sv" type="file.verilog" enable="1"/>
+        <File path="../src/fft/fft1024_iter.sv" type="file.verilog" enable="1"/>
+        <File path="../src/fft/fft_ctrl.v" type="file.verilog" enable="1"/>
+        <File path="../src/spectrum/spectrum_map.v" type="file.verilog" enable="1"/>
+        <File path="../src/audio/real_audio_chain.v" type="file.verilog" enable="1"/>
+        <File path="../src/audio/time_pingpong.v" type="file.verilog" enable="1"/>
+        <File path="../src/audio/wave_capture.sv" type="file.verilog" enable="1"/>
+        <File path="../src/audio/sweep_source.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/display_frame_buffer.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/waterfall_store.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/wave_frame_buffer.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_timing.v" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_draw.v" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_background.v" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_fft.v" type="file.verilog" enable="1"/>
+        <File path="../src/display/trail_store.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/trail_calc.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/curve_store.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/curve_calc.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_curve_spectrum.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_wave.v" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_ui.sv" type="file.verilog" enable="1"/>
+        <File path="../src/input/key_debounce.v" type="file.verilog" enable="1"/>
+        <File path="gowin_pll.v" type="file.verilog" enable="1"/>
+        <File path="gowin_pll_src.v" type="file.verilog" enable="1"/>
+        <File path="ui_demo_top.v" type="file.verilog" enable="1"/>
+        <File path="sweep_demo_top.v" type="file.verilog" enable="1"/>
+        <File path="ui_demo.cst" type="file.cst" enable="1"/>
+        <File path="timing_sweep.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

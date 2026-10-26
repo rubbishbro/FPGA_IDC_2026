@@ -28,6 +28,7 @@ $tests = @(
     "sweep_source_tb",
     "spectrum_map_tb",
     "wave_capture_tb",
+    "time_pingpong_tb",
     "waterfall_tb",
     "trail_calc_tb",
     "curve_calc_tb",

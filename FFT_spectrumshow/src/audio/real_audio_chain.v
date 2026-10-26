@@ -2,10 +2,9 @@
 //
 // 当前不再内置 demo 音频 ROM。主引擎接入时，由外部提供：
 //   pcm_valid + pcm_data[23:0]
-// （主引擎 64-bit mix_sum 先经过 pcm_tap 缩放，再过 100M→33.3M 异步 FIFO）
 //
-// 内部仍用 33.333 MHz：
-//   时域窗口 → Hann → 1024 点 FFT → 频谱柱 → 帧缓冲/瀑布历史
+// 只有 time_pingpong 的写侧跑在 PCM 时钟域（例如 100 MHz）。
+// 其余 FFT/频谱/瀑布/显示逻辑仍全部是 33.333 MHz。
 module real_audio_chain (
     // 33.333 MHz 可视化/显示时钟与复位
     input               clk_core,
@@ -15,11 +14,16 @@ module real_audio_chain (
     input               clk_pix,
     input               rst_pix_n,
 
-    // ---------------- 主引擎 PCM 输入（33.3 MHz 侧） ----------------
+    // PCM 写入时钟域（写侧唯一跨时钟点）
+    input               clk_wr,
+    input               rst_wr_n,
+
+    // ---------------- 主引擎 PCM 输入（clk_wr 侧） ----------------
     // pcm_valid：当前 PCM 样本有效（每 1/48k 秒一拍）
     // pcm_data ：24-bit 有符号 PCM 样本
     input               pcm_valid,
     input       [23:0]   pcm_data,
+    output              pcm_ready,
 
     // 像素帧边界：每帧一个脉冲，用于切换显示帧缓冲的 bank
     input               frame_pulse,
@@ -58,8 +62,9 @@ module real_audio_chain (
     wire [23:0] wave_wf_data;
 
     time_pingpong #(.N_SAMPLES(1024), .WIDTH(24)) u_tp(
-        .rst_ni(rst_core_n),
-        .wr_clk_i(clk_pix), .wr_data_i(pcm_data), .wr_valid_i(pcm_valid), .wr_ready_o(),
+        .wr_rst_ni(rst_wr_n),
+        .wr_clk_i(clk_wr), .wr_data_i(pcm_data), .wr_valid_i(pcm_valid), .wr_ready_o(pcm_ready),
+        .rd_rst_ni(rst_core_n),
         .rd_clk_i(clk_core), .rd_req_i(tp_rd_req), .rd_addr_i(tp_rd_addr),
         .rd_data_o(tp_rd_data), .rd_valid_o(tp_rd_valid), .rd_done_i(tp_rd_done),
         .wf_clk_i(clk_core), .wf_addr_i(wave_wf_addr), .wf_data_o(wave_wf_data)

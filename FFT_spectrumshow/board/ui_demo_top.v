@@ -41,6 +41,12 @@ module ui_demo_top #(
     wire [5:0]  lcd_g_w;
     wire [5:0]  lcd_b_w;
 
+    wire        pcm_valid_w;
+    wire [23:0] pcm_data_w;
+    wire        clk_wr_w;
+    wire        rst_wr_n_w;
+    wire        pcm_ready_w;
+
     Gowin_PLL Gowin_PLL_inst (
         .clkout0 (pix_clk),
         .clkin   (clk),
@@ -132,23 +138,80 @@ module ui_demo_top #(
     logic [15:0] sine_rom [0:255];
     initial $readmemh("sine256.mem", sine_rom);
 
-    wire [23:0] pcm_data;
-
     generate
         if (SWEEP_MODE) begin : g_sweep
+            // Separate 100 MHz PLL for the PCM source domain.
+            wire src_clk;
+            wire locked_src;
+
+            Gowin_PLL_SRC Gowin_PLL_SRC_inst (
+                .clkout0 (src_clk),
+                .clkin   (clk),
+                .lock    (locked_src)
+            );
+
+            wire rst_sys_src_n = rst_n & locked_src;
+            reg [2:0] rst_src_sync;
+
+            always @(posedge src_clk or negedge rst_sys_src_n) begin
+                if (!rst_sys_src_n)
+                    rst_src_sync <= 3'b000;
+                else
+                    rst_src_sync <= {rst_src_sync[1:0], 1'b1};
+            end
+
+            wire rst_src_n = rst_src_sync[2];
+
+            // 48 kHz average sample tick in the 100 MHz source domain.
+            reg [31:0] acc48k;
+            reg        samp_en_src;
+
+            always @(posedge src_clk or negedge rst_src_n) begin
+                if (!rst_src_n) begin
+                    acc48k     <= 32'd0;
+                    samp_en_src <= 1'b0;
+                end
+                else if (acc48k + 32'd48000 >= 32'd100_000_000) begin
+                    acc48k     <= acc48k + 32'd48000 - 32'd100_000_000;
+                    samp_en_src <= 1'b1;
+                end
+                else begin
+                    acc48k     <= acc48k + 32'd48000;
+                    samp_en_src <= 1'b0;
+                end
+            end
+
             wire [7:0] sweep_idx;
 
             sweep_source u_sweep (
-                .clk        (pix_clk),
-                .rst_n      (rst_pix_n),
-                .samp_en    (samp_en),
+                .clk        (src_clk),
+                .rst_n      (rst_src_n),
+                .samp_en    (samp_en_src),
                 .phase_idx  (sweep_idx),
                 .phase      (),
                 .freq_inc   (),
                 .sweep_done ()
             );
 
-            assign pcm_data = {sine_rom[sweep_idx], 8'b0};
+            reg [23:0] pcm_data_src;
+            reg        pcm_valid_src;
+
+            always @(posedge src_clk or negedge rst_src_n) begin
+                if (!rst_src_n) begin
+                    pcm_data_src  <= 24'd0;
+                    pcm_valid_src <= 1'b0;
+                end
+                else begin
+                    pcm_valid_src <= samp_en_src;
+                    if (samp_en_src)
+                        pcm_data_src <= {sine_rom[sweep_idx], 8'b0};
+                end
+            end
+
+            assign clk_wr_w    = src_clk;
+            assign rst_wr_n_w  = rst_src_n;
+            assign pcm_valid_w = pcm_valid_src;
+            assign pcm_data_w  = pcm_data_src;
         end
         else begin : g_three_tone
             reg [31:0] phase1, phase2, phase3;
@@ -171,7 +234,10 @@ module ui_demo_top #(
             wire signed [15:0] s3 = sine_rom[phase3[31:24]];
             wire signed [17:0] mix = s1 + (s2 >>> 1) + (s3 >>> 2);
 
-            assign pcm_data = {mix, 6'b0};
+            assign clk_wr_w    = pix_clk;
+            assign rst_wr_n_w  = rst_pix_n;
+            assign pcm_valid_w = samp_en;
+            assign pcm_data_w  = {mix, 6'b0};
         end
     endgenerate
 
@@ -204,8 +270,11 @@ module ui_demo_top #(
         .rst_core_n  (rst_pix_n),
         .clk_pix     (pix_clk),
         .rst_pix_n   (rst_pix_n),
-        .pcm_valid   (samp_en),
-        .pcm_data    (pcm_data),
+        .clk_wr      (clk_wr_w),
+        .rst_wr_n    (rst_wr_n_w),
+        .pcm_valid   (pcm_valid_w),
+        .pcm_data    (pcm_data_w),
+        .pcm_ready   (pcm_ready_w),
         .frame_pulse (frame_pulse),
         .rd_bar_idx  (bar_idx_disp),
         .rd_valid    (rd_valid),

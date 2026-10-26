@@ -3,13 +3,14 @@
 GW5AST-138B + 800×480 LCD 的可视化子系统，当前作为独立 demo 验证。
 它不包含主合成引擎，也不直接连接主引擎的 PCM 输出。
 
-当前状态（2026-10-24）：
+当前状态（2026-10-26）：
 
 - 页面：BARS / WAVE / FALL / SETTINGS
-- 全部可视化逻辑运行在 **33.333 MHz** 像素时钟域
+- FFT/频谱/曲线/UI/显示逻辑仍全部运行在 **33.333 MHz**
 - 正常 bitstream 使用三音正弦测试源
 - 扫频 bitstream 使用 1 kHz → 10 kHz 测试源
-- 主引擎 PCM tap、100 MHz→33.3 MHz FIFO、摇杆解析均未实现
+- `time_pingpong` 写侧已支持独立 PCM 时钟域；扫频测试使用 **100 MHz PLL + 100 MHz 域 48 kHz 源**
+- 主引擎 PCM tap、主引擎接入、指令端口、摇杆解析仍未实现
 
 ---
 
@@ -42,13 +43,16 @@ lcd_*  见 board/ui_demo.cst
 ### 1.2 可视化核心：`src/audio/real_audio_chain.v`
 
 ```text
-clk_core       可视化计算时钟
+clk_core       可视化计算时钟（33.333 MHz）
 rst_core_n     低有效复位
-clk_pix        像素扫描时钟
+clk_pix        像素扫描时钟（33.333 MHz）
 rst_pix_n      低有效复位
 
-pcm_valid      输入 PCM 有效，单个 33.3M 周期脉冲
+clk_wr         PCM 写入时钟域（demo 接 clk_pix；扫频测试接 100 MHz）
+rst_wr_n       PCM 写入域低有效复位
+pcm_valid      clk_wr 域单拍有效（48 kHz 节拍）
 pcm_data[23:0] 有符号 24-bit PCM
+pcm_ready      当前 time_pingpong 写 bank 可接收
 
 frame_pulse    每帧一个脉冲，用于切换双 bank
 
@@ -63,20 +67,35 @@ curve_rd_addr[9:0] → FALL 曲线读地址
 curve_rd_data[39:0]← FALL 曲线数据
 ```
 
-**当前 demo 中 `clk_core` 与 `clk_pix` 都接 33.333 MHz**。
-模块本身保留了双时钟端口，但还没有真正的异步 FIFO/CDC。
-
-未来接主引擎时，建议只改 `pcm_valid/pcm_data` 的来源：
+`time_pingpong` 的写侧是唯一的 PCM 跨时钟点：
 
 ```text
-主引擎 100M
-  → PCM tap
-  → 异步 FIFO
-  → 33.3M 侧 pcm_valid/pcm_data
-  → real_audio_chain
+clk_wr 域（demo: 33.3M / sweep: 100M）
+  pcm_valid + pcm_data
+        │
+        ▼
+time_pingpong 写侧
+  2 × 1024 × 24 bit
+        │  full_exists / full_ptr 2FF
+        │  rd_done toggle + 2FF
+        ▼
+clk_core 33.333M
+  FFT / waterfall / curve / wave / display
 ```
 
-不要把主引擎直接接到 `real_audio_chain` 的 100M 时钟上。
+跨域控制信号使用 2FF，`rd_done` 先转 toggle 再跨域；`tbuf_ram` 是双时钟 RAM。可视化处理仍然全部在 33.333 MHz，不要把 FFT/Catmull 逻辑搬到 100 MHz。
+
+接主引擎时只需要在 **100 MHz 侧提供 PCM tap**，接到：
+
+```text
+clk_wr      = 主引擎 100 MHz
+rst_wr_n    = 主引擎复位
+pcm_valid   = 48 kHz valid
+pcm_data    = 24-bit PCM
+pcm_ready   → 主引擎背压（可忽略，但不能在无效时强行丢样本）
+```
+
+指令端口尚未实现。
 
 ### 1.3 UI 控制：`src/ui/ui_ctrl.sv`
 
@@ -117,14 +136,16 @@ board/waterfall_zero.mem   历史 RAM 初始化
 | `clk50` / `clk` | 50 MHz | 板级晶振 P16 | PLL 输入、按键 |
 | `clk_pix` | 33.333 MHz | `Gowin_PLL`，50M × 2 ÷ 3 | LCD 扫描、FFT、曲线、UI |
 | `clk_core` | 33.333 MHz | demo 中直接同 `clk_pix` | 可视化计算 |
-| `samp_en` | 48.03 kHz | `clk_pix / 694` | demo PCM 采样节拍 |
+| `clk_src` | 100 MHz | `Gowin_PLL_SRC`，仅扫频/CDC 测试 | `time_pingpong` 写侧、100M 扫频源 |
+| `samp_en` | 48.03 kHz | `clk_pix / 694` | 正常 demo PCM 采样节拍 |
+| `samp_en_src` | 48 kHz | `clk_src` 频率累加 | 扫频/CDC 测试 PCM 采样节拍 |
 | `frame_pulse` | ~52.5 Hz | `lcd_timing` | 双 bank 切换 |
 
 说明：
 
-- `samp_en` 是使能脉冲，不是时钟。
-- 当前没有 100 MHz 可视化逻辑。
-- 当前没有真正的跨时钟 FIFO；`display_frame_buffer`、`curve_store` 等虽然带双时钟端口，但 demo 中两端同频。
+- `samp_en` / `samp_en_src` 是使能脉冲，不是时钟。
+- 所有 FFT/频谱/曲线/UI/显示逻辑仍然只在 33.333 MHz 域。
+- 当前唯一的真实 CDC 是 `time_pingpong` 写侧（`clk_src`）到读侧（`clk_pix`）。
 - 主引擎目标是 100 MHz，但主引擎不在此目录内，也没有接入。
 
 ---
@@ -187,14 +208,17 @@ GRID  背景网格
 
 ```text
 board/
-  ui_demo_top.v        正常板级 top（三音正弦）
+  ui_demo_top.v        正常板级 top（三音正弦 / SWEEP_MODE=1 时 100M 扫频）
   sweep_demo_top.v     扫频测试 top，参数覆盖 SWEEP_MODE=1
-  ui_demo.gprj         Gowin 工程
+  ui_demo.gprj         正常 Gowin 工程
+  ui_demo_sweep.gprj   扫频/CDC Gowin 工程
   flow.tcl             正常 bitstream
   flow_sweep.tcl       扫频 bitstream
   ui_demo.cst          引脚约束
-  timing.sdc           时钟约束
+  timing.sdc           正常时钟约束
+  timing_sweep.sdc     扫频/CDC 时钟约束（含 clk_src）
   gowin_pll.v          50M → 33.333M PLL
+  gowin_pll_src.v      50M → 100M PLL（仅扫频/CDC 测试）
   *.mem                初始化表
 
 src/
@@ -204,7 +228,7 @@ src/
     ui_ctrl.sv         页面、设置项、特效状态机
   audio/
     real_audio_chain.v PCM → 时域窗口 → FFT → 频谱/波形/曲线链
-    time_pingpong.v    1024×24 双 bank
+    time_pingpong.v    双时钟 1024×24 双 bank（CDC 边界）
     wave_capture.v     时域波形抽取
     sweep_source.sv    1k→10k 扫频相位累加器
   fft/
@@ -232,6 +256,7 @@ src/
 
 sim/
   run_regression.ps1   全部可视化回归入口
+  time_pingpong_tb.sv  100M 写 / 33.3M 读 CDC 顺序测试
   *_tb.sv             自检 testbench
 
 archive/
@@ -263,10 +288,16 @@ board/impl/pnr/ui_demo.fs
 ```powershell
 cd board
 & "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow_sweep.tcl
-Copy-Item impl/pnr/ui_demo.fs impl/pnr/sweep_demo.fs -Force
 
 # 恢复正常 bitstream
 & "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow.tcl
+```
+
+扫频工程会生成：
+
+```text
+board/impl/pnr/ui_demo_sweep.fs
+board/impl/pnr/sweep_demo.fs   （flow_sweep.tcl 自动复制）
 ```
 
 烧录：
@@ -281,9 +312,10 @@ Copy-Item impl/pnr/ui_demo.fs impl/pnr/sweep_demo.fs -Force
 ```text
 1 kHz → 10 kHz
 约 10 秒线性扫频
+100 MHz PLL 域产生 48 kHz 平均采样节拍
 ```
 
-它的用途是检查 FALL 四条曲线的 0/3/7/15 帧时间关系，不是正式音频输入。
+它的用途是检查 `time_pingpong` 的 100M→33.3M CDC 和 FALL 四条曲线的 0/3/7/15 帧时间关系，不是正式音频输入。
 
 ---
 
@@ -300,6 +332,7 @@ powershell -ExecutionPolicy Bypass -File .\run_regression.ps1
 SWEEP SOURCE TEST PASSED
 SPECTRUM MAP TEST PASSED
 WAVE CAPTURE TEST PASSED
+TIME PINGPONG TEST PASSED
 WATERFALL TEST PASSED
 TRAIL CALC TEST PASSED
 CURVE CALC TEST PASSED
@@ -317,11 +350,11 @@ CHAIN TEST PASSED
 PnR：
 
 ```text
-正常 bitstream : SETUP +2.163 ns, HOLD +0.140 ns
-扫频 bitstream : SETUP +5.951 ns, HOLD +0.144 ns
+正常 bitstream : SETUP +1.976 ns, HOLD +0.149 ns
+扫频 bitstream : SETUP +2.221 ns, HOLD +0.154 ns
 ```
 
-两者都在 33.333 MHz 下通过。Catmull-Rom 是当前主要 LUT/时序开销。
+正常 bitstream 是 33.333 MHz；扫频 bitstream 同时包含 100 MHz `clk_src` 和 33.333 MHz `clk_pix`。两者 setup/hold 都为正。Catmull-Rom 仍是主要 LUT/时序开销。
 
 ---
 
@@ -337,6 +370,7 @@ PnR：
 - 双按键短按/长按
 - 三音正弦 demo 源
 - 1k→10k 扫频测试源和独立 bitstream
+- `time_pingpong` 100M 写 / 33.3M 读 CDC 及 48 kHz 顺序测试
 - 全部可视化自检测试
 
 ---
@@ -346,10 +380,10 @@ PnR：
 ### 主引擎 PCM
 
 - 还没有 `pcm_tap`：主引擎 `mix_sum[63:0]` → 24-bit PCM 的缩放/饱和。
-- 还没有 100M→33.3M 异步 FIFO。
-- 还没有主引擎 `48k valid` 到可视化 `pcm_valid` 的连接。
-- 当前 `samp_en` 是 33.333M/694 ≈ 48.03k，只用于 demo，不是主引擎采样节拍。
-- 主引擎完成后，建议在 **100M 侧只做 PCM 捕获和 FIFO 写**，可视化继续留 33.3M。
+- `time_pingpong` 已支持 100M 写 / 33.3M 读，但还没有接主引擎的 48k valid。
+- 当前 `samp_en` 是 33.333M/694 ≈ 48.03k，只用于正常 demo；扫频测试在 100M 域产生 48k 平均节拍。
+- 主引擎完成后，建议在 **100M 侧只做 PCM 捕获和 `time_pingpong` 写**，可视化继续留 33.3M。
+- 指令端口尚未实现；后续用 2FF + mailbox，不需要 FIFO。
 
 ### 摇杆
 

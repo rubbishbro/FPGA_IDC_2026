@@ -31,6 +31,7 @@
         <File path="../src/display/lcd_ui.sv" type="file.verilog" enable="1"/>
         <File path="../src/input/key_debounce.v" type="file.verilog" enable="1"/>
         <File path="gowin_pll.v" type="file.verilog" enable="1"/>
+        <File path="gowin_pll_src.v" type="file.verilog" enable="1"/>
         <File path="ui_demo_top.v" type="file.verilog" enable="1"/>
         <File path="sweep_demo_top.v" type="file.verilog" enable="1"/>
         <File path="ui_demo.cst" type="file.cst" enable="1"/>
