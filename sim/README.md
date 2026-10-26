@@ -1,5 +1,15 @@
 # sim — 共享 ABC/E2 引擎回归
 
+## 独立配置轮询模块
+
+`python3 sim/run_control_loop.py` 只编译 `rtl/control_loop.sv` 和
+`sim/unit/control/tb_control_loop.sv`，不依赖或修改 UI、通信和 router 回归。
+覆盖单／多来源、非二次幂回绕、轮询公平性、背压、复位和请求记账。
+默认 5 种参数 × 3 个随机种子，共 15 组；日志在 `build/control_loop/`。
+接口及验收边界见[设计文档](../docs/UI控制Loop与配置层设计.md)。
+
+## 共享引擎回归说明
+
 只保留共享 RAM 新架构的 iverilog 测试；旧并行 top 测试已归档到 `history/sim/unit/core_legacy/`。
 
 2026-10-22 基于 `cdc4e8a2` 实际重跑：当前 **21 项全 PASS**。旧前端测试已归档到 `history/sim/unit/core_legacy/`。

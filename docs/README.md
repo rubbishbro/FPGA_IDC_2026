@@ -4,6 +4,8 @@
 
 | 文档 | 内容 |
 |---|---|
+| [UI控制Loop与配置层设计.md](UI控制Loop与配置层设计.md) | 保持现有结构，独立 control_loop.sv 已实现；轮询／转交接口及 15 组独立仿真结果（2026-10-27） |
+| [控制层与主循环设计调研.md](控制层与主循环设计调研.md) | 基于当前 router／通信／UI 的事件驱动控制建议、配置生效边界、MIDI 状态与时钟责任（2026-10-27，设计调研） |
 | [ENGINE_INTERNAL.md](ENGINE_INTERNAL.md) | §0 为当前源码／验证摘要；后文保留早期目标稿和阶段记录 |
 | [TIMING_RAM_ANALYSIS.md](TIMING_RAM_ANALYSIS.md) | 100MHz 时序余量与 BSRAM/逻辑/DSP 占用分析 |
 | [ENG1_PY_MODEL.md](ENG1_PY_MODEL.md) | router 级 eng1 整数 Python 模型：位宽契约、RTL 对拍、A/B 试听与未覆盖边界 |
