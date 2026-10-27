@@ -7,6 +7,7 @@
 | [uart/](uart/README.md) | 通用 UART RX／TX、唯一 RX 字节 FIFO、物理错误检测 |
 | [bluetooth_hc05/](bluetooth_hc05/README.md) | 独立 HC-05 设备包装，内部复用 UART，附可选 STATE 状态 |
 | [common/](common/comm_fifo.sv) | 驱动、传输和事件队列共用的同步 FIFO |
+| [万向摇杆适配](JOYSTICK_ADAPTER.md) | 原始 ADC 成对出口、中心校准、连续双轴偏移、八方向与带握手的导航连发；尚未接 LCD UI |
 | [analyzer/](analyzer/README.md) | TYPE 分发、MIDI／Config 业务解析、接口和验证汇报 |
 | [../comm/](../comm/README.md) | 每路 transport、帧仲裁、回复路由、会话协调与通信集成顶层 |
 

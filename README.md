@@ -58,7 +58,8 @@ python/
   requirements.txt         numpy、scipy、matplotlib、soundfile
   fft_analysis/            样本分析与参数提取
   modal_sim/               合成参考、定点验证、参数生成与试听；
-                           router_eng1.py / eng1_demo.py 是 router 级 eng1 整数模型
+                           router_eng1.py / eng1_demo.py / eng1_bc.py 是 router 级
+                           eng1 整数模型（A/B/C 共用 Eng1Core）
   MATH.md                  模态模型与离散更新数学说明
 
 rtl/
@@ -110,14 +111,21 @@ python python/modal_sim/song.py                 # 歌曲片段
 python python/modal_sim/bella_ciao.py            # Bella Ciao，曼陀林
 python python/modal_sim/song_mystery_flute.py    # Mystery of Love，长笛＋吉他
 python python/modal_sim/eng1_demo.py             # router 级 eng1 整数模型（A/B 试听）
+python python/modal_sim/eng1_pieces.py           # 新吉他/钢琴片段（重构后引擎）
+python python/modal_sim/eng1_bc_demo.py         # B/C 共用 Eng1Core 的短句与鼓组
 python python/modal_sim/eng1_cosim.py            # eng1 与 RTL 对拍（需 iverilog）
 ```
 
 当前保留的新试听在 [`FFT_results/sim/eng1/`](FFT_results/sim/README.md)：
 
-- `eng1_guitar_dry.wav`：A 类 guitar，走当前 router 的 eng1 整数链（body=guitar、混响 NONE）。
-- `eng1_flute_hall.wav`：B 类 flute（body=passthrough、混响 HALL）。
-- 两段都是 Python 模型输出，不是 RTL 板级录音。
+- `eng1_guitar_dry.wav`：A 类 guitar demo（body=guitar、混响 NONE）。
+- `eng1_flute_hall.wav`：B 类 flute demo（body=passthrough、混响 HALL）。
+- `eng1_guitar_estudio.wav`：新写的 D 小调吉他练习曲；`eng1_piano_prelude.wav`：新写的
+  C 减和弦钢琴前奏（钢琴提取表只有 C/Eb/F#/A/B 音高类，按这组音写）。两者都用
+  重构后的 router 级 eng1 整数模型。
+- `eng1_b_phrase.wav`、`eng1_c_groove.wav`：B/C 类也走同一个 `Eng1Core`——
+  B 是周期冲激 + ADSR，C 是 seed + timer + choke。
+- 以上都是 Python 模型输出，不是 RTL 板级录音。
 
 旧 A/B/C 类的曼陀林、长笛、鼓组、揉弦等音频/图表已整体归档到
 [`history/FFT_results/sim_pre_eng1_2026-10/`](history/FFT_results/sim_pre_eng1_2026-10/README.md)，

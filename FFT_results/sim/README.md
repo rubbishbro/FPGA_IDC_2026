@@ -1,21 +1,31 @@
 # sim — 当前只保留 router 级 eng1 音频
 
-更新：2026-10-25。
+更新：2026-10-27。
 
 这个目录现在只有 `eng1/`：由 [`python/modal_sim/router_eng1.py`](../../python/modal_sim/router_eng1.py)
-逐样本整数模拟当前 `rtl/router/engines/eng1.sv` 链路（16 slot、Q1.31 包络、Q4.27
-腔体、四梳状混响）产生的两段 WAV。
+和 [`python/modal_sim/eng1_bc.py`](../../python/modal_sim/eng1_bc.py) 逐样本整数模拟
+当前 `rtl/router/engines/eng1.sv` 链路（16 slot、Q1.31 包络、Q4.27 腔体、四梳状
+混响；A/B/C 共用 `Eng1Core`）产生的音频。
 
 ```text
 eng1/
-  eng1_guitar_dry.wav      A 类 guitar，body=guitar，reverb=NONE
-  eng1_flute_hall.wav      B 类 flute，body=passthrough，reverb=HALL
+  eng1_guitar_dry.wav       A 类 guitar demo，body=guitar，reverb=NONE
+  eng1_flute_hall.wav       B 类 flute demo，body=passthrough，reverb=HALL
+  eng1_guitar_estudio.wav   新片段：D 小调练习曲（重构后引擎）
+  eng1_piano_prelude.wav    新片段：C 减和弦前奏（重构后引擎）
+  eng1_b_phrase.wav         B 类长笛短句（共享 Eng1Core，周期冲激 + ADSR）
+  eng1_c_groove.wav         C 类鼓组 groove（共享 Eng1Core，seed + timer + choke）
 ```
+
+钢琴提取表目前只有 C / Eb / F# / A / B 这些音高类，所以前奏按这组音写；
+不是用采样补齐缺失音。
 
 生成：
 
 ```bash
-python python/modal_sim/eng1_demo.py
+python python/modal_sim/eng1_demo.py     # 原有 A/B 链演示
+python python/modal_sim/eng1_pieces.py   # 新写的吉他与钢琴片段
+python python/modal_sim/eng1_bc_demo.py   # B/C 共用 Eng1Core 的短句与鼓组
 ```
 
 模型/格式/与 RTL 的对拍说明见

@@ -345,3 +345,95 @@ def test_load_slot_zero_pads_unused_modes():
     assert np.all(core.y1[0, 3:] == 0)
     y, _ = core.step([-(1 << 28)])
     assert int(y[0]) == -3 * (1 << 28)
+
+
+def test_eng1_pieces_smoke():
+    """The new guitar/piano pieces must at least render and stay finite."""
+    import eng1_pieces as P
+
+    class Args:
+        seconds = 0.25
+
+    for fn in (P.render_guitar, P.render_piano):
+        y, meta = fn(Args())
+        assert y.size > 0
+        assert meta.raw_peak > 0
+        assert meta.warnings == []
+        assert np.all(np.isfinite(y.astype(float)))
+
+
+def test_piano_table_falls_back_to_available_dynamic():
+    import eng1_pieces as P
+
+    # B2 only has a forte row in the extracted piano index.
+    t = P.PianoTable()(47, "piano")
+    assert t.n_modes > 0
+    assert t.G.max() <= (1 << 25) - 1
+
+
+# ---------------------------------------------------------------------------
+# B/C on the shared ABC engine
+# ---------------------------------------------------------------------------
+def test_bc_use_the_same_eng1_core():
+    import eng1_bc as BC
+
+    b = BC.BSynth("flute", body="none", reverb="NONE")
+    c = BC.CSynth(body="none", reverb="NONE")
+    assert isinstance(b.core, R.Eng1Core)
+    assert isinstance(c.core, R.Eng1Core)
+    assert b.core is not c.core       # same engine class, per-synth state
+
+
+def test_b_table_carries_envelope_hints():
+    t = R.build_b_table("flute", 69, "forte")
+    assert t.attack_s is not None and t.attack_s > 0
+    assert t.release_s is not None and t.release_s > 0
+
+
+def test_b_synth_renders_through_core():
+    import eng1_bc as BC
+
+    b = BC.BSynth("flute", body="none", reverb="NONE")
+    y = b.render([(0.0, 69, 0.25, 0.8, "forte")], 0.5)
+    assert y.size == int(0.5 * R.SR)
+    assert np.max(np.abs(y)) > 0
+    assert np.all(np.isfinite(y.astype(float)))
+
+
+def test_c_seed_scaling_matches_rtl():
+    import eng1_bc as BC
+
+    assert BC.scale_seed(1000, 0.5) == 500
+    assert BC.scale_seed(-1000, 0.5) == -500
+    assert BC.scale_seed(123, 1.0) == 123
+
+
+def test_c_table_is_zero_drive_and_seeded():
+    import eng1_bc as BC
+
+    t = BC.build_c_table("kick")
+    assert t.coeffs.G.max() == 0
+    assert t.coeffs.n_modes > 0
+    assert t.seed_y1.size == t.coeffs.n_modes
+    assert t.length > 0
+
+
+def test_c_timer_and_choke():
+    import eng1_bc as BC
+
+    c = BC.CSynth(body="none", reverb="NONE")
+    old = c.hit("hat", 1.0)
+    c.step()
+    new = c.hit("hat", 0.8)
+    assert c.slot[old].timer == 0          # choked by the new hat
+    assert c.slot[new].active
+    assert c.slot[new].timer > 0
+
+
+def test_c_render_is_non_silent():
+    import eng1_bc as BC
+
+    c = BC.CSynth(body="none", reverb="NONE")
+    y = c.render([(0.0, "kick", 1.0), (0.0, "hat", 0.5)], 0.5)
+    assert np.max(np.abs(y)) > 0
+    assert np.all(np.isfinite(y.astype(float)))

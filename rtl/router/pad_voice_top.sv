@@ -4,7 +4,7 @@
 // 功能 : pad_driver + voice_router 的端到端板级/仿真适配顶层
 // 说明 : pad_driver 提供 4×4 压力矩阵；voice_router 内部已完成 fmap→note_on、
 //        激励、包络、引擎、腔体、混响；本模块只负责时钟节拍、固定配置和启动。
-//        不改变 voice_router / pad_driver 内部实现。
+//        摇杆原始采样接口供外部 joystick_adapter 使用。
 // =============================================================================
 `timescale 1ns/1ps
 
@@ -51,7 +51,12 @@ module pad_voice_top #(
     output logic                      qspi_sck,
     output logic [3:0]                qspi_dq_o,
     output logic                      qspi_dq_oe,
-    input  logic [3:0]                qspi_dq_i
+    input  logic [3:0]                qspi_dq_i,
+
+    // 同 clk 域的成对摇杆采样，可直接接 joystick_adapter。
+    output logic                     joy_sample_valid,
+    output logic [13:0]              joy_raw_x,
+    output logic [13:0]              joy_raw_y
 );
     import clk_rst_pkg::*;
     import pad_driver_pkg::*;
@@ -91,7 +96,10 @@ module pad_voice_top #(
                 .cr(pad_cr),
                 .led_p('0),          // 本适配层不驱动 LED；需要时另接 visualizer
                 .dat(led_dat),
-                .input_p(pad_in)
+                .input_p(pad_in),
+                .joy_sample_valid(joy_sample_valid),
+                .joy_raw_x(joy_raw_x),
+                .joy_raw_y(joy_raw_y)
             );
         end else begin : g_no_pad
             assign pad_in.row_s = '0;
@@ -99,6 +107,9 @@ module pad_voice_top #(
             assign pad_in.fmap  = '0;
             assign pad_in.pos   = '0;
             assign led_dat      = 1'b0;
+            assign joy_sample_valid = 1'b0;
+            assign joy_raw_x = '0;
+            assign joy_raw_y = '0;
         end
     endgenerate
 

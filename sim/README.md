@@ -8,6 +8,11 @@
 默认 5 种参数 × 3 个随机种子，共 15 组；日志在 `build/control_loop/`。
 接口及验收边界见[设计文档](../docs/UI控制Loop与配置层设计.md)。
 
+## 万向摇杆适配
+
+摇杆独立验证入口：`python3 sim/run_joystick.py`，共 26 组参数/采集接线仿真。
+接口、覆盖和 ADC 行为模型边界见[摇杆适配说明](../rtl/drivers/JOYSTICK_ADAPTER.md)。
+
 ## 共享引擎回归说明
 
 只保留共享 RAM 新架构的 iverilog 测试；旧并行 top 测试已归档到 `history/sim/unit/core_legacy/`。
@@ -65,7 +70,8 @@ printf 'source sim/synth/gowin_build.tcl\nexit\n' | "$HOME/gowin/IDE/bin/gw_sh" 
 ## router 级 eng1 模型（Python + RTL 对拍）
 
 `python/modal_sim/router_eng1.py` 是当前 `rtl/router/engines/eng1.sv` 的逐样本整数
-模型；它同时也把激励、包络、腔体和混响包成一条可出声的链。回归入口在
+模型；它同时也把激励、包络、腔体和混响包成一条可出声的链。B/C 也走同一个
+`Eng1Core`，见 `python/modal_sim/eng1_bc.py` 和 `eng1_bc_demo.py`。回归入口在
 `sim/unit/eng1/`：
 
 ```bash

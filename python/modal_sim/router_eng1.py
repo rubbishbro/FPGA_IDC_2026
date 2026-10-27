@@ -188,6 +188,11 @@ class Eng1Coeffs:
     #: for the Class-B periodic drive: integer drive period in samples.  ``None``
     #: means "use the instrument's fixed excitation config" (Class A / C).
     drive_period: int | None = None
+    #: Class-B player envelope hints taken from the extraction (seconds).  The
+    #: router's ``env_router`` uses fixed ADSR constants; these are only used by
+    #: the per-note B synth in ``eng1_bc.py``.
+    attack_s: float | None = None
+    release_s: float | None = None
 
     def __post_init__(self):
         self.G = _as_i64(self.G)
@@ -219,7 +224,8 @@ class Eng1Coeffs:
             return Eng1Coeffs(
                 G=self.G[:length], a1=self.a1[:length], a2=self.a2[:length],
                 n_modes=self.n_modes, label=self.label,
-                drive_period=self.drive_period)
+                drive_period=self.drive_period,
+                attack_s=self.attack_s, release_s=self.release_s)
         pad = length - self.a1.size
         if pad == 0:
             return self
@@ -230,6 +236,8 @@ class Eng1Coeffs:
             n_modes=self.n_modes,
             label=self.label,
             drive_period=self.drive_period,
+            attack_s=self.attack_s,
+            release_s=self.release_s,
         )
 
 
@@ -361,7 +369,8 @@ def build_b_table(instrument: str, midi: int, dynamic: str = "forte",
 
     table = Eng1Coeffs(G=Gq, a1=a1q, a2=a2q, n_modes=kk.size,
                        label=f"{instrument}:{midi}:{dynamic}",
-                       drive_period=period)
+                       drive_period=period,
+                       attack_s=float(_atk), release_s=float(_rel))
     _B_TABLE_CACHE[key] = table
     return table
 

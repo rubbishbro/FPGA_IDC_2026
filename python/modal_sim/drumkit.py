@@ -10,6 +10,12 @@ the noise part carries what the modes do not explain (snare wires, cymbal wash).
     python python/modal_sim/drumkit.py            # groove + guitar + piano
     python python/modal_sim/drumkit.py --drums    # drums only
 
+.. note::
+   As of 2026-10-27 the additive C renderer here is legacy.  New C synthesis
+   uses ``eng1_bc.CSynth`` (seed + timer + choke on the shared ``Eng1Core``).
+   This file is still the reference for the extracted kit data and the old
+   additive/noise comparison.
+
 Kit data comes from ``FFT_results/drums.npz`` (run
 ``python python/fft_analysis/percussion.py`` first).
 """
