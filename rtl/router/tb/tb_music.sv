@@ -132,33 +132,35 @@ module tb_music;
         end
         for (int sl = 0; sl < 16; sl++) begin
             for (int m = 0; m < act_modes; m++) begin
-                int rec, idx;
+                int rec, idx, pmidx;
                 rec = img_base + (sl*img_modes + m) * REC_B;
+                // 系数表拆成两个 bank：bank 内地址 = {slot mod HS, mode}
                 idx = (sl % 8) * 64 + m;
+                // 参数表**不拆 bank**：地址 = {slot, mode} = slot*NMP + mode
+                pmidx = sl * 64 + m;
                 if (sl >= 8) begin
                     dut.ca_a11_b[idx] = rec_word(rec, 0); dut.ca_a12_b[idx] = rec_word(rec, 1);
                     dut.ca_a21_b[idx] = rec_word(rec, 2); dut.ca_a22_b[idx] = rec_word(rec, 3);
                     dut.ca_gq_b[idx]  = rec_word(rec, 4); dut.ca_gv_b[idx]  = rec_word(rec, 5);
                     dut.ca_wo_b[idx]  = rec_word(rec, 6);
-                    // 调制参数表（8 个字）：4 基值 + 4 斜率
-                    dut.pm_a11[idx] = rec_word(rec, 8);  dut.pm_a12[idx] = rec_word(rec, 9);
-                    dut.pm_a22[idx] = rec_word(rec, 10); dut.pm_wo[idx]  = rec_word(rec, 11);
-                    dut.pm_s11[idx] = rec_word(rec, 12); dut.pm_s12[idx] = rec_word(rec, 13);
-                    dut.pm_s22[idx] = rec_word(rec, 14); dut.pm_swo[idx] = rec_word(rec, 15);
                 end else begin
                     dut.ca_a11_a[idx] = rec_word(rec, 0); dut.ca_a12_a[idx] = rec_word(rec, 1);
                     dut.ca_a21_a[idx] = rec_word(rec, 2); dut.ca_a22_a[idx] = rec_word(rec, 3);
                     dut.ca_gq_a[idx]  = rec_word(rec, 4); dut.ca_gv_a[idx]  = rec_word(rec, 5);
                     dut.ca_wo_a[idx]  = rec_word(rec, 6);
-                    dut.pm_a11[idx] = rec_word(rec, 8);  dut.pm_a12[idx] = rec_word(rec, 9);
-                    dut.pm_a22[idx] = rec_word(rec, 10); dut.pm_wo[idx]  = rec_word(rec, 11);
-                    dut.pm_s11[idx] = rec_word(rec, 12); dut.pm_s12[idx] = rec_word(rec, 13);
-                    dut.pm_s22[idx] = rec_word(rec, 14); dut.pm_swo[idx] = rec_word(rec, 15);
                 end
+                // 调制参数表（8 个字）：4 基值 + 4 斜率，按 {slot, mode} 平铺
+                dut.pm_a11[pmidx] = rec_word(rec, 8);  dut.pm_a12[pmidx] = rec_word(rec, 9);
+                dut.pm_a22[pmidx] = rec_word(rec, 10); dut.pm_wo[pmidx]  = rec_word(rec, 11);
+                dut.pm_s11[pmidx] = rec_word(rec, 12); dut.pm_s12[pmidx] = rec_word(rec, 13);
+                dut.pm_s22[pmidx] = rec_word(rec, 14); dut.pm_swo[pmidx] = rec_word(rec, 15);
             end
         end
         $display("coefs from flash image: inst=%0d modes=%0d  slot0 a11=%0d a21=%0d pm_s12=%0d",
                  ins_sel, act_modes, dut.ca_a11_a[0], dut.ca_a21_a[0], dut.pm_s12[0]);
+        $display("    DBG img base=%0d bytes52..55=%02h %02h %02h %02h -> word13=%0d",
+                 img_base, img[img_base + 52], img[img_base + 53],
+                 img[img_base + 54], img[img_base + 55], rec_word(img_base, 13));
     endtask
 
     // ------------------------------------------------------------------
