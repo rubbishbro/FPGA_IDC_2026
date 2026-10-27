@@ -33,10 +33,10 @@ module env_router #(
             router_pkg::INST_PIANO: begin
                 use_adsr = 1'b1;
             end
-            router_pkg::INST_GUITAR: begin
-                use_adsr = 1'b0;
-                use_dyn  = 1'b1;
-            end
+            // router_pkg::INST_GUITAR: begin
+            //     use_adsr = 1'b0;
+            //     use_dyn  = 1'b1;
+            // end
             default: use_adsr = 1'b0;   // 常数包络（"无"）
         endcase
     end

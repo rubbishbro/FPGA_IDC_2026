@@ -56,8 +56,8 @@ module modulation0 #(
 
     // ---- lambda 的临时映射（Q30）----
     localparam logic signed [31:0] LAM_MAX = 32'sd32_212_255;   // 0.03 * 2^30
-    localparam logic signed [31:0] LAM_OFF = 32'sd200;          // 中心：正常按 ≈ 0
-    localparam int                 LAM_SH  = 18;                // (fmap-200)<<18 -> ±0.034
+    localparam logic signed [31:0] LAM_OFF = 32'sd242;          // 中心：和 NOTE_ON_TH(230) 对齐
+    localparam int                 LAM_SH  = 21;                // (fmap-242)<<21 -> 覆盖 ±0.03（fmap 230..255）
 
     typedef enum logic [2:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY, S_OUT } mst_e;
     mst_e st;

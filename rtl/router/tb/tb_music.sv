@@ -95,13 +95,19 @@ module tb_music;
     endtask
 
     // ------------------------------------------------------------------
+    // 系数直接从 flash 镜像读（tools/piano_flash.mem / guitar_flash.mem）
+    //   运行期用 plusargs 选乐器/是否扫力度：
+    //     xsim tb_mu -testplusarg INS=0|1 -testplusarg SWEEP=0|1
+    //   INS=0 钢琴（inst 0，每 slot 64 模态，镜像从 0 开始）
+    //   INS=1 吉他（inst 1，每 slot 20 模态，镜像从 16*20*64 开始）
     // ------------------------------------------------------------------
-    // 系数直接从 flash 镜像读（tools/piano_flash.mem）
-    //   镜像：inst 0 的表从 0 开始，每 slot 64 条 × 64 字节记录
-    // ------------------------------------------------------------------
-    localparam int IMG_MODES = 64;
-    localparam int REC_B     = 64;
-    localparam int IMG_BYTES = 3 * 16 * IMG_MODES * REC_B;
+    int    ins_sel   = 0;
+    int    sweep_sel = 0;
+    int    act_modes = 64;          // 本乐器实际用的模态数（决定从镜像里读几条）
+    int    img_modes = 64;          // 镜像里每 slot 有几条记录
+    int    img_base  = 0;           // 本乐器的表在镜像里的起始字节
+    localparam int REC_B = 64;
+    localparam int IMG_BYTES = 3 * 16 * 64 * REC_B;     // 够大，两种乐器都能装
     logic [7:0]    img [0:IMG_BYTES-1];
     bit            img_loaded = 1'b0;
 
@@ -110,31 +116,47 @@ module tb_music;
     endfunction
 
     task automatic load_coefs();
-        int base;
         if (!img_loaded) begin
-            $readmemh("rtl/router/tools/piano_flash.mem", img);
+            if (ins_sel == 1) begin
+                $readmemh("rtl/router/tools/guitar_flash.mem", img);
+                act_modes = 20;  img_modes = 20;
+                img_base  = 1 * 16 * 20 * REC_B;        // INST_GUITAR = 1
+            end else begin
+                $readmemh("rtl/router/tools/piano_flash.mem", img);
+                act_modes = 64;  img_modes = 64;
+                img_base  = 0;                          // INST_PIANO = 0
+            end
             img_loaded = 1'b1;
         end
-        base = 0;                                    // INST_PIANO = 0（枚举改了这里也要改）
         for (int sl = 0; sl < 16; sl++) begin
-            for (int m = 0; m < 64; m++) begin
+            for (int m = 0; m < act_modes; m++) begin
                 int rec, idx;
-                rec = base + (sl*IMG_MODES + m) * REC_B;
+                rec = img_base + (sl*img_modes + m) * REC_B;
                 idx = (sl % 8) * 64 + m;
                 if (sl >= 8) begin
                     dut.ca_a11_b[idx] = rec_word(rec, 0); dut.ca_a12_b[idx] = rec_word(rec, 1);
                     dut.ca_a21_b[idx] = rec_word(rec, 2); dut.ca_a22_b[idx] = rec_word(rec, 3);
                     dut.ca_gq_b[idx]  = rec_word(rec, 4); dut.ca_gv_b[idx]  = rec_word(rec, 5);
                     dut.ca_wo_b[idx]  = rec_word(rec, 6);
+                    // 调制参数表（8 个字）：4 基值 + 4 斜率
+                    dut.pm_a11[idx] = rec_word(rec, 8);  dut.pm_a12[idx] = rec_word(rec, 9);
+                    dut.pm_a22[idx] = rec_word(rec, 10); dut.pm_wo[idx]  = rec_word(rec, 11);
+                    dut.pm_s11[idx] = rec_word(rec, 12); dut.pm_s12[idx] = rec_word(rec, 13);
+                    dut.pm_s22[idx] = rec_word(rec, 14); dut.pm_swo[idx] = rec_word(rec, 15);
                 end else begin
                     dut.ca_a11_a[idx] = rec_word(rec, 0); dut.ca_a12_a[idx] = rec_word(rec, 1);
                     dut.ca_a21_a[idx] = rec_word(rec, 2); dut.ca_a22_a[idx] = rec_word(rec, 3);
                     dut.ca_gq_a[idx]  = rec_word(rec, 4); dut.ca_gv_a[idx]  = rec_word(rec, 5);
                     dut.ca_wo_a[idx]  = rec_word(rec, 6);
+                    dut.pm_a11[idx] = rec_word(rec, 8);  dut.pm_a12[idx] = rec_word(rec, 9);
+                    dut.pm_a22[idx] = rec_word(rec, 10); dut.pm_wo[idx]  = rec_word(rec, 11);
+                    dut.pm_s11[idx] = rec_word(rec, 12); dut.pm_s12[idx] = rec_word(rec, 13);
+                    dut.pm_s22[idx] = rec_word(rec, 14); dut.pm_swo[idx] = rec_word(rec, 15);
                 end
             end
         end
-        $display("coefs from flash image: slot0 a11=%0d a21=%0d", dut.ca_a11_a[0], dut.ca_a21_a[0]);
+        $display("coefs from flash image: inst=%0d modes=%0d  slot0 a11=%0d a21=%0d pm_s12=%0d",
+                 ins_sel, act_modes, dut.ca_a11_a[0], dut.ca_a21_a[0], dut.pm_s12[0]);
     endtask
 
     // ------------------------------------------------------------------
@@ -166,8 +188,22 @@ module tb_music;
         repeat (5) @(posedge clk);
 
         // 没有 flash 行为模型：跳过第一次 load，直接灌 RAM 镜像
-        dut.inst_prev = router_pkg::INST_PIANO;
+        // 用例选择走**文件**（xsim 的 -testplusarg 在 .bat 里会被 '=' 拆开，
+        // 跟它较劲不划算）：_analysis/case.txt 两行，第一行 INS、第二行 SWEEP
+        begin : read_case
+            int fd_c, r;
+            fd_c = $fopen("_analysis/case.txt", "r");
+            if (fd_c != 0) begin
+                r = $fscanf(fd_c, "%d", ins_sel);
+                r = $fscanf(fd_c, "%d", sweep_sel);
+                $fclose(fd_c);
+            end
+        end
+        inst          = (ins_sel == 1) ? router_pkg::INST_GUITAR : router_pkg::INST_PIANO;
+        dut.inst_prev = inst;
         load_coefs();
+        $display("    INS=%0d（%0s）  SWEEP=%0d", ins_sel,
+                 (ins_sel == 1) ? "吉他" : "钢琴", sweep_sel);
         repeat (5) @(posedge clk);
 
         t0 = $time;
@@ -180,10 +216,20 @@ module tb_music;
                     for (int k = 0; k < 16; k++) press(k, 8'd250);
                     $display("    [%0d] 16 个键**同时**按下，力度 250，按住 %0d 采样", n, HOLD);
                 end else begin
-                    press(NOTE_SLOT, 8'd250);
-                    $display("    [%0d] 按 slot %0d（镜像里 midi40 + 2*%0d），力度 250，按住 %0d 采样后松开",
-                             n, NOTE_SLOT, NOTE_SLOT, HOLD);
+                    press(NOTE_SLOT, (ins_sel == 1) ? 8'd240 : 8'd250);
+                    $display("    [%0d] 按 slot %0d（镜像里 midi40 + 2*%0d），力度 %0d，按住 %0d 采样后松开",
+                             n, NOTE_SLOT, NOTE_SLOT, (ins_sel == 1) ? 240 : 250, HOLD);
                 end
+            end
+            // ---- SWEEP=1：按住期间力度走 232 -> 252 -> 232（揉弦）----
+            //   必须一直 > NOTE_ON_TH(230)，否则会被当成松键；
+            //   按临时映射 lambda=(fmap-242)<<21/2^30，这段对应 λ ≈ -0.021 .. +0.021
+            if (sweep_sel != 0 && ins_sel == 1 && n > 200 && n < HOLD) begin
+                int trip, v;
+                trip = (n - 200) * 200 / (HOLD - 200);      // 0..200
+                v    = (trip < 100) ? (232 + trip * 20 / 100)
+                                    : (252 - (trip - 100) * 20 / 100);
+                fmap.flat_d[NOTE_SLOT].val = 8'(v);
             end
             if (n == 40 + HOLD) begin
                 if (ALL16 != 0) begin
