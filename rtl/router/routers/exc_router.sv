@@ -42,11 +42,8 @@ module exc_router #(
         n_pulse = 3'd0;
         case (inst)
             router_pkg::INST_GUITAR: begin
-                // 幅度：吉他的 gq 比钢琴大 ~5 万倍（guitar_coeff_gen 里
-                // gq = 0.001*sin(πpos)/((πn)²·pos(1-pos))，没带钢琴那套 1/ω0² 的
-                // 定标），所以同样的 fmap 下 x 要小两个数量级才不爆满幅。
-                // 这是**临时**补偿：正解是让生成器把 gq 定到和钢琴同一约定。
-                shift   = 6'd14;
+                // 幅度和钢琴对齐（SHIFT=16 -> fmap=250 时 x=0.977）
+                shift   = 6'd16;
                 rise_sh = 6'd1;      // 拨弦：2 个采样就升到峰值
                 pw_len  = 16'd2;
                 gap_len = 16'd0;
