@@ -40,7 +40,7 @@ module mod_router #(
     always_comb case (inst)
         // TODO: 揉弦的一阶线性版本还在调（会写出 >1 的 a11 导致自激），
         // 先关掉出一版"无调制"的吉他音色；修好再打开。
-        router_pkg::INST_GUITAR: en = 1'b0;
+        router_pkg::INST_GUITAR: en = 1'b1;
         default:                 en = 1'b0;
     endcase
 

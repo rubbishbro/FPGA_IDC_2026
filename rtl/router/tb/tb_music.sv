@@ -271,6 +271,21 @@ module tb_music;
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
                  NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
+        // ---- DBG：逐模态扫一遍 slot NOTE_SLOT 的系数和状态（查调制写坏没）----
+        if (DBG != 0) begin
+            $display("    DBG mode scan (slot %0d): a11(Q28) a12(Q30) wo(Q29) q(Q24)   |q|>2^24 或 |a11|>2^28 会标 *",
+                     NOTE_SLOT);
+            for (int m = 0; m < act_modes; m++) begin
+                int  qa, a11v;
+                qa   = (NOTE_SLOT < 8) ? dut.q_ram_a[(NOTE_SLOT % 8) * 64 + m]
+                                       : dut.q_ram_b[(NOTE_SLOT % 8) * 64 + m];
+                a11v = (NOTE_SLOT < 8) ? dut.ca_a11_a[(NOTE_SLOT % 8) * 64 + m]
+                                       : dut.ca_a11_b[(NOTE_SLOT % 8) * 64 + m];
+                if ((qa > (1 << 24)) || (qa < -(1 << 24)) ||
+                    (a11v > (1 << 28)) || (a11v < -(1 << 28)))
+                    $display("    DBG * mode%0d a11=%0d q=%0d", m, a11v, qa);
+            end
+        end
         $display("探针：slot%0d mode0 状态峰值 |q| = %0d = %f（Q24；Python 模型 midi40 mode0 是 0.0277）",
                  NOTE_SLOT, q_abs, real'(q_abs) / 16777216.0);
         $display("自检：n_out=%0d（应 %0d）  n_x=%0d（应 0）  |ymax|=%0d（应 >0）  削波=%0d",
