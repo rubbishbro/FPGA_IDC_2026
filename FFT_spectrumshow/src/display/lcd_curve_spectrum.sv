@@ -1,3 +1,15 @@
+// =============================================================================
+// lcd_curve_spectrum.sv - linear FALL page renderer
+//
+// Per pixel: compare y against the four curve heights read from curve_store
+// (column = pix_x), draw 2-3 px thick lines, mirror the lower half and fill
+// the area between the curves with a dim colour.  No frame buffer.
+//
+// curve_store read latency is 1 clock; pxx/pxy/curve_d are delayed to match
+// the data.  curve_rd_addr is driven directly by pix_x.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module lcd_curve_spectrum (
     input  logic        clk,
     input  logic        rst_n,

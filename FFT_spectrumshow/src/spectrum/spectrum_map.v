@@ -1,3 +1,14 @@
+// =============================================================================
+// spectrum_map.v - 512 FFT bins -> 128 bar heights
+//
+// Amplitude is approximated with max + min/4 (no sqrt).  Each bar takes the
+// peak over its bin range from bar2bin.mem.  The height is a log/octave scale
+// relative to the frame peak (8 octaves, 60 px each); attack is immediate and
+// release drops 6 px per frame.  A per-bar overshoot target is produced for
+// the BARS peak dot.
+//
+// clk = clk_core = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module spectrum_map #(
     parameter N_BARS = 128,
     parameter BIN_W  = 10

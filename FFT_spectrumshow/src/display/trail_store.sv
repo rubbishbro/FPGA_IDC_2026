@@ -1,3 +1,9 @@
+// =============================================================================
+// trail_store.sv - 128 x 40 smoothed age heights (one entry per bar)
+//
+// Simple dual-port RAM: one write, one registered read.  Holds
+// {current, age3, age7, age15} for each of the 128 bars.
+// =============================================================================
 module trail_store #(
     parameter int N_BARS = 128
 ) (

@@ -1,5 +1,6 @@
 module ui_demo_top #(
-    parameter       SWEEP_MODE = 1'b0
+    parameter       SWEEP_MODE = 1'b0,
+    parameter       POLAR_FALL = 1'b0
 ) (
     input           clk,
     input           rst_n,
@@ -286,7 +287,9 @@ module ui_demo_top #(
         .wave_rd_data(wave_rd_data)
     );
 
-    lcd_draw u_draw (
+    lcd_draw #(
+        .POLAR_FALL      (POLAR_FALL)
+    ) u_draw (
         .clk             (pix_clk),
         .rst_n           (rst_pix_n),
         .frame_pulse     (frame_pulse),

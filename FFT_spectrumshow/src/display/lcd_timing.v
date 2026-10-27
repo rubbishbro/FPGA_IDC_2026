@@ -1,3 +1,17 @@
+// =============================================================================
+// lcd_timing.v - 800x480 panel timing generator
+//
+//   H: 800 valid + 210 front porch + 182 back porch = 1192 clocks
+//   V: 480 valid +  45 front porch +   8 back porch =  533 lines
+//   1192 * 533 / 33.333 MHz = 19.06 ms  (52.47 Hz)
+//
+// pix_x/pix_y are clamped to 0 outside the active area.  lcd_en marks the
+// active region and frame_pulse is a one-clock pulse in the vertical blanking
+// (used to swap display banks).  The first pixel of a frame is at
+// pix_x = 0, pix_y = 0.
+//
+// clk = lcd_clk = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module lcd_timing (
     input               lcd_clk,
     input               rst_n,

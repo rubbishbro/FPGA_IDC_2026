@@ -1,3 +1,12 @@
+// =============================================================================
+// key_debounce.v - 2FF synchroniser + counter debounce, press pulse output
+//
+// Any change on the synchronised input restarts the counter; once the input
+// is stable for DEBOUNCE_CNT clocks it is adopted.  key_pulse is one clock on
+// the falling edge (press) of the stable signal.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module key_debounce #(
     parameter DEBOUNCE_CNT = 20'd660_000   // ~20ms at 33MHz
 )(

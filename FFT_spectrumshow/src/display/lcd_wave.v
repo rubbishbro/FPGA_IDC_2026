@@ -1,3 +1,16 @@
+// =============================================================================
+// lcd_wave.v - WAVE page renderer
+//
+// Draws the captured time-domain waveform as a 1 px vertical span between the
+// previous and the current sample.  Pure combinational compare on registered
+// pixels; no frame buffer.
+//
+//   wave_rd_addr = pix_x (0..767), memory read latency 1 clock
+//   pxx2/pxy2    = pixel position delayed 2 clocks to match the data
+//   hit          = inside x < 768 and y between y_prev and y_curr
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module lcd_wave (
     input  logic        clk,
     input  logic        rst_n,

@@ -1,3 +1,14 @@
+// =============================================================================
+// curve_store.sv - 768 x 40 dual-bank curve buffer
+//
+// The write side fills the back bank; on wr_frame_done the bank flips and a
+// toggle crosses to the read side, which switches banks on the next display
+// frame.  Read latency is one clock; read data is 0 until the first frame is
+// ready.
+//
+// wr_clk/rd_clk are both clk_pix today; the toggle + 2FF keeps it safe if the
+// write side ever moves to another clock.
+// =============================================================================
 module curve_store #(
     parameter int N_POINTS = 768
 ) (

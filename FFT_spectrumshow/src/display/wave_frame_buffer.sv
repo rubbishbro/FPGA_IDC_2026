@@ -1,3 +1,10 @@
+// =============================================================================
+// wave_frame_buffer.sv - 768 x 10 dual-bank waveform buffer
+//
+// Same bank/toggle scheme as curve_store: write the back bank, flip on
+// wr_frame_done, the read bank switches on the next display frame.  Read
+// latency is one clock; data is 0 until the first frame is ready.
+// =============================================================================
 module wave_frame_buffer #(
     parameter int N_POINTS = 768
 ) (

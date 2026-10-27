@@ -1,4 +1,21 @@
-module lcd_draw (
+// =============================================================================
+// lcd_draw.v - page selection and pixel priority
+//
+//   page 00 BARS     -> lcd_fft
+//   page 01 WAVE     -> lcd_wave
+//   page 10 FALL     -> lcd_curve_spectrum (POLAR_FALL = 0)
+//                       lcd_polar_curve   (POLAR_FALL = 1)
+//   page 11 SETTINGS -> background only
+//
+// Priority: UI tab/settings > page content > grid > black.
+// The polar page owns the whole screen (dashboard + sky), so the global
+// rectangular grid is hidden on page 10.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
+module lcd_draw #(
+    parameter bit POLAR_FALL = 1'b0
+) (
     // 33.333 MHz 像素时钟与低有效复位
     input               clk,
     input               rst_n,
@@ -68,12 +85,33 @@ module lcd_draw (
         .wave_hit(wave_hit), .wave_r(wave_r), .wave_g(wave_g), .wave_b(wave_b)
     );
 
-    lcd_curve_spectrum u_curve(
-        .clk(clk), .rst_n(rst_n), .lcd_valid(lcd_valid),
-        .pix_x(pix_x), .pix_y(pix_y), .theme(effects[2]),
-        .curve_data(curve_rd_data), .curve_rd_addr(curve_rd_addr),
-        .hit(curve_hit), .r(curve_r), .g(curve_g), .b(curve_b)
-    );
+    generate
+        if (POLAR_FALL) begin : g_polar_fall
+            lcd_polar_curve u_polar (
+                .clk           (clk),
+                .rst_n         (rst_n),
+                .frame_pulse   (frame_pulse),
+                .lcd_valid     (lcd_valid),
+                .pix_x         (pix_x),
+                .pix_y         (pix_y),
+                .curve_rd_addr (curve_rd_addr),
+                .curve_rd_data (curve_rd_data),
+                .theme         (effects[2]),
+                .hit           (curve_hit),
+                .r             (curve_r),
+                .g             (curve_g),
+                .b             (curve_b)
+            );
+        end
+        else begin : g_linear_fall
+            lcd_curve_spectrum u_curve(
+                .clk(clk), .rst_n(rst_n), .lcd_valid(lcd_valid),
+                .pix_x(pix_x), .pix_y(pix_y), .theme(effects[2]),
+                .curve_data(curve_rd_data), .curve_rd_addr(curve_rd_addr),
+                .hit(curve_hit), .r(curve_r), .g(curve_g), .b(curve_b)
+            );
+        end
+    endgenerate
 
     lcd_ui u_ui(
         .lcd_valid(lcd_valid),
@@ -100,9 +138,13 @@ module lcd_draw (
                       (page_sel == 2'b10) ? curve_b   : 6'h00;
 
     // ===== priority: UI > page content > grid > background =====
-    wire [5:0] base_r = page_hit ? page_r : bg_hit ? bg_r : 6'h00;
-    wire [5:0] base_g = page_hit ? page_g : bg_hit ? bg_g : 6'h00;
-    wire [5:0] base_b = page_hit ? page_b : bg_hit ? bg_b : 6'h00;
+    // The polar page draws its own decorative background, so the global
+    // rectangular grid must not show through around the circle.
+    wire bg_hit_eff = (POLAR_FALL && (page_sel == 2'b10)) ? 1'b0 : bg_hit;
+
+    wire [5:0] base_r = page_hit ? page_r : bg_hit_eff ? bg_r : 6'h00;
+    wire [5:0] base_g = page_hit ? page_g : bg_hit_eff ? bg_g : 6'h00;
+    wire [5:0] base_b = page_hit ? page_b : bg_hit_eff ? bg_b : 6'h00;
     wire [5:0] draw_r = ui_hit ? ui_r : base_r;
     wire [5:0] draw_g = ui_hit ? ui_g : base_g;
     wire [5:0] draw_b = ui_hit ? ui_b : base_b;

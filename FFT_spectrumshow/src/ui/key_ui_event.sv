@@ -1,3 +1,12 @@
+// =============================================================================
+// key_ui_event.sv - debounce + short/long press events
+//
+// 2FF synchroniser, counter debounce, then a hold counter: releasing before
+// LONG_CNT emits SHORT_EVENT, holding past LONG_CNT emits LONG_EVENT once.
+// Defaults: ~20 ms debounce and ~800 ms long press at 33.333 MHz.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module key_ui_event #(
     parameter integer DEBOUNCE_CNT = 660_000,
     parameter integer LONG_CNT     = 26_666_667,

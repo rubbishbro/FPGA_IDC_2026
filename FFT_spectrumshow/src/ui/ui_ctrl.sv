@@ -1,3 +1,13 @@
+// =============================================================================
+// ui_ctrl.sv - page / settings state machine
+//
+// NEXT/PREV move through the four pages; on the SETTINGS page they move the
+// setting row.  OK enters SETTINGS or toggles the selected effect bit; BACK
+// returns to BARS.  Reset state: BARS page, effects = 4'b1011
+// (SMTH on, PEAK on, THEM off, GRID on).
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module ui_ctrl (
     input  logic       clk,
     input  logic       rst_n,

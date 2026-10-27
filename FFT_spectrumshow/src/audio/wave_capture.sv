@@ -1,3 +1,12 @@
+// =============================================================================
+// wave_capture.sv - time-domain capture for the WAVE page
+//
+// On start (a fresh FFT window) it scans for the first falling zero crossing,
+// backs up 2 samples, then captures N_POINTS samples.  24-bit signed samples
+// are scaled to a 10-bit 40..440 window centred at 240.
+//
+// clk = clk_core = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module wave_capture #(
     parameter int N_POINTS = 768,
     parameter int SCAN_MAX = 255

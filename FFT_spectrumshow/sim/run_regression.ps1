@@ -32,6 +32,7 @@ $tests = @(
     "waterfall_tb",
     "trail_calc_tb",
     "curve_calc_tb",
+    "curve_calc_equiv_tb",
     "lcd_curve_spectrum_tb",
     "lcd_ui_tb",
     "lcd_effects_tb",
@@ -39,6 +40,7 @@ $tests = @(
     "ui_dual_key_tb",
     "lcd_fft_tb",
     "lcd_fft_align_tb",
+    "tb_lcd_polar_curve",
     "chain_tb"
 )
 

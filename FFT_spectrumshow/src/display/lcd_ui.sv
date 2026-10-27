@@ -1,3 +1,10 @@
+// =============================================================================
+// lcd_ui.sv - top tabs and SETTINGS page
+//
+// Draws the four 184x28 tabs at y = 4 and the settings panel with the four
+// toggles (SMTH / PEAK / THEM / GRID).  Fully combinational pixel tests; the
+// module has no clock.
+// =============================================================================
 module lcd_ui (
     input  logic       lcd_valid,
     input  logic [9:0] pix_x,

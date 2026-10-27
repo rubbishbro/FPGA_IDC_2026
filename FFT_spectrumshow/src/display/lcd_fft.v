@@ -1,3 +1,14 @@
+// =============================================================================
+// lcd_fft.v - BARS page renderer
+//
+// Per pixel: bar body from the bottom up to 479 - height, a 192-colour rainbow
+// that rotates one step every HUE_DIV frames, a per-bar peak dot with
+// hysteresis and a slow fall, and a monochrome theme.  The bar index is
+// derived from pix_x with a /6 counter (no divider on the pixel path).
+// No frame buffer.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module lcd_fft (
     input               clk,
     input               rst_n,

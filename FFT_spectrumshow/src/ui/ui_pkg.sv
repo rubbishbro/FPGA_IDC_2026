@@ -1,3 +1,8 @@
+// =============================================================================
+// ui_pkg.sv - UI event and page constants shared by key_ui_event, ui_ctrl and
+// lcd_ui.  The event codes must match the SHORT_EVENT/LONG_EVENT parameters
+// of the key_ui_event instances in ui_demo_top.
+// =============================================================================
 package ui_pkg;
 
     localparam logic [2:0] UI_EV_NONE = 3'd0;

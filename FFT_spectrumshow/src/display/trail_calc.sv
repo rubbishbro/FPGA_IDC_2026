@@ -1,3 +1,13 @@
+// =============================================================================
+// trail_calc.sv - pick the four FALL ages and smooth them
+//
+// For every bar it reads waterfall rows base-0/3/7/15, applies a 3-point
+// (1,2,1)/4 smoothing across neighbouring bars, and writes 4 x 10-bit heights
+// to trail_store.  16 rows per bar plus a 2-deep shift register for the
+// smoothing window.
+//
+// clk = clk_pix = 33.333 MHz, async active-low reset rst_n.
+// =============================================================================
 module trail_calc #(
     parameter int N_BARS = 128,
     parameter int N_ROWS = 16,

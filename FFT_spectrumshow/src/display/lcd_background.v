@@ -1,3 +1,10 @@
+// =============================================================================
+// lcd_background.v - static background: 32 px grid + 1 px white border
+//
+// Fully combinational, no clock.  grid_en gates the grid lines; the border is
+// always drawn.  Used by every page except the polar FALL page, which draws
+// its own dashboard and sky.
+// =============================================================================
 module lcd_background (
     input       [9:0]   pix_x,
     input       [9:0]   pix_y,
