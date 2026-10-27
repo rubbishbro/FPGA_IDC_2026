@@ -32,6 +32,7 @@ module tb_music;
     localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（钢琴 64 模态 ≈735 拍 + 排空）
     parameter  int NSAMP  = 24000;           // 采样数：24000 = 0.5 s（够 FFT 出 2 Hz 分辨率）
     parameter  int PROBE  = 0;               // 1 = 打印前 40 个非零采样的各节点值
+    parameter  int DBG    = 0;               // 1 = 前 4 个采样逐级打印（定位 X）
     parameter  int NOTE_SLOT = 0;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
     parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
@@ -103,6 +104,7 @@ module tb_music;
     // ------------------------------------------------------------------
     int    ins_sel   = 0;
     int    sweep_sel = 0;
+    int    nsamp_v   = 0;        // case.txt 第三个数：>0 时覆盖 NSAMP（快速调试用）
     int    act_modes = 64;          // 本乐器实际用的模态数（决定从镜像里读几条）
     int    img_modes = 64;          // 镜像里每 slot 有几条记录
     int    img_base  = 0;           // 本乐器的表在镜像里的起始字节
@@ -189,15 +191,17 @@ module tb_music;
 
         // 没有 flash 行为模型：跳过第一次 load，直接灌 RAM 镜像
         // 用例选择走**文件**（xsim 的 -testplusarg 在 .bat 里会被 '=' 拆开，
-        // 跟它较劲不划算）：_analysis/case.txt 两行，第一行 INS、第二行 SWEEP
+        // 跟它较劲不划算）：_analysis/case.txt 三行：INS、SWEEP、采样数(<=0 用 NSAMP)
         begin : read_case
             int fd_c, r;
             fd_c = $fopen("_analysis/case.txt", "r");
             if (fd_c != 0) begin
                 r = $fscanf(fd_c, "%d", ins_sel);
                 r = $fscanf(fd_c, "%d", sweep_sel);
+                r = $fscanf(fd_c, "%d", nsamp_v);
                 $fclose(fd_c);
             end
+            if (nsamp_v <= 0) nsamp_v = NSAMP;
         end
         inst          = (ins_sel == 1) ? router_pkg::INST_GUITAR : router_pkg::INST_PIANO;
         dut.inst_prev = inst;
@@ -207,7 +211,7 @@ module tb_music;
         repeat (5) @(posedge clk);
 
         t0 = $time;
-        for (int n = 0; n < NSAMP; n++) begin
+        for (int n = 0; n < nsamp_v; n++) begin
             // ---- 弹法：ALL16=1 是"开头 16 个键一起按下"（测饱和）；
             //     否则只弹 NOTE_SLOT 一个音，之后自由衰减 ----
             if (n == 40) begin
@@ -241,6 +245,11 @@ module tb_music;
                 end
             end
             one_sample();
+            // ---- 前几个采样逐级打印：定位 X 从哪一级冒出来（DBG=1 时）----
+            if (DBG != 0 && n < 4)
+                $display("    DBG n=%0d y=%0d mix_q=%0d body_y=%0d emap=%0d x_q=%0d a11=%0d wo=%0d",
+                         n, y_data, dut.mix_q, dut.body_y, dut.emap[NOTE_SLOT],
+                         dut.x_q[NOTE_SLOT], dut.ca_a11_a[0], dut.ca_wo_a[0]);
             // ---- 探针：这一帧的四个节点（只在 PROBE=1 时打印前 40 个非零）----
             if (PROBE != 0 && n_probe < 40 && (y_data != 0 || dut.mix_q != 0)) begin
                 $display("      probe[%0d] mix_q=%0d body_y=%0d q4=%0d x4=%0d emap4=%0d",

@@ -304,8 +304,16 @@ module voice_router #(
     // 清零：只看本组这两个声部有没有"刚起音/刚空了"
     logic [CO_SLOT-1:0]   pm_idx;      // 调制参数读地址 = {slot, mode}（不拆 bank）
     logic                 era_zero, erb_zero;
-    assign era_zero = note_f[g[VWID-1:0]]              | dead_f[g[VWID-1:0]];
-    assign erb_zero = note_f[VWID'(g + VWID'(HS))]      | dead_f[VWID'(g + VWID'(HS))];
+
+    // 上电/换表后必须**先把状态 RAM 清一遍**：BSRAM 没有复位值，而引擎每帧只写
+    // 自己那一组（HS 组 = HS 帧才轮一遍）。以前靠"包络 dead=1"兜着；吉他改成
+    // 无包络后 dead 恒 0，第一帧就读到未初始化的 RAM -> 输出全是 X。所以这里
+    // 独立记一个"还没写满一轮"的窗口，强制清零 HS+2 帧。
+    logic [IW:0]          zero_frames;      // 还剩几帧要强制清零
+    logic                 init_zero;
+    assign init_zero = (zero_frames != '0);
+    assign era_zero = note_f[g[VWID-1:0]]              | dead_f[g[VWID-1:0]]              | init_zero;
+    assign erb_zero = note_f[VWID'(g + VWID'(HS))]      | dead_f[VWID'(g + VWID'(HS))]      | init_zero;
 
     always_comb begin
         co_ra.a11 = co_a11_ra; co_ra.a12 = co_a12_ra; co_ra.a21 = co_a21_ra;
@@ -686,6 +694,7 @@ module voice_router #(
             g          <= '0;
             pick_b     <= 1'b0;
             nm_lat     <= '0;
+            zero_frames<= (IW+1)'(HS + 2);   // 上电先强制清 HS+2 帧状态
             inst_lat   <= INST_NONE;
             inst_prev  <= INST_NONE;
             eng_start  <= 1'b0;
@@ -725,6 +734,8 @@ module voice_router #(
                 //   ready=0 时这一帧照常跑（用旧表），变更挂起等下一次。
                 S_DONE: begin
                     if (start) begin
+                        // 每帧扣一次清零窗口（HS+2 帧之后状态 RAM 已经全被写过）
+                        if (zero_frames != '0) zero_frames <= zero_frames - 1'b1;
                         // 每个乐器用多少模态由 router_pkg 定；超过表的物理深度就限幅
                         //   （n_modes_of 不知道 N_MODES，所以夹在这里）
                         nm_lat   <= (n_modes_of(inst) > N_MODES) ? (IW+1)'(N_MODES)
