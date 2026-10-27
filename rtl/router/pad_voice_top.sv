@@ -136,7 +136,6 @@ module pad_voice_top #(
     voice_router #(
         .SLOTS(SLOTS),
         .N_MODES(N_MODES),
-        .X_DEPTH(X_DEPTH),
         .CLK_HZ(CLK_HZ),
         .SR_HZ(SR_HZ)
     ) u_voice (
@@ -147,12 +146,12 @@ module pad_voice_top #(
         .reverb_preset(reverb_preset),
         .reload(reload),
         .start(run),
-        .n_voices(5'(SLOTS)),
-        .n_modes(6'(N_MODES)),
-        .n_samples(7'(X_DEPTH)),
+        // n_voices / n_modes / n_samples 已经从 voice_router 删掉：
+        //   声部数 = SLOTS 参数，模态数 = router_pkg::n_modes_of(inst)（内部定）。
+        // busy 也没了（done 是电平，1 = 空闲可以 start）—— 这里给上层留个等价信号。
         .ready(ready),
-        .busy(busy),
         .done(done),
+        .load_err(),
         .y_valid(y_valid),
         .y_data(y_data),
         .qspi_cs_n(qspi_cs_n),
@@ -166,5 +165,7 @@ module pad_voice_top #(
         .ns_rd_data(),
         .ns_rd_valid()
     );
+
+    assign busy = ~done;      // 兼容旧接口：busy = "没在空闲"
 
 endmodule
