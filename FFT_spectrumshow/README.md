@@ -3,13 +3,14 @@
 GW5AST-138B + 800×480 LCD 的可视化子系统，当前作为独立 demo 验证。
 它不包含主合成引擎，也不直接连接主引擎的 PCM 输出。
 
-当前状态（2026-10-26）：
+当前状态（2026-10-27）：
 
 - 页面：BARS / WAVE / FALL / SETTINGS
 - FFT/频谱/曲线/UI/显示逻辑仍全部运行在 **33.333 MHz**
 - 正常 bitstream 使用三音正弦测试源
 - 扫频 bitstream 使用 1 kHz → 10 kHz 测试源
 - `time_pingpong` 写侧已支持独立 PCM 时钟域；扫频测试使用 **100 MHz PLL + 100 MHz 域 48 kHz 源**
+- FALL 可选 **极坐标曲线**：`POLAR_FALL=1` 时逐像素 CORDIC 求 (r, θ) → 查 768 列曲线 → 半径辉光；圆内是极坐标仪表盘、圆外是双层视差星空 + 流星；不占 framebuffer（polar 工程 BSRAM 223 → 31）
 - 主引擎 PCM tap、主引擎接入、指令端口、摇杆解析仍未实现
 
 ---
@@ -164,7 +165,9 @@ time_pingpong  1024 × 24bit 双 bank
         │        → waterfall_store（64×128 历史）
         │              → trail_calc（取 age 0/3/7/15 + 3 点平滑）
         │              → curve_calc（Catmull-Rom，768 列）
-        │              → curve_store（768×40 双 bank）→ FALL
+        │              → curve_store（768×40 双 bank）
+        │                    ├─ 线性 FALL：逐像素比较柱高
+        │                    └─ 极坐标 FALL：CORDIC 求 (r,θ) → 查 768 列 → 半径比较
         │
         └─→ wave_capture → wave_frame_buffer → WAVE
 
@@ -207,19 +210,32 @@ GRID  背景网格
 ## 4. 目录组织
 
 ```text
+AGENTS.md            AI 交接：当前状态、命令、约束、目录图（先读这个）
+README.md            本文：接口、时钟、页面、构建、目录
+docs/
+  README.md          文档索引（当前 / 背景 / 历史）
+  RTL编码规范.md      编码规范
+  系统设计详解.md     原理讲解（部分早于真 FFT 升级）
+  FFT升级设计蓝图.md   真 FFT 架构方案
+  history/           历史方案（只作参考）
+  ref/               异步 FIFO 参考代码（不参与综合）
+
 board/
   ui_demo_top.v        正常板级 top（三音正弦 / SWEEP_MODE=1 时 100M 扫频）
   sweep_demo_top.v     扫频测试 top，参数覆盖 SWEEP_MODE=1
+  polar_demo_top.v     极坐标 FALL top（SWEEP_MODE=1 + POLAR_FALL=1）
   ui_demo.gprj         正常 Gowin 工程
   ui_demo_sweep.gprj   扫频/CDC Gowin 工程
+  ui_demo_polar.gprj   极坐标 FALL Gowin 工程
   flow.tcl             正常 bitstream
   flow_sweep.tcl       扫频 bitstream
+  flow_polar.tcl       极坐标 bitstream
   ui_demo.cst          引脚约束
   timing.sdc           正常时钟约束
   timing_sweep.sdc     扫频/CDC 时钟约束（含 clk_src）
   gowin_pll.v          50M → 33.333M PLL
   gowin_pll_src.v      50M → 100M PLL（仅扫频/CDC 测试）
-  *.mem                初始化表
+  *.mem                综合时读取的初始化表（bar2bin/hann/twiddle/waterfall/sine）
 
 src/
   ui/
@@ -242,7 +258,9 @@ src/
     lcd_background.v   网格/边框
     lcd_fft.v          BARS + 峰值/平滑/主题
     lcd_wave.v         WAVE
-    lcd_curve_spectrum.sv  FALL 曲线和镜像
+    lcd_curve_spectrum.sv  FALL 线性曲线和镜像
+    cordic_polar.sv        14 级流水线 CORDIC（(x,y)→(r,θ)，BAM 角度）
+    lcd_polar_curve.sv     极坐标 FALL（逐像素逆映射 + 仪表盘/星空装饰）
     trail_calc.sv      0/3/7/15 帧抽取 + 3 点平滑
     trail_store.sv     128×40 历史数据
     curve_calc.sv      Catmull-Rom 768 列插值
@@ -255,15 +273,19 @@ src/
     key_debounce.v     基础按键去抖
 
 sim/
-  run_regression.ps1   全部可视化回归入口
-  time_pingpong_tb.sv  100M 写 / 33.3M 读 CDC 顺序测试
-  *_tb.sv             自检 testbench
+  run_regression.ps1   18 项自检回归入口
+  *_tb.sv              自检测试（含 tb_lcd_polar_curve）
+  curve_calc_ref.sv    旧 curve_calc 参考副本（只给等价性 TB 用）
+  *.mem                仿真时读取的初始化表
 
-archive/
+archive/               历史实验（不参与构建/回归，见 archive/README.md）
   3d_spectrum/         已放弃的 3D 频谱
   unused_pages/        lcd_trail_spectrum / lcd_waterfall
   legacy/              旧 FFT、旧板级 demo、旧 testbench
   debug_board/         早期板级工程
+  framebuffer_polar/   极坐标页的旧 framebuffer 版本
+  sim_legacy/          旧仿真 testbench 和数据
+  data/ logs/ tools/ pll_core_100m/  旧数据、日志、生成脚本、PLL 实验
 ```
 
 ---
@@ -300,11 +322,26 @@ board/impl/pnr/ui_demo_sweep.fs
 board/impl/pnr/sweep_demo.fs   （flow_sweep.tcl 自动复制）
 ```
 
+极坐标 FALL：
+
+```powershell
+cd board
+& "D:\Gowin\Gowin_V1.9.12_x64\IDE\bin\gw_sh.exe" flow_polar.tcl
+```
+
+输出：
+
+```text
+board/impl/pnr/ui_demo_polar.fs
+board/impl/pnr/polar_demo.fs   （flow_polar.tcl 自动复制）
+```
+
 烧录：
 
 ```text
 正常：board/impl/pnr/ui_demo.fs
 扫频：board/impl/pnr/sweep_demo.fs
+极坐标 FALL：board/impl/pnr/polar_demo.fs
 ```
 
 扫频源：
@@ -316,6 +353,32 @@ board/impl/pnr/sweep_demo.fs   （flow_sweep.tcl 自动复制）
 ```
 
 它的用途是检查 `time_pingpong` 的 100M→33.3M CDC 和 FALL 四条曲线的 0/3/7/15 帧时间关系，不是正式音频输入。
+
+极坐标 FALL：
+
+```text
+POLAR_FALL=1
+  逐像素：14 级流水线 CORDIC → (r, θ)
+  θ × 3 / 256 → curve_store 的 768 列地址
+  四列高度 → 四条半径，|r - R| 三级辉光（100% / 50% / 25%）
+  装饰背景（全部是 (r, θ) 的函数，不占存储）：
+    径向渐变底色（二次衰减）
+    47.5 / 95 / 142.5 px 三个距离圈
+    16 根方位辐条、182 px 以外的 64 个外圈刻度
+    中心光晕（<5 px / <12 px）
+    190 px 外圈亮边 + 柔光
+  圆外（r > 191.2 px）：
+    远景层：4×4 哈希格，1 px，暗（8~15），不闪
+    近景层：8×8 哈希格，2×2 px，亮（14~29），各自相位闪烁
+    流星：每 170 帧（约 3.2 s）一颗，45° 斜线，64 px 渐隐拖尾
+    从外圈向外 66 px 的蓝色光晕
+    210 / 232 px 两段断环（每个象限 33° 窗口）
+  无 framebuffer、无双 bank、无画线光栅化
+```
+
+CORDIC 输入用 `(dy, dx)`，所以 θ=0 在 12 点方向、顺时针增大。流水线 17 拍延迟，`pix_x` 预先加 17，颜色正好对应当前扫描像素；每行最左 17 个像素用延迟后的 valid 屏蔽。
+
+极坐标页现在覆盖**整屏**（圆内是仪表盘、圆外是星空），`lcd_draw` 在 page 10 上屏蔽全局矩形网格。极坐标版本单独出 `polar_demo.fs`，线性 FALL 仍保留。
 
 ---
 
@@ -343,6 +406,7 @@ UI KEY/CTRL TEST PASSED
 UI DUAL KEY TEST PASSED
 LCD FFT TEST PASSED
 LCD FFT ALIGN TEST PASSED
+LCD POLAR CURVE TEST PASSED
 CHAIN TEST PASSED
 === REGRESSION PASSED ===
 ```
@@ -350,11 +414,12 @@ CHAIN TEST PASSED
 PnR：
 
 ```text
-正常 bitstream : SETUP +1.976 ns, HOLD +0.149 ns
-扫频 bitstream : SETUP +2.221 ns, HOLD +0.154 ns
+正常 bitstream : SETUP +6.877 ns, HOLD 无违例
+扫频 bitstream : SETUP +2.961 ns, HOLD 无违例
+极坐标 FALL   : SETUP +3.139 ns, HOLD 0 violations, BSRAM 31/340
 ```
 
-正常 bitstream 是 33.333 MHz；扫频 bitstream 同时包含 100 MHz `clk_src` 和 33.333 MHz `clk_pix`。两者 setup/hold 都为正。Catmull-Rom 仍是主要 LUT/时序开销。
+正常 bitstream 是 33.333 MHz；扫频和极坐标 bitstream 同时包含 100 MHz `clk_src` 和 33.333 MHz `clk_pix`。三者 setup/hold 都为正。`curve_calc` 改为按需读 `trail_store` 后，128 深寄存器堆和 128:1 选择器全部消失：normal 现在只有 6.4k 逻辑，最差路径也从 `curve_calc` 移到 `spectrum_map`，polar 从 17.4k 逻辑 / 9.4k FF 降到 6.6k / 4.3k。极坐标页本身不占 BSRAM，polar 工程的 31 块 BSRAM 全部来自 FFT/瀑布/曲线/波形缓存；整套极坐标装饰（仪表盘 + 双层星空 + 流星）只增加约 770 逻辑 / 87 FF / 4.5 DSP。
 
 ---
 
@@ -371,6 +436,7 @@ PnR：
 - 三音正弦 demo 源
 - 1k→10k 扫频测试源和独立 bitstream
 - `time_pingpong` 100M 写 / 33.3M 读 CDC 及 48 kHz 顺序测试
+- 极坐标 FALL：逐像素 14 级流水线 CORDIC、768 列查表、四条年龄曲线三级辉光、极坐标网格、中心/外圈光晕、圆外双层视差星空（闪烁 + 流星）与断环，无 framebuffer（BSRAM 223 → 31）
 - 全部可视化自检测试
 
 ---
