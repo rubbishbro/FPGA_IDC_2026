@@ -79,6 +79,7 @@ class SF(Source):
                 dt = t - self.idx
                 if self.pulse_cnt*self.delta < dt and dt < self.pulse_cnt*self.delta + self.att:
                     self.val += (self.rise * (0.7)**self.pulse_cnt)
+                    # self.val += (self.rise * 1/(1+self.pulse_cnt))
                 elif dt < (self.pulse_cnt+1)*self.delta:
                     self.val *= self.decay
                 elif not self.skip:
@@ -270,11 +271,12 @@ PIANO_BODY_BIQUADS_3 = (
 )
 
 if __name__ == "__main__":
+    SECONDS = 6
+    SR = 48000
     from synthlab.ext.io import save_wav
     
-    for midi in [40, 45, 50, 53, 55, 57, 60, 70, 80] :
+    for midi in [40, 41, 42, 43, 44, 45, 47, 50] :
         OUT = Path(__file__).resolve().parent / "out" / f"sim_piano_n32_{midi}.wav"
-        SECONDS = 6
 
         ch = Chain(SF("|x---|----", bpm=60.0, amplitude=1), piano_generator(midi))
 
@@ -285,3 +287,6 @@ if __name__ == "__main__":
         save_wav(OUT, patch)
         print(f"wrote {OUT}")
         print(f"{midi} max {patch.max()}, min {patch.min()}")
+    # w = render(SF("|x---|----", bpm=60.0, amplitude=1), SECONDS, SR)
+    # waveform(w, SR, SECONDS)
+    

@@ -60,13 +60,15 @@ def gen_coeff7(mode_num: int, f0: float, inharmonicity: float,
                strike_pos: float, amp: float, gamma: 'np.ndarray') :
     n = np.arange(1, mode_num + 1, dtype=float)
     f_n = n * f0 * np.sqrt(1.0 + inharmonicity * n * n)
-    omega0_sq = (2.0 * np.pi * f_n) ** 2
+    omega0 = 2.0 * np.pi * f_n
+    omega0_sq = omega0 ** 2
     # static_weight is K_n/omega_n^2 with the gauge factor 2/(mu L) folded away
     static_weight = (np.sin(np.pi * n * strike_pos) * amp / omega0_sq)
     # and 8 f0^2 carries T/(mu L^2) = 4 f0^2 together with the absorbed 2
     sum_weight = n * ((-1.0) ** n) * 8.0 * f0 ** 2
     
     damped_omega = np.sqrt(np.clip(omega0_sq - gamma ** 2, _OMEGA_D_FLOOR, None))
+    
     decay = np.exp(-gamma * DELTA_T)
     ec = decay * np.cos(damped_omega * DELTA_T)
     es = decay * np.sin(damped_omega * DELTA_T)
@@ -77,14 +79,33 @@ def gen_coeff7(mode_num: int, f0: float, inharmonicity: float,
     #  特征值变成实数 |lambda| = 1.0107 / 0.9892 -> 发散，状态单调爬升（直流），
     #  听感就是"没激励起来"。改回负号后 |lambda| = 0.99999，正常衰减振荡。
     a11 = ec + gamma * es / damped_omega
-    a12 = es / damped_omega
-    a21 = -es * omega0_sq / damped_omega
+    a12 = es * omega0 / damped_omega
+    a21 = -es * omega0 / damped_omega
     a22 = ec - gamma * es / damped_omega
     
-    gq = static_weight * (1 - ec - gamma * es / damped_omega) * 10 ** (6)
-    gv = static_weight * ((1 - ec) * gamma + omega0_sq * es / damped_omega) * 10 ** (6)
+    gq = static_weight * (1 - ec - gamma * es / damped_omega)
+    gv = static_weight * ((1 - ec) * gamma + omega0_sq * es / damped_omega)
     
-    wo = sum_weight * 10 ** (-6)
+    sq = np.ones(mode_num)
+    fin_mode_cnt = 0 
+    #找到合适的缩放系数
+    while fin_mode_cnt < mode_num:
+        fin_mode_cnt = 0 
+        for i in range(0,mode_num):
+            if sq[i] <= np.abs(sum_weight[i]):
+                sq[i] *= 2
+            elif sq[i] >= 1/np.abs(gq[i]) or sq[i] >= omega0[i]/np.abs(gv[i]): 
+                sq[i] /= 2
+            else:
+                fin_mode_cnt += 1
+            
+    
+    sv = sq / omega0
+    
+    gq = gq * sq
+    gv = gv * sv
+    
+    wo = sum_weight / sq
     
     return (a11, a12, a21, a22, gq, gv, wo)
     
@@ -112,7 +133,7 @@ def print_piano_coeff_by_midi(midi: int):
 
 
 if __name__ == "__main__":
-    with open(_HERE / 'piano_coeff.txt', 'w', encoding='utf-8') as file:
+    with open(_HERE / 'piano_coeff_scaled.txt', 'w', encoding='utf-8') as file:
         sys.stdout = file
         for midi in range(40,80):
             print(f"midi{midi}")
