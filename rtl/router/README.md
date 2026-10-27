@@ -54,13 +54,13 @@ rtl/router/
 ├── routers/
 │   ├── eng_router.sv        双引擎薄封装（按乐器二选一），两个实例各管 8 个声部
 │   ├── env_router.sv        按乐器选包络（ADSR / dyn0 / 常数 1.0）
-│   ├── exc_router.sv        按乐器选激励参数（脉冲数/宽度/间隔）
+│   ├── exc_router.sv        按乐器选激励参数（幅度/斜坡/宽度/间隔/脉冲数）
 │   ├── mod_router.sv        只有吉他/贝斯才启用 modulation0
 │   ├── body_router.sv       按乐器选 25 个腔体系数（5 段 × 5 抽头）
 │   └── reverb_router.sv     预设（NONE/HALL/BATHROOM）+ 干湿混合
 ├── parts/
 │   ├── envelope.sv          envelope_ADSR / envelope_dyn0（都输出 dead）
-│   ├── excitation.sv        excitation_gen：N+1 个脉冲的锯齿串（可无限）
+│   ├── excitation.sv        excitation_gen：锤击包络串（斜坡+指数尾巴，可无限）
 │   ├── modulation.sv        modulation0：alpha/揉弦改系数（单乘法器串行 15 步）
 │   ├── body_biquad.sv       5 段 biquad，历史存 BSRAM
 │   └── comb_reverb.sv       4 路并联梳状线（读作零的清空）
@@ -109,7 +109,7 @@ voice_router                      存储 + 调度 + 后级
 | `eng_router` | 按 `inst` 在 eng0/eng1 间二选一 | 作业口 + 一套存储口 | 无额外延迟 |
 | `envelope_ADSR` | A/D/S/R + `dead` | `A_STEP/D_STEP/S_LEVEL/R_STEP`、`emap`、`dead` | 每采样 |
 | `envelope_dyn0` | `emap = fmap<<SHIFT`（钳位）、`dead = ~gate` | 同上 | 每采样 |
-| `excitation_gen` | N+1 个脉冲串 / 无限 | `PW_LEN/GAP_LEN/N_PULSE/clear`、`xmap/xmap_valid` | 每采样 |
+| `excitation_gen` | N+1 次锤击（斜坡 + 指数尾巴）/ 无限 | `SHIFT/RISE_SH/PW_LEN/GAP_LEN/N_PULSE/clear`、`xmap/xmap_valid` | 每采样 |
 | `modulation0` | alpha/揉弦改系数 | `start/busy/done`、`p_*`(参数读)、`co_we/co_mode/co_wdata` | 15 步/模态，单乘法器 |
 | `body_biquad` | 5 段 biquad | `in_valid/in_ready/x`、`out_valid/y`、`clr` | 93 拍/样本 |
 | `comb_reverb` | 4 路梳状 | `in_valid/x`、`out_valid/y`、`clr` | 4 拍 + 2 拍混合 |
@@ -219,6 +219,33 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 **为什么要 `dead` 而不是拿 `emap==0` 判断**：ADSR 从 0 起爬，起音头几个采样 `emap` 也是 0；
 用它判断"空了"会把刚打进去的激励清掉（听感 = 没声音）。
 
+### 4.4b 激励的形状（怎么对 Python 的 `SF`）
+
+`excitation_gen` 每个声部一个"力包络"状态机（**没有乘法器**，全移位/加法）：
+
+```
+按下沿 → X_ATT   : acc += target>>RISE_SH，共 PW_LEN 拍（线性上升）
+       → X_DECAY : acc -= (acc>>6)+(acc>>8)+(acc>>10)      （指数尾巴，tau≈48 采样≈1 ms）
+                   同时数 GAP_LEN 拍；到期 → 下一次锤击
+下一次锤击：target ← target - (target>>2) - (target>>4)   （×0.6875 ≈ Python 的 0.7）
+松开       ：当前这一串走完就停
+```
+
+周期 = `PW_LEN + GAP_LEN`。钢琴的取值（`exc_router.sv` 的 `INST_PIANO`）：
+
+| 参数 | 值 | 对应 Python `SF`（`sim_piano.py`） |
+|---|---|---|
+| `SHIFT` | 20 | `amplitude`（峰值 = fmap<<20；250<<20/2^28 = 0.977，Python demo 是 1.0） |
+| `RISE_SH` / `PW_LEN` | 5 / 32 | `attack` 0.5 ms（24 采样），这里 0.67 ms |
+| `GAP_LEN` | 448 | `delta` 10 ms（周期 480 = 10 ms ✓） |
+| 衰减 | `>>6+>>8+>>10` | `tau` 1 ms ✓ |
+| `N_PULSE` | 3 | `pulse_num` 4 ✓ |
+| 递减 | 0.6875^k | 0.7^k ✓ |
+
+**为什么不是矩形**：早期版本是 `PW_LEN=1, GAP_LEN=0`（4 个单采样尖峰），
+激励面积只有 4.0、频谱质心 7.3 kHz（Python 是 144 / 0.79 kHz）——能量全堆到
+高频，听感"薄、不密集"。现在实测（`_analysis/exc_cmp.py`）：面积 138、
+质心 671 Hz、脉冲峰 0.977/0.692/0.476（Python 0.958/0.671/0.470）。
 ### 4.5 系数域：sq/sv 归一化（物理域 → 硬件域）
 
 > 这一节是**推导出来的**（没有别的文档写过）。系数生成器 `sythsound/piano_coeff_gen.py`

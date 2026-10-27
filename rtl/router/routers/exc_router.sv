@@ -27,34 +27,36 @@ module exc_router #(
     output logic signed [SLOTS-1:0][31:0] xmap,
     output logic                    xmap_valid
 );
-    logic [5:0]  shift;
+    logic [5:0]  shift, rise_sh;
     logic [15:0] pw_len, gap_len;
     logic [2:0]  n_pulse;
 
     // 常量表：加乐器 = 加一行
     always_comb begin
         shift   = 6'd20;
-        pw_len  = 16'd1;
+        rise_sh = 6'd5;          // 默认 32 采样上升（0.67 ms）
+        pw_len  = 16'd32;
         gap_len = 16'd0;
         n_pulse = 3'd0;
         case (inst)
             router_pkg::INST_GUITAR: begin
-                shift  = 6'd18;
-                pw_len = 16'd2;          // 拨弦：2 个采样宽
+                shift   = 6'd18;
+                rise_sh = 6'd1;      // 拨弦：2 个采样就升到峰值
+                pw_len  = 16'd2;
+                gap_len = 16'd0;
             end
             router_pkg::INST_PIANO: begin
-                // 钢琴击弦：对齐 sythsound/sim_piano.py 的 SF 激励（方案 A，矩形近似）
-                //   attack 0.5 ms = 24 采样（脉冲宽度 PW_LEN）
-                //   脉冲周期 10 ms = 480 采样 -> GAP_LEN = 周期 - PW_LEN = 456
-                //     （实测周期 = PW_LEN + GAP_LEN；写 457 是 481 拍）
-                //   4 个脉冲（N_PULSE=3 -> N+1）。矩形之间 xmap 归零；
-                //   Python 那边是 0.5 ms 线性上升 + 1 ms 指数尾巴 + 0.7^k 递减，
-                //   方案 B 再补（见 README / _analysis/exc_cmp.py 的对照）
+                // 钢琴击弦：对齐 sythsound/sim_piano.py::SF 的形状（方案 B）
+                //   Python: 0.5 ms 线性上升 + 1 ms 指数尾巴 + 10 ms 一个 + 0.7^k 递减，4 个
+                //   这里:   32 采样上升(0.67 ms) + tau≈48 采样(1 ms) + 周期 480(10 ms) + 0.6875^k
+                //   PW_LEN = 1<<RISE_SH = 32 -> 上升结束正好到峰值
+                //   GAP_LEN = 周期 - PW_LEN = 448（实测周期 = PW_LEN + GAP_LEN）
                 //   峰值幅度由 SHIFT 决定：xmap = fmap<<SHIFT
-                //     250<<20 / 2^28 = 0.977（Python SF 默认 amplitude=1.4，demo 里 1.0）
+                //     250<<20 / 2^28 = 0.977（Python SF 默认 amplitude=1.4，demo 里是 1.0）
                 shift   = 6'd20;
-                pw_len  = 16'd24;
-                gap_len = 16'd456;
+                rise_sh = 6'd5;
+                pw_len  = 16'd32;
+                gap_len = 16'd448;
                 n_pulse = 3'd3;
             end
             default: ;
@@ -62,17 +64,19 @@ module exc_router #(
     end
 
     // 参数先打一拍再进激励（常量 mux -> 移位器会串成一条长链）
-    logic [5:0]  shift_r;
+    logic [5:0]  shift_r, rise_sh_r;
     logic [15:0] pw_len_r, gap_len_r;
     logic [2:0]  n_pulse_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             shift_r   <= '0;
+            rise_sh_r <= '0;
             pw_len_r  <= '0;
             gap_len_r <= '0;
             n_pulse_r <= '0;
         end else begin
             shift_r   <= shift;
+            rise_sh_r <= rise_sh;
             pw_len_r  <= pw_len;
             gap_len_r <= gap_len;
             n_pulse_r <= n_pulse;
@@ -90,7 +94,8 @@ module exc_router #(
 
     excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_gen (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
-        .SHIFT(shift_r), .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
+        .SHIFT(shift_r), .RISE_SH(rise_sh_r),
+        .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
         .clear(clear), .fmap(fmap), .note_on(note_on),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
