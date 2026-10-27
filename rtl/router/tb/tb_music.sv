@@ -131,6 +131,11 @@ module tb_music;
             img_loaded = 1'b1;
         end
         for (int sl = 0; sl < 16; sl++) begin
+            for (int m = 0; m < 4; m++)
+                $display("    DBG dump mode%0d a11=%0d a12=%0d a21=%0d a22=%0d wo=%0d",
+                         m, dut.ca_a11_a[(NOTE_SLOT%8)*64+m], dut.ca_a12_a[(NOTE_SLOT%8)*64+m],
+                         dut.ca_a21_a[(NOTE_SLOT%8)*64+m], dut.ca_a22_a[(NOTE_SLOT%8)*64+m],
+                         dut.ca_wo_a [(NOTE_SLOT%8)*64+m]);
             for (int m = 0; m < act_modes; m++) begin
                 int rec, idx, pmidx;
                 rec = img_base + (sl*img_modes + m) * REC_B;
@@ -275,6 +280,11 @@ module tb_music;
         if (DBG != 0) begin
             $display("    DBG mode scan (slot %0d): a11(Q28) a12(Q30) wo(Q29) q(Q24)   |q|>2^24 或 |a11|>2^28 会标 *",
                      NOTE_SLOT);
+            for (int m = 0; m < 4; m++)
+                $display("    DBG dump mode%0d a11=%0d a12=%0d a21=%0d a22=%0d wo=%0d",
+                         m, dut.ca_a11_a[(NOTE_SLOT%8)*64+m], dut.ca_a12_a[(NOTE_SLOT%8)*64+m],
+                         dut.ca_a21_a[(NOTE_SLOT%8)*64+m], dut.ca_a22_a[(NOTE_SLOT%8)*64+m],
+                         dut.ca_wo_a [(NOTE_SLOT%8)*64+m]);
             for (int m = 0; m < act_modes; m++) begin
                 int  qa, a11v;
                 qa   = (NOTE_SLOT < 8) ? dut.q_ram_a[(NOTE_SLOT % 8) * 64 + m]

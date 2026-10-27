@@ -73,20 +73,22 @@ module modulation0 #(
     logic signed [63:0] prod_q;
     logic signed [63:0] acc_q;                                  // lambda*S 的乘积寄存器
 
-    // lambda 限幅：先算 (fmap - LAM_OFF)<<LAM_SH，再夹到 ±LAM_MAX
+    // lambda 限幅：先算 (fmap - LAM_OFF)<<LAM_SH，再夹到 **0 .. +LAM_MAX**
     //
-    // 注意：这里必须**全用有符号**。`32'(fmap_i)` 是无符号的，和 LAM_OFF（有符号）
-    // 相减在 SV 里会整段按无符号解释 —— fmap=240 本该得到 -2，却变成 0xFFFFFFFE，
-    // 再左移/比较就一路夹到 +LAM_MAX（实测 lambda 恒为 +0.03），于是 a12 被加得
-    // 太大（det = a11*a22 - a12*a21 > 1）-> 状态几何增长（300 采样后 |q| 到 28，
-    // 满幅 79 倍）。用 $signed 包一层就好了。
+    // 只做**单向**（张力变大 = 音高往上弯）：
+    //   * 有符号问题：`32'(fmap_i)` 是无符号，和 LAM_OFF（有符号）相减会整段按
+    //     无符号解释（fmap=240 本该 -2，变成 0xFFFFFFFE），所以用 $signed 包一层；
+    //   * 负方向禁用：一阶线性化在 lambda<0 那一侧会把某些高模态的 a12 推大，
+    //     使 det = a11*a22 - a12*a21 > 1 -> |eig| 1.02 > 1 自激（_analysis/mod_model.py
+    //     实测 fmap<=235 时 slot15 mode18 就是 1.024）。所以下限直接夹 0：
+    //     fmap <= LAM_OFF(=242) 就等于不调制。
     logic signed [31:0] lam_diff;
     logic signed [31:0] lam_raw;
     always_comb begin
         lam_diff = $signed({24'd0, fmap_i}) - LAM_OFF;
         lam_raw  = lam_diff <<< LAM_SH;
-        if (lam_raw > LAM_MAX)       lam_q = LAM_MAX;
-        else if (lam_raw < -LAM_MAX) lam_q = -LAM_MAX;
+        if (lam_raw < 0)             lam_q = '0;       // 负方向不调制
+        else if (lam_raw > LAM_MAX)  lam_q = LAM_MAX;
         else                         lam_q = lam_raw;
     end
 
