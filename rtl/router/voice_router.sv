@@ -119,14 +119,15 @@ module voice_router #(
     (* syn_ramstyle = "block_ram" *) logic signed [QW-1:0] q_ram_b  [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [VW-1:0] v_ram_b  [0:HS*NMP-1];
 
-    // 调制参数表（引擎不读；加载器写，调制器读）
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_c0 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s0 [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_gam[0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_th [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_g  [0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k12[0:SLOTS*NMP-1];
-    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_k21[0:SLOTS*NMP-1];
+    // 调制参数表（引擎不读；加载器写，调制器读）：8 个字 = 4 基值 + 4 斜率
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_a11[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_a12[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_a22[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_wo [0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s11[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s12[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_s22[0:SLOTS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [31:0] pm_swo[0:SLOTS*NMP-1];
 
     // 激励快照：一次作业只有一个采样，所以就是 SLOTS 个寄存器（不再有按采样索引的 RAM）
     logic signed [XW-1:0] x_q [0:SLOTS-1];
@@ -226,26 +227,19 @@ module voice_router #(
         for (int i = SLOTS-1; i >= 0; i--) if (r[i]) first_req = VWID'(i);
     endfunction
     logic [IW-1:0]           mod_p_mode, mod_co_mode;
-    logic [3:0]              mod_co_we;
+    logic [4:0]              mod_co_we;
     coeff_t                  mod_co_wdata;
-    logic signed [31:0]      mod_c0_r, mod_s0_r, mod_gam_r, mod_theta0_r, mod_g_r;
-    logic signed [31:0]      mod_k12_r, mod_k21_r;
-    logic signed [31:0]      mod_c0, mod_s0, mod_gam, mod_theta0, mod_g;
-
-    assign mod_c0     = mod_c0_r;
-    assign mod_s0     = mod_s0_r;
-    assign mod_gam    = mod_gam_r;
-    assign mod_theta0 = mod_theta0_r;
-    assign mod_g      = mod_g_r;
+    // 参数表读出（两级寄存器：BSRAM 的 CLK->Q 不进乘法）
+    logic signed [31:0]      mod_a11_r, mod_a12_r, mod_a22_r, mod_wo_r;
+    logic signed [31:0]      mod_s11_r, mod_s12_r, mod_s22_r, mod_swo_r;
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
         .clk(clk), .rst_n(rst_n), .start(mod_start),
         .fmap_i(fmap_q.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
         .inst(inst_lat), .busy(mod_busy), .done(mod_done),
         .p_re(mod_p_re), .p_mode(mod_p_mode),
-        .p_c0(mod_c0), .p_s0(mod_s0), .p_gam(mod_gam),
-        .p_theta0(mod_theta0), .p_g(mod_g),
-        .p_k12(mod_k12_r), .p_k21(mod_k21_r),
+        .p_a11(mod_a11_r), .p_a12(mod_a12_r), .p_a22(mod_a22_r), .p_wo(mod_wo_r),
+        .p_s11(mod_s11_r), .p_s12(mod_s12_r), .p_s22(mod_s22_r), .p_swo(mod_swo_r),
         .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata)
     );
 
@@ -373,8 +367,8 @@ module voice_router #(
             co_a11_rb <= '0; co_a12_rb <= '0; co_a21_rb <= '0; co_a22_rb <= '0;
             co_gq_ra  <= '0; co_gv_ra  <= '0; co_wo_ra  <= '0;
             co_gq_rb  <= '0; co_gv_rb  <= '0; co_wo_rb  <= '0;
-            mod_c0_r <= '0; mod_s0_r <= '0; mod_gam_r <= '0; mod_theta0_r <= '0; mod_g_r <= '0;
-            mod_k12_r <= '0; mod_k21_r <= '0;
+            mod_a11_r <= '0; mod_a12_r <= '0; mod_a22_r <= '0; mod_wo_r  <= '0;
+            mod_s11_r <= '0; mod_s12_r <= '0; mod_s22_r <= '0; mod_swo_r <= '0;
             st_q_ra  <= '0; st_v_ra  <= '0; st_q_rb <= '0; st_v_rb <= '0;
             x_ra     <= '0; x_rb     <= '0;
             ns_r     <= '0; ns_vld   <= 1'b0;
@@ -410,32 +404,36 @@ module voice_router #(
                     if (mod_co_we[1]) ca_a12_b[mod_bank_addr] <= mod_co_wdata.a12;
                     if (mod_co_we[2]) ca_a21_b[mod_bank_addr] <= mod_co_wdata.a21;
                     if (mod_co_we[3]) ca_a22_b[mod_bank_addr] <= mod_co_wdata.a22;
+                    if (mod_co_we[4]) ca_wo_b [mod_bank_addr] <= mod_co_wdata.wo;   // 现在 wo 也调制
                 end else begin
                     if (mod_co_we[0]) ca_a11_a[mod_bank_addr] <= mod_co_wdata.a11;
                     if (mod_co_we[1]) ca_a12_a[mod_bank_addr] <= mod_co_wdata.a12;
                     if (mod_co_we[2]) ca_a21_a[mod_bank_addr] <= mod_co_wdata.a21;
                     if (mod_co_we[3]) ca_a22_a[mod_bank_addr] <= mod_co_wdata.a22;
+                    if (mod_co_we[4]) ca_wo_a [mod_bank_addr] <= mod_co_wdata.wo;
                 end
             end
 
             // ---- 调制参数表：loader 写，调制器读（不拆 bank）----
             if (ld_pm_we) begin
-                pm_c0 [ld_idx] <= ld_pm_data.c0;
-                pm_s0 [ld_idx] <= ld_pm_data.s0;
-                pm_gam[ld_idx] <= ld_pm_data.gam;
-                pm_th [ld_idx] <= ld_pm_data.theta0;
-                pm_g  [ld_idx] <= ld_pm_data.g;
-                pm_k12[ld_idx] <= ld_pm_data.k12;
-                pm_k21[ld_idx] <= ld_pm_data.k21;
+                pm_a11[ld_idx] <= ld_pm_data.a11;
+                pm_a12[ld_idx] <= ld_pm_data.a12;
+                pm_a22[ld_idx] <= ld_pm_data.a22;
+                pm_wo [ld_idx] <= ld_pm_data.wo;
+                pm_s11[ld_idx] <= ld_pm_data.s11;
+                pm_s12[ld_idx] <= ld_pm_data.s12;
+                pm_s22[ld_idx] <= ld_pm_data.s22;
+                pm_swo[ld_idx] <= ld_pm_data.swo;
             end
             if (mod_p_re) begin
-                mod_c0_r     <= pm_c0 [pm_idx];
-                mod_s0_r     <= pm_s0 [pm_idx];
-                mod_gam_r    <= pm_gam[pm_idx];
-                mod_theta0_r <= pm_th [pm_idx];
-                mod_g_r      <= pm_g  [pm_idx];
-                mod_k12_r    <= pm_k12[pm_idx];
-                mod_k21_r    <= pm_k21[pm_idx];
+                mod_a11_r <= pm_a11[pm_idx];
+                mod_a12_r <= pm_a12[pm_idx];
+                mod_a22_r <= pm_a22[pm_idx];
+                mod_wo_r  <= pm_wo [pm_idx];
+                mod_s11_r <= pm_s11[pm_idx];
+                mod_s12_r <= pm_s12[pm_idx];
+                mod_s22_r <= pm_s22[pm_idx];
+                mod_swo_r <= pm_swo[pm_idx];
             end
 
             // ---- 系数读：A/B 两个 bank 各一个同步读口 ----

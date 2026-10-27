@@ -30,15 +30,30 @@ package router_pkg;
         REVERB_NONE
     } reverb_preset;
 
-    // 调制参数记录（每个 槽×模态 一条，5 个字段）
+    // 调制参数记录（每个 槽×模态 一条，8 个字段 = flash 记录的 +32..+60）
+    //
+    // 模型：揉弦主要调**弦张力**，一阶近似下所有模态频率同比例变 alpha = 1+lambda，
+    // 于是每个系数都能写成"基值 + lambda * 斜率"：
+    //
+    //     a11 = a11_0 + lambda*S11      a12 = a12_0 + lambda*S12
+    //     a22 = a22_0 + lambda*S22      wo  = wo_0  + lambda*Swo
+    //     a21 = -a12                    （a21 恒等于 -a12，不单独存）
+    //     S21 = -2*a12_0 - S12          （由 a21 = -alpha^2 * a12 推出来，不单独存）
+    //
+    // 运行时只要 4 次乘加（老方案要 cos/sin 重构、每模态 15 步），而且**幂等**
+    // （基值单独存，不依赖上一次写回去的值）。
+    //
+    // Q：基值 a11/a22 与 coeff_t 一致（Q28）、a12 Q30、wo Q29；
+    //    斜率 S* 一律 Q29（整表 max|S| ≈ 1.7，±4 的范围还留 2× 余量）。
     typedef struct packed {
-        logic signed [31:0] c0;       // cos(theta0), Q1.30
-        logic signed [31:0] s0;       // sin(theta0), Q1.30
-        logic signed [31:0] gam;      // gamma, Q16.16
-        logic signed [31:0] theta0;   // theta0 = omega0*dt, Q1.30
-        logic signed [31:0] g;        // dt/theta0, Q1.30
-        logic signed [31:0] k12;      // a12 的状态归一化系数 sq/sv, Q1.30
-        logic signed [31:0] k21;      // a21 的状态归一化系数 sv/sq, Q1.30
+        logic signed [31:0] a11;      // a11 基值，Q28
+        logic signed [31:0] a12;      // a12 基值，Q30
+        logic signed [31:0] a22;      // a22 基值，Q28
+        logic signed [31:0] wo;       // wo 基值，Q29
+        logic signed [31:0] s11;      // d a11 / d lambda，Q29
+        logic signed [31:0] s12;      // d a12 / d lambda，Q29
+        logic signed [31:0] s22;      // d a22 / d lambda，Q29
+        logic signed [31:0] swo;      // d wo  / d lambda，Q29
     } mod_par_t;
 
     // 注意：**没有** table_base()。flash 的基地址公式在 loader 里（唯一契约）：

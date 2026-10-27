@@ -9,8 +9,10 @@
     第 (slot, mode) 条记录占 64 字节（先 slot 后 mode）：
         +0  a11   +4  a12   +8  a21   +12 a22
         +16 gq    +20 gv    +24 wo    +28 保留(0)
-        +32 c0    +36 s0    +40 gam   +44 theta0
-        +48 g     +52 k12   +56 k21   +60 保留(0)
+        +32 a11_0 +36 a12_0 +40 a22_0 +44 wo_0
+        +48 s11   +52 s12   +56 s22   +60 swo
+       （参数表 8 个字：4 个基值 + 4 个对 lambda 的斜率；a21/S21 不存，
+         用的时候按 a21 = -a12、S21 = -2*a12 - S12 算出来）
 
 每个字段是 **大端** 的 signed 32-bit（高字节在前）。W25Q 先发低地址字节、
 每字节高位先出，所以 RTL 里直接移位拼出来就是字段值，不用倒字节。
@@ -36,9 +38,10 @@ N_MODES_DEFAULT = 64     # 和 voice_router / loader 的 N_MODES 默认值一致
 SLOTS_DEFAULT = 16       # 和 voice_router 的 SLOTS 默认值一致
 
 FIELDS_CO = ("a11", "a12", "a21", "a22", "gq", "gv", "wo")
-FIELDS_PM = ("c0", "s0", "gam", "theta0", "g", "k12", "k21")
+# 参数表的 4 个基值加 _0 后缀：不和系数表的 a11/a12/a22/wo 撞名（parse 出来是一个 dict）
+FIELDS_PM = ("a11_0", "a12_0", "a22_0", "wo_0", "s11", "s12", "s22", "swo")
 CO_OFF = (0, 4, 8, 12, 16, 20, 24)          # 与 RTL 的 word_i 0..6 对应
-PM_OFF = (32, 36, 40, 44, 48, 52, 56)       # word_i 8..14
+PM_OFF = (32, 36, 40, 44, 48, 52, 56, 60)   # word_i 8..15（8 个字）
 
 
 class FlashImageError(Exception):
@@ -60,7 +63,7 @@ def record(co, pm) -> bytes:
     if isinstance(pm, dict):
         pm = [pm[k] for k in FIELDS_PM]
     if len(co) != len(FIELDS_CO) or len(pm) != len(FIELDS_PM):
-        raise FlashImageError("co 需要 7 个字段，pm 需要 7 个字段")
+        raise FlashImageError("co 需要 7 个字段，pm 需要 8 个字段")
     buf = bytearray(REC_BYTES)
     for off, v in zip(CO_OFF, co):
         buf[off:off + 4] = struct.pack(">i", _q(v))
@@ -115,7 +118,7 @@ def parse(img: bytes, inst: int, n_modes: int, slots: int = 16) -> list[list[dic
             for name, off in zip(FIELDS_PM, PM_OFF):
                 d[name] = struct.unpack(">i", rec[off:off + 4])[0]
             # 保留字段必须是 0，否则说明打包/布局两边不一致
-            for off in (28, 60):
+            for off in (28,):          # 28 是唯一还剩的保留字；+60 现在是 swo
                 if rec[off:off + 4] != b"\x00\x00\x00\x00":
                     raise FlashImageError(f"slot {sl} mode {m}: reserved @{off} not zero")
             slot_recs.append(d)
@@ -135,7 +138,7 @@ def _pattern_modes(n: int, slots: int = 4):
     for sl in range(slots):
         for m in range(n):
             co = [_pattern(sl, m, w) for w in range(7)]
-            pm = [_pattern(sl, m, w + 8) for w in range(7)]
+            pm = [_pattern(sl, m, w + 8) for w in range(8)]
             yield co, pm
 
 

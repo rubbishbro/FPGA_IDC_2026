@@ -15,15 +15,16 @@ module mod_router #(
 
     output logic                        p_re,
     output logic [$clog2(N_MODES)-1:0]  p_mode,
-    input  logic signed [31:0]          p_c0,
-    input  logic signed [31:0]          p_s0,
-    input  logic signed [31:0]          p_gam,
-    input  logic signed [31:0]          p_theta0,
-    input  logic signed [31:0]          p_g,
-    input  logic signed [31:0]          p_k12,
-    input  logic signed [31:0]          p_k21,
+    input  logic signed [31:0]          p_a11,
+    input  logic signed [31:0]          p_a12,
+    input  logic signed [31:0]          p_a22,
+    input  logic signed [31:0]          p_wo,
+    input  logic signed [31:0]          p_s11,
+    input  logic signed [31:0]          p_s12,
+    input  logic signed [31:0]          p_s22,
+    input  logic signed [31:0]          p_swo,
 
-    output logic [3:0]                  co_we,
+    output logic [4:0]                  co_we,
     output logic [$clog2(N_MODES)-1:0]  co_mode,
     output modal_step_pkg::coeff_t      co_wdata
 );
@@ -46,8 +47,8 @@ module mod_router #(
         .start(start && en), .n_modes(n_modes), .fmap_i(fmap_i),
         .busy(busy), .done(mod_done_i),
         .p_re(p_re), .p_mode(p_mode),
-        .p_c0(p_c0), .p_s0(p_s0), .p_gam(p_gam), .p_theta0(p_theta0), .p_g(p_g),
-        .p_k12(p_k12), .p_k21(p_k21),
+        .p_a11(p_a11), .p_a12(p_a12), .p_a22(p_a22), .p_wo(p_wo),
+        .p_s11(p_s11), .p_s12(p_s12), .p_s22(p_s22), .p_swo(p_swo),
         .co_we(co_we), .co_mode(co_mode), .co_wdata(co_wdata)
     );
 endmodule

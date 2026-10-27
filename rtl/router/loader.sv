@@ -135,14 +135,16 @@ module weight_loader #(
             4'd5:  ld_co.gv  <= w;
             4'd6:  ld_co.wo  <= w;
             4'd7:  ;                       // 保留
-            4'd8:  ld_pm.c0     <= w;
-            4'd9:  ld_pm.s0     <= w;
-            4'd10: ld_pm.gam    <= w;
-            4'd11: ld_pm.theta0 <= w;
-            4'd12: ld_pm.g      <= w;
-            4'd13: ld_pm.k12    <= w;
-            4'd14: ld_pm.k21    <= w;
-            default: ;                     // 15 保留
+            // 参数表（8 个字）：4 个基值 + 4 个对 lambda 的斜率
+            //   a21 不存（= -a12）、S21 不存（= -2*a12 - S12），都用时算出来
+            4'd8:  ld_pm.a11  <= w;
+            4'd9:  ld_pm.a12  <= w;
+            4'd10: ld_pm.a22  <= w;
+            4'd11: ld_pm.wo   <= w;
+            4'd12: ld_pm.s11  <= w;
+            4'd13: ld_pm.s12  <= w;
+            4'd14: ld_pm.s22  <= w;
+            4'd15: ld_pm.swo  <= w;
         endcase
     endtask
 

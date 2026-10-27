@@ -38,9 +38,10 @@ sys.path.insert(0, str(_HERE))
 from flash_image import REC_BYTES, record, image   # noqa: E402
 
 # ---- 必须和 modal_step_pkg.sv 的 SH_* 一致 ----
-SH = dict(a11=28, a12=30, a21=23, a22=28, gq=35, gv=34, wo=29)
+SH = dict(a11=28, a12=30, a21=23, a22=28, gq=32, gv=34, wo=29)
 FIELDS = ("a11", "a12", "a21", "a22", "gq", "gv", "wo")
-PM_FIELDS = ("c0", "s0", "gam", "theta0", "g", "k12", "k21")
+# 钢琴不做揉弦（mod_router 里 en=0），参数表整片填 0；8 个字是新的调制布局
+PM_FIELDS = ("a11_0", "a12_0", "a22_0", "wo_0", "s11", "s12", "s22", "swo")
 INT32 = (-(1 << 31), (1 << 31) - 1)
 
 SLOTS = 16

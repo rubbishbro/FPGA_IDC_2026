@@ -47,12 +47,12 @@ package modal_step_pkg;
     localparam int SH_A21 = 23;
     localparam int SH_A22 = 28;
     // gq/gv/wo 只有引擎读、只有系数表写（modulation 不碰），所以按实测余量收紧了：
-    //   gq 原来 Q31 只用 1.4% -> Q35（22%）
+    //   gq 两表最大 0.2075（吉他） -> Q32（41%；钢琴只用 1.4%）
     //   gv 原来 Q27 只用 0.1% -> Q34（16%）
     //   wo 原来 Q15 只用 0.0% -> Q29（25%）
     // a11/a12/a21/a22 **不动**：`parts/modulation.sv` 会写这四个字段，它的内部链路
     // 是按 Q30/Q23 调的，改 Q 必须连它的输出移位一起改 —— 等吉他系数表能跑通再说。
-    localparam int SH_GQ  = 35;
+    localparam int SH_GQ  = 32;
     localparam int SH_GV  = 34;
     localparam int SH_WO  = 29;
 

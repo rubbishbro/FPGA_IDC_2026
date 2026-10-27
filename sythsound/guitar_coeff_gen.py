@@ -121,6 +121,6 @@ if __name__ == "__main__":
         sys.stdout = file
         for midi in range(40,80):
             print(f"midi{midi}")
-            print_guitar_coeff_by_midi(66)
+            print_guitar_coeff_by_midi(midi)
             print(end="\n")
     
