@@ -1,0 +1,12 @@
+{
+  "file": "mystery_flute_stereo.wav",
+  "sr": 48000,
+  "seconds": 31.68,
+  "peak": 0.95,
+  "rms": 0.198,
+  "finite": true,
+  "centroid_hz": 952.7,
+  "hf_4k_8k_ratio": 0.00048,
+  "low_mid_200_700": 0.4083,
+  "note": "presentation audition; raw engine output is mystery_flute*.wav"
+}

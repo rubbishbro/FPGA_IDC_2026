@@ -21,6 +21,12 @@ stroke arrives in phase and they add: the steady amplitude is
 by measurement rather than assumed -- see ``verify()``.
 
     python python/modal_sim/sustain_engine.py verify flute
+
+.. note::
+   As of 2026-10-27 the synthesis class ``SustainSynth`` is legacy.  New B
+   synthesis uses ``eng1_bc.BSynth`` on the shared ``Eng1Core``; ``SustainPatch``
+   in this module remains the parameter/table provider used by
+   ``router_eng1.build_b_table``.
 """
 
 from __future__ import annotations

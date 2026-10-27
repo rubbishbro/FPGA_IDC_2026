@@ -22,6 +22,7 @@ typedef struct packed{
 typedef union packed{
     byte_t   [3:0][3:0]   strc_d;
     byte_t   [15:0]       flat_d;
+    logic    [127:0]      raw;
 } mat4x4;
 
 typedef struct packed{

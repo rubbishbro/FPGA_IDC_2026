@@ -1,0 +1,24 @@
+{
+  "title": "Mystery of Love (Sufjan Stevens) -- flute excerpt",
+  "engine": "SustainSynth (Class B periodic drive) + ModalSynth guitar",
+  "bpm": 100.0,
+  "key": "D minor (transcription in A minor, -7 st)",
+  "transpose_semitones": -7,
+  "bars": 12,
+  "seconds": 31.68,
+  "sr": 48000,
+  "flute_notes": 48,
+  "flute": {
+    "peak": 1.0,
+    "rms": 0.2127,
+    "finite": true
+  },
+  "mix": {
+    "peak": 0.9,
+    "rms": 0.2278,
+    "finite": true
+  },
+  "flute_hard_steals": 0,
+  "guitar_hard_steals": 0,
+  "render_s": 106.0
+}

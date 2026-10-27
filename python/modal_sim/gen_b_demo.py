@@ -2,6 +2,9 @@
 """生成一个真实 B timbre/note 的 demo core + θ 表（flute MIDI 69，48 modes）。
 
 只用于验证 theta 生成链；真正的 B 表生成器应复用同样的 theta 规则。
+注意：这里把提取到的 `w` 直接当 `G`，**没有**做周期驱动的稳态校准；
+`router_eng1.build_b_table` 的 `G = w / A_unit` 才是当前 router 级模型使用的
+口径。两者数值不同，别把本文件的 `.mem` 当成模型的输入。
 输出：rtl/rom/demo/b_coeff_flute69.mem、b_theta_flute69.mem
 """
 

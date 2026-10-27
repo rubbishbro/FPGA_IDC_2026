@@ -1,0 +1,16 @@
+rtl/comm/comm_pkg.sv
+rtl/drivers/common/comm_fifo.sv
+rtl/drivers/uart/comm_uart_rx.sv
+rtl/drivers/uart/comm_uart_tx.sv
+rtl/drivers/uart/uart_driver.sv
+rtl/drivers/bluetooth_hc05/comm_hc05_status.sv
+rtl/drivers/bluetooth_hc05/hc05_driver.sv
+rtl/comm/slip_frame_rx.sv
+rtl/comm/slip_frame_tx.sv
+rtl/comm/transport_link.sv
+rtl/comm/frame_arbiter.sv
+rtl/comm/session_ctrl.sv
+rtl/drivers/analyzer/midi_analyzer.sv
+rtl/drivers/analyzer/config_analyzer.sv
+rtl/drivers/analyzer/parser_dispatch.sv
+rtl/comm/comm_top.sv

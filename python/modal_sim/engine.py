@@ -3,10 +3,20 @@
 Per the agreed architecture:
 
     excitation = one finite raised-cosine force pulse (tau from velocity)
-    modes      = N IIR resonators, f_k = k*f0*sqrt(1+B k^2), gamma_k from the table
+    modes      = N IIR resonators *per voice*, f_k = k*f0*sqrt(1+B k^2),
+                 gamma_k from the extracted table
+    voice      = one note: its own N-mode bank, excitation pulse and state
     body       = one fixed biquad cascade shared by all voices
-    polyphony  = voice pool + scheme-C "kill" (tails accelerate out, never hard-cut)
+    polyphony  = a pool of `max_poly` voices; once more than `high_water`
+                 voices are active, scheme-C "kills" the quietest tail: every
+                 mode of that one voice accelerates out, never a hard cut
     output     = sum voices -> body -> VCA/soft-clip
+
+`max_poly` / `high_water` count **voices (notes), not modes**. One voice owns
+up to `patch.max_modes` modes (48 in the RTL budget, 64 for the mandolin
+demo), so the state is `max_poly x max_modes` resonators. A 40-voice pool with
+64 modes is 2560 resonators; `high_water=36` means at most 36 voices ring
+without a kill fade, not 36 modes.
 """
 
 from __future__ import annotations
@@ -25,6 +35,22 @@ class ModalSynth:
                  free_thr: float = 2e-4, level_tau: float = 0.01,
                  noise_amp: float = 0.12, noise_ms: float = 14.0,
                  noise_lp_hz: float = 5000.0, seed: int = 0):
+        """Configure one voice pool.
+
+        max_poly      : number of simultaneous voices (notes), not modes
+        high_water    : voice count above which scheme-C kills tails;
+                        defaults to max_poly - 2
+        kill_factor   : gamma multiplier applied to a killed voice. 150 turns
+                        the mandolin's median ~4/s decay into ~1.7 ms, so the
+                        fade is fast enough to be inaudible but still smooth
+        release_factor: gamma multiplier applied by note_off (damper).
+                        1.0 is a no-op; the chop uses 4.0
+        free_thr      : per-voice peak level below which a quiet voice is freed
+        level_tau     : time constant of the peak follower used to rank kill
+                        candidates (not the audio envelope)
+        noise_*       : short Hann-windowed pick/strike burst, added after the
+                        body so a steep body rolloff does not swallow it
+        """
         self.patch = patch
         self.sr = sr
         self.dt = 1.0 / sr
@@ -46,24 +72,26 @@ class ModalSynth:
 
     # ------------------------------------------------------------------
     def reset(self):
+        # Per-voice, per-mode state: V voices x N modes. The N axis is the
+        # modal bank inside one note, not N polyphonic notes.
         V, N = self.max_poly, self.Nmax
-        self.f = np.zeros((V, N))
-        self.base_gamma = np.zeros((V, N))
-        self.gamma = np.zeros((V, N))
-        self.gain = np.zeros((V, N))
-        self.a1 = np.zeros((V, N))
-        self.a2 = np.zeros((V, N))
-        self.y1 = np.zeros((V, N))
-        self.y2 = np.zeros((V, N))
-        self.pr = np.zeros(V, dtype=int)
-        self.plen = np.ones(V)
-        self.amp = np.zeros(V)
-        self.active = np.zeros(V, dtype=bool)
-        self.fast = np.zeros(V, dtype=bool)
-        self.level = np.zeros(V)
-        self.key = -np.ones(V, dtype=int)
-        self.burst = np.zeros((V, self.blast))
-        self.bi = np.zeros(V, dtype=int)
+        self.f = np.zeros((V, N))              # mode frequencies (Hz), per voice
+        self.base_gamma = np.zeros((V, N))     # table decay rate, before any kill
+        self.gamma = np.zeros((V, N))          # current decay; kill/release scale it
+        self.gain = np.zeros((V, N))           # excitation-to-mode gain
+        self.a1 = np.zeros((V, N))             # IIR coefficient -2*r*cos(theta)
+        self.a2 = np.zeros((V, N))             # IIR coefficient r^2
+        self.y1 = np.zeros((V, N))             # mode state, previous output
+        self.y2 = np.zeros((V, N))             # mode state, two samples back
+        self.pr = np.zeros(V, dtype=int)       # samples left in the excitation pulse
+        self.plen = np.ones(V)                 # excitation-pulse length (samples)
+        self.amp = np.zeros(V)                 # velocity-scaled pulse amplitude
+        self.active = np.zeros(V, dtype=bool)  # voice allocated and may ring
+        self.fast = np.zeros(V, dtype=bool)    # scheme-C kill already applied
+        self.level = np.zeros(V)               # peak follower for kill ranking only
+        self.key = -np.ones(V, dtype=int)      # MIDI note, for note_off by pitch
+        self.burst = np.zeros((V, self.blast))  # per-voice pick/strike noise
+        self.bi = np.zeros(V, dtype=int)       # read index into burst
         self.last_noise = 0.0
         self.n = 0
         self.kill_count = 0
@@ -91,12 +119,22 @@ class ModalSynth:
         self.gain[v] = np.clip(g, 0.0, 1e4)
 
     def _kill(self, v, hard=False):
-        """Scheme C: accelerate the tail continuously (never cut to zero).
+        """Scheme C: accelerate one whole voice's tail (never cut to zero).
 
-        Changing the pole radius swaps a1/a2 while y1/y2 still hold energy, so the next
-        sample steps by `(a1_old-a1_new)*y1 + (a2_old-a2_new)*y2`. That jump is recorded
+        `v` is a voice, so `gamma[v]` is the decay vector of *all* its modes;
+        multiplying it by `kill_factor` fades the complete note, not one mode.
+        This is the intended granularity: a per-mode kill would leave a
+        half-dead, wrong-timbre note behind.
+
+        Changing the pole radius swaps a1/a2 while y1/y2 still hold energy, so
+        the next sample steps by
+        `(a1_old-a1_new)*y1 + (a2_old-a2_new)*y2`. That jump is recorded
         (relative to the voice level) so "no click" is a measured claim, not an
         assumption.
+
+        `hard=True` only marks the kill as a stolen voice for statistics. The
+        pool-full fallback in note_on does its own hard steal (zeroes y1/y2
+        before reallocating) instead of calling this helper.
         """
         th = 2.0 * np.pi * self.f[v] * self.dt
         ro = np.exp(-self.base_gamma[v] * self.dt)
@@ -113,6 +151,12 @@ class ModalSynth:
 
     # ------------------------------------------------------------------
     def note_on(self, midi, vel=1.0):
+        """Allocate one voice for a note and arm its excitation pulse.
+
+        A free voice is taken first. If the pool is full, the quietest voice is
+        hard-stolen (y1/y2 zeroed): that is the fallback, expected to be rare
+        because the high-water logic in step() frees tails ahead of time.
+        """
         dyn = "forte" if vel >= 0.55 else "piano"
         f, g, w = self.patch.modes(midi, dyn)
         n = f.size
@@ -152,6 +196,11 @@ class ModalSynth:
         self.active[v] = True
         self.fast[v] = False
         self.key[v] = int(midi)
+        # Seed the peak follower just above free_thr (2e-4). The attack is not
+        # visible yet: the raised-cosine pulse and the Hann noise burst both
+        # start at zero, so the first step() sees y=0 and level stays at this
+        # seed. A newborn voice must therefore not be a kill candidate; see the
+        # FIXME on the high-water mask in step().
         self.level[v] = 1e-3
         # pick/strike transient: a short enveloped noise burst, coloured by the body
         env = np.hanning(self.blast)
@@ -167,6 +216,13 @@ class ModalSynth:
 
     # ------------------------------------------------------------------
     def step(self):
+        """Advance the whole voice pool by one sample.
+
+        Order matters: excite -> run every mode -> update the peak follower ->
+        run the high-water voice manager. On a voice's first sample both the
+        pulse and the noise burst are zero, so the manager ranks it by the
+        `level` seed from note_on, not by its attack peak.
+        """
         x = np.zeros(self.max_poly)
         m = self.pr > 0
         if m.any():
@@ -189,8 +245,22 @@ class ModalSynth:
         self.level = np.maximum(np.abs(raw_h + noise), self.level * self.level_decay)
         out = float(raw_h[self.active].sum())
 
-        # scheme C high-water: proactively accelerate the quietest tail so a slot is
-        # free *before* the next note arrives (killing does not free a voice by itself).
+        # Scheme C high-water, in voice units: `act` counts allocated notes and
+        # `nfast` counts those already fading. Keep at most `high_water`
+        # non-fading voices, so a slot is free before the next note arrives
+        # (a kill accelerates the tail but does not free the voice by itself).
+        #
+        # The candidate is the quietest voice by `level`, which must mean an
+        # inaudible tail. A voice still emitting its excitation pulse is not a
+        # tail: on its first sample y is exactly 0 and `level` is still the
+        # 1e-3 seed, so it can look quieter than every ringing tail.
+        #
+        # FIXME: add `& (self.pr == 0)` to the mask below. Without it, dense
+        # passages (mandolin tremolo, high_water=36 of max_poly=40) repeatedly
+        # kill the newest voice before its attack: 22 of 136 kills in the
+        # Bella Ciao lead happen at age 0. Protecting the 7-sample pulse is
+        # enough, because by then the peak follower has risen to the attack
+        # level and the voice no longer ranks as quietest.
         act = int(self.active.sum())
         nfast = int((self.active & self.fast).sum())
         if act > self.high_water and nfast < (act - self.high_water):
@@ -198,6 +268,8 @@ class ModalSynth:
             if cand.size:
                 self._kill(int(cand[np.argmin(self.level[cand])]))
 
+        # Free genuinely silent voices only after their pulse has finished, so
+        # a just-started note is never declared dead while its attack is 0.
         dead = self.active & (self.level < self.free_thr) & (self.pr == 0)
         if dead.any():
             self.active[dead] = False
@@ -212,7 +284,14 @@ class ModalSynth:
 
     # ------------------------------------------------------------------
     def render(self, events, seconds: float, gain: float = 1.0):
-        """events: iterable of (time, midi, duration, velocity); body applied at the end."""
+        """Render `(time, midi, duration, velocity)` events to audio.
+
+        Events are quantised to whole samples and may overlap; this is what
+        makes tremolo (same pitch re-struck every 80 ms) work. `note_off` is
+        keyed by MIDI pitch, not voice id: it damps every active voice of that
+        pitch that is not already in a kill fade. With release_factor=1.0
+        (plucked strings) it is a no-op; the chop uses 4.0.
+        """
         n = int(seconds * self.sr)
         onsets, offs = {}, {}
         for t, midi, dur, vel in events:

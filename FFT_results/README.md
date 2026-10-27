@@ -24,8 +24,9 @@ FFT_results/
       <inst>_summary.json, drums.npz
   figures/<inst>/               extraction diagnostics per instrument
       body.png, gamma.png, <note>_<dyn>.png
-  sim/                          synthesis deliverables (see sim/README.md)
-      pitched/  sustained/  drums/  song/  roll_compare/  crosscheck/
+  sim/                          current synthesis deliverables (see sim/README.md)
+      eng1/                     router-level eng1 audio (the only new output kept)
+      # old A/B/C outputs: history/FFT_results/sim_pre_eng1_2026-10/
 ```
 
 All analysis resamples to **48 kHz**, down-mixes to mono, and aligns to the note onset.

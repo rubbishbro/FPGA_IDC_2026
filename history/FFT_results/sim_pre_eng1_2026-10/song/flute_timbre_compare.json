@@ -1,0 +1,35 @@
+{
+  "note": "flute_D5_15_forte_normal.mp3",
+  "midi": 74,
+  "dynamic": "forte",
+  "d5": {
+    "centroid_hz": {
+      "source": 1203.6,
+      "model_static": 1190.0,
+      "model_perf": 1190.5
+    },
+    "hf_4k_8k_ratio": {
+      "source": 0.00099,
+      "model_static": 0.00083,
+      "model_perf": 0.00082
+    },
+    "inter_harmonic_floor_db": {
+      "source": -66.3,
+      "model_perf": -79.4
+    },
+    "harmonic_max_err_db_k1_9": 1.06,
+    "harmonic_median_err_db_k1_9": 0.4
+  },
+  "excerpt": {
+    "centroid_hz": {
+      "source_avg": 1256.0,
+      "excerpt_solo": 1244.6
+    },
+    "hf_4k_8k_ratio": {
+      "source_avg": 0.00132,
+      "excerpt_solo": 0.00096
+    },
+    "frames": 342
+  },
+  "verdict": "harmonic balance matches the source; the source has more low-frequency room/rumble and a higher inter-harmonic floor, the model is drier"
+}
