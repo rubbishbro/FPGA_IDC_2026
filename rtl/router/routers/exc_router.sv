@@ -32,15 +32,17 @@ module exc_router #(
     logic [2:0]  n_pulse;
 
     // 常量表：加乐器 = 加一行
+    //   SHIFT 的物理含义：x = (fmap << SHIFT) / 2^XF，现在 XF = QF = 24，
+    //   所以 fmap=250 / SHIFT=16 -> x = 0.977（和 Python SF 的 amplitude 同量纲）。
     always_comb begin
-        shift   = 6'd20;
+        shift   = 6'd16;
         rise_sh = 6'd5;          // 默认 32 采样上升（0.67 ms）
         pw_len  = 16'd32;
         gap_len = 16'd0;
         n_pulse = 3'd0;
         case (inst)
             router_pkg::INST_GUITAR: begin
-                shift   = 6'd18;
+                shift   = 6'd14;
                 rise_sh = 6'd1;      // 拨弦：2 个采样就升到峰值
                 pw_len  = 16'd2;
                 gap_len = 16'd0;
@@ -51,9 +53,9 @@ module exc_router #(
                 //   这里:   32 采样上升(0.67 ms) + tau≈48 采样(1 ms) + 周期 480(10 ms) + 0.6875^k
                 //   PW_LEN = 1<<RISE_SH = 32 -> 上升结束正好到峰值
                 //   GAP_LEN = 周期 - PW_LEN = 448（实测周期 = PW_LEN + GAP_LEN）
-                //   峰值幅度由 SHIFT 决定：xmap = fmap<<SHIFT
-                //     250<<20 / 2^28 = 0.977（Python SF 默认 amplitude=1.4，demo 里是 1.0）
-                shift   = 6'd20;
+                //   峰值幅度由 SHIFT 决定：250<<16 / 2^24 = 0.977
+                //     （Python SF 默认 amplitude=1.4，demo 里是 1.0）
+                shift   = 6'd16;
                 rise_sh = 6'd5;
                 pw_len  = 16'd32;
                 gap_len = 16'd448;

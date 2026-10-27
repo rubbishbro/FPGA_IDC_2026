@@ -32,7 +32,7 @@ module tb_music;
     localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（钢琴 64 模态 ≈735 拍 + 排空）
     parameter  int NSAMP  = 24000;           // 采样数：24000 = 0.5 s（够 FFT 出 2 Hz 分辨率）
     parameter  int PROBE  = 0;               // 1 = 打印前 40 个非零采样的各节点值
-    parameter  int NOTE_SLOT = 4;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
+    parameter  int NOTE_SLOT = 0;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
     parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
 
@@ -152,6 +152,8 @@ module tb_music;
     logic signed [63:0] mix_abs  = '0;      // |mix_q| 峰值（进腔体前）
     logic signed [63:0] body_abs = '0;      // |body_y| 峰值（进混响前）
     int  n_mix_sat = 0, n_body_sat = 0;     // 这两级各自贴边（饱和）的样本数
+    // 探针：单模态状态峰值（和 Python 模型对拍，用来验定点标度）
+    logic signed [31:0] q_abs = '0;
 
     initial begin
         fd = $fopen("_analysis/music_dec.txt", "w");
@@ -204,12 +206,16 @@ module tb_music;
             if (y_data == 64'sh7FFF_FFFF_FFFF_FFFF || y_data == -64'sh7FFF_FFFF_FFFF_FFFF)
                 n_clip = n_clip + 1;
             if (y_data > ymax_abs || -y_data > ymax_abs) ymax_abs = (y_data > 0) ? y_data : -y_data;
+            if (dut.q_ram_a[NOTE_SLOT*64] > q_abs || -dut.q_ram_a[NOTE_SLOT*64] > q_abs)
+                q_abs = (dut.q_ram_a[NOTE_SLOT*64] > 0) ? dut.q_ram_a[NOTE_SLOT*64] : -dut.q_ram_a[NOTE_SLOT*64];
             if (dut.mix_q  > mix_abs  || -dut.mix_q  > mix_abs)  mix_abs  = (dut.mix_q  > 0) ? dut.mix_q  : -dut.mix_q;
             if (dut.body_y > body_abs || -dut.body_y > body_abs) body_abs = (dut.body_y > 0) ? dut.body_y : -dut.body_y;
         end
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
                  NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
+        $display("探针：slot%0d mode0 状态峰值 |q| = %0d = %f（Q24；Python 模型 midi40 mode0 是 0.0277）",
+                 NOTE_SLOT, q_abs, real'(q_abs) / 16777216.0);
         $display("自检：n_out=%0d（应 %0d）  n_x=%0d（应 0）  |ymax|=%0d（应 >0）  削波=%0d",
                  n_out, NSAMP, n_x, ymax_abs, n_clip);
         // 三级余量（都是 64 位有符号）：mix_q（进腔体）-> body_y（进混响）-> y_data
