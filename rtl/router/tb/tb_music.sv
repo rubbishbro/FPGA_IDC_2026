@@ -32,7 +32,7 @@ module tb_music;
     localparam int CLK_HZ = 48_000_000;     // = 1000 拍/采样（钢琴 64 模态 ≈735 拍 + 排空）
     parameter  int NSAMP  = 24000;           // 采样数：24000 = 0.5 s（够 FFT 出 2 Hz 分辨率）
     parameter  int PROBE  = 0;               // 1 = 打印前 40 个非零采样的各节点值
-    parameter  int DBG    = 0;               // 1 = 前 4 个采样逐级打印（定位 X）
+    parameter  int DBG    = 1;               // 1 = 前 4 个采样逐级打印（定位 X）
     parameter  int NOTE_SLOT = 0;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
     parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
@@ -235,7 +235,9 @@ module tb_music;
             // ---- SWEEP=1：按住期间力度走 232 -> 252 -> 232（揉弦）----
             //   必须一直 > NOTE_ON_TH(230)，否则会被当成松键；
             //   按临时映射 lambda=(fmap-242)<<21/2^30，这段对应 λ ≈ -0.021 .. +0.021
-            if (sweep_sel != 0 && ins_sel == 1 && n > 200 && n < HOLD) begin
+            if (sweep_sel == 2 && ins_sel == 1 && n > 60) begin
+                fmap.flat_d[NOTE_SLOT].val = 8'd250;      // 固定 lambda=+0.015625
+            end else if (sweep_sel == 1 && ins_sel == 1 && n > 200 && n < HOLD) begin
                 int trip, v;
                 trip = (n - 200) * 200 / (HOLD - 200);      // 0..200
                 v    = (trip < 100) ? (232 + trip * 20 / 100)

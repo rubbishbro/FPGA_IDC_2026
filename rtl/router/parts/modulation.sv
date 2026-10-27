@@ -182,7 +182,10 @@ module modulation0 #(
                     co_mode      <= mode[$clog2(N_MODES)-1:0];
                     co_wdata.a11 <= a11_l;
                     co_wdata.a12 <= a12_l;
-                    co_wdata.a21 <= -a12_l;        // a21 = -a12
+                    // a21 = -a12，但**字段的 Q 不一样**：a12 是 Q30、a21 是 Q23
+                    // （modal_step_pkg::SH_A12 / SH_A21），直接写 -a12_l 会让
+                    // a21 大 2^7 倍 -> det = a11*a22 - a12*a21 > 1 -> 自激。
+                    co_wdata.a21 <= -32'(a12_l >>> (modal_step_pkg::SH_A12 - modal_step_pkg::SH_A21));
                     co_wdata.a22 <= a22_l;
                     co_wdata.wo  <= wo_l;
                     co_we        <= 5'b11111;
