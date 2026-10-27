@@ -31,8 +31,8 @@ def gen_coeff7(f0: float, TLr: float, gamma: np.ndarray, mode_num: int, pos: flo
     
     #完整系数预计算式
     a11 = ec + gamma * es / damped_omega
-    a12 = es / damped_omega
-    a21 = -es * omega0_sq / damped_omega #a21要是负的，否则无法振荡
+    a12 = es * omega0 / damped_omega
+    a21 = -es * omega0 / damped_omega #a21要是负的，否则无法振荡
     a22 = ec - gamma * es / damped_omega
     
     gq = 0.001 * np.sin(P * pos) / ((P**2) * pos * (1 - pos))

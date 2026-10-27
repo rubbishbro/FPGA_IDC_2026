@@ -38,7 +38,7 @@ sys.path.insert(0, str(_HERE))
 from flash_image import REC_BYTES, record, image   # noqa: E402
 
 # ---- 必须和 modal_step_pkg.sv 的 SH_* 一致 ----
-SH = dict(a11=28, a12=30, a21=23, a22=28, gq=31, gv=27, wo=15)
+SH = dict(a11=28, a12=30, a21=23, a22=28, gq=35, gv=34, wo=29)
 FIELDS = ("a11", "a12", "a21", "a22", "gq", "gv", "wo")
 PM_FIELDS = ("c0", "s0", "gam", "theta0", "g", "k12", "k21")
 INT32 = (-(1 << 31), (1 << 31) - 1)
@@ -193,9 +193,10 @@ def main(argv=None) -> int:
         rec = img[base:base + REC_BYTES]
         a11, a12, a21, a22, gq, gv, wo = (struct.unpack(">i", rec[4 * i:4 * i + 4])[0]
                                           for i in range(7))
-        print(f"    slot{slot:2d} midi{midi}: a11={a11 / 2**28:+.5f} a12={a12 / 2**30:+.6f} "
-              f"a21={a21 / 2**23:+.5f} a22={a22 / 2**28:+.5f} "
-              f"gq={gq / 2**31:+.4e} gv={gv / 2**27:+.4f} wo={wo / 2**15:+.5f}")
+        print(f"    slot{slot:2d} midi{midi}: a11={a11 / 2**SH['a11']:+.5f} "
+              f"a12={a12 / 2**SH['a12']:+.6f} a21={a21 / 2**SH['a21']:+.5f} "
+              f"a22={a22 / 2**SH['a22']:+.5f} gq={gq / 2**SH['gq']:+.4e} "
+              f"gv={gv / 2**SH['gv']:+.4f} wo={wo / 2**SH['wo']:+.5f}")
 
     print(f"[piano_flash] 每乐器 {len(tbl)} 字节（{SLOTS} slot x {args.modes} mode x {REC_BYTES} B）")
     check(0)

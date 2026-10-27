@@ -13,33 +13,23 @@ _OMEGA_D_FLOOR = 1e-5      # keeps an overdamped omega_d off a 0/0
 DELTA_T = float(1/48000)
 
 
-#     qn = a11·q + a12·v + gq·x (pluck)
-#     vn = a21·q + a22·v + 0·x
-#     y = wo·q
-def gen_coeff7(f0: float, TLr: float, gamma: np.ndarray, mode_num: int, pos: float):
-    P = np.arange(1, mode_num + 1, 1.0) * np.pi
-    omega0_sq = (f0 * 2 * P) ** 2
-    damped_omega = np.sqrt(np.clip(omega0_sq -  gamma ** 2, _OMEGA_D_FLOOR, None))
 
-    mode = np.arange(1,  mode_num + 1, 1.0)
-    sum_weight = mode * ((-1.0) ** mode) * TLr
-
-    decay = np.exp(- gamma * DELTA_T)
-    ec = decay * np.cos(damped_omega * DELTA_T)
-    es = decay * np.sin(damped_omega * DELTA_T)
+def gen_param7(f0: float, TLr: float, gamma: np.ndarray, mode_num: int, pos: float):
+    n = np.arange(1, mode_num + 1, 1.0)
+    P = n * np.pi
+    omega0 = f0 * 2 * P
     
-    #完整系数预计算式
-    a11 = ec + gamma * es / damped_omega
-    a12 = es / damped_omega
-    a21 = es * omega0_sq / damped_omega
-    a22 = ec - gamma * es / damped_omega
+    theta0 = n*omega0*DELTA_T
     
-    gq = 0.001 * np.sin(P * pos) / ((P**2) * pos * (1 - pos))
-    gv = np.zeros(mode_num)
+    c0 = np.cos(theta0)
+    s0 = np.sin(theta0)
     
-    wo = sum_weight
+    g = DELTA_T / theta0
     
-    return (a11, a12, a21, a22, gq, gv, wo)
+    k12 = omega0
+    k21 = 1/omega0
+    
+    return (c0, s0, gamma, theta0, g, k12, k21)
 
 def print_guitar_coeff_by_midi(midi: int):
     assert 40 <= midi and midi <= 80
