@@ -69,7 +69,7 @@ module modulation0 #(
     logic signed [31:0] lam_q;                                  // Q30
     logic signed [31:0] a11_l, a12_l, a22_l, wo_l;               // 基值
     logic signed [31:0] s11_l, s12_l, s22_l, swo_l;              // 斜率
-    logic signed [31:0] mul_a, mul_b, mul_a_q, mul_b_q;
+    logic signed [31:0] mul_a_q, mul_b_q;
     logic signed [63:0] prod_q;
     logic signed [63:0] acc_q;                                  // lambda*S 的乘积寄存器
 
@@ -140,11 +140,17 @@ module modulation0 #(
                     st    <= S_LD;
                 end
 
-                // 操作数先寄存，乘法从 FF 出发
+                // 操作数直接在这里按 step 选（寄存器输出，乘法从 FF 出发）
+                //   不用组合 mux：之前那个 always_comb + always_ff 混着用，
+                //   综合/仿真工具都能过，但 xvlog 编译会慢到十几分钟。
                 S_LD: begin
-                    mul_a_q <= mul_a;
-                    mul_b_q <= mul_b;
-                    st      <= S_MUL;
+                    case (step)
+                        2'd0: begin mul_a_q <= lam_q; mul_b_q <= s11_l; end
+                        2'd1: begin mul_a_q <= lam_q; mul_b_q <= s12_l; end
+                        2'd2: begin mul_a_q <= lam_q; mul_b_q <= s22_l; end
+                        default: begin mul_a_q <= lam_q; mul_b_q <= swo_l; end
+                    endcase
+                    st <= S_MUL;
                 end
 
                 S_MUL: begin
@@ -196,14 +202,6 @@ module modulation0 #(
         end
     end
 
-    // 单乘法器的操作数 mux：step 0..3 -> S11/S12/S22/Swo（都乘 lambda）
-    always_comb begin
-        case (step)
-            2'd0: begin mul_a = lam_q; mul_b = s11_l; end
-            2'd1: begin mul_a = lam_q; mul_b = s12_l; end
-            2'd2: begin mul_a = lam_q; mul_b = s22_l; end
-            default: begin mul_a = lam_q; mul_b = swo_l; end
-        endcase
-    end
+    // 单乘法器的操作数 mux 已经并入 S_LD（见上），这里不再需要组合 mux
 
 endmodule
