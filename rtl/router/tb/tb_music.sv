@@ -34,6 +34,7 @@ module tb_music;
     parameter  int PROBE  = 0;               // 1 = 打印前 40 个非零采样的各节点值
     parameter  int NOTE_SLOT = 4;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
+    parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;                    // 100 MHz 的时钟沿，CLK_HZ 只是分频参数
@@ -148,6 +149,9 @@ module tb_music;
     int  n_clip = 0;         // 饱和到 int64 边界的帧数
     int  n_probe = 0;        // PROBE 打了多少条
     logic signed [63:0] ymax_abs = '0;
+    logic signed [63:0] mix_abs  = '0;      // |mix_q| 峰值（进腔体前）
+    logic signed [63:0] body_abs = '0;      // |body_y| 峰值（进混响前）
+    int  n_mix_sat = 0, n_body_sat = 0;     // 这两级各自贴边（饱和）的样本数
 
     initial begin
         fd = $fopen("_analysis/music_dec.txt", "w");
@@ -166,16 +170,27 @@ module tb_music;
 
         t0 = $time;
         for (int n = 0; n < NSAMP; n++) begin
-            // ---- 单音：按一下，然后自由衰减（方便对频谱/衰减时间做 FFT）----
+            // ---- 弹法：ALL16=1 是"开头 16 个键一起按下"（测饱和）；
+            //     否则只弹 NOTE_SLOT 一个音，之后自由衰减 ----
             if (n == 40) begin
                 // 力度 250 必须 > voice_router 的 NOTE_ON_TH(230)，否则按键根本不成立
-                press(NOTE_SLOT, 8'd250);
-                $display("    [%0d] 按 slot %0d（镜像里 midi40 + 2*%0d），力度 250，按住 %0d 采样后松开",
-                         n, NOTE_SLOT, NOTE_SLOT, HOLD);
+                if (ALL16 != 0) begin
+                    for (int k = 0; k < 16; k++) press(k, 8'd250);
+                    $display("    [%0d] 16 个键**同时**按下，力度 250，按住 %0d 采样", n, HOLD);
+                end else begin
+                    press(NOTE_SLOT, 8'd250);
+                    $display("    [%0d] 按 slot %0d（镜像里 midi40 + 2*%0d），力度 250，按住 %0d 采样后松开",
+                             n, NOTE_SLOT, NOTE_SLOT, HOLD);
+                end
             end
             if (n == 40 + HOLD) begin
-                press(NOTE_SLOT, 8'd0);
-                $display("    [%0d] 松键，之后是 ADSR release + 自由衰减", n);
+                if (ALL16 != 0) begin
+                    for (int k = 0; k < 16; k++) press(k, 8'd0);
+                    $display("    [%0d] 16 个键同时松开，之后自由衰减", n);
+                end else begin
+                    press(NOTE_SLOT, 8'd0);
+                    $display("    [%0d] 松键，之后是 ADSR release + 自由衰减", n);
+                end
             end
             one_sample();
             // ---- 探针：这一帧的四个节点（只在 PROBE=1 时打印前 40 个非零）----
@@ -189,12 +204,30 @@ module tb_music;
             if (y_data == 64'sh7FFF_FFFF_FFFF_FFFF || y_data == -64'sh7FFF_FFFF_FFFF_FFFF)
                 n_clip = n_clip + 1;
             if (y_data > ymax_abs || -y_data > ymax_abs) ymax_abs = (y_data > 0) ? y_data : -y_data;
+            if (dut.mix_q  > mix_abs  || -dut.mix_q  > mix_abs)  mix_abs  = (dut.mix_q  > 0) ? dut.mix_q  : -dut.mix_q;
+            if (dut.body_y > body_abs || -dut.body_y > body_abs) body_abs = (dut.body_y > 0) ? dut.body_y : -dut.body_y;
         end
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
                  NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
         $display("自检：n_out=%0d（应 %0d）  n_x=%0d（应 0）  |ymax|=%0d（应 >0）  削波=%0d",
                  n_out, NSAMP, n_x, ymax_abs, n_clip);
+        // 三级余量（都是 64 位有符号）：mix_q（进腔体）-> body_y（进混响）-> y_data
+        //   括号里是"占 2^63-1 的百分之几"，四舍五入到 0.0001%
+        $display("余量：mix_q %0d (%0d.%04d%%)  body_y %0d (%0d.%04d%%)  y_data %0d (%0d.%04d%%)  y 削波=%0d",
+                 mix_abs,
+                 mix_abs  / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 (mix_abs  % (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000)) * 64'd10000
+                     / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 body_abs,
+                 body_abs / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 (body_abs % (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000)) * 64'd10000
+                     / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 ymax_abs,
+                 ymax_abs / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 (ymax_abs % (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000)) * 64'd10000
+                     / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
+                 n_clip);
         if (n_out == NSAMP && n_x == 0 && ymax_abs > 0)
             $display("RESULT: PASS");
         else

@@ -91,7 +91,7 @@ try {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $log = & xsim.bat tb_mu --nolog -runall 2>&1
     $sw.Stop()
-    $log | Select-String '渲染完成|自检|按 slot|RESULT' | ForEach-Object { "    $_" }
+    $log | Select-String '渲染完成|自检|余量|按 slot|同时|RESULT' | ForEach-Object { "    $_" }
     Write-Host ("    仿真墙钟 {0:N0} s" -f $sw.Elapsed.TotalSeconds) -ForegroundColor DarkGray
 
     # ---- 4) 汇总 ------------------------------------------------------------
