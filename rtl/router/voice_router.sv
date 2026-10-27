@@ -15,9 +15,6 @@
 //     7. 混响（reverb_router）：预设由上层输入 reverb_preset 选，NONE 时是逐位直通
 //        （只是多 6 拍延迟），HALL/BATHROOM 才真的加湿声
 //
-//   注意：本文件是新的一版，不改动 modal_voice_top；两者可以并行存在。
-//   占位：force_pre / weight_loader / eng_alt 见 router_stubs.sv
-//
 //   加载是**阻塞**的（S_LOAD 等 ld_done）：这段时间 input_hold=1，fmap 冻结、
 //   note 事件不产生，也不出任何 y_valid —— 上层看到的就是"静音 + not ready"。
 //   这是有意的设计选择（最省逻辑，代价是换乐器头 1~2 ms 没声音），不是遗漏；

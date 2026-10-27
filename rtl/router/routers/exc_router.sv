@@ -43,7 +43,19 @@ module exc_router #(
                 pw_len = 16'd2;          // 拨弦：2 个采样宽
             end
             router_pkg::INST_PIANO: begin
-                n_pulse = 3'd3; //钢琴击弦：一次按键最多产生四次激励(3+1)
+                // 钢琴击弦：对齐 sythsound/sim_piano.py 的 SF 激励（方案 A，矩形近似）
+                //   attack 0.5 ms = 24 采样（脉冲宽度 PW_LEN）
+                //   脉冲周期 10 ms = 480 采样 -> GAP_LEN = 周期 - PW_LEN = 456
+                //     （实测周期 = PW_LEN + GAP_LEN；写 457 是 481 拍）
+                //   4 个脉冲（N_PULSE=3 -> N+1）。矩形之间 xmap 归零；
+                //   Python 那边是 0.5 ms 线性上升 + 1 ms 指数尾巴 + 0.7^k 递减，
+                //   方案 B 再补（见 README / _analysis/exc_cmp.py 的对照）
+                //   峰值幅度由 SHIFT 决定：xmap = fmap<<SHIFT
+                //     250<<20 / 2^28 = 0.977（Python SF 默认 amplitude=1.4，demo 里 1.0）
+                shift   = 6'd20;
+                pw_len  = 16'd24;
+                gap_len = 16'd456;
+                n_pulse = 3'd3;
             end
             default: ;
         endcase
