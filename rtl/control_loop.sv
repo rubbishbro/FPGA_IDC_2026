@@ -31,15 +31,16 @@ module control_loop #(
     logic [SOURCE_W-1:0] rr_next;
     logic [SOURCE_W-1:0] selected_source;
     logic selected_valid;
+    integer candidate;
 
     // Scan once from rr_next; explicit wrap also handles non-power-of-two counts.
     always_comb begin
         src_ready       = '0;
         selected_source = '0;
         selected_valid  = 1'b0;
+        candidate       = 0; // 给扫描临时量完整赋值，避免 Gowin 推断锁存器。
         if (rst_n && poll_tick && !req_valid) begin
             for (int offset = 0; offset < SOURCES; offset++) begin
-                int candidate;
                 candidate = int'(rr_next) + offset;
                 if (candidate >= SOURCES) candidate = candidate - SOURCES;
                 if (!selected_valid && src_valid[candidate]) begin

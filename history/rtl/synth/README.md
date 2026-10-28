@@ -1,6 +1,6 @@
 # rtl/synth —— ENG1 A/B/C 共享顶层（迁移中）
 
-> 权威梳理见 [`docs/ENG1_ENG2_统一架构.md`](../../docs/ENG1_ENG2_统一架构.md)。本 README 只记 `rtl/synth` 的局部约定，
+> 权威梳理见 [`docs/ENG1_ENG2_统一架构.md`](../../docs/legacy/ENG1_ENG2_统一架构_2026-10-21.md)。本 README 只记 `rtl/synth` 的局部约定，
 > 不再重复模块清单。
 
 模板：`rtl/simsynth/modal_voice_top.sv`（多槽存储、单份状态、引擎只算、结果流）。

@@ -1,6 +1,6 @@
 # 万向摇杆适配接口
 
-2026-10-27：已实现独立 RTL、采集端原始坐标出口，26 组功能仿真通过，默认参数的适配层通过 Gowin 独立综合。未接 LCD UI，未做布局布线、板级方向、中心漂移或模拟前端验收。现有 ADC 扫描状态机保留，新增成对原始坐标旁路；旧 `pos` 接口继续存在。
+2026-10-27：独立 RTL、原始 X/Y 出口及 26 组回归已完成，默认参数有独立综合记录；适配器已在 sidebar_system 中接入交互。独立 LCD demo 无 ADC 引脚，HAS_JOYSTICK=0；真实板级方向/漂移/模拟前端仍待验收。采集 FSM 当前已有泄放、建立、完成锁存与超时，不再是早期盲读扫描。
 
 ## 接线与职责
 
@@ -9,7 +9,7 @@ sense4x4_joystick（ADC 采集）
     → pad_driver / pad_voice_top 的 joy_sample_valid、joy_raw_x、joy_raw_y
     → joystick_adapter（同一个主时钟域）
     → 连续偏移 / 八方向 / 带握手的导航事件
-    → 后续侧栏 UI
+    → sidebar_ctrl 侧栏 UI（已实现接线）
     → 用户选定配置值后，UI 才产生配置请求交给 control_loop
 ```
 
@@ -84,7 +84,7 @@ joystick_adapter #(.CLK_HZ(100_000_000)) u_joystick (
 );
 ```
 
-未来接目前约 33.3MHz 的 UI 时，需要在整机集成处明确跨域传输；不能只对多位坐标逐位打两拍。新增方向枚举与当前 `ui_pkg` 的 NEXT/PREV/OK/BACK 不是同一个接口，菜单控制器应明确映射。
+当前 sidebar_system 在 ctrl_clk 域内实例化适配器和菜单，LCD demo 控制时钟为 50MHz；坐标不直接送入 pix_clk。显示快照走整包 CDC。独立例化到其它控制域时，CLK_HZ 必须匹配；方向枚举与旧 ui_pkg 按键事件仍需显式映射。
 
 ## 验证
 
@@ -94,6 +94,6 @@ python3 sim/run_joystick.py
 
 26 组功能仿真：3 种校准长度（1/4/16 对）×8 种换轴/反向组合，以及 dummy 开/关的 2 组采集→适配接线测试。覆盖非默认中心平均、八方向、死区等号/迟滞、中心抖动、ADC 全量程符号、随机位置、连发时间、反压稳定与最新方向合并、采样超时恢复、重校准、部分校准中断和复位。
 
-采集接线测试使用真实 `sense4x4_joystick` 和 `cart2polar`，仅 ADC 使用行为模型，包含一次不返回 ready 的超时重试，并检查成对坐标、dummy 丢弃、单主时钟 valid 和适配层校准计数。没有例化无关的 LED：旧 `led8x8` 对 packed union 的变量索引会阻塞 Icarus 展开，未为本任务改写它。日志在 `build/joystick/`。这些结果不表示真实 ADC、LCD UI、CDC 或整机已验收。
+采集接线测试使用真实 `sense4x4_joystick` 和 `cart2polar`，仅 ADC 使用行为模型，包含一次不返回 ready 的超时重试，并检查成对坐标、dummy 丢弃、单主时钟 valid 和适配层校准计数。没有例化无关的 LED：旧 `led8x8` 对 packed union 的变量索引会阻塞 Icarus 展开，未为本任务改写它。日志在 `build/joystick/`。这 26 组结果不覆盖真实 ADC、LCD UI/CDC；侧栏另有集成回归，也不代表整机已验收。
 
 独立综合脚本为 `sim/synth/joystick_build.tcl`，在仓库根目录启动 Gowin Tcl 控制台后执行 `source sim/synth/joystick_build.tcl`。2026-10-27 默认参数综合成功，无 RTL 综合警告，网表位于 `build/joystick_synth/joystick_adapter/impl/gwsynthesis/`，控制台日志为 `build/joystick/synthesis.log`。该检查只包含 `joystick_pkg` 与适配器，不是采集整链综合，也不表示 100MHz 时序已经签核。

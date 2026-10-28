@@ -25,13 +25,13 @@
 
 ### 模块 2A 文档
 
-* [`module2A_design.md`](../../../../rtl/module2A_design.md)：单声部四路时分复用阵列的设计规格、接口、周期表与测试判据，以及 2B/2C 的范围边界。
+* [`module2A_design.md`](../../../design/module2A_design.md)：单声部四路时分复用阵列的设计规格、接口、周期表与测试判据，以及 2B/2C 的范围边界。
 * [`module2A_delivery_report.md`](module2A_delivery_report.md)：实现模型、独立审查、实际测试结果和未完成的硬件验证；以报告中的状态判断是否已交付。
 
 ### 模块2B/2C与音频首阶段
 
-* [`module2BC_design.md`](../../../../rtl/module2BC_design.md)：系数ROM装载及32声部调度设计/测试规格。
-* [`audio_bringup_design.md`](../../../../rtl/audio_bringup_design.md)：上板自动歌曲与MAX98357A喇叭播放目标，特别注明PT8211与标准I2S的时序差异及硬件待确认项。
+* [`module2BC_design.md`](../../../design/module2BC_design.md)：系数ROM装载及32声部调度设计/测试规格。
+* [`audio_bringup_design.md`](../../../design/audio_bringup_design.md)：上板自动歌曲与MAX98357A喇叭播放目标，特别注明PT8211与标准I2S的时序差异及硬件待确认项。
 * [`module2BC_delivery_report.md`](module2BC_delivery_report.md)：实现与独立复测状态；数字链路结果与实物验收分开记录。
 * [`audio_delivery_report.md`](audio_delivery_report.md)：音频实现者的文件、正式测试和限制；父会话复测结论仍以总交付报告为准。
 * [`platform/tang_mega_138k_pro/BOARD_README.md`](platform/tang_mega_138k_pro/BOARD_README.md)：MAX98357A的PMOD2接线、真实PLL生成及板级构建/验收步骤。缺Gowin/IP时不能生成可烧录结果。
@@ -40,7 +40,7 @@
 
 ### 共享箱体首版（独立功能验证通过，硬件构建未验收）
 
-* [`body_design.md`](../../../../rtl/body_design.md)：4-biquad残余箱体、外部64bit/Q30与内部68bit/Q34、局部数值方案及门槛；首版闭环guitar，四乐器单测，不把混奏分组/噪声/控制迁移算作已完成。
+* [`body_design.md`](../../../design/body_design.md)：4-biquad残余箱体、外部64bit/Q30与内部68bit/Q34、局部数值方案及门槛；首版闭环guitar，四乐器单测，不把混奏分组/噪声/控制迁移算作已完成。
 * [`body_review_report.md`](body_review_report.md)：父会话独立逐位、误差、拒绝路径、歌曲/I2S、生产wrapper及真实DSP/ROM网表结果；生产BODY=1参数已验证，隔离模块STA通过，但完整整机Gowin/实板尚未接受。
 * `sim/test_body_filter_review.py`、`sim/test_body_numeric_review.py`、`sim/test_body_rejection_review.py`：黄金来自原始Patch.sos，覆盖64bit输出/68bit历史、饱和、busy/clear/reset、量化误差、ROM重建及非法输入拒绝。
 * [`hardware_timing_review.md`](hardware_timing_review.md)：真实P&R已保留阵列/箱体，但完整工程100MHz时序未通过，父会话拒收并分配地址/控制优化。箱体流水v3现已亲跑逐位/冻结整机/隔离100MHz及真实DSP/ROM网表功能通过；最终核心版本/整机仍须重新验收。`sim/review_gowin_reports.py --require-body`检查STA/clock/箱体门槛，`sim/review_i2s_pin_delays.py`分清真实快慢角路径和约束保守上界，不因产出bitstream自动放行。

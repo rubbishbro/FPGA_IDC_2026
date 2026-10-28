@@ -7,13 +7,13 @@
 | [uart/](uart/README.md) | 通用 UART RX／TX、唯一 RX 字节 FIFO、物理错误检测 |
 | [bluetooth_hc05/](bluetooth_hc05/README.md) | 独立 HC-05 设备包装，内部复用 UART，附可选 STATE 状态 |
 | [common/](common/comm_fifo.sv) | 驱动、传输和事件队列共用的同步 FIFO |
-| [万向摇杆适配](JOYSTICK_ADAPTER.md) | 原始 ADC 成对出口、中心校准、连续双轴偏移、八方向与带握手的导航连发；尚未接 LCD UI |
+| [万向摇杆适配](JOYSTICK_ADAPTER.md) | 原始 ADC 成对出口、中心校准、连续双轴偏移、八方向与带握手的导航连发；已接 sidebar_system；独立 LCD demo 无 ADC 输入 |
 | [analyzer/](analyzer/README.md) | TYPE 分发、MIDI／Config 业务解析、接口和验证汇报 |
 | [../comm/](../comm/README.md) | 每路 transport、帧仲裁、回复路由、会话协调与通信集成顶层 |
 
 当前验证覆盖独立通信 RTL 与 mock 端点，尚无真实音频整机／HC-05 实物验收。历史方案保留在各模块文档的归档入口。
 
-从 `history/rtl/drivers` 迁入的驱动依赖，供后续 16 按键键盘/矩阵扫描复用。
+压力/摇杆驱动已经接入 pad_voice_top；原始 X/Y 出口用于 sidebar_system，真实板级矩阵映射仍需验证。机械按键如需复用扫描，应另行处理消抖和键码。
 
 ```text
 pkg/clk_rst_pkg.sv      clk / clk_en / rst_n 约定
@@ -21,6 +21,8 @@ pkg/pad_driver_pkg.sv   pixel / mat4x4 / vec2 / input_param 类型
 pad_driver.sv           led8x8 + sense4x4_joystick + shift_timer
 gowin_adc/gowin_adc.v   Gowin ADC IP 包装（4x4 力敏/摇杆路径使用）
 ```
+
+当前 sense4x4_joystick 已采用泄放→建立→请求→完成锁存→存储 FSM、超时重试及可选 dummy；旧 row_scan 连续轮转的缺陷描述仅适用于历史版本。
 
 注意：
 

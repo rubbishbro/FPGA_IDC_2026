@@ -1,64 +1,26 @@
-// -----------------------------------------------------------------------------
-// 文件: engine_post_flow.dot
-// 用途: 引擎 / 共享 RAM / engine_mux / post_chain 数据流
-// 说明: pure_engine_abc + e2_engine 共用一份 shared_modal_ram；
-//       唯一尾部加法器 -> post FSM -> envelope/body/reverb/dry-wet/final。
-// 生成: dot -Tsvg engine_post_flow.dot -o engine_post_flow.svg
-//       dot -Tpng -Gdpi=180 engine_post_flow.dot -o engine_post_flow.png
-// -----------------------------------------------------------------------------
+// 当前结构；不在图内维护 PASS/Fmax，结果见文档维护与验证。
 digraph engine_post_flow {
-    graph [
-        fontname="Noto Sans CJK TC", fontsize=18,
-        rankdir=LR, compound=true, newrank=true,
-        nodesep=0.32, ranksep=0.55, bgcolor="white", pad=0.26
-    ];
-    node [shape=box, style="rounded,filled", fontname="Noto Sans CJK TC",
-          fontsize=10, margin="0.11,0.07", color="#4a5568", fillcolor="#edf2f7"];
-    edge [fontname="Noto Sans CJK TC", fontsize=8, color="#4a5568", arrowsize=0.7];
+graph [fontname="Noto Sans CJK SC",fontsize=17,rankdir=TB,nodesep=0.4,ranksep=0.55,bgcolor="white",pad=0.25];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=11,margin="0.16,0.10",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=10,color="#64748b",arrowsize=0.7];
 
-    subgraph cluster_job {
-        label="job / 系数装载";
-        fontsize=11; color="#b7791f"; style="rounded"; fillcolor="#fffff0";
-        load [label="router_loader\ncfg / clr / seed\n（index_loader20 / 64 backend）", fillcolor="#fefcbf"];
-        job [label="router / voice_alloc\nactive · n_modes · gate\nx · zero", fillcolor="#bee3f8"];
-    }
-
-    subgraph cluster_eng {
-        label="shared_engines_top  ——  唯一 shared RAM + engine mux";
-        fontsize=13; color="#6b46c1"; style="rounded"; fillcolor="#faf5ff";
-
-        mux [label="engine_mux\nsel_e2", fillcolor="#e9d8fd"];
-
-        abc [label="pure_engine_abc\nA/B/C 共用\n4 lane × 9×32\nunity env", fillcolor="#c6f6d5"];
-        e2 [label="e2_engine\nE2\n7×mult / 5-stage", fillcolor="#fed7d7"];
-
-        ram [label="shared_modal_ram\n9×32 / depth 320\nstate_first = 3(A/B/C) / 7(E2)", shape=cylinder, fillcolor="#fefcbf"];
-        tail [label="唯一尾部加法器\nmix_sum", fillcolor="#fbd38d"];
-        pfsm [label="post FSM\n激励保持 32 拍\n零 tail 1024 拍", fillcolor="#fbd38d"];
-    }
-
-    subgraph cluster_post {
-        label="post_chain  ——  POST_EN=1";
-        fontsize=12; color="#c53030"; style="rounded"; fillcolor="#fff5f5";
-        env [label="envelope_mul\nUQ1.15", fillcolor="#fed7d7"];
-        body [label="body_biquad\n4-section biquad", fillcolor="#fed7d7"];
-        rev [label="comb_reverb\n4-comb\nshift feedback", fillcolor="#fed7d7"];
-        dw [label="dry_wet_mix\n(dry·gd + wet·gw)", fillcolor="#fed7d7"];
-        fin [label="final_adder\n饱和", fillcolor="#fed7d7"];
-    }
-
-    out [label="mix_sum\n64-bit mono", fillcolor="#f6ad55"];
-
-    load -> ram [label="cfg / clr / seed", color="#b7791f", style=bold];
-    job -> mux [label="active / x / n_modes", color="#2b6cb0", style=bold];
-    mux -> abc [label="sel ABC", color="#2f855a"];
-    mux -> e2 [label="sel E2", color="#c53030"];
-    ram -> abc [label="rd/st", dir=both, color="#805ad5"];
-    ram -> e2 [label="rd/st", dir=both, color="#c53030"];
-    abc -> tail [label="engine sum"];
-    e2 -> tail [label="engine sum"];
-    tail -> pfsm;
-    pfsm -> env -> body -> rev -> dw -> fin -> out;
-
-    { rank=same; abc; e2; }
+label="voice_router 数据流 · 2026-10-27\neng0/eng1 格式不同；当前输出止于数字合成值";labelloc=t;
+fmap [label="fmap → 门控 / note / dead"];
+exc [label="exc_router → excitation_gen\n单样本 x_q[SLOTS]",fillcolor="#dcfce7"];
+env [label="env_router\nADSR / dyn0 / const\nQ1.31 包络",fillcolor="#dcfce7"];
+load [label="weight_loader\n逐 slot 紧凑 Flash → RAM padding",fillcolor="#fef3c7"];
+mod [label="mod_router / modulation0\n起音请求位图 / 后台逐模态更新",fillcolor="#fef3c7"];
+a [label="bank A · 前半声部\n系数 / q / v 同步 RAM",shape=cylinder,fillcolor="#dbeafe"];
+b [label="bank B · 后半声部\n系数 / q / v 同步 RAM",shape=cylinder,fillcolor="#dbeafe"];
+ea [label="eng_router A → eng0 或 eng1",fillcolor="#ede9fe"];
+eb [label="eng_router B → 相同选核",fillcolor="#ede9fe"];
+mix [label="复用逐声部包络乘法\n跨声部 signed64 累加",fillcolor="#fce7f3"];
+body [label="body_router → 五段 biquad\nQ4.27 系数",fillcolor="#fce7f3"];
+rev [label="reverb_router → 四梳状线\n干湿混合 / 预设切换清理",fillcolor="#fce7f3"];
+y [label="y_valid / signed64 y_data\nPCM / FIFO / DAC 待集成",fillcolor="#fff7ed"];
+fmap -> exc;fmap -> env;fmap -> mod [label="起音"];
+load -> a;load -> b;mod -> a;mod -> b;
+a -> ea [dir=both];b -> eb [dir=both];exc -> ea;exc -> eb;
+ea -> mix;eb -> mix;env -> mix;mix -> body -> rev -> y;
+{rank=same;a;b;} {rank=same;ea;eb;}
 }

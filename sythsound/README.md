@@ -1,5 +1,7 @@
 # SythSound
 
+2026-10-27 repository note: this remains an independent Python experiment library. Its `piano_coeff_gen.py`/`piano_coeff.txt` also feed the current router Flash packer; the piano generator now emits signed restoring a21 and normalized matrix/input/output coefficients. See [router coefficient contract](../rtl/router/README.md). Python playback is not the FPGA audio chain.
+
 An electronic music synthesis experiment bench for Python. You write the
 algorithms; this gives you the plumbing (per-sample blocks, composition,
 modulation, rendering, playback, measurement) without hiding any of the maths.

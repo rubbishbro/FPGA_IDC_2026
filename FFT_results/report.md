@@ -1,6 +1,8 @@
 # FFT analysis report
 
-Partial-tracking extraction of the guitar and piano sample libraries.
+Partial-tracking extraction of the guitar, piano, banjo and mandolin sample libraries.
+
+2026-10-27 documentation review: the numerical tables below are the retained extraction results, not a new extraction or board test. Inputs are under `music_resources/`, parameter files under `FFT_results/params/`; router Flash is a separate format, see [format guide](../rtl/router/README.md).
 
 ## Method
 
@@ -36,7 +38,7 @@ Partial-tracking extraction of the guitar and piano sample libraries.
 
 ## Extraction quality
 
-| instrument | partials trusted | f0 cents (median) | f0 |cents| p90 | f0 outliers |>50c| |
+| instrument | partials trusted | f0 cents (median) | f0 absolute cents p90 | f0 outliers >50c |
 |---|---:|---:|---:|---|
 | guitar | 1690/3005 (56 %) | +6.3 | 13.8 | none |
 | piano | 1281/1366 (94 %) | -1.0 | 29.6 | B0f -60 |
@@ -51,9 +53,9 @@ estimator locked onto the wrong series”, not automatically “bad note”
 
 ## Files
 
-- `<inst>_manifest.json` — per-file note/dynamic/loop metadata
-- `<inst>_partials.npz` — f0, B, k, f_k, amp_k, a0, γ, γ2, R², prom_db, trusted
-- `<inst>_body.npz` — averaged coloration + fitted FIR
+- `params/<inst>_manifest.json` — per-file note/dynamic/loop metadata
+- `params/<inst>_partials.npz` — f0, B, k, f_k, amp_k, a0, γ, γ2, R², prom_db, trusted
+- `params/<inst>_body.npz` — averaged coloration + fitted FIR
 - `figures/<inst>/` — note diagnostics and body/γ summaries
 
 ## Caveats

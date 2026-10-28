@@ -1,80 +1,34 @@
-# 新架构图（2026-10-22）
+# 当前架构图
 
-`docs/diagrams/` 只保留当前新架构图；重构前的旧图已移到
-`history/docs/diagrams/legacy/`，不在本目录展示。
+更新：2026-10-27。三张图按 voice_router、独立通信和中文侧栏的当前源码重绘；实线为现有内部连接，虚线表示待整机接入。具体接口见 [代码导读](../../CODE_ARCHITECTURE.md)，验证结果见 [维护记录](../工程评审与验证.md#verification)。图内不将旧 core PASS/Fmax 当作当前整机结论。
 
-## 1. 总览
+## 系统边界
 
-[![新架构总览](architecture_overview.png)](architecture_overview.svg)
+[![系统边界](architecture_overview.png)](architecture_overview.svg)
 
-- 源文件：[architecture_overview.dot](architecture_overview.dot)
-- SVG：[architecture_overview.svg](architecture_overview.svg)
-- 内容：`router_system_top` 的控制面、统一 loader、shared system、engine_mux、post_chain。
+[DOT 源](architecture_overview.dot)：合成输出、独立通信、LCD 测试源与待接消费者/音频输出。
 
-## 2. Router 控制 / 装载 / voice
+## 配置与显示提交
 
-[![Router 控制流](router_control_flow.png)](router_control_flow.svg)
+[![配置与侧栏](router_control_flow.png)](router_control_flow.svg)
 
-- 源文件：[router_control_flow.dot](router_control_flow.dot)
-- SVG：[router_control_flow.svg](router_control_flow.svg)
-- 内容：`rcfg/fmap → router_frontend → x/engine_sel/load`，以及 `router_loader`、`router_voice_alloc` 到 `engine_mux` 的连接。
+[DOT 源](router_control_flow.dot)：摇杆/按键、control_loop、config_dispatch、真实结果与显示快照 CDC。侧栏 CDC 不覆盖主音频。
 
-## 3. 引擎 / 共享 RAM / 后级
+## router 与后级
 
-[![引擎与后级](engine_post_flow.png)](engine_post_flow.svg)
+[![router 数据流](engine_post_flow.png)](engine_post_flow.svg)
 
-- 源文件：[engine_post_flow.dot](engine_post_flow.dot)
-- SVG：[engine_post_flow.svg](engine_post_flow.svg)
-- 内容：`engine_mux`、`pure_engine_abc` / `e2_engine`、唯一 shared RAM、尾部加法器、post FSM、`post_chain`。
+[DOT 源](engine_post_flow.dot)：双 bank、两路选核、单采样激励、逐声部包络/混音、五段腔体与四梳状混响。
 
-## 当前验证结果
+## 历史图与重新生成
 
-```text
-Icarus：16 / 16 PASS
-Gowin P&R：100.166 MHz
-Setup 违例：0
-Hold 违例：0
-Slack：+0.017 ns
+2026-10-22 的共享 RAM/router_system_top 图在 [历史目录](history/2026-10-22/)，保留当时的标注；更早四引擎图在 `history/docs/diagrams/legacy/`。它们不是 voice_router 的当前实例树。
 
-Logic：10,050
-Register：6,054
-BSRAM：113 / 340
-DSP：21 / 298
-```
-
-正式配置：
-
-```text
-POST_EN = 1
-```
-
-## Review 时请重点看
-
-1. **`index_loader20` / `index_loader64` 还在**
-   它们是 `router_loader` 的 ROM/Flash backend；旧的 A/BC/E2 loader 包装已归档到
-   `history/rtl/core/legacy_loader/`。如果要求连底层 loader 也完全删除，需要另做一版 flash 接口。
-
-2. **router x 目前主要覆盖 slot0**
-   `fmap_valid=1` 时覆盖 A/B/C/E2 的 slot0；还不是完整的 per-voice fmap 分配。
-
-3. **`linear_modulation` 已实现/单测，但未接正式顶层**
-   当前没有旋钮/颤音输入。
-
-4. **reverb 是 4-comb 简化版**
-   为 100 MHz 收敛去掉了 allpass；带 allpass 的版本有时序/写模式问题。
-
-5. **`router_probe` 是 3-I/O 时序探针**
-   用测试 ROM 验证时序和资源，不是整板音频实测。
-
-## 重新生成
+从仓库根目录，对每个 DOT 文件生成对应 SVG/PNG：
 
 ```bash
 dot -Tsvg docs/diagrams/architecture_overview.dot -o docs/diagrams/architecture_overview.svg
-dot -Tpng -Gdpi=180 docs/diagrams/architecture_overview.dot -o docs/diagrams/architecture_overview.png
-
-dot -Tsvg docs/diagrams/router_control_flow.dot -o docs/diagrams/router_control_flow.svg
-dot -Tpng -Gdpi=180 docs/diagrams/router_control_flow.dot -o docs/diagrams/router_control_flow.png
-
-dot -Tsvg docs/diagrams/engine_post_flow.dot -o docs/diagrams/engine_post_flow.svg
-dot -Tpng -Gdpi=180 docs/diagrams/engine_post_flow.dot -o docs/diagrams/engine_post_flow.png
+dot -Tpng -Gdpi=130 docs/diagrams/architecture_overview.dot -o docs/diagrams/architecture_overview.png
 ```
+
+另外两张用相同命令替换文件名。字体使用 Noto Sans CJK SC；SVG 可缩放查看。

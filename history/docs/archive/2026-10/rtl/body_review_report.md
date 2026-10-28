@@ -20,7 +20,7 @@
 
 按用户选择“工程＋箱体”“先闭环guitar”：一乐器全部声部混音共享一组4 biquad；四乐器分别有系数并单测，不做四乐器全局混音共用guitar滤波。原始模态权重与`Patch.sos`只读使用，未更改参考数据来迁就RTL。
 
-参考规格[`body_design.md`](../../../../rtl/body_design.md)：系数signed32/Q30，输入/输出signed64/Q30，所有section历史/interstage signed68/Q34，单共享**逻辑**68×32乘法路径、100bit产品/104bitacc。每section一次round30/clamp68，末级round4/clamp64，末级输出饱和并入section3，饱和计数最多4。增加4小数保护位是本模块局部修正，不改原2A/2BC格式；理由是piano Q30无保护位的静默残余超过门槛，不能靠自动zero或改浮点参考消除。
+参考规格[`body_design.md`](../../../design/body_design.md)：系数signed32/Q30，输入/输出signed64/Q30，所有section历史/interstage signed68/Q34，单共享**逻辑**68×32乘法路径、100bit产品/104bitacc。每section一次round30/clamp68，末级round4/clamp64，末级输出饱和并入section3，饱和计数最多4。增加4小数保护位是本模块局部修正，不改原2A/2BC格式；理由是piano Q30无保护位的静默残余超过门槛，不能靠自动zero或改浮点参考消除。
 
 噪声支路、note_off/_kill、动态声部分配/回收/抢占及多乐器混奏分组未迁移；补箱体不等于完整原始engine.py迁移。
 

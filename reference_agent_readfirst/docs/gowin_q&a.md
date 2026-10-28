@@ -288,7 +288,7 @@
 
 配置完成后点击 `Save`，再执行下载。
 
-![Programmer 外部 Flash 下载配置](assets/gowin_programmer_external_flash.png)
+![Programmer 外部 Flash 下载配置](../assets/gowin_programmer_external_flash.png)
 
 ### 6. github上面的LCD例程用了没有反应
 **回复：** 核心板与底板没接好，FPC排线没接好，拨码开关没放下去。

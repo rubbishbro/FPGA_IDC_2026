@@ -1,93 +1,38 @@
-# rtl — 新共享 RAM 架构
+# RTL 入口与路径边界
 
-## 正式路径
+更新：2026-10-27。当前开发主线为 [router](router/README.md)，保留的 `core/` 共享 RAM 实现独立存在，二者不是同一个顶层。
+
+| 位置 | 职责与状态 |
+|---|---|
+| [router/](router/README.md) | voice_router：双 bank、多槽音高表、eng0/eng1、激励/包络/腔体/混响；默认 16×64，输出 signed64，待完整音频集成 |
+| [router/PAD_ADAPTER.md](router/PAD_ADAPTER.md) | pad_voice_top：压力/外部 fmap 选择、运行启动、QSPI 与摇杆原始出口；默认 N_MODES=48，须与镜像统一 |
+| [drivers/](drivers/README.md) | 压力/摇杆/LED、UART/HC-05、共享 FIFO 与 MIDI/Config parser |
+| [comm/](comm/README.md) | 双链路分帧、仲裁、回复、来源会话隔离/恢复 |
+| [config_pkg.sv](config_pkg.sv) | 统一配置 ID/范围、64 bit 请求和 72 bit 结果 |
+| [config_dispatch.sv](config_dispatch.sv) | 能力检查、显示/校准/真实 backend 提交与结果 |
+| [control_loop.sv](control_loop.sv) | 通用轮询、一项暂存、原样交付；已在 sidebar_system 使用 |
+| [math/](math/README.md) | 定点与坐标变换公共模块 |
+| `rom/` | 保留路径的 ROM/索引数据，不能直接作为新 router Flash 镜像 |
+
+当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。板级音频 FIFO/I2S 旧实现在 `history/rtl/audio/`；新链尚未接回 DAC。
+
+## 保留共享 RAM 路径
 
 ```text
 router_system_top
-├─ router_loader
-│  ├─ index_loader20        A
-│  └─ index_loader64        B/C/E2
-├─ router_frontend
-│  ├─ router_ctrl
-│  └─ excitation_convert
+├─ router_loader → index_loader20 / index_loader64
+├─ router_frontend → router_ctrl / excitation_convert
 └─ shared_engines_system_top
    ├─ router_voice_alloc
    └─ shared_engines_top
-      ├─ engine_mux
-      │  ├─ pure_engine_abc → abc_engine → abc_lane_core ×4
-      │  └─ e2_engine
-      ├─ shared_modal_ram   唯一 9×32 / depth 320
-      └─ post_chain
-         ├─ envelope_mul
-         ├─ body_biquad
-         ├─ comb_reverb
-         ├─ dry_wet_mix
-         └─ final_adder
+      ├─ engine_mux → pure_engine_abc / e2_engine
+      ├─ shared_modal_ram
+      └─ post_chain → envelope_mul / body_biquad / comb_reverb
+                     / dry_wet_mix / final_adder
 ```
 
-正式配置 `POST_EN=1`。
+`router_frontend_a_path_top` 是 A 路径 MVP。core 的 body_biquad 是 4 section，与新 router 的 5 section 接口/格式不同。2026-10-22 的 POST_EN=1、21 项 PASS 和探针时序均是该旧路径的历史结果。
 
-## 当前保留的 core 文件
+当前 `sim/run_core.sh` 前两项通过，第 3 项缺少 `rtl/simsynth/modal_step_pkg.sv`；`e2_engine` 仍引用旧 modal_engine7。这个保留路径尚不能一键完整回归，也不能借它的历史 Fmax 签核当前 voice_router。
 
-```text
-router_system_top.sv
-router_loader.sv
-router_frontend.sv
-router_ctrl.sv
-router_pkg.sv
-router_voice_alloc.sv
-excitation_convert.sv
-linear_modulation.sv
-shared_engines_system_top.sv
-shared_engines_top.sv
-engine_mux.sv
-pure_engine_abc.sv
-abc_engine.sv
-abc_lane_core.sv
-e2_engine.sv
-shared_modal_ram.sv
-modal_record_pkg.sv
-index_loader20.sv
-index_loader64.sv
-class_format_pkg.sv
-post_chain.sv
-envelope_mul.sv
-body_biquad.sv
-comb_reverb.sv
-dry_wet_mix.sv
-final_adder.sv
-router_frontend_a_path_top.sv   # A 路径 MVP，不是正式顶层
-```
-
-## 2026-10-22 文件重命名
-
-| 旧名 | 新名 | 原因 |
-|---|---|---|
-| `class_loader.sv` | `index_loader20.sv` | 只负责 A 的 20-bit index |
-| `class_loader64.sv` | `index_loader64.sv` | B/C/E2 的 64-bit index/control/seed |
-| `eng1_lane_core.sv` | `abc_lane_core.sv` | A/B/C 共用的单 lane 递推 |
-| `eng1_engine_top_ext.sv` | `abc_engine.sv` | A/B/C 共用 4-lane 引擎 |
-| `eng2_engine_top_ext.sv` | `e2_engine.sv` | E2 状态空间引擎 |
-| `body_filter.sv` | `body_biquad.sv` | 明确是 4-section biquad |
-| `reverb_filter.sv` | `comb_reverb.sv` | 明确是 4-comb 简化混响 |
-| `router_frontend_top.sv` | `router_frontend_a_path_top.sv` | 只是 A 路径 MVP |
-
-所有 `rtl/core/*.sv` 已统一重写文件头：
-
-```text
-// 文件 : ...
-// 模块 : ...
-// 功能 : ...
-// 说明 : ...
-```
-
-## 归档
-
-旧并行 top、旧 B/C 前端、旧 a/bc/e2 loader 包装和旧 `voice_router` 在：
-
-```text
-history/rtl/core/legacy_parallel/
-history/rtl/core/legacy_frontend/
-history/rtl/core/legacy_loader/
-history/sim/unit/core_legacy/
-```
+2026-10-22 重命名：class_loader/class_loader64→index_loader20/index_loader64，eng1_lane_core→abc_lane_core，eng1_engine_top_ext→abc_engine，eng2_engine_top_ext→e2_engine；旧 loader/frontends/parallel 路径在 `history/rtl/core/`。完整历史稿和图见 [history](../history/README.md)。

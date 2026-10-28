@@ -1,9 +1,9 @@
 # 四引擎接入 ENG2 + 后级混响设计
 
-![四引擎与 router 流程图](diagrams/engines_system_flow.png)
+![四引擎与 router 流程图](../diagrams/legacy/engines_system_flow.png)
 
-> 图源：[`engines_system_flow.dot`](diagrams/engines_system_flow.dot)  
-> SVG：[`engines_system_flow.svg`](diagrams/engines_system_flow.svg)
+> 图源：[`engines_system_flow.dot`](../diagrams/legacy/engines_system_flow.dot)
+> SVG：[`engines_system_flow.svg`](../diagrams/legacy/engines_system_flow.svg)
 
 ## 1. 当前封装模块
 

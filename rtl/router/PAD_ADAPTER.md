@@ -1,251 +1,53 @@
-# pad_driver → voice_router 端到端适配
+# pad_driver → voice_router 适配
 
-## 1. 结论：新引擎不需要“按键事件适配器”
+更新：2026-10-27。描述当前 [pad_voice_top.sv](pad_voice_top.sv)，源码基线 `d7045c4b` 后的新接口。模块连接压力与合成值，输出尚未到 DAC。
 
-当前新引擎 [`voice_router.sv`](voice_router.sv) 已经直接接收：
-
-```systemverilog
-input pad_driver_pkg::mat4x4 fmap
-```
-
-内部已经完成：
+## 数据流
 
 ```text
-fmap 4×4
-  → 双阈值滞回（NOTE_ON_TH / NOTE_OFF_TH）
-  → note_on / note_gate 电平
-  → 取沿得到起音事件
-  → 每个 slot 一个声部
-  → 激励 / 包络 / 引擎 / 腔体 / 混响
+clk → PAD_DIV 使能（默认 /40）→ pad_driver → 4×4 fmap ─┐
+fmap_ext ────────────────────────────────────────────┤
+                     src_sel 寄存选择 ────────────────┘
+                        ↓
+                  voice_router → y_valid/y_data
+                        ↕
+                     QSPI Flash
+pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_system
 ```
 
-所以不需要再写一个“key_code / note_on / voice_alloc”软件式适配器。  
-`pad_driver` 的 16 个压力单元，正好对应 `voice_router` 的 16 个 slot。
+16 个压力单元直接对应 16 个 slot；门控/起音、激励、包络、合成、混音和效果由 voice_router 持有。真实 MIDI 输入还需要通道/音符/踏板/音高资源的消费者，不能把解析字节直接当 fmap。
 
-## 2. 真正缺的是板级 top
+## 参数与接口
 
-`pad_driver` 顶层：
+| 项目 | 当前值/语义 |
+|---|---|
+| CLK_HZ / SR_HZ | 100MHz / 48kHz；router 内部产生采样节拍 |
+| SLOTS | 默认 16，router 支持 4/8/16 |
+| N_MODES | 本适配器默认 **48**，voice_router 默认 **64**；钢琴工具镜像默认 64，集成必须统一 |
+| X_DEPTH | 残留兼容参数，已不传入 voice_router，不决定作业批长度 |
+| USE_PAD_DRIVER | 1 综合真实压力/摇杆驱动；0 时只使用 fmap_ext，采集/LED/摇杆出口为零 |
+| src_sel | 0 选择压力，1 选择外部 fmap；先寄存一拍；切换不会自动清音/清队列 |
+| run | 高电平持续请求新采样，接 router.start；不是独立音频采样时钟 |
+| done / busy | done 是空闲电平，busy=~done；run 拉低不取消正在计算的样本 |
+| ready | 挂起乐器/reload 变更能执行；不是通用 start ready 或 cfg_applied |
+| inst / reverb_preset / reload | 乐器编号、router 原生混响枚举、reload 上升沿请求 |
+| y_valid / y_data | 每个结果一个 valid，signed64；无输出 ready，尚需 PCM/FIFO/I2S |
+| qspi_* | 转接 loader；需要真片协议/引脚验收 |
+| pad_row_s / pad_ch_s / pad_fmap / pad_pos | 原始调试出口；旧 pad_pos 为极坐标 |
+| joy_sample_valid / joy_raw_x/y | 同 clk 域，一拍 valid、14 bit 原始 X/Y 成对快照；接 [摇杆适配](../drivers/JOYSTICK_ADAPTER.md) |
 
-```text
-cr, led_p → dat, input_p
-input_p.fmap : mat4x4
-```
+旧 `n_voices/n_modes/n_samples` 运行端口已移除，声部数是参数，实际模态数由 `n_modes_of(inst)` 选择并限幅。旧文档中的固定 5/6/7 bit 强转问题已不再适用。
 
-`voice_router` 顶层：
+## 采集与启动
 
-```text
-fmap, inst, reverb_preset, reload, start,
-n_voices, n_modes, n_samples,
-ready, busy, done, y_valid, y_data,
-qspi_*
-```
+压力/摇杆扫描包含泄放、建立、请求、等待完成和存储，完成信号经同步/上升沿 sticky 后消费，超时重试；不能继续用旧“列 3 时连续换行”的逻辑描述当前实现。一个扫描帧含 16 个压力通道及两个摇杆通道，实际周期取决于 ADC 完成与参数。
 
-两者之间缺：
+PAD_DIV=`CLK_HZ/2_500_000`，计数器目前 8 bit；非默认频率必须核对除法余数、计数范围和模拟前端时序。默认只证明 100MHz 参数意图，不保证任意 CLK_HZ。
 
-```text
-clk_rst 生成（pad_driver 要求 400ns 有效周期）
-start 连续节拍
-inst / reverb_preset / reload 配置
-QSPI flash 引脚
-y_valid/y_data 输出
-LED 接口
-```
+上电首次装载及换音色期间不产生 y_valid；reload 在 router 内部取上升沿，有变更且仍按键时延后加载。`pad_voice_top` **没有引出 load_err**（当前连接留空）；整机音色配置成功确认仍需补真实完成/错误依据。主控应将目标 inst 保持稳定直到事务收束。
 
-新增 [`pad_voice_top.sv`](pad_voice_top.sv) 只做这些连接，不改 `voice_router` / `pad_driver`。
+## 验证与待接部分
 
-## 3. 数据/控制编排
+`python3 sim/run_joystick.py` 本轮 26 组通过，其中两组使用真实采集 FSM/坐标转换和 ADC 行为模型，检查 X/Y 成对出口、dummy、超时重试。没有例化整套 pad_voice_top、真实 ADC 或 LED，不证明 16 键位置/独立发声。
 
-```text
-                 ┌───────────────┐
- clk 100MHz ────►│ clk_en /40    │──► pad_driver (2.5MHz 有效)
-                 └───────────────┘
-                         │
-                         ▼
-                  input_p.fmap (4×4×8)
-                         │
-                         ▼
-                 voice_router.fmap
-                         │
-        ┌────────────────┼─────────────────┐
-        ▼                ▼                 ▼
-   note_on/gate      force_pre         env_router
-        │                │                 │
-        └──────────────► 引擎 ◄─────────────┘
-                         │
-                         ▼
-                   body_router
-                         │
-                         ▼
-                   reverb_router
-                         │
-                         ▼
-                    y_valid/y_data
-```
-
-`start` 使用电平而不是脉冲：
-
-```text
-run = 1
-  → voice_router 在 ready 后启动一个 block（n_samples 个采样）
-  → done 后回到 IDLE
-  → run 仍为 1，自动启动下一个 block
-```
-
-`pad_voice_top` 中：
-
-```text
-n_voices  = 16
-n_modes   = 48
-n_samples = X_DEPTH = 64
-start     = run
-```
-
-
-## 3.1 运行时音源切换
-
-`USE_PAD_DRIVER` 是**编译期**参数，只决定 `pad_driver` 是否综合进去，不能运行时改。
-
-真正运行时切换用：
-
-```systemverilog
-input logic src_sel;      // 0=pad_driver, 1=fmap_ext
-logic       src_sel_r;    // 打一拍，避免组合毛刺直接进 fmap mux
-
-always_ff @(posedge clk)
-    src_sel_r <= src_sel;
-
-assign fmap_use = (USE_PAD_DRIVER && !src_sel_r) ? pad_in.fmap : fmap_ext;
-```
-
-含义：
-
-```text
-src_sel=0 → 4×4 压力垫
-src_sel=1 → fmap_ext（外部 MIDI/上位机桥接输出）
-```
-
-切换发生在 `fmap` 层，`voice_router` 内部不需要知道音源是谁。
-
-注意：
-
-```text
-pad_driver 仍然一直在跑（上板模式）
-MIDI 前端必须自己把 note 事件变成 4×4 fmap
-切换时外部 fmap 要清零/保持合法，否则会留下持续音
-```
-
-如果 MIDI 是 note_on/note_off 事件而不是 fmap，需要一个
-`midi_note → slot → fmap[slot]` 的桥接；这个桥接不属于本文件。
-## 4. 为什么不是“16 键键盘驱动”
-
-`pad_driver` 给的是：
-
-```text
-fmap[0..15] 每个压力单元的原始 8-bit 压力
-row_s/ch_s  模拟前端扫描选择
-pos         摇杆极坐标
-```
-
-它不提供：
-
-```text
-keycode / key_pressed[15:0]
-note_on / note_off
-velocity 事件
-debounce
-voice 分配
-```
-
-但 `voice_router` 恰好已经把这些逻辑做在内部：
-
-```text
-每个 slot 对应一个压力单元
-fmap[i] > NOTE_ON_TH → note_on[i]
-fmap[i] < NOTE_OFF_TH → 松开
-压力本身作为激励幅度
-```
-
-因此对于 **16 个固定压力键**，`fmap` 直连就是端到端方案。
-
-## 5. 哪些情况还需要转换
-
-### 5.1 用摇杆做表情
-
-`pad_driver` 的 `pos.x/pos.y` 目前没有接进 `voice_router`。  
-`voice_router` 的调制器只吃 `mod_par_t` 参数（c0/s0/theta0/g/k12/k21），
-没有 joystick 输入口。
-
-如果要做“摇杆揉弦/滑音”，需要：
-
-```text
-pos → 归一化 → 调制参数增量 → mod_router
-```
-
-或者改 `voice_router` 的调制接口，但不能直接塞进 fmap。
-
-### 5.2 外部 MIDI / 上位机
-
-外部 MIDI 是 note event，不是 16 单元压力矩阵。  
-需要：
-
-```text
-MIDI note/velocity
-  → 分配 slot
-  → 写一个“虚拟 fmap”或直接驱动 voice_router 的 note 通路
-```
-
-当前 `voice_router` 没有外部 note 口，只有 fmap；要么做 fmap 映射，要么加 note 接口。
-
-### 5.3 16 键以上
-
-`voice_router` 的 `SLOTS` 可以参数化，但 `fmap` 只有 4×4×8。  
-更多键需要扩展 `mat4x4` 或换输入接口。
-
-## 6. 时钟与 CDC
-
-`pad_driver` 要求有效周期 400ns，`pad_voice_top` 用 100MHz / 40 生成 `clk_en`：
-
-```text
-pad_clk_en 每 40 个 clk 高 1 拍
-```
-
-`pad_driver` 和 `voice_router` 仍是同一个 `clk` 域，只是 `pad_driver` 用 `clk_en` 降速，
-所以没有 CDC；`fmap` 变化慢，`voice_router` 在 48kHz `smp_tick` 采样它。
-
-## 7. LED
-
-`pad_driver` 顶层强制带 `led8x8`，但 `voice_router` 不产生 LED 数据。  
-`pad_voice_top` 当前：
-
-```text
-led_p = '0
-led_dat 输出（不驱动）
-```
-
-要 LED 演奏反馈，需要另加 visualizer，把 `note_on`/包络/频谱映射到 `led_param`。
-
-## 8. 仿真限制
-
-`pad_driver` 内部例化 Gowin `ADCLRC` 原语，纯 Icarus 无法直接仿真。  
-`pad_voice_top` 提供参数：
-
-```systemverilog
-parameter bit USE_PAD_DRIVER = 1'b1
-```
-
-仿真时设 `USE_PAD_DRIVER=0`，用 `fmap_ext` 旁路 pad_driver。  
-但 `voice_router` 还需要 W25Q64 行为模型/真实 flash，`tb_loader_flash.sv` 已有该模型可复用。
-
-## 9. 不做的事情
-
-本次没有改：
-
-```text
-voice_router.sv
-pad_driver.sv
-engines/
-parts/
-routers/
-```
-
-`pad_voice_top.sv` 只是新增板级适配层。
+待接：统一镜像深度/音高表、上板逐键校准、真实 Flash、至少四路可闻复音、PCM 饱和/缓冲/I2S/DAC、源切换清理和真实 UI 配置后端。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。

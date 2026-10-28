@@ -1,16 +1,18 @@
 # Router —— 物理模型合成器的数字后端
 
+更新：2026-10-28，基于 `8e9d1cda` 与工作区核对。以下结构/接口为当前源码；735/865拍、85.44MHz是既有阶段记录，未重跑xsim／PnR。Questa补测使用声明顺序兼容副本，不能写成原版直接编译通过；当前问题见[台账](../../docs/bugs.md)，工具入口见[sim](../../sim/README.md#questa)，详细结果见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)。
+
 一块 FPGA 上的 16 声部模态（modal）合成器：**16 个声部 × N_MODES 个模态**，每个模态一个
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
 按乐器加载。
 
-- 采样率 48 kHz，目标主频 100 MHz（实测可跑到 87 MHz），**每采样 735 拍**（钢琴 64 模态）。
+- 采样率 48 kHz，目标主频 100 MHz；旧 eng0 钢琴 64 模态记录为 **每采样约 735 拍**，不推广为 eng1 或当前整机保证。
 - 两套引擎：`eng0`（7 个并行乘法的直接型）和 `eng1`（ABC 递推）。
   **当前 `eng_sel()` 把 `INST_PIANO`/`INST_GUITAR` 派给 `eng0`（模态引擎），其余乐器
   （FLUTE/TRUMPET/…）先默认派给 `eng1`** —— 分配还是占位，见 `router_pkg.sv` 的注释。同一时刻只用一种，
   但**两个引擎实例各管 8 个声部并行跑**。
-- 每采样拍数取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
-  `n_modes=64` 约 **735 拍**（钢琴/吉他都是 64；`n_modes_of()` 定的）。
+- 旧 eng0 每采样拍数记录取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
+  `n_modes=64` 约 **735 拍**（钢琴 64、吉他 20；`n_modes_of()` 定义后再受 N_MODES 限幅）。
 
 本文档按"结构 → 约定 → 取舍 → 现状 → 测试 → 待定"组织。想改代码先看 §4（约定）和
 §5（取舍），那里写了"为什么不能那样改"。
@@ -20,7 +22,7 @@
 ## 1. 概览
 
 ```
-                        ┌───────────── 一个采样（64 模态 735 拍）─────────────┐
+                        ┌───────────── 一个采样（eng0 64 模态旧记录约 735 拍）─────────────┐
  fmap[16]  ──滞回──► note_on ──┬─► excitation_gen ─► xmap ─► x_q ─┐
  (0..255 力度)                 │                                  ├─► eng A (声部 0..7)  ─┐
                                └─► envelope(ADSR/dyn0) ─► emap ──┐ │                        ├─► y_acc ─► mix
@@ -52,10 +54,10 @@ rtl/router/
 │   ├── eng0.sv              7 乘法并行引擎（直接型，一个模态 5 级流水）
 │   └── eng1.sv              ABC 引擎（acc = G*x - a1*y1 - a2*y2）
 ├── routers/
-│   ├── eng_router.sv        双引擎薄封装（按乐器二选一），两个实例各管 8 个声部
+│   ├── eng_router.sv        双引擎薄封装（按乐器二选一），默认两个实例各管 8 个声部
 │   ├── env_router.sv        按乐器选包络（ADSR / dyn0 / 常数 1.0）
 │   ├── exc_router.sv        按乐器选激励参数（幅度/斜坡/宽度/间隔/脉冲数）
-│   ├── mod_router.sv        只有吉他/贝斯才启用 modulation0
+│   ├── mod_router.sv        当前只有吉他启用 modulation0
 │   ├── body_router.sv       按乐器选 25 个腔体系数（5 段 × 5 抽头）
 │   └── reverb_router.sv     预设（NONE/HALL/BATHROOM）+ 干湿混合
 ├── parts/
@@ -64,14 +66,14 @@ rtl/router/
 │   ├── modulation.sv        modulation0：alpha/揉弦改系数（单乘法器串行 15 步）
 │   ├── body_biquad.sv       5 段 biquad，历史存 BSRAM
 │   └── comb_reverb.sv       4 路并联梳状线（读作零的清空）
-├── tb/tb_music.sv           **唯一的 TB**：完整音乐合成（见 §7）
+├── tb/tb_music.sv           音乐集成 TB：完整音乐合成（见 §7）
 └── tools/
     ├── flash_image.py       flash 镜像打包（record/table/image/parse + 自检）
     ├── piano_flash.py       物理域表 -> (sq/sv 归一化) -> Q 整数 -> flash 镜像
     ├── dec2wav.py           y_data 序列 -> 16-bit WAV（按峰值归一化）
     ├── piano_flash.bin      上一步的产物（inst=0，16 slot 各一个音，64 KB）
     ├── bq_gen.py            腔体系数对账（--check：RTL 字面量 vs Python 模型）
-    ├── run_all.ps1          **唯一回归一键跑**（生成镜像 -> 编译 -> 仿真 -> 自检 -> 出 WAV）
+    ├── run_all.ps1          音乐集成回归入口（生成镜像 -> 编译 -> 仿真 -> 自检 -> 出 WAV）
     ├── piano_flash.mem      上一步的 $readmemh 字节文件（按需生成，不入库）
     └── bq_*.mem / flash_demo.mem  历史回归向量 / 镜像（生成物，可重跑生成）
 ```
@@ -87,7 +89,7 @@ rtl/router/
 
 ```
 voice_router                      存储 + 调度 + 后级
-├── weight_loader                 ① 系数/参数加载（阻塞 ~6.5 ms/次）
+├── weight_loader                 ① 系数/参数加载（阻塞 约 5.3ms/次的旧记录）
 ├── exc_router ──► excitation_gen ② 激励 xmap
 ├── env_router ──► envelope_*     ③ 包络 emap + dead
 ├── mod_router ──► modulation0    ④ 后台改系数（a11/a12/a21/a22）
@@ -101,7 +103,7 @@ voice_router                      存储 + 调度 + 后级
 
 | 模块 | 职责 | 关键接口 | 周期/延迟 |
 |---|---|---|---|
-| `voice_router` | 存储、调度、混音 | `start`、**`done`(电平：1=空闲可 start)**、**`ready`(1=会执行挂起的配置变更)**、`load_err`、`fmap[16]`、`inst`、`reverb_preset`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 735 拍/采样（64 模态） |
+| `voice_router` | 存储、调度、混音 | `start`、**`done`(电平：1=空闲可 start)**、**`ready`(1=会执行挂起的配置变更)**、`load_err`、`fmap[16]`、`inst`、`reverb_preset`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 旧 eng0 记录约 735 拍/采样（64 模态） |
 | `voice_router` | **声部数是参数 `SLOTS`**（不是端口） | `SLOTS` ∈ {4, 8, 16}：**只能 ≤16**（硬件只有 16 个按键），且必须 2 的幂、≥4（要拆两个 bank） | — |
 | `weight_loader` | 四线 SPI 读 + 写口 | `start/busy/done/err`、`ld_we/ld_addr/ld_co/ld_pm`、`qspi_*` | ~520 拍/记录 |
 | `eng0` | 直接型引擎：`y = Σ (coef × 状态)` | `co_re/co_addr/co_data`、`st_re/st_addr/st_q/st_qdot`、`st_we/...`、`x_re/x_data` | 每模态 5 级流水，N+8 拍/作业 |
@@ -132,7 +134,7 @@ S_WAIT  ──腔体+混响排空──► S_DONE（done 才变 1）
 ```
 
 拍数：`固定 + HS×(n_modes + 8) + HS×6 + 排空`，`HS = SLOTS/2 = 8`。
-`n_modes=64` 时 ≈ **735 拍**（`n_modes_of(INST_PIANO) = 64`）。
+旧 eng0 记录 `n_modes=64` 时 ≈ **735 拍**（`n_modes_of(INST_PIANO) = 64`）。
 
 ---
 
@@ -183,7 +185,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 | `emap`（包络） | **Q1.31 有符号** | 32 | 1.0 = 2^31−1；乘法用 `(y*E)>>>31` |
 | `xmap`（激励） | 力度 << SHIFT | 32 | SHIFT 由乐器给，最大 255<<20 < 2^31 |
 | `coeff_t.a11/a12/a21/a22/gq/gv/wo` | 见 `modal_step_pkg` | 32 | 引擎内部按自己的 Q 解释（eng1：G Q2.24、a1 Q2.20、a2 UQ0.24） |
-| `q_ram/v_ram`（状态） | Q2.30 有符号 | 32 | eng1 的 y1/y2 |
+| `q_ram/v_ram`（状态） | eng0：s8.24；eng1：Q2.30 | 32 | 共享存储位宽，不共享二进制点解释 |
 | 腔体系数 | **Q4.27** | 32 | 5 段 × 5 抽头 |
 | 混响增益/延迟 | **Q4.27** | 32 | 延迟单位 = 采样点 |
 | `mix`/`y_acc` | 有符号 | 64 | 跨声部累加 |
@@ -254,71 +256,34 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 
 **为什么不是矩形**：早期版本是 `PW_LEN=1, GAP_LEN=0`（4 个单采样尖峰），
 激励面积只有 4.0、频谱质心 7.3 kHz（Python 是 144 / 0.79 kHz）——能量全堆到
-高频，听感"薄、不密集"。现在实测（`_analysis/exc_cmp.py`）：面积 138、
+高频，听感"薄、不密集"。现在旧测量记录（当时 `_analysis/exc_cmp.py`，该临时脚本不在当前仓库）：面积 138、
 质心 671 Hz、脉冲峰 0.977/0.692/0.476（Python 0.958/0.671/0.470）。
-### 4.5 系数域：sq/sv 归一化（物理域 → 硬件域）
+### 4.5 系数域与当前生成链
 
-> 这一节是**推导出来的**（没有别的文档写过）。系数生成器 `sythsound/piano_coeff_gen.py`
-> 输出的是物理域系数，**不能直接量化**给 RTL；中间这一步就是 sq/sv 归一化。
+eng0 的七系数对应状态空间：
 
-每个模态的递推（`modal_step_pkg.sv` 头注释）：
-
-```
+```text
 q' = a11*q + a12*v + gq*x
 v' = a21*q + a22*v + gv*x
 y  = wo*q
 ```
 
-`piano_coeff_gen.py` 给的是物理域（`a12 = es/ωd ~ Δt`、`a21 = es·ω0²/ωd ~ Δt·ω0²`，
-两者差 `ω0²` 倍，`a21` 能到 1e5 量级）。硬件把状态缩放过：`q_s = sq·q`、`v_s = sv·v`，
-代入上面两条得到**硬件该存的系数**（记 `k = sq/sv`）：
+一般物理域到定标域的变换令 `q_s=sq*q, v_s=sv*v, k=sq/sv`：
+`a12'=a12*k, a21'=a21/k, gq'=gq*sq, gv'=gv*sv, wo'=wo/sq`，a11/a22 不变。
+恢复力 a21 为负；物理域可选 `k=sqrt(abs(a21/a12))` 平衡矩阵元幅度，两者符号相反，不能写成 `a12'=a21'`。
 
-| 字段 | 变换 | 说明 |
-|---|---|---|
-| `a11`、`a22` | 不变 | 本来就是 O(1) |
-| `a12` | `a12·k` | |
-| `a21` | `a21/k` | 与 a12 反比，**乘积 `a12·a21` 不变**（物理量没变） |
-| `gq` | `gq·sq` | |
-| `gv` | `gv·sv = gv·sq/k` | |
-| `wo` | `wo/sq` | `y` 的输出定标跟着 q 走 |
+**当前钢琴生成器已经改过**：`sythsound/piano_coeff_gen.py` 直接生成
+`a12=es*omega0/wd`、`a21=-es*omega0/wd`，并计算 sq/sv 对 gq/gv/wo 定标。
+因此 `sythsound/piano_coeff.txt` 不能再默认解释成旧的未归一化物理表。
+`tools/piano_flash.py` 仍有根据输入矩阵比值选择 k/sq 的转换和 Q 量化步骤，
+应对最终生成表检查极点、量化误差和状态/输出余量，不能仅因没有系数字段饱和就认定整链正确。
 
-**怎么挑 `k`**：令 `a12' = a21'` → `k = sqrt(a21/a12) = ω0`（rad/s）。
-这时两个矩阵元都等于 `sqrt(a12·a21) = ω0·Δt`，也就是**归一化角频率**（rad/采样），
-自然落在 O(1) 量级 —— 这正是 `modal_step_pkg` 说"四个矩阵元都是 O(1)"的由来。
+字段小数位：a11=28、a12=30、a21=23、a22=28、gq=31、gv=27、wo=15；
+eng0 状态 QF=24、激励 XF=28、输出 YF=40。eng1 的 G/a1/a2 使用另一套格式，
+见 `engines/eng1.sv` 和 [模型说明](../../docs/ENG1_PY_MODEL.md)。
 
-**怎么挑 `sq`**（`sv = sq/k`）：由 4 个 Q 范围夹出来
-
-```
-|gq·sq|   < 2^(31−31) = 1        →  sq < 1/|gq|
-|gv·sq/k| < 2^(31−27) = 16       →  sq < 16·k/|gv|
-|wo/sq|   < 2^(31−15) = 65536    →  sq > |wo|/65536
-|a12·k|、|a21/k| 自动满足（≈ ω0·Δt）
-```
-
-取可行区间里的一个 2 的幂即可（`tools/piano_flash.py` 自动挑）。
-
-> **`a21` 必须是负的**（回复力）：`piano_coeff_gen.py` 原来漏了这个负号，
-> 2x2 矩阵的特征值变成实数 |λ| = 1.0107 / 0.9892 → **发散**，状态单调爬升
-> （`mix_q` 一路涨、输出等于直流）—— 这就是"没激励起来"的真正原因。
-> 改成 `a21 = -es·ω0²/ωd` 后 |λ| = 0.99999（复共轭、单位圆内），正常衰减振荡。
-> 判据：递推矩阵 `[[a11, a12],[a21, a22]]` 的特征值必须**复**且 |λ| ≤ 1。
-
-**实测（钢琴表，`tools/piano_flash.py`）**：midi40 mode0 的 `k = 517.2`（= ω0 rad/s，
-82.4 Hz ✓），自动挑到 `sq = 2048`，结果
-
-```
-a12' = a21' = 0.010774 ≈ ω0·Δt    （两种字段的 Q 都只占 0.4~50%）
-gq'  = 0.0585（Q31 占 100%）      gv' = 10.86（Q27 占 99.4%）
-```
-
-**全部 1024 个模态零饱和**（不归一化时 `a21` 有 936 个撞 Q23 上限）。
-
-> 注意两个"约定"：
-> - `mod_par_t.k12 = sq/sv`、`k21 = sv/sq` —— 调制器改频率时必须重新乘这两个比值
->   （见 §4.6），这也是它们存在的唯一理由。
-> - **黄金向量已删**（`tools/golden_seq_piano.txt`）：它不符合这条配方（`a21/a12 ≈ 22`，
->   按本节应该是 1），而且只有 4 个模态。现在 TB 直接从 `tools/piano_flash.mem`（完整
->   系数表）灌系数，以后所有合成测试都从系数表跑（见 §7.0）。
+音乐 TB 从 `tools/piano_flash.mem` 灌最终整数表；这避免另维护旧黄金文件，
+但仍须独立核对生成器→定标→量化→引擎的数学和数值合同。
 
 ### 4.6 调制器（吉他揉弦）的公式
 
@@ -353,7 +318,7 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
 
 ---
 
-## 5. 设计取舍（为什么这样 + 代价）
+## 5. 设计取舍与历史测量（为什么这样 + 代价）
 
 ### 5.1 两个引擎并行 + 双 bank —— 1577 → 735 拍（64 模态）
 
@@ -366,18 +331,18 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
   （`slot[VWID-1]` 选 bank）。
 - **没选"复制阵列"**：那要多 32 块 BSRAM。
 
-### 5.2 调制放后台 —— 首帧不再掉音
+### 5.2 调制放后台
 
 - **做法**：起音声部只置一个 `mod_req[i]`，`S_RUN_V` 不停等；调制器空闲且不在加载时
   发一拍 `start`，`done` 时清那一位。
 - **为什么能并行**：调制器写系数用 `ca_*` 的**写口**，引擎读系数用**读口**，同一块
   1R1W RAM 的两个端口；而且 `co_we=4'b1111` 是**一拍写齐 4 个字段**，引擎不会读到
-  半新半旧的系数。新系数下一帧生效（20.8 µs，vibrato 听不出）。
+  半新半旧的系数。四字段同拍写入；整张表仍逐模态更新，并非帧头原子切换。引擎并发读取时的同址语义和跨模态一致性仍需验证。
 - **为什么用位图**：单个"待处理"寄存器会被同帧第二个起音冲掉；位图谁请求都不丢。
 - **为什么不用"15 步并行"**：那要再加 15 个乘法器；串行 + 后台已经把 60k 拍的首帧尖峰
   摊到 ~38 帧里，实测吉他 16 键齐按从 71413 拍/8 作业降到 12616。
 - **代价**：调制器是幂等的（无跨轮状态），所以重复请求只是白花拍数；`mod_req` 排空
-  需要几十帧（原 `tb_voice_router` 的 R3c 专门盯这个，防止"不挡引擎"变成"永远不算"）。
+  需要几十帧（旧 R3c 曾检查排空，对应 TB 已删除，本轮未复验）。
 
 ### 5.3 状态清零用"读作零"，不是"清一遍"
 
@@ -406,7 +371,7 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
   `fb1..fb4` 是 64 位（乘积后截断再移位）。
 - **流水**：写 RAM 的数据必须先进寄存器（`wd`），**不能**让"65 位加 + 饱和 mux"直接怼
   RAM 的 D 口（实测那条路 13.8 ns，72 MHz）。
-- **代价**：延迟 6 拍；饱和点只有两处（求和、相加），不会逐级截断。
+- **边界**：延迟 6 拍；反馈仍以 64 位目标计算，中间乘积并非一律保留完整 96 位。求和/写回/干湿饱和不能代替乘法范围检查，见 F09。
 
 ### 5.6 包络/激励的采样节拍用 `clk_en`
 
@@ -420,7 +385,7 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
 - 换乐器 → 停帧 → 重灌 → 继续。一次 64 KB（16 声部 × 64 模态 × 64 字节）：
   实测 **526 994 拍 ≈ 5.3 ms**（`SCK_DIV=4`，四线模式；原 `tb_loader_flash` 量的，TB 已删）。
   换句话说：**中途 reload 会丢掉约 250 个采样**，所以才有"等键全松再 reload"的策略问题（§8.2）。
-- **代价**：切换乐器时 6.5 ms 断音。要更快只能改 PHY（现在 4 拍/SCK，四线 20 MHz）。
+- **代价**：切换乐器时会断供样；旧记录约 5.3ms，整机须定义补静音/缓冲策略。要更快只能改 PHY（默认 4 拍/SCK；100MHz 输入对应 25MHz SCK）。
 - Quad 模式要求 flash 的 **QE 位**已置位（状态寄存器 2 bit1）——一次性配置，loader 不做
   （否则每次加载都要写状态寄存器 + 等 tSR ~10 ms）。
 
@@ -432,8 +397,8 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
 
 | 项 | 数值 |
 |---|---|
-| 每采样 | **735 拍**（n_modes=64）→ 48 kHz 只要 **35 MHz** |
-| Fmax（100 MHz 约束） | **85.44 MHz**（slack −1.7 ns），48 kHz 余量 2 倍 |
+| 旧 eng0 每采样记录 | **735 拍**（n_modes=64）；不包含当前整机采集/加载/输出预算，也不适用于 eng1 |
+| 旧 Fmax 记录（100 MHz 约束，本轮未构建） | **85.44 MHz**（slack −1.7 ns），48 kHz 余量 2 倍 |
 | Logic / Register / BSRAM | 10433（6787 LUT + 3646 ALU）/ 138240 = 8%；Register 5086 / 139140 = 4%；BSRAM **66** / 340 = 20% |
 | 关键路径 | 混响梳状写 RAM / 干湿相加（约 −1.4 ns） |
 
@@ -443,14 +408,16 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
 
 ## 7. 测试
 
-### 7.1 只有一个 TB：完整音乐合成
+### 7.1 音乐集成 TB
+
+2026-10-28补测：原版Questa编译有14条先使用后声明错误；只在隔离副本调整声明后，默认24000点和4096点ALL16通过原TB判据。把另一隔离副本的输出固定为1，原TB仍打印PASS，证明该判据不能验证波形正确性。完整参数、7061诊断抑制、模块补测及失败结果统一见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)，本目录的正式脚本仍为下面的xsim入口。
 
 **模块级 TB 全部删掉了**（`tb_voice_router`/`tb_throughput`/`tb_reverb`/`tb_envelope`/
 `tb_excitation`/`tb_modulation`/`tb_eng1_g`/`tb_loader_flash`/`tb_body_biquad`/
 `tb_fmax_router`）。理由：内部信号/端口一改，它们就得跟着改，同步成本高；而且照样
-漏 bug（BUGS.md 里两个严重 bug 就躲在"只按声部 0"、"只查有没有写"这种盲区里）。
+漏 bug（问题台账中两个严重 bug 就躲在"只按声部 0"、"只查有没有写"这种盲区里）。
 
-现在只有一条端到端路径 —— `tb/tb_music.sv`：
+音乐集成入口为 `tb/tb_music.sv`；另有 `tb_eng1_cosim.sv` 做独立 eng1 算术对拍，不能称仓库只剩一个 TB：
 
 ```
 喂 fmap（按键/力度/松键） + inst + reverb_preset
@@ -462,10 +429,8 @@ _analysis/music_dec.txt  →  tools/dec2wav.py  →  _analysis/music.wav
 
 - 系数不再是"黄金向量"，而是从 `tools/piano_flash.mem`（`piano_flash.py` 生成的**完整
   系数表**）灌进 RAM —— 和上板时 loader 写进去的是同一份数据。
-- **每个 slot 一个音高**（镜像里 slot0 = midi40、slot1 = 42 …），所以弹不同 slot 就是
-  弹不同音，这段是**真旋律**（8 个音：4-6-8-9-8-6-4-0）。
-- 没有 flash 行为模型，第一个 load 被跳过（直接灌 RAM 镜像）；loader 的格式由
-  `flash_image.py --selftest` / `piano_flash.py` 的量化余量报告保证。
+- **每个slot一个音高**（镜像默认MIDI列表并非全程等间隔），弹不同slot选择不同表。当前TB默认只按NOTE_SLOT=4，按住HOLD采样后松开；ALL16=1才是16键同时按下，不再是旧8音旋律用例。
+- 没有 flash 行为模型，第一个 load 被跳过（直接灌 RAM 镜像）；`flash_image.py --selftest` 检查打包格式，`piano_flash.py` 报告量化；两者均不验证 loader 的真实 SPI 时序/命令。
 
 ### 7.2 怎么跑
 
@@ -478,7 +443,7 @@ pwsh -File rtl/router/tools/run_all.ps1 -SkipFlash     # 镜像已生成，不�
 它会依次做：
 
 1. `tools/piano_flash.py` → `tools/piano_flash.mem`（**回归的前置条件**，脚本里自动做，
-   干净 clone 也能直接跑）
+   需要先准备 Python/numpy、PowerShell 与 Windows Vivado xsim）
 2. **逐个文件**编译（21 个）：一条 `xvlog` 塞 20 个文件时偶发长时间不返回，逐个编
    稳定在 1 s/个
 3. `xelab` + `xsim`，抓 `RESULT: PASS`
@@ -508,7 +473,7 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 
 ### 7.4 历史：删掉的模块级 TB 各自覆盖过什么
 
-留着供追溯（都删了，别再照着写）：
+留着供追溯（这些文件已从仓库删除）。2026-10-28从 `b75efa42^` 提取7份模块TB至隔离目录，对当前模块补跑；通过、过期TB与模型局限见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)，不等于正式回归入口已经恢复：
 
 | 原 TB | 覆盖 |
 |---|---|
@@ -532,14 +497,14 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
    `change_pend = (inst != inst_prev) || reload_pend`；
    `ready = !change_pend || (note_on == 0)`。有变更且还有键按着 → `ready=0`，
    这一帧照常跑（旧表），等松键后的第一帧才真正重灌。
-   （原 `tb_voice_router` 的 R5a–R5e 覆盖过这条链路，TB 已删；现在靠 `tb_music` 的端到端路径。）
+   （旧 R5a–R5e 覆盖过，TB 已删；当前 tb_music 绕过 loader，不能据此证明重载策略。）
    调制和加载互斥：`load_now` 挡住"同一拍就要开始加载"时的 `mod_start`；已经起跑的
    调制在加载期间（`ld_busy || ld_start`）对系数表的写一律丢弃，避免 loader 写完之后
    又被旧调制改回某个地址。
 3. **`loader.err` 只送到端口（`load_err`），router 不处理**：坏表时 loader 把两张表
    全填 0（`W_FILL`，实测 1244 拍）并拉高 `err` 电平 → 输出静音而不是乱响；
    上层/UI 负责提示。"重试/报警"这类策略放上层。
-4. **`n_modes` 是外部输入**（`n_voices` 已删）：引擎和调制器都用 `start` 时锁存的那份。
+4. **`n_modes` 已不是 voice_router 的外部输入**：来自 n_modes_of(inst)，引擎和调制器使用锁存的 nm_lat。
       `n_modes_of(inst)` 现在会在 `voice_router` 里限幅到 `N_MODES`（`nm_lat <= min(...)`），
    所以 `N_MODES` 改小也不会读飞；但 `n_modes_of` 本身是按满配 64/20 写的，改表深度要一起改。
 5. **`DEBUG_PORT` 现在只吐"最近一次引擎读到的状态字"**（不能任意地址读），因为没有
@@ -548,9 +513,7 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 7. **音高 / 系数表**：`tools/piano_flash.py` 能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音
    × 64 模态）按 16 个 slot 出镜像。**sq/sv 归一化这一步已经补上**（§4.5 有推导）；
    归一化后 1024 个模态零饱和。黄金向量已删，TB 直接读 `piano_flash.mem`。
-8. **R7（bank B 独立性）没过**：只按声部 15 时 `note_on[15]=1`、`emap[15]=0.78`，
-   但 `q_ram_b[56..59]` 一直是 0 —— 状态没被有效写入。怀疑 `erb_zero`/`dead_f` 或
-   B 的写地址；暂时只在 TB 里打印、不拦 RESULT。
+8. **R7历史未通过记录**：旧用例只按声部15时观察到状态未有效写入，原TB已删除。2026-10-28在声明兼容副本中，用16槽不同状态夹具完成4帧、64次A/B独立比较并通过；该证据不等于原R7的真实音色场景及全部触发／释放交互已关闭，详见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)。
 9. **`voice_router.cst` 故意没有 `IO_LOC`**：P16/R15 在 GW5AST-LV138FPG676AES 上无效
    （PR2017/PR2028），要上板得按实际板子补。
 10. 想冲 100 MHz：混响写 RAM 已拆两级，下一个是干湿相加（`u_rev/y_63`）和 eng1 累加链。
@@ -582,6 +545,7 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 
 ## 10. 相关文档
 
-- `_analysis/ROUTER_AUTHOR_HANDOFF.md`：外部审阅给的 F01–F11 问题清单（已逐条处理，
-  处理结论见 git log 和 §8）。
+- [当前问题与验证缺口](../../docs/bugs.md)：F01–F11 当前状态、新发现和验收边界。
 - `rtl/simsynth/ROUTER.md`（已删）：旧版路由器的结构/时序分析，在 git 历史里。
+
+2026-10-27未运行音乐xsim／PnR；28日Questa补测没有改变这个xsim／PnR边界。Questa的eng1 intended对拍同样为66项中3个n_modes=0失败，独立模型33项通过不覆盖该RTL边界。详细日期化结果见[验证记录](../../docs/工程评审与验证.md#verification)及[Questa补测](../../docs/工程评审与验证.md#questa-2026-10-28)。
