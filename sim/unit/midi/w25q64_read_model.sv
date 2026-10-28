@@ -2,7 +2,8 @@
 // Independent 6Bh wire model: SPI command/address, 8 dummy, quad data.
 // Not derived from loader counters or its header helper.
 module w25q64_read_model #(
-    parameter integer N_MODES=4
+    parameter integer N_MODES=4,
+    parameter bit ABC_COEFF=0 // Stable synthetic eng1 recurrence; not a real instrument table.
 ) (
     input logic cs_n,sck,
     input logic [3:0] dq_o,
@@ -14,7 +15,13 @@ module w25q64_read_model #(
     logic [23:0] address;
     logic [7:0] byte_value;
     function automatic logic [31:0] word_at(input integer addr);
-        word_at={8'h10,8'(addr/(N_MODES*64)),8'((addr%(N_MODES*64))/64),8'((addr%64)/4)};
+        if(ABC_COEFF) begin
+            case((addr%64)/4)
+                0:word_at=32'd16777216; // G=1, signed Q24
+                1:word_at=-32'sd1047000; // a1 near -1, signed Q20
+                default:word_at=0; // a2=0, remaining fields unused
+            endcase
+        end else word_at={8'h10,8'(addr/(N_MODES*64)),8'((addr%(N_MODES*64))/64),8'((addr%64)/4)};
     endfunction
     function automatic logic [7:0] byte_at(input integer addr);
         logic [31:0] w;

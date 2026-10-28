@@ -70,6 +70,9 @@ try {
             'rtl/router/routers/reverb_router.sv',
             'rtl/router/loader.sv',
             'rtl/router/voice_router.sv',
+            'rtl/audio/audio_async_fifo.sv',
+            'rtl/audio/i2s_amp_tx.sv',
+            'rtl/audio/i2s_audio_output.sv',
             'rtl/router/tb/tb_music.sv'
         )
         foreach ($f in $srcs) {

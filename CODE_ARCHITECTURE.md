@@ -1,99 +1,87 @@
 # 代码架构与阅读路线
 
-更新：2026-10-28。按 `c00e3646` 核对，并补充最近拉取 `8e9d1cda` 的系数输入/输出区别。本文说明代码关系；问题与证据分别维护在 [bugs](docs/bugs.md) 和 [验证记录](docs/工程评审与验证.md#verification)。旧歌曲工程导读已归档到 [历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
+更新：2026-10-29。核对 `32b92498` 及当前工作区；本文说明实例、接口和集成责任。问题状态见[bugs](docs/bugs.md)，执行结果见[验证记录](docs/工程评审与验证.md#global-docs-2026-10-29)。旧歌曲工程导读在[历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
 
-## 1. 当前顶层与边界
+## 1. 当前入口与边界
 
-仓库目前没有同时接通压力/MIDI、音频 DAC 和 LCD 的统一板级顶层。
-
-| 路径 | 顶层/入口 | 输出与限制 |
+| 路径 | 入口 | 当前边界 |
 |---|---|---|
-| 当前合成 | `rtl/router/pad_voice_top.sv` → `voice_router.sv` | 64-bit `y_data/y_valid`，没有 I2S；fmap 可来自压力垫或外部输入 |
-| 独立显示 | `FFT_spectrumshow/board/ui_demo_top.v` | LCD RGB/DE，默认中文侧栏，使用三音/扫频源 |
-| 独立通信 | `rtl/comm/comm_top.sv` | 带来源的 MIDI 事件、配置请求/结果；尚无真实演奏消费者 |
-| 配置与交互 | `FFT_spectrumshow/src/ui/sidebar_system.sv` | 摇杆/按键→配置提交→显示帧头或后端；demo 后端能力全 0 |
-| 保留 core | `rtl/core/router_system_top.sv` | 另一套共享 RAM ABC/E2，不是当前 router 的子模块 |
-| 历史出声 | `history/rtl/audio/` 及 `history/rtl/platform/` | 旧 FIFO/I2S/歌曲/诊断工程，只用于追溯 |
+| 压力/外部fmap | `rtl/router/pad_voice_top.sv` | pad_driver、QSPI、摇杆原始出口、signed64合成值；默认64模态 |
+| MIDI及联合配置 | `rtl/router/midi_voice_top.sv` | 音符/来源状态、两组16音、清理/装载/实际结果、signed64输出 |
+| 音频模块 | `rtl/audio/i2s_audio_output.sv` | PCM/FIFO/I2S及帧节拍CDC；当前两个演奏顶层没有该实例及音频端口 |
+| 通信 | `rtl/comm/comm_top.sv` | Event32+source、Config shadow及会话接口；演奏消费者已有，整机物理接线与远程配置桥待接 |
+| 显示/配置 | `FFT_spectrumshow/src/ui/sidebar_system.sv` | loop/dispatch、真实后端握手、整包显示CDC；独立demo后端能力仍为0 |
+| 本地主机 | `web/midi-editor/` | 编辑/参考试听/Web Serial；无板端PCM回传或远程音色设置 |
+| 保留core | `rtl/core/router_system_top.sv` | 另一套共享RAM ABC/E2实现，与当前router无父子关系 |
 
-## 2. 当前合成链
+没有同时连接输入、DAC及LCD的统一板级顶层。当前两个演奏顶层未保留先前音频测试快照中的 `AUDIO_ENABLE/audio_clk/amp_*`；外部sample_tick口与音频模块还在，不能由文件存在推断已接通。
 
-```text
-pad_voice_top
-├─ pad_driver（可由 USE_PAD_DRIVER 关闭）
-│  ├─ sense4x4_joystick → Gowin_ADC
-│  ├─ cart2polar（兼容旧 pos）
-│  └─ led8x8（本适配器 led_p 固定为 0）
-├─ src_sel 寄存 → 选择 pad fmap 或 fmap_ext
-└─ voice_router
-   ├─ fmap_q / 滞回门控 / 采样节拍 / note、dead 事件暂存
-   ├─ weight_loader → 系数和调制参数 RAM
-   ├─ exc_router → excitation_gen → x_q[SLOTS]
-   ├─ env_router → ADSR / dyn0 / 常数包络
-   ├─ mod_router → modulation0（后台请求位图）
-   ├─ eng_router A → eng0 或 eng1，访问 bank A
-   ├─ eng_router B → 相同选核，访问 bank B
-   └─ 逐声部包络乘法 → 跨声部累加 → body_router → reverb_router
-```
-
-`voice_router` 默认 `SLOTS=16, N_MODES=64, CLK_HZ=100MHz, SR_HZ=48kHz`；合法声部数是 4/8/16。每次 start 完成**一个样本**，固定处理全部槽。`done=1` 表示空闲可启动；`ready` 表示挂起的 inst/reload 变更可执行；两者均不是“指定音色已加载成功”的事务确认。`pad_voice_top.run` 接 start，`busy=~done`；其 `N_MODES` 默认 48，`X_DEPTH` 是残留兼容参数，不再传入 router。
-
-钢琴/吉他选 eng0，其余枚举暂选 eng1。`n_modes_of()` 对钢琴返回 64、吉他 20，其余 64，router 再限幅到 `N_MODES`。10 个乐器编号是目录，不代表 10 套资源已实测。
-
-### 存储与 Flash
-
-RAM 步长 `NMP=1<<clog2(N_MODES)`，地址 `{slot,mode}`；loader 写地址最高位选择系数/参数表。引擎用到的系数和状态按前后半声部分为 A/B 两个 bank，每个 bank 同步读写；调制参数独立存储。
-
-Flash 紧凑布局为 `inst*(SLOTS*N_MODES*64)`，逐 slot、逐模态存 64-byte 大端记录；RAM padding 不进入 Flash。`tools/piano_flash.py` 默认选 MIDI `40,42,44,46,48,50,52,54,56,58,60,62,64,67,71,76`，不是连续 32 音。使用镜像时必须统一声部数、物理模态深度和乐器基址。
-
-### 运算与时间
-
-eng0 是七系数状态空间递推，eng1 是 `G*x-(a1<<4)*y1-a2*y2` 的 ABC 核；字段 Q 格式不同，见 [router 契约](rtl/router/README.md)。包络 Q1.31，腔体/混响增益 Q4.27，输出为 signed64；没有统一的“截高 16 位即可接 DAC”契约。
-
-两个 `eng_router` 同时处理 A/B 对应声部，随后复用包络乘法与混音。后台调制按起音请求修改系数，尚不是持音持续压力跟随；逐模态更新也不能推导整张表在帧边界原子切换。装载期间没有 y_valid。router 的整数分频采样节拍与 DAC/LCD 时钟尚未统一。
-
-## 3. 配置、交互与显示
+## 2. 演奏与合成
 
 ```text
-joy_sample_valid + raw X/Y → joystick_adapter ─┐
-旧双按键事件 ────────────────────────────────────┤
-                                               ▼
-sidebar_ctrl（菜单/草稿/请求） → control_loop（1kHz 轮询、一项暂存）
-外部已适配请求（槽1） ──────────┘
-    → config_dispatch
-       ├─ 显示目标 → sidebar_mailbox → 像素帧头应用 → 结果
-       ├─ 摇杆重校准 → 等 calibrated 恢复 → 结果
-       └─ backend 请求 → 等匹配 tag/id 的真实结果
-    → 结果回到原来源
+comm_top事件+source → midi_voice_top
+                     ├─ midi_note_state / midi_instrument_map
+                     ├─ 清理 → 锁存目标 → loader → 排空 → active/结果
+                     └─ gate/velocity/retrigger/hard_clear ──┐
+pad_voice_top → pad_driver或fmap_ext → 压力滞回门控 ────────┤
+                                                         ▼
+voice_router → performance_input_mux
+             ├─ exc_router → excitation_gen → x_q[slot]
+             ├─ env_router → ADSR/dyn0/常数 → emap
+             ├─ weight_loader → 系数/调制参数RAM
+             ├─ mod_router → modulation0 → 系数写口
+             ├─ eng_router A ↔ bank A（前半声部）
+             ├─ eng_router B ↔ bank B（后半声部）
+             └─ 锁存A/B结果 → 逐槽包络乘法/混音 → 五段腔体 → 四梳状混响
+                                                             → y_valid/y_data
 ```
 
-统一请求 64 bit `{tag,id,value}`，结果 72 bit `{tag,id,result,applied_value}`。`control_loop` 不解释参数，也不确认业务生效；配置端按能力位开放项，失败保持原实际值。`comm_top` 的 cfg shadow 和侧栏请求不是同一协议，仍需保留物理来源/SEQ/命令的适配。
+voice_router默认16槽、64模态存储、100MHz/48kHz参数，合法槽数4/8/16。每次作业产生一个样本并处理全部槽；两个bank按声部拆分，不是新旧系数双缓冲。钢琴/吉他选eng0，分别计算64/20模态；其余选eng1，首版计算48并限幅到存储深度。
 
-LCD demo 控制域使用板载 50MHz，像素域约 33.333MHz。菜单快照整包跨域，目的端帧头提交；两个域复位需遵守 mailbox 合同。`lcd_sidebar` 的同步字模使 RGB/DE 延迟一拍，板顶层外层寄存必须保持对齐。`HAS_JOYSTICK=0` 的独立 demo 使用双按键，只启用显示参数。
+压力起音为fmap>230，保持到fmap<26；MIDI使用独立gate/retrigger与7bit velocity，避免受压力门限阻挡。持续压力变化也会登记吉他后台调制，MIDI velocity不进入压力调音。调制采用一阶近似、MOD_TOP=4、lambda最大0.035；逐模态更新仍未保证整帧表版本原子一致。
 
-音频可视化 `real_audio_chain` 在 demo 中 core/pix 都接像素时钟；它的双时钟端口不证明跨域安全。主合成器仍须经过 PCM 适配和异步 FIFO 后再接入。侧栏的 CDC 仅覆盖配置快照。
+eng1已改五级跨模态流水，空作业返回零且不读写状态。本次256组算术对拍通过，但四种持续音色仍使用默认32样本单次激励及常数包络，未接逐槽period和B类ADSR。其行为复核与待实施合同统一在[eng1演奏前端设计](docs/ENG1演奏前端设计.md)。
 
-## 4. 通信与演奏适配
+### 运行与加载
+
+`done` 是空闲电平；`ready` 是挂起音色/reload是否可执行，均不等于配置成功。reload取上升沿，持键时普通换色延后，旧表仍使用旧音色/模态数。loader失败撤销table_valid、静音并等待显式重试；pad_voice_top引出load_err/table_valid。midi_voice_top用load_complete、维护退休与状态机完成配置事务，再回写匹配tag/id的结果和实际快照。
+
+当前panic在C_RUN等可接收状态发起配置清理；先前忙时抢占装载的panic_pending/旁路已不在当前源码，不能继续承诺装载中立即取消。菜单清音事务、来源清理和音频FIFO撤销是不同完成条件；音频队列flush仍暂缓。
+
+### 存储、资源与定标
+
+RAM按NMP=next_power_of_two(N_MODES)补齐槽步长，地址含sel/slot/mode。Flash记录64B大端：前半7系数+保留字，后半4基值+4斜率；逐槽偏移、update_mask及目标在事务接收时锁存。默认16音每乐器64KiB，32音资源每乐器128KiB，基址必须随FLASH_NOTES统一；不能把两种区域步长混烧。
+
+钢琴/吉他生成器都输出scaled表，打包器直接按当前Q量化；默认16音清单为40/42/44/46/48/50/52/54/56/58/60/62/64/67/71/76。吉他每槽补零到64条，实际计算前20。钢琴工具可显式生成连续32音并输出manifest，正式六种音色/32音范围尚未冻结。详细格式只在[router系数合同](rtl/router/README.md#coefficient-pipeline)维护。
+
+eng0状态、激励和输出统一Q24；a11/a12/a21/a22小数位28/30/23/28，gq/gv/wo为32/34/29。eng1的G/a1/a2为独立合同；Python参考使用Q30，不能直接搬用其SHIFT22来驱动Q24音频。
+
+## 3. 配置、交互与通信
 
 ```text
-uart_driver / hc05_driver → 各路 transport_link（SLIP/CRC）
-    → frame_arbiter → parser_dispatch
-       ├─ midi_analyzer → Event32 + source_id → 共享事件 FIFO
-       └─ config_analyzer → 原子 cfg 请求 / 最终回复
-session_ctrl → 来源隔离、清理、退休和重建
+摇杆原始X/Y / 双按键 → sidebar_ctrl ─┐
+已转换的外部统一请求（槽1） ──────────┤
+                                   ▼
+control_loop（1kHz） → config_dispatch
+                     ├─ 显示 → mailbox → 像素帧头应用 → 结果
+                     ├─ 校准 → calibrated恢复 → 结果
+                     └─ midi_voice_top(CONFIG_BACKEND=1) → 真实提交/实际快照
 ```
 
-线上 v1 规范只维护在 [PROTOCOL_V1](rtl/drivers/analyzer/PROTOCOL_V1.md)。UART/HC-05 驱动与帧层不承担音符生命周期。下游尚须实现通道过滤、Note On/Off、踏板、音符到槽/系数、CC7/11、清音和操作退休；不得将 `source_cleanup_done/source_ops_idle` 未经处理绑 1。
+请求64bit `{tag,id,value}`，结果72bit `{tag,id,result,applied_value}`。loop只轮询/暂存配置，不调度音符或音频样本。联合后端已有音色/通道、来源、音组、混响和清音事务；RESOURCE_MASK默认只开放钢琴，音量/调制开关深度/EQ/Bend等消费者仍未完成。独立LCD demo只开显示能力。
 
-## 5. 离线模型与参数生成
+comm按UART/HC-05→transport→arbiter/parser→事件或配置分层，33bit事件FIFO保留source侧带。session_ctrl的清理/退休必须接真实演奏消费者。Config shadow含物理来源/SEQ/命令，不能截成统一64bit请求；远程权限/最终回复桥仍需接入。唯一线上合同为[PROTOCOL_V1](rtl/drivers/analyzer/PROTOCOL_V1.md)，演奏归属与配置事务只在[MIDI文档](docs/MIDI演奏与通信接入.md)维护。
 
-- `python/instruments.py`、`fft_analysis/`：样本目录、基频/分音/衰减、持续音与打击乐参数。
-- `python/modal_sim/engine.py`、`fixed_point.py`、`gen_hw_rom.py`：旧模态参考及旧 ROM 格式。
-- `python/modal_sim/router_eng1.py`、`eng1_bc.py`：router 级 eng1 整数参考与 A/B/C 试听；不等同于当前钢琴/吉他 eng0 路由。
-- `sythsound/piano_coeff_gen.py` → `piano_coeff_scaled.txt` 是新定标表生成链；`rtl/router/tools/piano_flash.py` 默认仍读旧 `sythsound/piano_coeff.txt` → 当前 `.bin/.mem`。两条链尚未默认接通，不能把生成器改动等同于镜像已经更新。选表/定标合同只维护在 [router说明](rtl/router/README.md#coefficient-pipeline)。
-- `.npz`、旧 `.mem` ROM、router Flash 64-byte 记录有不同合同，不能按扩展名互换。
+## 4. 输出与显示的接入责任
 
-## 6. 推荐阅读与验证
+已有i2s_audio_output实现Q24→PCM16、独立FIFO和连续I2S，帧toggle同步到core后可作为统一sample_tick。恢复顶层连接时必须同时让激励、包络和引擎使用外部节拍；仅给start一个音频脉冲仍会与内部整数分频竞争。采样率、PCM余量、诊断和复位合同见[音频说明](rtl/audio/README.md)。当前接口缺失已经使系统TB展开失败，旧快照的周期余量不代表当前完整系统通过。
 
-先读 `rtl/router/pkg/router_pkg.sv` 和 `modal_step_pkg.sv`，再沿 `pad_voice_top`→`voice_router`→`routers/*`→`parts/*`/`engines/*` 跟踪时钟、接收条件、状态与完成条件。配置从 `config_pkg`→`control_loop`→`config_dispatch`→`sidebar_system` 阅读，通信从 `comm_sources.f` 和 comm README 阅读。
+可视化应取得独立PCM副本，不能和I2S共同pop同一个队列，也不能反压播放。real_audio_chain需要24bit输入，当前demo的core/pix都接像素域；内部写侧仍用clk_pix，wr_ready未向上暴露。正式接入须冻结PCM扩展/抽头位置、入口CDC、连续1024点窗口与丢窗口诊断，不能只改一个clk端口就认为安全。
 
-运行入口见 [sim/README](sim/README.md)。本轮确认通信/控制/摇杆/侧栏回归通过；eng1 intended 对拍 3 个零模态作业失败，旧 core 编译中断。音乐测试绕过真实 loader，旧探针报告、模型音频和独立 LCD 均不能代替当前输入→DAC 的完整验证。
+sidebar控制域50MHz，像素约33.333MHz，整包快照在帧头提交。同步字模使RGB/DE延迟一拍，外围再寄存必须保持对齐。配置mailbox不承担音频CDC。显示应读取完整发布帧，不能直接把引擎缓存状态口当任意地址RAM读口。
+
+## 5. 阅读与验证
+
+先读router_pkg/modal_step_pkg，再沿演奏顶层→voice_router→routers→parts/engines读状态和握手；配置从config_pkg/dispatch/loop/sidebar_system读，通信从comm_sources.f与comm README读。离线模型和资源格式不能互换：NPZ、旧core ROM、Flash记录分别有合同。
+
+[sim说明](sim/README.md)维护命令，[工程评审与验证](docs/工程评审与验证.md)维护日期化证据，[验收总表](docs/赛题要求完成度核对.md)维护赛题闭环。模块PASS、模型WAV、Flash行为模型、历史PnR均不能单独证明输入→DAC→LCD整机通过。

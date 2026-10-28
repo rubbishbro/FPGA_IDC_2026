@@ -1,97 +1,94 @@
 # FPGA_IDC_2026 — FPGA 模态合成电子乐器
 
-面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；`music_resources/` 录音用于离线提取参数，Python WAV 用于试听与验证。
+面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；录音用于离线提取参数，模型与 RTL WAV 用于试听验证。
 
-更新：**2026-10-28**，对照 `c00e3646`，补核最近拉取的 `8e9d1cda`。项目处于模块验证与整机集成阶段，验证结果保留各自执行日期。
+更新：**2026-10-29**。核对已提交的 `32b92498` 及当前未提交工作区。项目处于模块验证与整机集成阶段；已执行的历史测试和本次复测分别记录。
 
 ## 当前实现
 
 | 部分 | 已有实现 | 仍待完成 |
 |---|---|---|
-| 声部路由 `rtl/router/` | 默认 16 槽×64 模态，双 bank、两个 `eng_router` 并行处理各半声部；钢琴/吉他选 eng0，其余暂选 eng1；激励、逐声部包络、5 段腔体、四梳状混响 | 全路径数值/吞吐、bank B 独立性、真实 Flash 和整机验收 |
-| Flash 与音高 | loader按slot-major读取独立音高表；钢琴打包器默认16个MIDI音，现镜像仍来自旧默认系数表 | 新scaled表与打包链统一、吉他音高标签修正、连续32音/音区和真片验收 |
-| 压力垫/摇杆 | 采集 FSM 已有泄放、建立、请求、完成锁存与超时重试；成对 X/Y 出口及校准/八方向/连发适配器已实现 | 真实 ADC、矩阵逐键位置、扫描延迟和板级校准 |
-| 配置与中文侧栏 | `control_loop` → `config_dispatch` → 整包 CDC → 像素帧头提交；默认 LCD demo 使用中文隐藏侧栏 | 音量/音色/混响/MIDI 等真实后端接入；未接项按能力位禁用 |
-| 通信 `rtl/comm/` | 双 UART/HC-05、SLIP/CRC、MIDI/Config 解析、来源隔离与恢复接口 | MIDI→音符状态→fmap、配置协议转换、真实清音/退休确认与 App |
-| 可视化 | 1024 点 FFT、BARS/WAVE/FALL、主题/峰值/网格等；独立 demo 使用测试音源 | 主合成器 PCM、音频跨域 FIFO 与现场联机 |
-| 板级出声 | 历史 FIFO/I2S/DAC 链保存在 `history/rtl/audio/` | 新 router→PCM 缩放/饱和→FIFO→I2S→DAC；四复音、持续变调和端到端延迟测量 |
-| Python | 参数提取、整数/浮点模型、A/B/C 试听、eng1 对拍入口 | 模型与当前顶层的激励/选核/加载差异收口 |
+| 合成 `rtl/router/` | 默认16槽、64模态存储，双bank并行；钢琴/吉他选eng0，其余选五级流水eng1；实际计算64/20/48模态 | eng1四种持续音色的逐槽周期驱动/ADSR、真实资源及整机验收 |
+| Flash与音高 | 6Bh串行地址修复、逐槽偏移/掩码/中止/超时、失败静音；钢琴/吉他scaled表接入打包，默认16音镜像按64条/槽存储 | 六种正式连续32音资源、统一烧录清单、真片QE/时序和听测 |
+| 演奏与配置 | MIDI音符归属、力度、重触发、踏板、来源清理、两组16音切换；本地UI音色/通道联合提交与实际结果 | 远程配置协议桥、CC音量/EQ/Bend等DSP消费者、当前panic抢占回归 |
+| 压力垫/摇杆 | 采集FSM、X/Y成对出口、校准/八方向/连发 | 真实ADC、16键位置/扫描延迟及板级校准 |
+| 音频 `rtl/audio/` | PCM16舍入/饱和、异步FIFO、I2S、帧节拍CDC模块已有 | 当前两个演奏顶层缺少音频端口/实例，系统回归中断；须恢复接线后验证时钟/约束/DAC |
+| 可视化 | 1024点FFT、BARS/WAVE/FALL、中文隐藏侧栏；独立demo使用测试音源 | 主合成PCM抽头、独立音频跨域与现场同源显示 |
+| 本地上位机 | WebGL MIDI编辑、多轨/循环/力度、导入导出、有线Web Serial和v1编码 | 物理UART/Flash/DAC联调、板端能力查询/远程配置/PCM回传 |
+| Python | 参数提取、整数/浮点模型、A/B/C试听与对拍 | 模型Q30与当前router Q24、激励/选核/资源差异继续对齐 |
 
-`rtl/core/` 是保留的共享 RAM ABC/E2 实现，与 `rtl/router/` 分开。其“21 项 PASS”属于 2026-10-22 历史记录；当前入口仍因 `rtl/simsynth/` 迁移而中断。`pad_voice_top` 默认 `N_MODES=48`，与 `voice_router`/钢琴镜像的 64 模态默认值不同，集成时必须统一。
+**本次复测：**eng1 **256组逐模态对拍通过**，PCM/I2S模块单测通过；系统集成在展开时报告缺少 `AUDIO_ENABLE`。此前8项音频回归通过属于先前接线快照，不能代表当前工作区。上位机 **17项单测及语法检查通过**；钢琴/吉他默认打包结果与现有bin/mem逐字节相同。详见[最新核对记录](docs/工程评审与验证.md#global-docs-2026-10-29)。
 
-生成器当前写入piano_coeff_scaled.txt，打包器默认仍读取piano_coeff.txt；两者不能画成一条已接通的新表链。输入选择与定标细节见 [系数合同](rtl/router/README.md#coefficient-pipeline)。
+`rtl/core/` 保留另一套共享RAM实现，与当前router分开。其历史21项PASS不代表当前回归通过；旧入口仍有迁移缺失。当前源码没有同时接通输入、DAC与LCD的统一板级顶层。
 
-**阅读入口：**[代码架构](CODE_ARCHITECTURE.md) · [文档索引](docs/README.md) · [当前问题](docs/bugs.md) · [赛题核对](docs/赛题要求完成度核对.md)。
+**阅读入口：**[代码架构](CODE_ARCHITECTURE.md) · [专题索引](docs/README.md) · [当前问题](docs/bugs.md) · [赛题验收](docs/赛题要求完成度核对.md)。
 
 ## 数据流与目录
 
 ```text
-电脑离线：music_resources → python/fft_analysis → FFT_results/params
-         → python/modal_sim → FFT_results/sim/eng1（模型试听）
-
-当前合成：压力矩阵/外部 fmap → pad_voice_top → voice_router
-         → 激励/包络 → 双 bank 合成 → 混音 → 腔体 → 混响 → y_valid/y_data
-         → 待集成 PCM/FIFO/I2S/DAC 与可视化音频输入
-
-本地配置：原始摇杆/双按键 → sidebar_system → control_loop → config_dispatch
-         → 显示快照 CDC/帧头应用，或真实后端请求/结果
-外部通信：双 UART/HC-05 → transport → analyzer → 事件/配置接口
-         → 待接演奏消费者和侧栏协议适配
+离线：录音 → python/fft_analysis → FFT_results/params → 模型试听/候选资源
+      sythsound/*_coeff_scaled.txt → router/tools/*_flash.py → Flash镜像
+演奏：comm_top事件 → midi_voice_top → 音符状态/选源 → voice_router → signed64
+      压力/外部fmap → pad_voice_top ──────────────────────┘
+配置：侧栏 → control_loop → config_dispatch → MIDI联合配置后端/显示CDC
+输出：signed64 → 待恢复顶层接线 → rtl/audio → I2S → 待验DAC
+显示：独立测试音源 → FFT/LCD；主合成PCM仍待接入
 ```
 
 | 目录 | 用途 |
 |---|---|
-| `python/` | 参数分析、模型、ROM 生成及试听；数学说明在 `MATH.md` |
-| `rtl/router/` | 当前声部路由、DSP、Flash loader/打包器与音乐测试 |
-| `rtl/core/` | 保留的共享 RAM 路径；不能与新 router 混用证据 |
-| `rtl/drivers/`、`rtl/comm/` | 压力/摇杆、UART/HC-05、传输、解析和会话协调 |
-| `rtl/config_pkg.sv`、`config_dispatch.sv`、`control_loop.sv` | 配置合同、提交协调和请求轮询 |
-| `sim/` | 通信、控制、摇杆、侧栏、模型验证及旧 core 回归 |
-| `FFT_spectrumshow/` | 独立频谱/LCD demo；50MHz 控制、约 33.333MHz 像素域 |
-| `FFT_results/` | 参数、提取图、模型音频；不是板级录音 |
-| `docs/` | 当前设计、验收边界、问题及专题说明 |
-| `reference_agent_readfirst/` | 赛题和平台入口；详细板卡资料/答疑在其 `docs/` |
-| `history/` | 旧 RTL、测试、图和阶段记录；不参与当前生产构建 |
-| `sythsound/` | 独立 Python 合成实验库；其钢琴系数生成器也供 router 镜像工具使用 |
-| `build/` | 本地构建产物与日志，Git 忽略 |
+| `rtl/router/`、`rtl/midi/` | 当前合成、loader、演奏状态及配置后端 |
+| `rtl/audio/` | PCM/FIFO/I2S模块与接入合同 |
+| `rtl/drivers/`、`rtl/comm/` | 压力/摇杆、UART/HC-05、传输/解析/来源会话 |
+| `rtl/config_pkg.sv`、`config_dispatch.sv`、`control_loop.sv` | 统一配置类型、真实结果提交与轮询 |
+| `sim/` | 各模块与系统回归入口 |
+| `FFT_spectrumshow/` | 独立FFT/LCD/侧栏demo，50MHz控制、约33.333MHz像素域 |
+| `python/`、`FFT_results/` | 提取、模型、参数/图/试听；数学说明见python/MATH.md |
+| `sythsound/` | 独立Python实验库及router钢琴/吉他资源生成 |
+| `web/midi-editor/` | 本地MIDI编辑与UART上位机 |
+| `docs/`、`reference_agent_readfirst/` | 专题设计/验收/问题，以及赛题/平台依据 |
+| `history/`、`rtl/core/` | 历史工程与保留路径；验证证据不能混用 |
+| `build/` | 本地日志/构建产物，Git忽略 |
 
-## Python 快速开始
+## 本地 MIDI 上位机
 
-以下命令在仓库根目录执行；生成脚本会更新相应产物。
+Node.js 20+，无需安装依赖：
+
+```bash
+npm --prefix web/midi-editor run dev
+```
+
+在Chrome/Edge打开 `http://127.0.0.1:5173`。电脑参考试听使用三角波；UART按v1 SLIP/CRC发送当前音乐时间的演奏事件，播放前校验板端通道与已加载16音清单。板端音色/来源/音组仍需本地设置，操作与边界见[上位机说明](web/midi-editor/README.md)。
+
+## Python 与验证入口
+
+在仓库根目录执行；提取/试听脚本会写相应产物：
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r python/requirements.txt
-
-python python/fft_analysis/run.py          # A 类参数提取
-python python/fft_analysis/sustain.py      # 持续音
-python python/fft_analysis/percussion.py   # 打击乐
-python python/modal_sim/eng1_demo.py       # A/B 整数模型试听
-python python/modal_sim/eng1_pieces.py     # 吉他/钢琴片段
-python python/modal_sim/eng1_bc_demo.py    # B/C 共用 Eng1Core
+python python/fft_analysis/run.py
+python python/modal_sim/eng1_demo.py
+python python/modal_sim/eng1_bc_demo.py
 ```
 
-样本需位于 `music_resources/`，试听所需参数在 `FFT_results/params/`。旧试听产物在 [历史目录](history/FFT_results/sim_pre_eng1_2026-10/README.md)；旧脚本仍可运行，路径由 `python/paths.py` 定义。Python A/B/C 分类和音色数量不等于板端已交付清单；钢琴/吉他当前选 eng0，eng1 试听不代表该路由选择已改变。
-
-## 验证与构建
+样本放在 `music_resources/`，模型参数在 `FFT_results/params/`。模型音色数量不等于硬件交付清单，eng1试听不能代表实际钢琴/吉他eng0路径。
 
 ```bash
-python3 sim/run_control_loop.py          # 15 组
-python3 sim/run_joystick.py              # 26 组
-python3 sim/run_comm.py                  # 13 项
-python3 sim/check_comm_vectors.py        # 协议向量与分片流
-python3 sim/run_ui.py --legacy           # 3 组侧栏 + 14 项原可视化
-python -m pytest -q sim/unit/eng1/test_router_eng1.py
-python python/modal_sim/eng1_cosim.py --mode intended
+python3 sim/run_control_loop.py
+python3 sim/run_joystick.py
+python3 sim/run_comm.py
+python3 sim/check_comm_vectors.py
+python3 sim/run_midi.py
+python3 sim/run_router_midi.py
+python3 sim/run_ui.py --legacy
+python3 sim/run_audio.py --test eng1 --test bridge
+npm --prefix web/midi-editor test
 ```
 
-2026-10-27 本轮复测：上面前五项全部通过，Python 模型 **33 passed**；eng1 intended 对拍 **66 作业中 3 项失败，均为 `n_modes=0`**，不能继续引用旧兼容模式的全通过结论。旧 core 脚本前两项通过，第 3 项因缺失源文件中断。完整结果、工具条件和报告边界见 [仿真说明](sim/README.md) 与 [验证记录](docs/工程评审与验证.md#verification)。
-
-新 router 音乐测试使用 Windows Vivado xsim：`pwsh -File rtl/router/tools/run_all.ps1`，详见 [router 说明](rtl/router/README.md)。它会生成镜像并直接灌入仿真 RAM，不覆盖真实 Flash；本轮未运行 xsim。
-
-LCD demo 构建见 [可视化说明](FFT_spectrumshow/README.md)，通信探针见 [验证记录](rtl/comm/VERIFICATION.md)。独立探针时序或既有 bitstream 不能代替当前音频整机验收。
+`sim/run_audio.py` 的完整系统矩阵当前因顶层接口缺失而失败。旧 `eng1_cosim.py` 使用历史测试接口，不再作为流水eng1的当前通过依据。Windows音乐/loader脚本、工具要求及已知入口缺口见[sim说明](sim/README.md)；本次未运行xsim、PnR或上板。
 
 ## 文档约定
 
-根目录保留本 README 与架构导读；除名为 `docs` 的目录及其子目录外，每个目录最多两份说明文档。专题设计集中于 `docs/`；历史记录标明日期和适用范围，当前结论以实现和可复现验证为依据。依赖清单、系数数据、许可证及工具生成报告按原用途保留。
+根目录保留本README与架构导读；除名为 `docs` 的目录及其子目录外，每个目录最多两份说明文档。专题按职责组织，重复方案合并，交叉内容引用唯一合同。依赖清单、系数数据、许可证、第三方元数据和生成报告按原用途保留。

@@ -1,6 +1,15 @@
 # 仿真、模型与时序入口
 
-更新：2026-10-28。命令均从仓库根目录执行，隔离Questa补测另行注明运行目录；各验证范围分开计数。Python 脚本优先使用 IVERILOG/VVP、PATH，再尝试本机 `~/micromamba/envs/torch312/bin/`；`run_core.sh` 只使用环境变量/PATH。
+更新：2026-10-29。命令均从仓库根目录执行，隔离Questa补测另行注明运行目录；各验证范围分开计数。Python 脚本优先使用 IVERILOG/VVP、PATH，再尝试本机 `~/micromamba/envs/torch312/bin/`；`run_core.sh` 只使用环境变量/PATH。
+
+## 当前工作区入口与本次复测（2026-10-29）
+
+- `python3 sim/run_audio.py --test eng1 --test bridge`：256组流水eng1逐模态整数oracle与PCM/I2S模块测试通过。
+- `python3 sim/run_audio.py`：前两项通过，首个系统用例展开报 `Module parameter AUDIO_ENABLE not found for override`；两个演奏顶层当前缺音频接口，完整矩阵未通过。
+- `npm --prefix web/midi-editor test` 和 `npm --prefix web/midi-editor run check`：17项Node单测及语法检查通过；本次没有重做浏览器或物理串口验证。
+- 默认钢琴/吉他镜像按当前scaled表内存重建，与现bin/mem相同且零量化饱和；细节见[29日核对](../docs/工程评审与验证.md#global-docs-2026-10-29)。
+
+下文按日期保留旧测试条件。旧eng1零模态FAIL、声明顺序兼容副本和4166拍测量均属修复前；先前音频8项/联合配置11项PASS只代表当时快照。当前音频顶层及忙时panic有接口/逻辑差异，需在接线收口后重验。
 
 ## 2026-10-27 复测结果
 
@@ -81,7 +90,7 @@ python3 sim/run_router_midi.py --ini /absolute/path/modelsim.ini --out /tmp/rout
 pwsh -File rtl/router/tools/run_all.ps1
 ```
 
-脚本默认 Vivado 2017.4 的 Windows 路径，可用 `-Vivado` 指定安装目录；需 Python/numpy。它生成钢琴镜像、逐个编译 22 个文件、仿真并导出 `_analysis/music.wav`。音乐 TB 直接灌 RAM、跳过真实 SPI，帧数/无 X/非零输出不是逐样本 golden。Linux环境仍未运行pwsh/xsim；28日是在上述隔离Questa兼容副本上补跑同一音乐TB，不把镜像格式自检当成真片验收。
+脚本默认Windows Vivado 2017.4，可用-Vivado指定。当前tb_music已例化w25q_dut/vendor W25Q128，经真实loader加载；源码头部直灌RAM说明已过时。run_all目前漏列Flash模型源和MEM准备；run_loader仍依赖被忽略的_analysis辅助脚本、旧20模态吉他布局，不能宣称干净clone一键可运行。可维护MEM生成器在rtl/router/tools/gen_mem.py。本次未运行pwsh/xsim；帧数/无X/非零输出也不是逐样本golden，模型不证明真片。
 
 Python 回归和 eng1 对拍可在已有数值环境运行：
 
@@ -91,7 +100,7 @@ python -m pytest -q sim/unit/eng1/test_router_eng1.py
 python python/modal_sim/eng1_cosim.py --mode intended
 ```
 
-`eng1_cosim.py` 默认仍是复刻旧 F05 的 rtl 模式，帮助文字也未同步。当前 eng1 已改用本模态状态和全模态 st_zero，应显式传 intended；目前零模态边界仍失败。对拍输出 `build/eng1_cosim/cases.txt` 与可执行文件，不能将 `$finish`/进程退出 0 当成功，应查看 `RESULT`。契约和模型/RTL 差异见 [ENG1 模型](../docs/ENG1_PY_MODEL.md)。
+`eng1_cosim.py` 默认仍是复刻旧 F05 的 rtl 模式，帮助文字也未同步。当前eng1已为五级流水，空作业修复由新oracle复测通过；旧TB依赖串行核内部接口，仅传intended不足以把它变为当前回归。历史向量模式比较仍应显式intended。对拍输出 `build/eng1_cosim/cases.txt` 与可执行文件，不能将 `$finish`/进程退出 0 当成功，应查看 `RESULT`。契约和模型/RTL 差异见 [ENG1 模型](../docs/ENG1_PY_MODEL.md)。
 
 ## 保留 core 回归
 
@@ -133,3 +142,20 @@ IVERILOG="$HOME/micromamba/envs/torch312/bin/iverilog" VVP="$HOME/micromamba/env
 Flash是独立6Bh行为模型，像素帧脉冲加速；CTRL_HZ也只为UI测试加速轮询，不用于推导真实UI端到端延迟。音频系统时钟在联合用例中真实为100MHz，可从后端接收至成功结果测量模拟装载执行时间。默认RESOURCE_MASK仅钢琴，测试显式启用统一布局的钢琴/吉他资源；不是正式六种音色或真片验收。原UI三项和MIDI状态两项另跑，通过结果分别保留在build/sidebar和build/joint_config/state。无本轮PnR/PCM/I2S结论。
 
 联合配置本次结果：11项Questa全部通过；tb_joint_config为37次检查、17笔后端接收＝16笔最终结果＋1笔复位取消，两笔本地菜单操作完成；错误结果单测7次检查。100MHz/25MHz SCK下，所测成功后端事务最大5392.950μs（约5.39ms），包含清理、64KiB装载和排空；不包含加速的UI轮询/帧等待，也不是实板上界。原UI三项、MIDI状态两项通过。源码快照与完整性记录在`/tmp/fpga-joint-config-20261028/`。
+
+### eng1五级流水与I2S采样基准（2026-10-28至29，先前接线快照）
+
+以下是先前已接线快照的命令与结果。当前顶层音频端口缺失，完整矩阵展开失败；本次通过项与错误见本页开头和最新验证记录。
+
+```bash
+python3 sim/run_audio.py --out build/i2s_pipeline/audio_final
+python3 sim/run_router_midi.py --out build/i2s_pipeline/router
+python3 sim/run_midi.py --out build/i2s_pipeline/state
+python3 sim/run_ui.py
+```
+
+音频入口使用Questa私有库和生产RTL，无7061警告抑制/声明兼容副本。包含256组Python整数oracle的逐模态状态/和检查（0/1/48/64模态、数量限幅、busy期间输入变化、II=1、复位排空）；PCM端到端检查正负满幅/舍入/饱和、计划静音、缺样和重复结果诊断；6组真实16槽系统集成（MIDI顶层内PAD模式下两引擎×两参考时钟，再测PAD专用顶层的两引擎）。独立I2S解码按WS边沿取期望队列、BCLK采位，核对一位延迟、左右复制和零填充。
+
+每组系统测试连续至少1600个正常合成样本后执行重载、空表失败、恢复、run停启；MIDI顶层配置另切入真实MIDI模式验证A/B两bank的NoteOn、重复NoteOn、CC64延音、NoteOff与CC120清除，实际退休后检查门控；Flash为独立6Bh模型，eng1使用稳定的合成ABC表，不是正式长笛资源。12.5MHz场景覆盖此前约19.5ms漂移欠载时间；12.288MHz模拟准确48k配置，时钟边沿有仿真时间精度量化。所有音频时钟均与100MHz core异步相位。旧eng1_cosim.py/TB仍属历史入口，不替代新增对拍。
+
+结果：音频8项、router/联合配置11项、UI3项、MIDI状态2项，共24项通过。音频结果在build/i2s_pipeline/audio_final/results.json；追加真实MIDI事件验证的6组系统矩阵在build/i2s_pipeline/midi_clocked/results.json。12.5MHz帧间隔2048core拍，12.288MHz为2083/2084拍；正常窗口deadline/overflow/underflow均为0。钢琴64模态最大计算733拍，eng1实际48模态597拍（100MHz分别7.33μs、5.97μs），不等于物理时序收敛证明。详细接线见[rtl/audio](../rtl/audio/README.md)。本次不做panic音频队列flush；无实板/PnR/声学结论。

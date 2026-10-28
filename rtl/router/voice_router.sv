@@ -32,6 +32,7 @@ module voice_router #(
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
     parameter logic DEBUG_PORT = 1'b1,
+    parameter bit EXTERNAL_SAMPLE_TICK = 1'b0,
     parameter bit MIDI_ENABLE = 1'b0,
     parameter bit LOAD_OFFSETS = 1'b0,
     parameter int FLASH_NOTES = SLOTS
@@ -45,6 +46,7 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
+    input  logic                                     sample_tick, // clk domain; I2S frame master when enabled
     // 每个乐器用多少模态在内部按 inst 查 router_pkg::n_modes_of()，不再是端口
     // ---- 作业流控 ----
     output logic                                      done,        // **电平**：1 = 空闲、可以 start；0 = 正在工作
@@ -162,21 +164,20 @@ module voice_router #(
     // =========================================================================
     // 统一采样节拍：所有 part 共用，避免各自分频漂移
     // =========================================================================
-    logic                      smp_tick;
-    logic [$clog2(CLK_HZ/SR_HZ+1)-1:0] tick_cnt;
-
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            tick_cnt <= '0;
-            smp_tick <= 1'b0;
-        end else begin
-            smp_tick <= 1'b0;
-            if (tick_cnt + 1 >= CLK_HZ/SR_HZ) begin
-                tick_cnt <= '0;
-                smp_tick <= 1'b1;
-            end else tick_cnt <= tick_cnt + 1'b1;
+    logic smp_tick;
+    generate if (EXTERNAL_SAMPLE_TICK) begin : g_frame_master
+        assign smp_tick = sample_tick;
+    end else begin : g_legacy_tick
+        logic [$clog2(CLK_HZ/SR_HZ+1)-1:0] tick_cnt;
+        always_ff @(posedge clk or negedge rst_n) begin
+            if (!rst_n) begin tick_cnt<='0; smp_tick<=0; end
+            else begin
+                smp_tick<=0;
+                if (tick_cnt+1 >= CLK_HZ/SR_HZ) begin tick_cnt<='0; smp_tick<=1; end
+                else tick_cnt<=tick_cnt+1'b1;
+            end
         end
-    end
+    end endgenerate
 
     // =========================================================================
     // 三个部件子路由（各自按乐器号选实例，主 router 只连总线）
@@ -844,7 +845,7 @@ module voice_router #(
                     end
                 end
 
-                // 等 force_pre 出这一采样的 xmap（它自己按 CLK/SR 分频）
+                // 等统一 smp_tick 产生的 xmap（外部 I2S 模式不再运行内部采样分频）
                 // 一次作业只跑一个采样，所以 xmap 只要整张寄存进 x_q（一拍），
                 // 不需要再分 SLOTS 拍写 x_ram
                 S_RUN_X: begin

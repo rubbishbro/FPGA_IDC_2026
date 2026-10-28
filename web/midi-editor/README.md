@@ -1,0 +1,60 @@
+# 微光 · FPGA MIDI Studio
+
+本地 WebGL MIDI 编辑器与有线 UART 上位机，初版 2026-10-29。独立于 I2S 开发，不修改 RTL。无需安装 npm 依赖；需要 Node.js 20+，连接硬件使用支持 Web Serial 的 Chrome / Edge。
+
+## 启动
+
+在仓库根目录运行：
+
+```bash
+npm --prefix web/midi-editor run dev
+```
+
+打开 <http://127.0.0.1:5173>。服务器仅监听本机；按 Ctrl+C 退出。也可在本目录运行 `python3 -m http.server 5173 --bind 127.0.0.1`。ES modules / Worker 需要 HTTP 服务，不要直接双击 HTML。修改源码后刷新即可。
+
+## 已实现
+
+- WebGL 批绘网格、音符、力度；DOM 表单，透明 Canvas 文本与命中交互。WebGL 不可用时有 Canvas 兼容渲染。
+- 画笔、橡皮、框选、Shift 多选、拖动 / 方向键移动、拖右缘改长度、Alt 拖动复制、复制粘贴、量化、力度编辑、80 步撤销 / 重做。
+- 多轨道，轨道通道、静音、独奏、重命名、删除；其他轨道的音符作淡色参考。编辑轨数不代表 FPGA 支持多音色。
+- 4/4 拍，播放 / 暂停、定位、循环、BPM。独立 Worker 唤醒播放调度，按曲谱时间发事件，不把未来事件提前塞进 UART。
+- MIDI format 0 / 1 导入，format 1 导出，保留变速图、通道、音符、力度、轨道名和通道控制消息。running status / 零力度 On 按规范处理。拒绝 SMPTE、format 2 和非 4/4 文件。SysEx、歌词等非编辑元事件跳过并报告；没有配对的 On 在轨道结束补 Off，并报告。
+- JSON 工程保存 / 导入，浏览器 localStorage 自动草稿。静音 / 独奏只影响播放，MIDI 导出包含全部轨道。修改导入工程的 BPM 会将变速图替换为固定速度，可撤销。
+- 三角波电脑参考试听（包含踏板），用于检查旋律节奏；不是 FPGA 模型，也不是板端音频回传。
+- Web Serial UART 8N1；v1 SLIP / CRC16 帧，显式 MIDI status，每包最多 32 字节，短消息不跨包，SEQ 独立递增。TX 串行队列限制为 64 帧，按实际编码长度 / 波特率节流；排队超过 200ms 或 Worker 调度停顿超过 250ms 会停止走带。MIDI 不自动重发。
+- 停止 / 暂停 / 循环边界取消未发队列，并请求 CC64=0 / CC120；Esc 向 16 个通道请求清音。断开操作先等待清音写入再关闭端口。底层断线不可保证清音，关闭窗口的异步写入也不能保证完成。
+
+## 与 FPGA 联机
+
+1. 使用电气兼容的 USB-UART / 板载桥，TX→RX，必要时 RX←TX，共地。具体管脚、电平和桥接方式按实际板级顶层及板卡资料核对。本软件不包含烧录或接线配置。
+2. 在板端选择**有线 MIDI 来源**、目标音色 / 通道、已加载音组；保持演奏与音频时钟正常。释放烧录器占用的串口。
+3. 点「连接串口」，选择对应端口，波特率与实际 RTL 一致，默认 115200。
+4. 在「板端已加载配置」填写实际通道及当前工作 RAM 的音高清单。默认是旧 16 音非连续清单；可以导入 `rtl/router/tools/piano_flash.py --manifest ...` 生成的 JSON，选择低 / 高组各 16 音。清单只用于主机校验，不能证明 Flash 已烧好或完成加载。
+5. 可以先点「生成当前音组测试片段」，得到只使用这组音高 / 通道的短句（可撤销恢复原工程）。轨道通道需与板端当前通道相同（界面 1..6 对应吉他、钢琴、小号、小提琴、大提琴、长笛；钢琴为通道 2 / 线上 channel 1）。切换输出为「FPGA · 有线 UART」，再播放。
+
+播放前拒绝缺失音高、通道不一致、同通道同音高重叠和无效 16 音清单。不会自动夹音、移调、切音色或切组。主机当前只发送音符与 CC64 / CC120 / CC123；其他控制消息保留在工程 / MIDI 中，UART 播放跳过并提示，以符合默认 `CONTROL_SUPPORTED=0` 的设备边界。
+
+多轨可以编排同一音色；不同通道请使用静音 / 独奏选择当前要演奏的轨道。样例和声用于电脑试听，部分音高不在旧 16 音表中，UART 准入检查会指出。
+
+设备协议原文：[PROTOCOL_V1](../../rtl/drivers/analyzer/PROTOCOL_V1.md)。当前 v1 没有远程音色 / 接收通道 / 音组设置、能力查询或线上故障恢复命令，所以本页的主机配置不会写回板端。来源隔离后按设备实际本地恢复流程重建会话。TX 计数表示浏览器写入量；MIDI 无 ACK，不能据此推导 FPGA 已执行、已静音或 I2S 已出声。
+
+## 文件组织与验证
+
+| 文件 | 责任 |
+|---|---|
+| `src/app.mjs` | DOM、工程编辑、快捷键、自动保存与交互协调 |
+| `src/piano-roll.mjs` | WebGL 绘制、视口、命中、拖拽与力度 |
+| `src/model.mjs` | 工程校验、历史、速度积分、事件编译与硬件准入 |
+| `src/midi-file.mjs` | SMF 解析 / 导出，文件时间到 beat 转换 |
+| `src/protocol.mjs` | CRC、SLIP、增量分片接收与 MIDI 分包 |
+| `src/serial.mjs` | 串口生命周期、队列、取消、限流、清音请求 |
+| `src/playback.mjs`、`src/clock-worker.mjs` | 音乐走带 / 时间尺、参考试听与 Worker 唤醒 |
+
+```bash
+npm --prefix web/midi-editor test
+npm --prefix web/midi-editor run check
+```
+
+Node 单测覆盖六个生产 RTL 协议向量的逐字节比对、错误帧 / 分片恢复、SMF 往返 / 变速 / 控制事件、走带 / 踏板追溯、硬件准入、撤销隔离，以及模拟串口的清音取消、在途关闭和故障不重发。浏览器已检查真实 WebGL 显示、画笔、拖动改变音高 / 位置、撤销恢复、属性面板、参考播放 / 停止、未连接串口的播放拦截。尚未做物理 UART、Flash / DAC / I2S 联调或大规模性能基准。
+
+API 参考：[Web Serial](https://developer.chrome.com/docs/capabilities/serial)、[WebGL](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial)。所有运行资源随工程本地提供，不访问 CDN。

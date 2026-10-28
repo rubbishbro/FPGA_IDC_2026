@@ -86,6 +86,6 @@ python3 sim/check_comm_vectors.py
 GOWIN_SH=/home/rubbishbro/gowin/IDE/bin/gw_sh python3 sim/check_comm_timing.py
 ```
 
-13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。没有新增 AT 初始化、TX 字节 FIFO 或线上命令；真实 MIDI→fmap、EQ／混响后级和板级端点仍由调用者提供。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
+13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。没有新增 AT 初始化、TX 字节 FIFO 或线上命令；MIDI真实消费者已由midi_voice_top实现，事件/来源清理/退休接线见[MIDI接入](../../docs/MIDI演奏与通信接入.md)；它不在comm_top内部。远程Config协议桥、CC/EQ/Bend DSP及板级端点仍需集成。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
 
 与当前侧栏的统一配置口还未直连：comm 的 source_id/SEQ/command/shadow 需显式转换为统一请求并保留回复上下文。sidebar 的外部来源槽不能区分两条物理链路，远程权限/会话恢复应在保留物理来源的适配端执行。

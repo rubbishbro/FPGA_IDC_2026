@@ -60,7 +60,7 @@ module midi_voice_top #(
     logic bank_q,target_bank,mode_q,target_mode,source_q,target_source;
     logic [6:0] first_q,target_first;
     router_pkg::instrument_e mapped_inst,inst_use,pad_q,target_pad;
-    logic reload_q,panic_q,panic_pending,map_reload,maint_seen;
+    logic reload_q,panic_q,map_reload,maint_seen;
     logic backend_inflight,have_commit;
     config_pkg::cfg_request_t pending_request;
     config_pkg::audio_config_t candidate;
@@ -84,8 +84,7 @@ module midi_voice_top #(
     wire cfg_clean=cfg_state==C_CLEAN;
     wire [1:0] cleanup=source_cleanup_req | {2{cfg_clean || cfg_state==C_FAULT}};
     wire source_maintenance=SINGLE_SOURCE && mode_q && source_cleanup_req[source_q];
-    // 硬清音旁路配置队列；忙时也立即静音并中止尚未提交的加载。
-    wire maintain_req=cfg_clean || source_maintenance || panic || panic_pending;
+    wire maintain_req=cfg_clean || source_maintenance;
     wire [3:0] kind=event_data[31:28];
     wire new_on=kind==1 && event_data[16:10]!=0;
     wire note_off=kind==0 || (kind==1 && event_data[16:10]==0);
@@ -106,7 +105,7 @@ module midi_voice_top #(
     wire cancel_audio=cancelling && !control_op && !router_midi_inflight;
     wire note_timeout=op_valid && !control_op && !(|op_cleanup_sources) &&
                       op_timer>=OP_TIMEOUT_CYCLES;
-    wire config_request=changing || (reload && !reload_q) || (panic && !panic_q) || panic_pending || note_timeout;
+    wire config_request=changing || (reload && !reload_q) || (panic && !panic_q) || note_timeout;
     wire cancel_control=control_op && (cancelling || timed_control);
     wire cleanup_pending=(|(cleanup & ~state_cleanup_done)) ||
                          (source_maintenance && !maint_seen && !maintenance_done);
@@ -119,7 +118,7 @@ module midi_voice_top #(
     midi_instrument_map u_map(.channel(channel_q),.mapped(channel_mapped),.instrument(mapped_inst));
     assign inst_use=mode_q && channel_mapped ? mapped_inst : pad_q;
     assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && !backend_rsp_valid &&
-                         (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !panic_pending && !reload;
+                         (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !reload;
     assign backend_audio_valid=CONFIG_BACKEND && have_commit && cfg_state==C_RUN && !config_failed;
     assign backend_audio_fault=CONFIG_BACKEND && config_failed;
     // 当前只开放有真实提交路径的参数。资源是否存在由集成者给出，不凭枚举猜测。
@@ -216,7 +215,7 @@ module midi_voice_top #(
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
             pad_q<=router_pkg::INST_PIANO;target_pad<=router_pkg::INST_PIANO;
-            reload_q<=0;panic_q<=0;panic_pending<=0;map_reload<=0;maint_seen<=0;
+            reload_q<=0;panic_q<=0;map_reload<=0;maint_seen<=0;
             backend_inflight<=0;backend_rsp_valid<=0;backend_response<='0;pending_request<='0;
             backend_audio_state<='0;have_commit<=0;committed_pad<=router_pkg::INST_PIANO;
             reverb_q<=router_pkg::REVERB_NONE;target_reverb<=0;
@@ -224,8 +223,6 @@ module midi_voice_top #(
             unsupported_count<=0;control_timeout_count<=0;dropped_count<=0;error_sticky<=0;
         end else begin
             reload_q<=reload;panic_q<=panic;map_reload<=0;
-            if(cfg_state==C_CLEAN)panic_pending<=0;
-            if(panic && !panic_q)panic_pending<=1;
             if(backend_rsp_valid && backend_rsp_ready)backend_rsp_valid<=0;
             if(CONFIG_BACKEND && backend_inflight && cfg_state==C_FAULT)begin
                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
@@ -249,7 +246,7 @@ module midi_voice_top #(
             case(cfg_state)
                 C_INIT,C_RUN,C_FAULT: if(cfg_state==C_INIT ||
                     (cfg_state==C_RUN && config_request) ||
-                    (cfg_state==C_FAULT && ((reload && !reload_q) || (panic && !panic_q) || panic_pending))) begin
+                    (cfg_state==C_FAULT && ((reload && !reload_q) || (panic && !panic_q)))) begin
                     target_channel<=CONFIG_BACKEND ? (have_commit ? 4'(backend_audio_state.channel-1'b1) : 4'd1) : selected_channel;
                     target_mode<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source!=0) : midi_select;
                     target_source<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source==2) : (SINGLE_SOURCE?midi_source_id:1'b0);
@@ -318,9 +315,6 @@ module midi_voice_top #(
                (cfg_state==C_RUN && cleanup_pending && cleanup_timer>=CONFIG_TIMEOUT_CYCLES)) begin
                 config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
             end
-            if(panic && !panic_q && cfg_state!=C_RUN && cfg_state!=C_FAULT && cfg_state!=C_INIT)begin
-                config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
-            end
         end
     end
     midi_note_state #(.SLOTS(SLOTS),.CHECK_VOICE_IDLE(1)) u_notes (
@@ -351,7 +345,5 @@ module midi_voice_top #(
     // synthesis translate_off
     initial if(CONTROL_TIMEOUT_CYCLES<1 || OP_TIMEOUT_CYCLES<1 || CONFIG_TIMEOUT_CYCLES<1)
         $fatal(1,"midi_voice_top timeouts must be positive");
-    initial if(CONFIG_BACKEND && !SINGLE_SOURCE)
-        $fatal(1,"configuration backend requires one selected performance source");
     // synthesis translate_on
 endmodule

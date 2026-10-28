@@ -1,11 +1,13 @@
 # RTL 入口与路径边界
 
-更新：2026-10-27。当前开发主线为 [router](router/README.md)，保留的 `core/` 共享 RAM 实现独立存在，二者不是同一个顶层。
+更新：2026-10-29。当前开发主线为 [router](router/README.md)，保留的 `core/` 共享 RAM 实现独立存在，二者不是同一个顶层。
 
 | 位置 | 职责与状态 |
 |---|---|
 | [router/](router/README.md) | voice_router：双 bank、多槽音高表、eng0/eng1、激励/包络/腔体/混响；默认 16×64，输出 signed64，待完整音频集成 |
-| [router/PAD_ADAPTER.md](router/PAD_ADAPTER.md) | pad_voice_top：压力/外部 fmap 选择、运行启动、QSPI 与摇杆原始出口；默认 N_MODES=48，须与镜像统一 |
+| [router/PAD_ADAPTER.md](router/PAD_ADAPTER.md) | pad_voice_top：压力/外部 fmap 选择、运行启动、QSPI 与摇杆原始出口；默认N_MODES=64，透出load_err/table_valid |
+| [audio/](audio/README.md) | PCM16/FIFO/I2S与帧主时基模块已有；当前演奏顶层缺音频实例/端口 |
+| `midi/`、`router/midi_voice_top.sv` | 音符归属/踏板/来源清理、两组16音、UI联合配置与实际结果 |
 | [drivers/](drivers/README.md) | 压力/摇杆/LED、UART/HC-05、共享 FIFO 与 MIDI/Config parser |
 | [comm/](comm/README.md) | 双链路分帧、仲裁、回复、来源会话隔离/恢复 |
 | [config_pkg.sv](config_pkg.sv) | 统一配置 ID/范围、64 bit 请求和 72 bit 结果 |
@@ -14,7 +16,7 @@
 | [math/](math/README.md) | 定点与坐标变换公共模块 |
 | `rom/` | 保留路径的 ROM/索引数据，不能直接作为新 router Flash 镜像 |
 
-当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。板级音频 FIFO/I2S 旧实现在 `history/rtl/audio/`；新链尚未接回 DAC。
+当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。历史FIFO/I2S原件保留在history/rtl/audio，当前复用模块在audio/；顶层接线及实板DAC仍待收口。
 
 ## 保留共享 RAM 路径
 

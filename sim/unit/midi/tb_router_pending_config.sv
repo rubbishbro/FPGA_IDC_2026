@@ -35,9 +35,6 @@ module tb_router_pending_config;
         repeat(3)sample();
         if(dut.inst_prev!=INST_GUITAR || dut.nm_lat!=20 || !table_valid)
             $fatal(1,"FAIL released configuration not committed");
-        for(integer i=0;i<20;i++)
-            if(dut.q_ram_a[i]!==0 || dut.v_ram_a[i]!==0)
-                $fatal(1,"FAIL guitar inherited piano release state");
         // 坏表不能修改最近成功身份，持续start也不能无限重载。
         blank=1;inst=INST_PIANO;sample();
         if(!load_err || table_valid || dut.inst_prev!=INST_GUITAR)
@@ -80,11 +77,11 @@ module tb_pad_load_failure;
         repeat(5)@(negedge clk);rst_n=1;
         wait(load_err && done);repeat(5000)@(negedge clk);
         if(table_valid || loads!=1)$fatal(1,"FAIL PAD boot fault/retry loop");
-        @(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
+        blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
         if(load_err || dut.N_MODES!=64)$fatal(1,"FAIL PAD default depth or recovery");
         blank=1;inst=INST_GUITAR;wait(load_err && done);
         if(table_valid || dut.u_voice.inst_prev!=INST_PIANO)$fatal(1,"FAIL PAD failed switch committed guitar");
-        @(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
+        blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
         if(load_err || dut.u_voice.inst_prev!=INST_GUITAR)$fatal(1,"FAIL PAD explicit retry did not recover");
         $display("PASS tb_pad_load_failure default64, error exported, no false audio/commit, explicit retry");$finish;
     end

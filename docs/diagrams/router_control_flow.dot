@@ -4,7 +4,7 @@ graph [fontname="Noto Sans CJK SC",fontsize=17,rankdir=TB,nodesep=0.4,ranksep=0.
 node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=11,margin="0.16,0.10",color="#64748b",fillcolor="#f1f5f9"];
 edge [fontname="Noto Sans CJK SC",fontsize=10,color="#64748b",arrowsize=0.7];
 
-label="配置与侧栏 · 2026-10-27\n控制域轮询与业务结果；显示整包跨域";labelloc=t;
+label="配置与侧栏 · 2026-10-29\n控制域轮询与业务结果；显示整包跨域";labelloc=t;
 joy [label="原始 X/Y → joystick_adapter"];
 key [label="双按键事件"];
 ui [label="sidebar_ctrl\n导航 / 草稿 / 请求",fillcolor="#dbeafe"];
@@ -12,11 +12,11 @@ ext [label="外部已适配统一请求\ncomm 线上协议转换仍待接",style
 loop [label="control_loop\n1kHz 轮询 / 一项暂存",fillcolor="#ede9fe"];
 cfg [label="config_dispatch\n参数校验 / 能力位 / active",fillcolor="#ede9fe"];
 cal [label="摇杆重校准\n等真实 calibrated 恢复"];
-backend [label="真实音频 / 会话 backend\n尚待接入，未接项禁用",style="rounded,dashed",fillcolor="#fff7ed"];
+backend [label="midi_voice_top 联合配置后端\n音色·通道·来源·音组·混响·清音\n独立LCD demo仍未启用",fillcolor="#fff7ed"];
 mail [label="sidebar_mailbox\n稳定整包 / 跨域确认",fillcolor="#dcfce7"];
 frame [label="像素帧头应用\n显示 active / 场景",fillcolor="#dcfce7"];
 rsp [label="72 bit 结果\ntag / id / result / applied_value",fillcolor="#fef3c7"];
 joy -> ui;key -> ui;ui -> loop [label="64 bit 请求"];ext -> loop [style=dashed];loop -> cfg;
-cfg -> cal [dir=both];cfg -> backend [dir=both,style=dashed];cfg -> mail;mail -> frame;
-frame -> rsp [label="实际应用后"];cal -> rsp;backend -> rsp [style=dashed];rsp -> ui [label="原来源"];rsp -> ext [style=dashed];
+cfg -> cal [dir=both];cfg -> backend [dir=both];cfg -> mail;mail -> frame;
+frame -> rsp [label="实际应用后"];cal -> rsp;backend -> rsp;rsp -> ui [label="原来源"];rsp -> ext [style=dashed];
 }

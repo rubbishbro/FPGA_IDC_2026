@@ -9,9 +9,10 @@
 //   G   Q2.24 signed   （存在 co_data.a11，低 26 位有效）
 //   a1  Q2.20 signed   （存在 co_data.a12，<<4 后为 Q2.24）
 //   a2  UQ0.24 unsigned（存在 co_data.a21，零扩展到 Q2.24）
-//   x / y1 / y2  Q2.30 signed 32
+//   x / y1 / y2 signed 32，沿用激励的二进制小数位（当前 router 为 Q24）
 //
-// 结构照 eng0：三个乘法器**并行**（G*x、a1*y1、a2*y2），先乘、下一拍再移位。
+// 五级跨模态流水：R 同步读 -> M 三乘法 -> S 加减 -> N 舍入饱和 -> W 写回/累加。
+// 每拍送入一个模态；地址和旧 y1 随 valid 一起前进，排空后才报告 y_valid。
 // 存储复用 router 的阵列：ca_a11=G、ca_a12=a1、ca_a21=a2、q_ram=y1、v_ram=y2。
 // -----------------------------------------------------------------------------
 module eng1 #(
@@ -59,125 +60,91 @@ module eng1 #(
         mul64 = a * b;
     endfunction
 
-    typedef enum logic [2:0] { S_IDLE, S_RD, S_MUL, S_RND, S_SHR, S_WB, S_DONE } est_e;
-    est_e st;
-
-    logic [IW-1:0] mi, mi_q;
-    // 模态**数量**要比索引宽一位：N_MODES=64 时 IW=6，装不下 64（截成 0 -> 整个作业空转）
-    logic [IW:0]   nmod_lat;
-
-    logic signed [63:0] p_g, p_a1, p_a2;
-    logic signed [31:0] y1_cur, y2_cur, y_new;
-    logic signed [63:0] acc_q;
-    logic signed [63:0] y_acc;
-    logic               st_zero_lat;
-
-    // ---- 三个并行乘法（操作数在 S_MUL 这一拍都有效）----
-    //   注意：y1/y2 必须用**这一拍同步 RAM 刚返回的** st_q/st_qdot（清零时按 0），
-    //   不能用 y1_cur/y2_cur —— 那两个在 S_MUL 同拍被赋成新值，非阻塞赋值下乘法
-    //   看到的是**上一个模态**的状态，等于整条历史错开一个模态。
-    wire signed [31:0] y1_eff = st_zero_lat ? 32'sd0 : st_q;
-    wire signed [31:0] y2_eff = st_zero_lat ? 32'sd0 : st_qdot;
-    wire signed [63:0] x_ext  = {{32{x_data[31]}}, x_data};
+    typedef enum logic [2:0] {S_IDLE, S_X, S_SETUP, S_RUN, S_DONE} state_t;
+    state_t state;
+    logic [IW:0] issued, nmod_lat;
+    logic zero_job;
+    logic signed [31:0] x_lat;
+    logic signed [63:0] p_g, p_a1, p_a2, acc_q, y_acc;
+    logic signed [31:0] y_new;
+    logic m_valid, s_valid, n_valid, w_valid;
+    logic [IW-1:0] m_addr, s_addr, n_addr, w_addr;
+    logic signed [31:0] s_old_y1, n_old_y1, w_old_y1;
+    wire signed [31:0] y1_eff = zero_job ? 32'sd0 : st_q;
+    wire signed [31:0] y2_eff = zero_job ? 32'sd0 : st_qdot;
+    wire signed [63:0] x_ext = {{32{x_lat[31]}}, x_lat};
     wire signed [63:0] y1_ext = {{32{y1_eff[31]}}, y1_eff};
     wire signed [63:0] y2_ext = {{32{y2_eff[31]}}, y2_eff};
+    wire signed [63:0] y_shr = (acc_q + ROUND) >>> 24;
+    wire signed [31:0] y_clp = (y_shr > YMAX) ? 32'sh7fffffff :
+                               (y_shr < YMIN) ? 32'sh80000000 : 32'(y_shr);
 
-    wire signed [63:0] mul_g  = mul64(x_ext,  {{38{co_data.a11[25]}}, co_data.a11[25:0]});
-    wire signed [63:0] mul_a1 = mul64(y1_ext, {{38{co_data.a12[21]}}, co_data.a12[21:0], 4'b0});
-    wire signed [63:0] mul_a2 = mul64(y2_ext, {40'b0, co_data.a21[23:0]});   // UQ0.24，不再左移
-
-    // ---- 舍入 + 饱和（S_RND 的下一拍用它）----
-    wire signed [63:0] acc_w = acc_q;
-    wire signed [63:0] y_shr = (acc_w + ROUND) >>> 24;
-    wire signed [31:0] y_clp = (y_shr > YMAX) ? 32'sh7FFF_FFFF :
-                               (y_shr < YMIN) ? 32'sh8000_0000 : 32'(y_shr);
-
-    assign co_re   = (st == S_RD);
-    assign co_addr = mi;
-    assign st_re   = (st == S_RD);
-    assign st_addr = mi;
-    assign x_re    = (st == S_RD);
-
-    assign st_we         = (st == S_WB);
-    assign st_waddr      = mi_q;
-    assign st_q_wdata    = y_new;
-    assign st_qdot_wdata = y1_cur;
-
-    assign y_valid = (st == S_DONE);
-    assign y_data  = YW'(y_acc);
+    assign co_re = state == S_RUN && issued < nmod_lat;
+    assign co_addr = issued[IW-1:0];
+    assign st_re = co_re;
+    assign st_addr = co_addr;
+    assign x_re = state == S_X;
+    assign st_we = w_valid;
+    assign st_waddr = w_addr;
+    assign st_q_wdata = y_new;
+    assign st_qdot_wdata = w_old_y1;
+    assign y_valid = state == S_DONE;
+    assign y_data = y_acc;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            st         <= S_IDLE;
-            mi         <= '0;
-            mi_q       <= '0;
-            nmod_lat   <= '0;
-            p_g        <= '0;
-            p_a1       <= '0;
-            p_a2       <= '0;
-            y1_cur     <= '0;
-            y2_cur     <= '0;
-            y_new      <= '0;
-            acc_q      <= '0;
-            y_acc      <= '0;
-            st_zero_lat<= 1'b0;
+            state<=S_IDLE; issued<='0; nmod_lat<='0; zero_job<=0; x_lat<='0;
+            m_valid<=0; s_valid<=0; n_valid<=0; w_valid<=0;
+            m_addr<='0; s_addr<='0; n_addr<='0; w_addr<='0;
+            s_old_y1<='0; n_old_y1<='0; w_old_y1<='0;
+            p_g<='0; p_a1<='0; p_a2<='0; acc_q<='0; y_new<='0; y_acc<='0;
         end else begin
-            case (st)
-                S_IDLE: begin
-                    y_acc <= '0;
-                    if (start) begin
-                        mi          <= '0;
-                        nmod_lat    <= n_modes;
-                        st_zero_lat <= st_zero;
-                        st          <= S_RD;
-                    end
+            // R: external synchronous RAM samples these addresses on this edge.
+            m_valid <= co_re;
+            s_valid <= m_valid;
+            n_valid <= s_valid;
+            w_valid <= n_valid;
+            if (co_re) begin
+                m_addr <= co_addr;
+                issued <= issued + 1'b1;
+            end
+            // M: returned RAM data, NOT a previous mode's state register.
+            if (m_valid) begin
+                p_g <= mul64(x_ext, {{38{co_data.a11[25]}},co_data.a11[25:0]});
+                p_a1 <= mul64(y1_ext, {{38{co_data.a12[21]}},co_data.a12[21:0],4'b0});
+                p_a2 <= mul64(y2_ext, {40'b0,co_data.a21[23:0]});
+                s_addr <= m_addr;
+                s_old_y1 <= y1_eff;
+            end
+            // S: retain the original signed 64-bit wrap before rounding.
+            if (s_valid) begin
+                acc_q <= p_g - p_a1 - p_a2;
+                n_addr <= s_addr;
+                n_old_y1 <= s_old_y1;
+            end
+            // N: exactly the original positive-bias rounding and signed clamp.
+            if (n_valid) begin
+                y_new <= y_clp;
+                w_addr <= n_addr;
+                w_old_y1 <= n_old_y1;
+            end
+            // W: RAM and sum commit together. Last address is widened before +1.
+            if (w_valid) begin
+                y_acc <= y_acc + 64'(y_new);
+                if ({1'b0,w_addr}+1'b1 >= nmod_lat) state <= S_DONE;
+            end
+            case (state)
+                S_IDLE: if (start) begin
+                    issued<='0;
+                    nmod_lat <= n_modes > N_MODES ? (IW+1)'(N_MODES) : (IW+1)'(n_modes);
+                    zero_job<=st_zero; y_acc<='0;
+                    state <= n_modes=='0 ? S_DONE : S_X;
                 end
-
-                // 给地址；状态在下一拍有效
-                S_RD: st <= S_MUL;
-
-                // 三个乘法（并行）
-                S_MUL: begin
-                    p_g    <= mul_g;
-                    p_a1   <= mul_a1;
-                    p_a2   <= mul_a2;
-                    // 清零：**每个模态**的历史都读作 0（和 eng0 的 q_eff/v_eff 一个套路）。
-                    //   原来只对第一个模态生效（多了个 first_done 条件），后面模态照样
-                    //   用旧状态算 —— note-on 之后旧的谐振还在，等于没清干净。
-                    // y1_cur 只用来写回 y2'（y2' = y1），不再参与乘法
-                    y1_cur <= y1_eff;
-                    y2_cur <= y2_eff;
-                    mi_q   <= mi;
-                    st     <= S_RND;
-                end
-
-                // 加减（操作数都是上一拍的寄存器）
-                S_RND: begin
-                    acc_q <= p_g - p_a1 - p_a2;
-                    st    <= S_SHR;
-                end
-
-                // 移位 + 饱和 + 累加（acc_q 已是寄存器，避免同拍读到 X）
-                S_SHR: begin
-                    y_new <= y_clp;
-                    y_acc <= y_acc + 64'(y_clp);
-                    st    <= S_WB;
-                end
-
-                // 写状态（st_we 在这一拍）+ 下一个模态
-                S_WB: begin
-                    if (mi_q + 1'b1 >= nmod_lat) st <= S_DONE;
-                    else begin
-                        mi <= mi_q + 1'b1;
-                        st <= S_RD;
-                    end
-                end
-
-                S_DONE: st <= S_IDLE;
-
-                default: st <= S_IDLE;
+                S_X: state<=S_SETUP;
+                S_SETUP: begin x_lat<=x_data; state<=S_RUN; end
+                S_DONE: state<=S_IDLE;
+                default: ;
             endcase
         end
     end
-
 endmodule

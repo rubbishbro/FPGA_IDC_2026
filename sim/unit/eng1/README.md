@@ -1,23 +1,25 @@
 # eng1 router-level model tests
 
 Python regression for [`python/modal_sim/router_eng1.py`](../../../python/modal_sim/router_eng1.py),
-the integer sample-level model of the current `voice_router` eng1 path.
+the integer reference for the eng1 arithmetic. The standalone model uses Q30, while the production router now uses Q24; front-end excitation/envelope parity remains incomplete.
 
 ```bash
 # unit tests (numpy/scipy; the torch312 env has them)
 PATH=$HOME/micromamba/envs/torch312/bin:$PATH \
   python -m pytest -q sim/unit/eng1/test_router_eng1.py
 
-# RTL co-simulation: generates cases.txt and runs tb_eng1_cosim
+# Historical serial-core co-simulation (TB interface is outdated)
 PATH=$HOME/micromamba/envs/torch312/bin:$PATH \
   python python/modal_sim/eng1_cosim.py --mode intended
 ```
 
-Use `--mode intended` explicitly: the script default still reproduces the old F05
+The commands above describe the older co-simulation entry point. For the current pipeline run `python3 sim/run_audio.py --test eng1 --test bridge`; on 2026-10-29 the 256-job integer oracle and PCM/I2S bridge passed. The full integration matrix currently fails to elaborate because performance tops lack AUDIO_ENABLE. See the [current audit](../../../docs/工程评审与验证.md#global-docs-2026-10-29).
+
+For historical reproduction use `--mode intended` explicitly: the script default still reproduces the old F05
 pipeline, while the current RTL uses the current mode's state and clears all modes.
 On 2026-10-27, pytest passed 33 tests; intended RTL co-simulation matched 63
 nonzero-mode jobs and failed 3 zero-mode jobs (66 total). This is not a passing RTL
-regression. See F12 in the current issue list.
+regression. F12 was subsequently fixed in the pipeline; these are historical results.
 
 On 2026-10-28, Questa 2025.2 ran the current `tb_eng1_cosim.sv` with the same
 intended vectors and reproduced those three failures. The recovered `tb_eng1_g`

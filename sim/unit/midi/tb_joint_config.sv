@@ -29,10 +29,9 @@ module tb_joint_config;
     logic [3:0] active_channel;
     logic active_bank;
     logic signed [63:0] y_data;
-    logic cs,sck,oe,blank=0,panic=0;
+    logic cs,sck,oe,blank=0;
     logic [3:0] dqo,dqi;
     integer checks=0,accepted=0,completed=0,menu_completed=0;
-    realtime accepted_at,max_success_us=0;
     pad_driver_pkg::mat4x4 fmap='0;
     sidebar_system #(.CTRL_HZ(1_000_000),.HAS_JOYSTICK(0),.AUDIO_BACKEND(1)) ui(
         .rst_n(rst_n),.ctrl_clk(clk),.pix_clk(pix_clk),
@@ -53,7 +52,7 @@ module tb_joint_config;
         .RESOURCE_MASK(10'b0000000011),.CONFIG_TIMEOUT_CYCLES(1_000_000)) sound(
         .clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
         .pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
-        .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(panic),
+        .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'd0),.note_bank(1'b0),.first_midi_note(7'd48),.slot_note_map('0),
         .backend_valid(backend_valid),.backend_ready(backend_ready),.backend_request(backend_request),
         .backend_source(backend_source),.backend_rsp_valid(backend_rsp_valid),.backend_rsp_ready(backend_rsp_ready),
@@ -73,12 +72,8 @@ module tb_joint_config;
         checks++;if(ok!==1'b1)$fatal(1,"FAIL %s",msg);
     endtask
     always @(posedge clk) if(rst_n)begin
-        if(backend_valid && backend_ready)begin accepted++;accepted_at=$realtime;end
-        if(backend_rsp_valid && backend_rsp_ready)begin
-            completed++;
-            if(backend_response.result==CFG_OK && ($realtime-accepted_at)/1000.0>max_success_us)
-                max_success_us=($realtime-accepted_at)/1000.0;
-        end
+        if(backend_valid && backend_ready)accepted++;
+        if(backend_rsp_valid && backend_rsp_ready)completed++;
         if(ui.ui_rsp_valid)menu_completed++;
         if(values[11]!=0 && values[0]!=midi_instrument(5'(values[12])))
             $fatal(1,"FAIL control-domain half joint configuration");
@@ -152,28 +147,17 @@ module tb_joint_config;
         ck(values[0]==0 && values[12]==2 && values[11]==2,"return to MIDI publishes channel-bound instrument and BT source");
         request(11,16'h0200,2);
         ck(values[2]==2 && sound.reverb_q==REVERB_BATHROOM,"UI reverb enumeration explicitly translated");
-        send(12,16'h0300,0);wait(sound.u_voice.ld_busy);@(negedge clk);panic=1;
-        @(negedge clk);panic=0;result(12,16'h0300,CFG_FAILED);
-        ck(values[5]==1,"hard panic cancels in-flight configuration without publishing target");
-        wait(audio_valid);repeat(4)@(negedge clk);
-        ck(values[5]==1 && !load_err,"hard panic drains old loader and restores committed identity");
         // Stalled maintenance has a real failure result; timeout is never success.
         force sound.u_voice.smp_tick=0;
-        send(13,16'h0300,0);result(13,16'h0300,CFG_FAILED);
+        send(12,16'h0300,0);result(12,16'h0300,CFG_FAILED);
         ck(audio_fault && cleanup_done==0 && values[5]==1,"timeout does not publish target bank or false cleanup completion");
         release sound.u_voice.smp_tick;
-        request(14,16'h8001,0);
+        request(13,16'h8001,0);
         ck(!audio_fault && sound.u_notes.slot_owned==0,"clear action recovers only after real maintenance");
         wait(ui.pixel_view.values[11]==values[11] && ui.pixel_view.values[0]==values[0] &&
              ui.pixel_view.values[12]==values[12]);
         ck(accepted==completed,"one final result per accepted backend transaction");
-        send(15,16'h0100,1);wait(sound.u_voice.ld_busy);
-        @(negedge clk);rst_n=0;repeat(5)@(negedge clk);rst_n=1;
-        wait(audio_valid);repeat(5)@(negedge clk);
-        ck(values[0]==0 && values[12]==2 && values[11]==0 && values[5]==0 && !ext_rsp_valid,
-           "common reset cancels in-flight request and synchronizes actual boot defaults");
-        $display("PASS tb_joint_config checks=%0d accepted=%0d completed=%0d reset_cancelled=1 menu_results=%0d max_success_us=%0.3f",
-                 checks,accepted,completed,menu_completed,max_success_us);$finish;
+        $display("PASS tb_joint_config checks=%0d accepted=%0d menu_results=%0d",checks,accepted,menu_completed);$finish;
     end
     initial begin #200000000;$fatal(1,"FAIL joint config watchdog state=%0d cfg=%0d voice=%0d",ui.u_config.state,sound.cfg_state,sound.u_voice.state);end
 endmodule

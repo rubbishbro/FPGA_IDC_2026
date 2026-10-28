@@ -1,6 +1,6 @@
 # ENG1 Python 模型（router 级整数）
 
-更新：2026-10-27。对象是当前 `rtl/router/engines/eng1.sv` 及其在 `voice_router`
+更新：2026-10-29。对象是当前 `rtl/router/engines/eng1.sv` 及其在 `voice_router`
 里的激励、包络、腔体、混响链路；不是旧的 `fixed_point.py` 复音池，也不是浮点
 `sustain_engine.py`。
 
@@ -19,11 +19,11 @@
 
 | 信号 | 格式 |
 |---|---|
-| `x` | signed 32, Q2.30（1.0 = `1<<30`） |
+| `x` | Python参考signed32 Q2.30；当前router输入按Q24解释，整数核不额外转换二进制点 |
 | `G` | signed 26, Q2.24 |
 | `a1` | signed 22, Q2.20；乘法前 `<<4` |
 | `a2` | unsigned 24, UQ0.24 |
-| `y1` / `y2` | signed 32, Q2.30 |
+| `y1` / `y2` | signed32；独立Python模型Q30，生产整链Q24，与所用资源定标一起确定 |
 | `ynew` | `clamp((acc + 2^23) >>> 24)`，signed 32 |
 | `y` | signed 64，一个 slot 的 modal 和 |
 | `emap` | signed 32, Q1.31 |
@@ -34,7 +34,7 @@
 
 - `rtl_compat=False`（默认）：使用当前模态状态、全模态 st_zero、attack 钳位和全宽混响乘积的意图模型。
 - `rtl_compat=True`：复刻 2026-10-25 旧 F05 的跨模态状态/数量截断，仅用于历史追溯。当前 RTL 的反馈和 st_zero 已改，不能再称这个模式与当前实现一致。
-- `eng1_cosim.py` 的 CLI 默认仍为旧 `--mode rtl`，头部帮助也未同步；本轮显式使用 `--mode intended`。66 作业中非零模态的 63 项一致，3 个 n_modes=0 作业失败，见 [F12](bugs.md)。不要把“换模式”写成已经全通过。
+- eng1_cosim.py默认仍为历史rtl模式，旧TB还依赖串行核内部状态；27/28日intended的63通过/3个零模态失败属于修复前。当前五级流水的算术/空作业以sim/run_audio.py --test eng1为准，29日256组通过；系统音频另有顶层接线阻塞，见[问题台账](bugs.md)。
 
 当前钢琴/吉他由 eng_sel 选择 eng0；本文是 eng1 参考链，不代表这两个实际路由已改用 eng1。当前激励也已升级为斜坡/指数尾部/递减锤击，试听模型未逐项跟进，所以整链不能称与最新 RTL 逐样本完全一致。
 
@@ -101,7 +101,7 @@ FFT_results/sim/eng1/
 
 ## 验证入口与模型检查
 
-模型pytest与RTL对拍的命令/日期化结果统一见 [工程评审与验证](工程评审与验证.md#verification) 和 [运行器说明](../sim/unit/eng1/README.md)。intended与兼容模式的选择按本页契约；零模态失败的复现/关闭条件见 [问题台账](bugs.md)，不在模型说明再维护一份全局测试汇总。
+模型pytest与RTL对拍的命令/日期化结果统一见 [工程评审与验证](工程评审与验证.md#verification) 和 [运行器说明](../sim/unit/eng1/README.md)。intended与兼容模式的选择按本页契约；旧零模态修复及测试入口状态见 [问题台账](bugs.md)，不在模型说明再维护一份全局测试汇总。
 
 模型特有的既有B表检查覆盖flute/trumpet/cello/violin/oboe共198个音符，G无饱和、量化后极点r<1；它只说明这批参数的定常检查，不证明时变调制稳定或已接板端。
 
@@ -115,3 +115,9 @@ FFT_results/sim/eng1/
 - A 类表的 `G` 是按升余弦脉冲生成的，模型 guitar 激励仍是旧 2 采样形状，当前 RTL 已升级；两者电平和
   音色不会与 `engine.py` 逐样本一致，这是表/激励口径差异。
 - 长笛用 `SHIFT=22, PW=1, GAP=T-1, N_PULSE=7` 的周期冲激参数；当前 exc_router 除钢琴/吉他外使用默认参数；旧 PAD/BASS 枚举已不存在，也没有自动得到这里的 B 类周期驱动。
+
+## 2026-10-29 接入复核补充
+
+前述零模态/吞吐是旧阶段记录：当前工作区eng1已改为五级跨模态流水，空作业和满深度由sim/run_audio.py的新整数oracle验证。本文独立Python模型仍使用Q30；当前router激励/PCM按Q24解释，不能直接复制SHIFT22。
+
+B类周期驱动及ADSR仍未在RTL按乐器选择，逐槽period也未接入；本轮生产模块实测与建议见[eng1激励与包络接入复核](ENG1演奏前端设计.md#current-behavior)。BSynth是参考，不表示当前RTL已实现真实持续音色。

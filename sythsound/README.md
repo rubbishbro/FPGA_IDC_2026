@@ -1,14 +1,14 @@
 # SythSound
 
-2026-10-28 repository note: this remains an independent Python experiment library. The latest piano generator writes `piano_coeff_scaled.txt`; the router packer still defaults to the older `piano_coeff.txt`. The generator update does not automatically update the Flash image. See the [coefficient pipeline contract](../rtl/router/README.md#coefficient-pipeline). Python playback is not the FPGA audio chain.
+2026-10-29 repository note: this remains an independent Python experiment library. Both instrument generators write scaled tables, and router packers now quantize them directly. The default piano/guitar images match the current tables in the documentation audit; this does not verify hardware playback. See the [coefficient pipeline contract](../rtl/router/README.md#coefficient-pipeline). Python playback is not the FPGA audio chain.
 
 The current generator entry points have different contracts:
 
 | Entry point | Output and boundary |
 |---|---|
 | `piano_coeff_gen.py` | Overwrites `piano_coeff_scaled.txt`; MIDI 40–79, 64 rows per note; balanced matrix and scaled gq/gv/wo |
-| `guitar_coeff_gen.py` | Targets `guitar_coeff_scaled.txt`; negative restoring a21 and scaled gq/wo, but retains the unbalanced physical matrix. Its main loop labels 40–79 while always calling note 66; this is a known mapping defect |
-| `guitar_param_gen.py` | Targets `guitar_param.txt`; seven-coefficient prototype, positive a21 and the same fixed-note call; it does not generate router modulation records |
+| `guitar_coeff_gen.py` | Writes `guitar_coeff_scaled.txt`; balanced matrix with negative restoring a21, scaled gq/wo; main now calls each MIDI note. The current table has 40 distinct note bodies, 20 modes each |
+| `guitar_param_gen.py` | Writes `guitar_param.txt`: four base fields and four slope fields consumed by guitar_flash.py. First-order modulation accuracy and stability need independent validation |
 | `sim_piano.py` | Local 6 s / 48 kHz renders for MIDI 40/41/42/43/44/45/47/50; the active force-pulse decay remains `0.7**pulse_cnt`, the reciprocal alternative is commented out |
 
 Running the generator mains writes their output files. For comparison, the documentation audit called their functions in memory and saved results under `/tmp`; tracked coefficient tables and Flash images were left intact. Output filenames alone do not identify a valid or interchangeable hardware format.

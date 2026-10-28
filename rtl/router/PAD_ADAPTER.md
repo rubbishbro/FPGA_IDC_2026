@@ -1,6 +1,6 @@
 # pad_driver → voice_router 适配
 
-更新：2026-10-28（补加载失败保护、默认64模态和状态透出）。描述当前 [pad_voice_top.sv](pad_voice_top.sv)，源码基线 `d7045c4b` 后的新接口。模块连接压力与合成值，输出尚未到 DAC。
+更新：2026-10-29。描述当前[pad_voice_top.sv](pad_voice_top.sv)：默认64模态、加载失败状态透出，输出signed64。音频模块已有，但本顶层当前缺音频时钟/I2S端口及实例，不能按先前快照设置AUDIO_ENABLE。
 
 ## 数据流
 
@@ -31,7 +31,7 @@ pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_syste
 | ready | 挂起乐器/reload 变更能执行；不是通用 start ready 或 cfg_applied |
 | inst / reverb_preset / reload | 乐器编号、router 原生混响枚举、reload 上升沿请求 |
 | load_err / table_valid | 加载错误与当前表有效性；done/ready不代替成功确认 |
-| y_valid / y_data | 每个结果一个 valid，signed64；无输出 ready，尚需 PCM/FIFO/I2S |
+| y_valid / y_data | 每个结果一个valid，signed64 Q24；无ready，PCM/FIFO/I2S模块已有但本顶层待恢复连接 |
 | qspi_* | 转接 loader；需要真片协议/引脚验收 |
 | pad_row_s / pad_ch_s / pad_fmap / pad_pos | 原始调试出口；旧 pad_pos 为极坐标 |
 | joy_sample_valid / joy_raw_x/y | 同 clk 域，一拍 valid、14 bit 原始 X/Y 成对快照；接 [摇杆适配](../drivers/JOYSTICK_ADAPTER.md) |
@@ -50,4 +50,4 @@ PAD_DIV=`CLK_HZ/2_500_000`，计数器目前 8 bit；非默认频率必须核对
 
 `python3 sim/run_joystick.py` 本轮 26 组通过，其中两组使用真实采集 FSM/坐标转换和 ADC 行为模型，检查 X/Y 成对出口、dummy、超时重试。没有例化整套 pad_voice_top、真实 ADC 或 LED，不证明 16 键位置/独立发声。
 
-待接：统一镜像深度/音高表、上板逐键校准、真实 Flash、至少四路可闻复音、PCM 饱和/缓冲/I2S/DAC、源切换清理和真实 UI 配置后端。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。
+待接/待验：正式32音资源、上板逐键校准、真Flash、四路可闻复音、音频顶层接线及DAC。源切换清理与UI联合后端已有于midi_voice_top；本PAD包装器不提供其完整事务。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。

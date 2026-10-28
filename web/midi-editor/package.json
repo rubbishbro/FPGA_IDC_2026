@@ -1,0 +1,14 @@
+{
+  "name": "fpga-midi-studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "test": "node tests/run.mjs",
+    "check": "node --check src/app.mjs && node --check src/piano-roll.mjs && node --check src/serial.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

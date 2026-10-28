@@ -88,7 +88,7 @@ Flat (concatenated) arrays; `note_id` indexes the per-note arrays at the end:
 
 ## Using it in the synthesis engine
 
-These NPZ tables, the retained core ROMs, and the current router Flash records have different formats. The router piano packer defaults to the older `sythsound/piano_coeff.txt`, while the current generator writes `piano_coeff_scaled.txt`; switching inputs is explicit. Flash uses slot-major 64-byte records; do not copy NPZ/old MEM files into Flash directly. See [router format](../rtl/router/README.md).
+These NPZ tables, the retained core ROMs, and the current router Flash records have different formats. As of 2026-10-29, the router piano packer defaults to `sythsound/piano_coeff_scaled.txt` and quantizes it directly; the older physical-domain table is no longer its default input. Flash uses slot-major 64-byte records; do not copy NPZ/old MEM files into Flash directly. See [router format](../rtl/router/README.md).
 
 - mode frequency: `f_k` directly, or regenerate as `k·f0·√(1+B k²)` for any f0.
 - mode weight: `a0` (normalise per note), **gated on `trusted`**.

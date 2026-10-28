@@ -1,6 +1,6 @@
 # 文档索引与职责
 
-整理：2026-10-28。根目录 [README](../README.md) 负责项目总览，[CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md) 负责当前实例/数据流；本目录每个专题只维护一种主要问题，交叉内容通过链接引用。
+整理：2026-10-29。根目录 [README](../README.md) 负责项目总览，[CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md) 负责当前实例/数据流；本目录每个专题只维护一种主要问题，交叉内容通过链接引用。
 
 ## 当前专题
 
@@ -11,6 +11,7 @@
 | [控制与侧栏设计](控制与侧栏设计.md) | 参数字典、菜单交互、Loop、提交/结果、能力位、CDC与接线 | 不维护线上编码、MIDI音符归属或日期化测试表 |
 | [MIDI演奏与通信接入](MIDI演奏与通信接入.md) | MIDI功能范围、音符/踏板/槽位、变调边界、协议转换和来源恢复 | 线上字段归PROTOCOL_V1，本地字典/显示提交归控制文档 |
 | [管弦乐器音高提取与合成](管弦乐器音高提取与合成.md) | 离线样本筛选、基频/模态提取、持续音与连续音高生成 | 不代替router级整数模型/对拍或板级验收 |
+| [eng1演奏前端](ENG1演奏前端设计.md) | 四种持续音色的行为基线、周期驱动/ADSR、逐槽配置与待实施合同 | 不维护整数核算术、全局问题表或音频传输 |
 | [ENG1 Python模型](ENG1_PY_MODEL.md) | eng1整数契约、A/B/C模型、试听和RTL差异 | 不重复离线提取方法、主路由选核或周期测量 |
 | [赛题要求完成度核对](赛题要求完成度核对.md) | 要求→实现→验收证据、优先级、设计报告素材 | 缺陷复现归bugs，实际执行结果归验证记录 |
 | [当前问题](bugs.md) | 缺陷/风险编号、触发与影响、修复状态和关闭条件 | 不再维护第二份整机完成勾选表或测试汇总 |
@@ -22,11 +23,13 @@
 - [router](../rtl/router/README.md) / [压力适配](../rtl/router/PAD_ADAPTER.md)：存储、字段格式、作业/加载及适配器端口。
 - [通信](../rtl/comm/README.md) / [解析器](../rtl/drivers/analyzer/README.md) / [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md)：分层接口、Event32和唯一线上字节合同。
 - [驱动](../rtl/drivers/README.md) / [摇杆](../rtl/drivers/JOYSTICK_ADAPTER.md) / [可视化](../FFT_spectrumshow/README.md)：各模块自身操作/接口。
+- [音频输出](../rtl/audio/README.md)：PCM/FIFO/I2S及采样合同；当前顶层接线缺失另记于问题台账。
+- [本地MIDI编辑器](../web/midi-editor/README.md)：启动、操作、UART准入和软件测试；后续架构分析归上位机专题。
 - [sim说明](../sim/README.md)：命令、工具与运行目录；[数学推导](../python/MATH.md)、[提取汇总](../FFT_results/report.md)、[试听](../FFT_results/sim/README.md) 分别维护原用途。
 - [赛题摘录](../reference_agent_readfirst/competition_requements_most_important.md)、[平台](../reference_agent_readfirst/fpga_platform.md)及其docs内的板卡/比赛/答疑：原始依据。
 
 ## 合并与历史
 
-四份控制/UI方案/实施/Loop/调研已合为控制与侧栏设计；MIDI接入吸收演奏消费者约束；架构检查表/报告底稿并入验收；Review提示词/维护记录合为工程评审与验证。旧文件移除，引用直接指向合并后的章节，不留重复正文或跳转壳。
+四份控制/UI方案/实施/Loop/调研已合为控制与侧栏设计；MIDI接入吸收演奏消费者约束；架构检查表/报告底稿并入验收；Review提示词/维护记录合为工程评审与验证。旧文件移除，引用直接指向合并后的章节，不留重复正文或跳转壳。29日再将eng1激励/包络复核并入演奏前端设计；todolis中的现行集成责任并入根架构、音频合同和问题台账，唯一的I2S实施前测量移入工程验证第12节，不再维护第二份全局待办。
 
 [2026-10-25快照](history/2026-10-25/) 与 [history](../history/README.md) 保留对应日期的历史问题/交付记录；不是第二套现行设计。非docs目录最多两份说明文档；专题设计在docs内按职责组织，不按讨论轮次重复建稿。

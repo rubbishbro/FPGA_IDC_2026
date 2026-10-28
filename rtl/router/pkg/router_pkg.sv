@@ -68,7 +68,7 @@ package router_pkg;
         case (inst)
             INST_PIANO:  return 64;      // 2 x 32 = 64
             INST_GUITAR: return 20;      
-            default:     return 64;      // 其余乐器还没有系数表，先按满配
+            default:     return 48;      // eng1 首版计算前48；资源/状态仍按64模态存储
         endcase
     endfunction
 
