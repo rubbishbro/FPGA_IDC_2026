@@ -2,6 +2,7 @@
 """piano_flash.py -- 把（已归一化的）钢琴系数表打成 weight_loader 能读的 flash 镜像。
 
 **一个 slot 一个 MIDI 音**，16 个 slot = 16 个音高。
+加 `--notes 32` 可以按 MIDI 顺序存 32 个音，由 loader 用偏移选择一组 16 音装入工作槽。
 
 数据来源：`sythsound/piano_coeff_scaled.txt`（`piano_coeff_gen.py` 的产物）。
 那份表**已经在生成器里做过 sq/sv 归一化**了：
@@ -21,11 +22,14 @@
     python rtl/router/tools/piano_flash.py                  # 出 .bin + .mem
     python rtl/router/tools/piano_flash.py --verify         # 只打印量化余量/状态峰值
     python rtl/router/tools/piano_flash.py --midi 40,45,50  # 指定音
+    python rtl/router/tools/piano_flash.py --notes 32 --first-midi 40 # 示例连续32音，非正式音域
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 import struct
 import sys
@@ -126,9 +130,13 @@ def simulate_state(co: dict, n_samp: int = 4000) -> tuple[float, float, float]:
     return pq, pv, py
 
 
-def build(table, midi_list, n_modes: int):
-    if len(midi_list) != SLOTS:
-        raise SystemExit(f"midi 列表要给 {SLOTS} 个音（现在是 {len(midi_list)}）")
+def build(table, midi_list, n_modes: int, notes: int = SLOTS):
+    if notes not in (SLOTS, 2 * SLOTS) or len(midi_list) != notes:
+        raise SystemExit(f"midi 列表要给 {notes} 个音（现在是 {len(midi_list)}）")
+    if n_modes < 1 or any(n < 0 or n > 127 for n in midi_list) or len(set(midi_list)) != notes:
+        raise SystemExit("模态数/音符编号无效，音符不得重复")
+    if notes == 2 * SLOTS and midi_list != list(range(midi_list[0], midi_list[0] + notes)):
+        raise SystemExit("32音镜像须按MIDI编号连续递增排列")
     out = bytearray()
     for slot, midi in enumerate(midi_list):
         modes = table.get(midi)
@@ -140,7 +148,7 @@ def build(table, midi_list, n_modes: int):
             co = {f: to_int(modes[m][f], SH[f], f) for f in FIELDS}
             pm = {f: 0 for f in PM_FIELDS}
             out += record(co, pm)
-    assert len(out) == SLOTS * n_modes * REC_BYTES
+    assert len(out) == notes * n_modes * REC_BYTES
     return bytes(out)
 
 
@@ -153,16 +161,26 @@ def main(argv=None) -> int:
     ap.add_argument("--mem", default=str(_HERE / "piano_flash.mem"))
     ap.add_argument("--inst", type=int, default=INST_DEFAULT)
     ap.add_argument("--modes", type=int, default=MODES_DEFAULT)
-    ap.add_argument("--midi", default="", help="逗号分隔的 16 个 MIDI 音")
+    ap.add_argument("--midi", default="", help="逗号分隔的16音，或连续递增32音")
+    ap.add_argument("--notes", type=int, choices=(SLOTS, 2 * SLOTS), default=SLOTS,
+                    help="资源音高数，计算槽仍为16")
+    ap.add_argument("--first-midi", type=int, help="显式指定连续音域起点，不改变默认16音镜像")
+    ap.add_argument("--manifest", type=Path, help="可选资源清单，绑定音域、步长、输入及镜像hash")
     ap.add_argument("--verify", action="store_true", help="只检查，不写文件")
     args = ap.parse_args(argv)
 
-    midi_list = ([int(x) for x in args.midi.split(",")] if args.midi else DEFAULT_MIDI)
+    if args.midi and args.first_midi is not None:
+        ap.error("--midi和--first-midi只能选择一种")
+    if args.notes == 2 * SLOTS and not args.midi and args.first_midi is None:
+        ap.error("32音必须显式指定--first-midi或--midi，不擅自冻结音域")
+    midi_list = ([int(x) for x in args.midi.split(",")] if args.midi else
+                 list(range(args.first_midi, args.first_midi + args.notes))
+                 if args.first_midi is not None else DEFAULT_MIDI)
     table = parse(Path(args.coeff))
     print(f"[piano_flash] 表 {Path(args.coeff).name}：{len(table)} 个音"
           f"（{min(table)}..{max(table)}），每个 {len(next(iter(table.values())))} 个模态")
 
-    tbl = build(table, midi_list, args.modes)
+    tbl = build(table, midi_list, args.modes, args.notes)
 
     print("[piano_flash] 量化余量（|整数| / 2^31；超了会被饱和）：")
     ok = True
@@ -184,6 +202,15 @@ def main(argv=None) -> int:
 
     img = image({args.inst: tbl})
     Path(args.out).write_bytes(img)
+    if args.manifest:
+        args.manifest.write_text(json.dumps({
+            "schema": 1, "instrument": args.inst, "format": "ENG0_MATRIX_FIXED_Q",
+            "notes": midi_list, "notes_per_instrument": args.notes, "slots_per_bank": SLOTS,
+            "modes": args.modes, "record_bytes": REC_BYTES, "note_bytes": args.modes * REC_BYTES,
+            "table_bytes": len(tbl), "instrument_base": args.inst * len(tbl), "q_shifts": SH,
+            "source_sha256": hashlib.sha256(Path(args.coeff).read_bytes()).hexdigest(),
+            "image_sha256": hashlib.sha256(img).hexdigest(),
+        }, indent=2) + "\n", encoding="utf-8")
     with open(args.mem, "w", encoding="utf-8", newline="\n") as fh:
         for b in img:
             fh.write(f"{b:02X}\n")
@@ -199,7 +226,8 @@ def main(argv=None) -> int:
               f"a22={a22 / 2**SH['a22']:+.5f} gq={gq / 2**SH['gq']:+.4e} "
               f"gv={gv / 2**SH['gv']:+.4f} wo={wo / 2**SH['wo']:+.5f}")
 
-    print(f"[piano_flash] 每乐器 {len(tbl)} 字节（{SLOTS} slot x {args.modes} mode x {REC_BYTES} B）")
+    print(f"[piano_flash] 每乐器 {len(tbl)} 字节"
+          f"（{args.notes} 音 x {args.modes} mode x {REC_BYTES} B；每组{SLOTS}槽）")
     check(0)
     check(len(midi_list) - 1)
     print(f"[piano_flash] 镜像 {len(img)} 字节 -> {args.out}")

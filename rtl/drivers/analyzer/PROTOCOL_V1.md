@@ -100,7 +100,7 @@ append crc[7:0], crc[15:8]
 
 超时／UART framing error／RX FIFO 溢出使当前半帧失效，并置对应来源的 `link_fault_pending`／`source_quarantine`。CRC 错、非法转义、长度错误记录在 `error_sticky` 和汇总错误周期计数中；这些情况下不信任 SEQ，**不伪造 CONFIG ACK**。不可“发现 CRC 错但前面的 Note On 已执行”。
 
-VERSION／TYPE 不认识：丢弃并计数；REPLY 不被当成 MIDI 或配置。错误恢复／清音由独立顶层负责，分帧 FSM 本身不修改 fmap。丢帧可能丢失 Note Off；CRC 不能保证可靠投递或消除挂音。
+VERSION／TYPE 不认识：丢弃并计数；comm_top默认还按来源隔离。REPLY 不被当成 MIDI 或配置。错误恢复／清音由独立顶层负责，分帧 FSM 本身不修改 fmap。丢帧可能丢失 Note Off；CRC 不能保证可靠投递。当前comm_top默认ISOLATE_PROTOCOL_ERRORS=1，所有上述协议错误均按源隔离，需消费者实际清音/退休及显式session_restart恢复；没有新增线上恢复命令。
 
 ## 5. MIDI_DATA：包内标准 MIDI
 
@@ -108,7 +108,7 @@ VERSION／TYPE 不认识：丢弃并计数；REPLY 不被当成 MIDI 或配置�
 - v1 使用**自包含的短 MIDI 数据包**：每个包独立建立 running status，不能依赖上一个包的状态，也不能把一条短消息拆跨包。
 - 允许同包内 running status；上位机优先每条消息都带 status，利于定位错误。
 - 每包开始清解析局部状态；每包结束清 pending／running status／SysEx skip 状态。包间 CONFIG 不会成为 MIDI 字节。
-- 完整且合法的支持消息按顺序产生事件。语法错误产生 `midi_parse_error` 单拍诊断、丢弃不完整消息并按新 status 重同步；**先前已经产生的合法 MIDI 事件不做回滚**。CRC 帧提交不等于 MIDI payload 的事务回滚。
+- 完整且合法的支持消息按顺序产生事件。语法错误产生 `midi_parse_error` 单拍诊断、丢弃不完整消息并按新 status 重同步；**先前已经产生的合法 MIDI 事件不做回滚**。CRC 帧提交不等于 MIDI payload 的事务回滚。当前集成层默认将MIDI语法错误也送入来源隔离/清理，因此先前发出的声音会在清理中停止。
 - SysEx／System Common／Real-Time 等首版不产生业务动作，按 [MIDI 解析说明](README.md#midi) 中的规则识别／跳过，不能吞掉其后的 Note Off。
 - 不按通道音色策略过滤 byte parser；事件保留 channel 0..15，实际播放能力另定。
 

@@ -1,12 +1,14 @@
 `timescale 1ns/1ps
 // 来源会话协调。只依据显式状态/握手计数决定维护命令，不拥有帧/事件数据。
 module session_ctrl #(
-    parameter int EVENT_DEPTH = 64
+    parameter int EVENT_DEPTH = 64,
+    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b1
 ) (
     input logic clk, rst_n,
     input logic [1:0] session_restart, connect_event, disconnect_event,
     input logic [1:0] framing_err, break_detect, overflow,
     input logic [15:0] protocol_errors,
+    input logic [1:0] midi_error,
     input logic [1:0] source_cleanup_done, source_ops_idle,
     input logic arb_busy, arb_source, parser_busy, parser_source,
     input logic event_push, event_push_source, event_pop, event_pop_source,
@@ -25,10 +27,11 @@ module session_ctrl #(
     assign flush_link = fault_now | restart_req | cache_reset;
     for (genvar g = 0; g < 2; g = g + 1) begin : g_source
         assign error_now[g*8 +: 8] = {overflow[g], break_detect[g], framing_err[g],
-                                     protocol_errors[g*8 +: 5]};
+                                     (protocol_errors[g*8 +: 5] | (midi_error[g]?5'b10000:5'b0))};
         assign fault_now[g] = !source_quarantine[g] &&
             (framing_err[g] || break_detect[g] || overflow[g] ||
-             protocol_errors[g*8+4] || disconnect_event[g]);
+             protocol_errors[g*8+4] || disconnect_event[g] ||
+             (ISOLATE_PROTOCOL_ERRORS && ((|protocol_errors[g*8 +: 5]) || midi_error[g])));
     end
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

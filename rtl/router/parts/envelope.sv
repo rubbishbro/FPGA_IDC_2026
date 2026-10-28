@@ -17,7 +17,7 @@ module envelope_ADSR #(
     input  logic [31:0]                 D_STEP,
     input  logic [31:0]                 S_LEVEL,
     input  logic [31:0]                 R_STEP,        // 松键后的每采样下降量
-    input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS-1:0]            retrigger, slot_clear,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
     input  logic [SLOTS-1:0]            note_gate,     // router 给：按住电平
     output logic signed [SLOTS-1:0][31:0] emap,         // 打包：emap[i] 取第 i 个声部
@@ -54,7 +54,7 @@ module envelope_ADSR #(
         if (!rst_n)      note_on_q <= '0;
         else if (clk_en) note_on_q <= note_on;
     end
-    assign onset = note_on & ~note_on_q;
+    assign onset = (note_on & ~note_on_q) | retrigger;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -65,7 +65,11 @@ module envelope_ADSR #(
             end
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (onset[i]) begin
+                if (slot_clear[i]) begin
+                    lvl[i] <= '0;
+                    st[i] <= E_IDLE;
+                    dead_r[i] <= 1'b1;
+                end else if (onset[i]) begin
                     lvl[i]    <= '0;
                     st[i]     <= E_ATK;
                     dead_r[i] <= 1'b0;  // 开始响了，不算空
@@ -127,7 +131,8 @@ module envelope_ADSR #(
         end else if (clk_en) begin
             // 兜底也按有符号语义：符号位是 1 就说明 lvl 已经越过 +1.0，钳到最大正数。
             for (int i = 0; i < SLOTS; i++)
-                emap[i] <= ($signed(lvl[i]) < 0) ? 32'sh7FFF_FFFF : signed'(lvl[i]);
+                emap[i] <= (slot_clear[i] || retrigger[i]) ? 32'sd0 :
+                           (($signed(lvl[i]) < 0) ? 32'sh7FFF_FFFF : signed'(lvl[i]));
         end
     end
     assign emap_valid = clk_en;
@@ -148,7 +153,8 @@ module envelope_dyn0 #(
     input  logic                        clk,
     input  logic                        rst_n,
     input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
-    input  pad_driver_pkg::mat4x4       fmap,
+    input  logic [SLOTS*8-1:0]          envelope_level,
+    input  logic [SLOTS-1:0]            slot_clear,
     input  logic [SLOTS-1:0]            note_on,
     input  logic [SLOTS-1:0]            note_gate,
     output logic signed [SLOTS-1:0][31:0] emap,         // 打包：emap[i] 取第 i 个声部
@@ -163,19 +169,19 @@ module envelope_dyn0 #(
     always_comb begin
         for (int i = 0; i < SLOTS; i++) begin
             logic [31:0] v;
-            v = 32'(fmap.flat_d[i].val) <<< SHIFT;
+            v = 32'(envelope_level[i*8 +: 8]) <<< SHIFT;
             lvl_c[i] = (v > ENV_MAX) ? ENV_MAX : v;
         end
     end
 
-    assign dead = ~note_gate;
+    assign dead = ~note_gate | slot_clear;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (int i = 0; i < SLOTS; i++) emap[i] <= '0;
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (note_gate[i])
+                if (note_gate[i] && !slot_clear[i])
                     emap[i] <= signed'(lvl_c[i]);
                 else
                     emap[i] <= '0;

@@ -11,7 +11,7 @@
 module pad_voice_top #(
     parameter int  CLK_HZ        = 100_000_000,
     parameter int  SR_HZ         = 48_000,
-    parameter int  N_MODES       = 48,
+    parameter int  N_MODES       = 64,
     parameter int  SLOTS         = 16,
     parameter bit  USE_PAD_DRIVER = 1'b1
 ) (
@@ -42,6 +42,7 @@ module pad_voice_top #(
     output logic                      ready,
     output logic                      busy,
     output logic                      done,
+    output logic                      load_err,table_valid,
     output logic                      y_valid,
     output logic signed [63:0]        y_data,
 
@@ -150,7 +151,7 @@ module pad_voice_top #(
         // busy 也没了（done 是电平，1 = 空闲可以 start）—— 这里给上层留个等价信号。
         .ready(ready),
         .done(done),
-        .load_err(),
+        .load_err(load_err),.table_valid(table_valid),
         .y_valid(y_valid),
         .y_data(y_data),
         .qspi_cs_n(qspi_cs_n),
@@ -158,6 +159,10 @@ module pad_voice_top #(
         .qspi_dq_o(qspi_dq_o),
         .qspi_dq_oe(qspi_dq_oe),
         .qspi_dq_i(qspi_dq_i),
+        .midi_select(1'b0),.midi_valid(1'b0),.midi_ready(),
+        .midi_gate('0),.midi_velocity('0),.midi_retrigger('0),.midi_hard_clear('0),
+        .maintenance_clear(1'b0),.map_reload(1'b0),.load_offsets('0),
+        .maintenance_done(),.midi_inflight(),.load_complete(),.voice_idle(),
         .ns_rd_en(1'b0),
         .ns_rd_addr('0),
         .ns_rd_sel(1'b0),

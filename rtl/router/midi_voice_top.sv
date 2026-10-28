@@ -1,0 +1,357 @@
+`timescale 1ns/1ps
+// 已解析事件 -> 现有状态层和router。只在本顶层集中准入、控制超时、清理与配置提交。
+// NOTE_BANKS=1时加载连续32音中的一组16音；first_midi_note由资源清单提供。
+// 未支持控制消费后记录，不伪造效果成功；外部控制在valid/ready握手时原子生效，
+// 超时/维护时control_cancel撤销未握手请求，后端不得在未握手时不可撤销地应用。
+module midi_voice_top #(
+    parameter integer SLOTS=16, N_MODES=64, CLK_HZ=100_000_000, SR_HZ=48_000,
+    parameter bit NOTE_BANKS=1'b0, SINGLE_SOURCE=1'b1,
+    // 开启后由backend事务独占配置；旧并行配置输入不再是第二个写入者。
+    parameter bit CONFIG_BACKEND=1'b0,
+    parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
+    parameter logic [4:0] CONTROL_SUPPORTED=5'b0, // CC1,CC7,CC11,Program,Bend
+    parameter integer CONTROL_TIMEOUT_CYCLES=CLK_HZ/100,
+    parameter integer OP_TIMEOUT_CYCLES=CLK_HZ/20,
+    parameter integer CONFIG_TIMEOUT_CYCLES=CLK_HZ/5
+) (
+    input logic clk,rst_n,run,
+    input pad_driver_pkg::mat4x4 fmap,
+    input router_pkg::instrument_e pad_instrument,
+    input router_pkg::reverb_preset reverb_preset,
+    input logic reload,midi_select,midi_source_id,panic,
+    input logic [3:0] selected_channel,
+    input logic note_bank,
+    input logic [6:0] first_midi_note,
+    input logic [SLOTS*7-1:0] slot_note_map,
+    input logic backend_valid,backend_source,
+    output logic backend_ready,
+    input config_pkg::cfg_request_t backend_request,
+    output logic backend_rsp_valid,
+    input logic backend_rsp_ready,
+    output config_pkg::cfg_response_t backend_response,
+    output logic [19:0] backend_supported,
+    output logic backend_audio_valid,backend_audio_fault,
+    output config_pkg::audio_config_t backend_audio_state,
+    input logic event_valid,
+    output logic event_ready,
+    input logic [31:0] event_data,
+    input logic event_source_id,
+    input logic [1:0] source_cleanup_req,
+    output logic [1:0] source_cleanup_done,source_ops_idle,
+    output logic midi_ops_idle,
+    output logic control_valid,control_cancel,
+    input logic control_ready,
+    output logic [31:0] control_data,
+    output logic control_source_id,
+    output logic channel_mapped,config_busy,config_failed,
+    output logic [3:0] active_channel,
+    output logic active_bank,
+    output logic [31:0] rejected_note_count,unsupported_count,control_timeout_count,dropped_count,
+    output logic [3:0] error_sticky, // unsupported,control timeout,note timeout,configuration failure
+    output logic ready,done,load_err,y_valid,
+    output logic signed [63:0] y_data,
+    output logic qspi_cs_n,qspi_sck,qspi_dq_oe,
+    output logic [3:0] qspi_dq_o,
+    input logic [3:0] qspi_dq_i
+);
+    typedef enum logic [2:0] {C_INIT,C_CLEAN,C_APPLY,C_WAIT,C_DRAIN,C_RUN,C_FAULT} cfg_t;
+    cfg_t cfg_state;
+    logic [3:0] channel_q,target_channel;
+    logic bank_q,target_bank,mode_q,target_mode,source_q,target_source;
+    logic [6:0] first_q,target_first;
+    router_pkg::instrument_e mapped_inst,inst_use,pad_q,target_pad;
+    logic reload_q,panic_q,panic_pending,map_reload,maint_seen;
+    logic backend_inflight,have_commit;
+    config_pkg::cfg_request_t pending_request;
+    config_pkg::audio_config_t candidate;
+    router_pkg::instrument_e candidate_pad,committed_pad;
+    logic [7:0] candidate_result;
+    logic [15:0] candidate_inst;
+    logic candidate_supported;
+    router_pkg::reverb_preset reverb_q;
+    logic [1:0] target_reverb;
+    logic [31:0] cfg_timer,op_timer,ctrl_timer,cleanup_timer;
+    logic state_idle,state_ready,state_valid,op_valid,op_ready;
+    logic [1:0] state_cleanup_done,state_source_idle,op_cleanup_sources;
+    logic [31:0] op_event_data;
+    logic op_source_id,op_rejected;
+    logic [SLOTS-1:0] gate,retrigger,hard_clear,voice_idle;
+    logic [SLOTS*7-1:0] velocity,note_map;
+    logic [SLOTS*32-1:0] offsets;
+    logic router_ready,router_done,router_midi_ready,router_midi_inflight,load_complete;
+    logic maintenance_done,router_y_valid;
+    logic signed [63:0] router_y;
+    wire cfg_clean=cfg_state==C_CLEAN;
+    wire [1:0] cleanup=source_cleanup_req | {2{cfg_clean || cfg_state==C_FAULT}};
+    wire source_maintenance=SINGLE_SOURCE && mode_q && source_cleanup_req[source_q];
+    // 硬清音旁路配置队列；忙时也立即静音并中止尚未提交的加载。
+    wire maintain_req=cfg_clean || source_maintenance || panic || panic_pending;
+    wire [3:0] kind=event_data[31:28];
+    wire new_on=kind==1 && event_data[16:10]!=0;
+    wire note_off=kind==0 || (kind==1 && event_data[16:10]==0);
+    wire changing=!CONFIG_BACKEND && ((selected_channel!=channel_q) || (midi_select!=mode_q) ||
+                  (SINGLE_SOURCE && midi_source_id!=source_q) ||
+                  (NOTE_BANKS && (note_bank!=bank_q || first_midi_note!=first_q)) ||
+                  (!mode_q && pad_instrument!=pad_q));
+    wire admit=cfg_state==C_RUN && !changing && !panic && mode_q;
+    wire filtered=(!admit) || (SINGLE_SOURCE && event_source_id!=source_q) ||
+                  (!note_off && event_data[27:24]!=channel_q) || (new_on && !channel_mapped);
+    wire lifecycle_op=op_event_data[31:28]==0 || op_event_data[31:28]==1 ||
+        (op_event_data[31:28]==2 && (op_event_data[23:17]==64 ||
+         op_event_data[23:17]==120 || op_event_data[23:17]==123));
+    wire control_op=op_valid && !(|op_cleanup_sources) && !lifecycle_op;
+    logic ctrl_supported;
+    wire timed_control=control_op && ctrl_supported && ctrl_timer>=CONTROL_TIMEOUT_CYCLES;
+    wire cancelling=op_valid && !(|op_cleanup_sources) && cleanup[op_source_id];
+    wire cancel_audio=cancelling && !control_op && !router_midi_inflight;
+    wire note_timeout=op_valid && !control_op && !(|op_cleanup_sources) &&
+                      op_timer>=OP_TIMEOUT_CYCLES;
+    wire config_request=changing || (reload && !reload_q) || (panic && !panic_q) || panic_pending || note_timeout;
+    wire cancel_control=control_op && (cancelling || timed_control);
+    wire cleanup_pending=(|(cleanup & ~state_cleanup_done)) ||
+                         (source_maintenance && !maint_seen && !maintenance_done);
+    wire router_run=run || cfg_state!=C_RUN || (|(cleanup & ~state_cleanup_done)) ||
+                    (source_maintenance && !maint_seen) || (|op_cleanup_sources);
+    pad_driver_pkg::mat4x4 pad_use;
+    function automatic logic [31:0] inc(input logic [31:0] v);
+        inc=(v==32'hffffffff)?v:v+1'b1;
+    endfunction
+    midi_instrument_map u_map(.channel(channel_q),.mapped(channel_mapped),.instrument(mapped_inst));
+    assign inst_use=mode_q && channel_mapped ? mapped_inst : pad_q;
+    assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && !backend_rsp_valid &&
+                         (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !panic_pending && !reload;
+    assign backend_audio_valid=CONFIG_BACKEND && have_commit && cfg_state==C_RUN && !config_failed;
+    assign backend_audio_fault=CONFIG_BACKEND && config_failed;
+    // 当前只开放有真实提交路径的参数。资源是否存在由集成者给出，不凭枚举猜测。
+    always_comb begin
+        backend_supported='0;
+        if(CONFIG_BACKEND)begin
+            backend_supported[0]=|RESOURCE_MASK;
+            backend_supported[2]=1;
+            backend_supported[5]=NOTE_BANKS;
+            backend_supported[11]=1;
+            backend_supported[12]=1;
+            backend_supported[17]=1;
+        end
+        candidate=have_commit ? backend_audio_state :
+                  config_pkg::audio_config_t'({16'd0,5'd2,2'd0,1'b0,2'd0});
+        candidate_pad=have_commit ? committed_pad : router_pkg::INST_PIANO;
+        candidate_result=config_pkg::CFG_OK;
+        candidate_supported=1;
+        case(backend_request.id)
+            16'h0100:begin
+                candidate.instrument=16'(backend_request.value);
+                if(candidate.source==0)candidate_pad=router_pkg::instrument_e'(backend_request.value);
+                else candidate.channel=config_pkg::instrument_channel(16'(backend_request.value));
+            end
+            16'h0200:candidate.reverb=2'(backend_request.value);
+            16'h0300:begin
+                candidate.bank=1'(backend_request.value);
+                if(!NOTE_BANKS)candidate_supported=0;
+            end
+            16'h0500:begin
+                candidate.source=2'(backend_request.value);
+                candidate.instrument=candidate.source==0 ? 16'(candidate_pad) :
+                                     config_pkg::midi_instrument(candidate.channel);
+            end
+            16'h0501:begin
+                candidate.channel=5'(backend_request.value);
+                if(candidate.source!=0)candidate.instrument=config_pkg::midi_instrument(candidate.channel);
+            end
+            16'h8001:;
+            default:candidate_supported=0;
+        endcase
+        candidate_inst=candidate.source==0 ? 16'(candidate_pad) : candidate.instrument;
+        if(!candidate_supported)candidate_result=config_pkg::CFG_UNSUPPORTED;
+        else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(backend_request.id),backend_request.value))
+            candidate_result=config_pkg::CFG_OUT_OF_RANGE;
+        else if((backend_request.id==16'h0100 && backend_request.value>9) ||
+                !config_pkg::audio_config_valid(candidate) || candidate_inst>9)
+            candidate_result=config_pkg::CFG_UNSUPPORTED;
+        else if(!RESOURCE_MASK[candidate_inst[3:0]])candidate_result=config_pkg::CFG_UNSUPPORTED;
+    end
+    always_comb begin
+        ctrl_supported=0;
+        case(op_event_data[31:28])
+            2:case(op_event_data[23:17])
+                1:ctrl_supported=CONTROL_SUPPORTED[0];7:ctrl_supported=CONTROL_SUPPORTED[1];
+                11:ctrl_supported=CONTROL_SUPPORTED[2];default:;
+            endcase
+            3:ctrl_supported=CONTROL_SUPPORTED[3];
+            4:ctrl_supported=CONTROL_SUPPORTED[4];
+            default:;
+        endcase
+        note_map=slot_note_map;
+        offsets='0;
+        for(integer i=0;i<SLOTS;i++) begin
+            if(NOTE_BANKS) note_map[i*7 +: 7]=7'(first_q+(bank_q?SLOTS:0)+i);
+            offsets[i*32 +: 32]=32'(((NOTE_BANKS && bank_q)?SLOTS+i:i)*N_MODES*64);
+        end
+        pad_use=maintain_req || config_busy || config_failed || panic ? '0 : fmap;
+    end
+    assign config_busy=cfg_state!=C_RUN && cfg_state!=C_FAULT;
+    assign state_valid=event_valid && !filtered && !config_request;
+    // 未选来源/维护期间明确丢弃旧演奏事件，不堵住comm共享事件FIFO。
+    assign event_ready=rst_n && (filtered || config_request || state_ready);
+    assign control_valid=control_op && ctrl_supported && !cancel_control;
+    assign control_cancel=cancel_control;
+    assign control_data=op_event_data;
+    assign control_source_id=op_source_id;
+    assign op_ready=control_op ? (!ctrl_supported || cancel_control || control_ready) :
+                    (cancel_audio || router_midi_ready);
+    assign source_cleanup_done=(cfg_state==C_FAULT)?2'b0:
+        state_cleanup_done & source_cleanup_req &
+        ((source_maintenance && !maint_seen && !maintenance_done)?2'b0:2'b11);
+    assign source_ops_idle=state_source_idle & {2{cfg_state==C_RUN}};
+    assign midi_ops_idle=state_idle && cfg_state==C_RUN &&
+                         !((| (cleanup & ~state_cleanup_done))) &&
+                         (!source_maintenance || maint_seen || maintenance_done);
+    assign ready=router_ready && cfg_state==C_RUN && !config_failed;
+    assign done=router_done;
+    assign y_valid=router_y_valid;
+    assign y_data=config_busy || config_failed || maintain_req || panic ? 64'sd0 : router_y;
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
+            target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
+            pad_q<=router_pkg::INST_PIANO;target_pad<=router_pkg::INST_PIANO;
+            reload_q<=0;panic_q<=0;panic_pending<=0;map_reload<=0;maint_seen<=0;
+            backend_inflight<=0;backend_rsp_valid<=0;backend_response<='0;pending_request<='0;
+            backend_audio_state<='0;have_commit<=0;committed_pad<=router_pkg::INST_PIANO;
+            reverb_q<=router_pkg::REVERB_NONE;target_reverb<=0;
+            cfg_timer<=0;op_timer<=0;ctrl_timer<=0;cleanup_timer<=0;config_failed<=0;active_channel<=0;active_bank<=0;
+            unsupported_count<=0;control_timeout_count<=0;dropped_count<=0;error_sticky<=0;
+        end else begin
+            reload_q<=reload;panic_q<=panic;map_reload<=0;
+            if(cfg_state==C_CLEAN)panic_pending<=0;
+            if(panic && !panic_q)panic_pending<=1;
+            if(backend_rsp_valid && backend_rsp_ready)backend_rsp_valid<=0;
+            if(CONFIG_BACKEND && backend_inflight && cfg_state==C_FAULT)begin
+                backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
+                backend_response.result<=config_pkg::CFG_FAILED;backend_response.applied_value<=0;
+                backend_rsp_valid<=1;backend_inflight<=0;
+            end
+            if(!maintain_req) maint_seen<=0;
+            else if(maintenance_done) maint_seen<=1;
+            if(cleanup_pending) cleanup_timer<=inc(cleanup_timer); else cleanup_timer<=0;
+            if(op_valid) op_timer<=inc(op_timer); else op_timer<=0;
+            if(control_op && ctrl_supported && !op_ready) ctrl_timer<=inc(ctrl_timer); else ctrl_timer<=0;
+            if(event_valid && event_ready && (filtered || config_request)) dropped_count<=inc(dropped_count);
+            if(control_op && op_ready && !ctrl_supported) begin
+                unsupported_count<=inc(unsupported_count);error_sticky[0]<=1;
+            end
+            if(timed_control && !cancelling) begin
+                control_timeout_count<=inc(control_timeout_count);error_sticky[1]<=1;
+            end
+            if(note_timeout) error_sticky[2]<=1;
+            if(config_busy) cfg_timer<=inc(cfg_timer); else cfg_timer<=0;
+            case(cfg_state)
+                C_INIT,C_RUN,C_FAULT: if(cfg_state==C_INIT ||
+                    (cfg_state==C_RUN && config_request) ||
+                    (cfg_state==C_FAULT && ((reload && !reload_q) || (panic && !panic_q) || panic_pending))) begin
+                    target_channel<=CONFIG_BACKEND ? (have_commit ? 4'(backend_audio_state.channel-1'b1) : 4'd1) : selected_channel;
+                    target_mode<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source!=0) : midi_select;
+                    target_source<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source==2) : (SINGLE_SOURCE?midi_source_id:1'b0);
+                    target_bank<=CONFIG_BACKEND ? (have_commit && backend_audio_state.bank) : (NOTE_BANKS?note_bank:1'b0);
+                    target_first<=NOTE_BANKS?first_midi_note:7'd0;
+                    target_pad<=CONFIG_BACKEND ? committed_pad : pad_instrument;
+                    target_reverb<=CONFIG_BACKEND && have_commit ? backend_audio_state.reverb : 2'd0;
+                    cfg_timer<=0;cfg_state<=C_CLEAN;
+                    config_failed<=0;
+                end
+                C_CLEAN: if((&state_cleanup_done) && (maint_seen || maintenance_done)) cfg_state<=C_APPLY;
+                C_APPLY: begin
+                    if((target_mode && target_channel>5) ||
+                       (CONFIG_BACKEND && !RESOURCE_MASK[target_mode ?
+                         4'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : 4'(target_pad)]) ||
+                       (NOTE_BANKS && (32'(target_first)+2*SLOTS>128))) begin
+                        config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
+                    end else begin
+                        channel_q<=target_channel;mode_q<=target_mode;source_q<=target_source;
+                        bank_q<=target_bank;first_q<=target_first;pad_q<=target_pad;
+                        case(target_reverb)
+                            0:reverb_q<=router_pkg::REVERB_NONE;
+                            1:reverb_q<=router_pkg::REVERB_HALL;
+                            default:reverb_q<=router_pkg::REVERB_BATHROOM;
+                        endcase
+                        map_reload<=1;cfg_state<=C_WAIT;
+                    end
+                end
+                C_WAIT: if(load_complete) begin
+                    if(load_err) begin config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;end
+                    else cfg_state<=C_DRAIN;
+                end
+                C_DRAIN: if(router_done) begin
+                    active_channel<=channel_q;active_bank<=bank_q;config_failed<=0;cfg_state<=C_RUN;
+                    if(CONFIG_BACKEND)begin
+                        backend_audio_state.instrument<=16'(inst_use);
+                        backend_audio_state.channel<={1'b0,channel_q}+5'd1;
+                        backend_audio_state.source<=mode_q ? (source_q ? 2'd2 : 2'd1) : 2'd0;
+                        backend_audio_state.bank<=bank_q;backend_audio_state.reverb<=target_reverb;
+                        committed_pad<=pad_q;have_commit<=1;
+                        if(backend_inflight)begin
+                            backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
+                            backend_response.result<=config_pkg::CFG_OK;
+                            backend_response.applied_value<=pending_request.value;
+                            backend_rsp_valid<=1;backend_inflight<=0;
+                        end
+                    end
+                end
+                default: cfg_state<=C_FAULT;
+            endcase
+            if(backend_valid && backend_ready)begin
+                pending_request<=backend_request;
+                if(candidate_result!=config_pkg::CFG_OK)begin
+                    backend_response.tag<=backend_request.tag;backend_response.id<=backend_request.id;
+                    backend_response.result<=candidate_result;backend_response.applied_value<=0;
+                    backend_rsp_valid<=1;
+                end else begin
+                    target_channel<=4'(candidate.channel-1'b1);target_mode<=candidate.source!=0;
+                    target_source<=candidate.source==2;target_bank<=candidate.bank;
+                    target_first<=NOTE_BANKS?first_midi_note:7'd0;target_pad<=candidate_pad;
+                    target_reverb<=candidate.reverb;
+                    backend_inflight<=1;config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                end
+            end
+            if((config_busy && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
+               (cfg_state==C_RUN && cleanup_pending && cleanup_timer>=CONFIG_TIMEOUT_CYCLES)) begin
+                config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
+            end
+            if(panic && !panic_q && cfg_state!=C_RUN && cfg_state!=C_FAULT && cfg_state!=C_INIT)begin
+                config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
+            end
+        end
+    end
+    midi_note_state #(.SLOTS(SLOTS),.CHECK_VOICE_IDLE(1)) u_notes (
+        .clk(clk),.rst_n(rst_n),.event_valid(state_valid),.event_ready(state_ready),
+        .event_data(event_data),.event_source_id(event_source_id),.slot_note_map(note_map),.voice_idle(voice_idle),
+        .source_cleanup_req(cleanup),.source_cleanup_done(state_cleanup_done),
+        .source_ops_idle(state_source_idle),.midi_ops_idle(state_idle),
+        .op_valid(op_valid),.op_ready(op_ready),.op_event_data(op_event_data),.op_source_id(op_source_id),
+        .op_cleanup_sources(op_cleanup_sources),.op_rejected(op_rejected),.op_retrigger(retrigger),
+        .op_hard_clear(hard_clear),.slot_gate(gate),.slot_velocity(velocity),.slot_owned(),.slot_key_down(),
+        .slot_source(),.slot_channel(),.slot_original_note(),.rejected_note_count(rejected_note_count)
+    );
+    voice_router #(.SLOTS(SLOTS),.N_MODES(N_MODES),.CLK_HZ(CLK_HZ),.SR_HZ(SR_HZ),
+        .MIDI_ENABLE(1),.DEBUG_PORT(0),.LOAD_OFFSETS(NOTE_BANKS),.FLASH_NOTES(NOTE_BANKS?2*SLOTS:SLOTS)) u_voice (
+        .clk(clk),.rst_n(rst_n),.fmap(pad_use),.inst(inst_use),
+        .reverb_preset(CONFIG_BACKEND ? reverb_q : reverb_preset),
+        .reload(1'b0),.map_reload(map_reload),.load_offsets(offsets),.load_complete(load_complete),
+        .maintenance_clear(maintain_req),.maintenance_done(maintenance_done),.voice_idle(voice_idle),
+        .table_valid(),
+        .start(router_run),.done(router_done),.ready(router_ready),.load_err(load_err),
+        .y_valid(router_y_valid),.y_data(router_y),.qspi_cs_n(qspi_cs_n),.qspi_sck(qspi_sck),
+        .qspi_dq_o(qspi_dq_o),.qspi_dq_oe(qspi_dq_oe),.qspi_dq_i(qspi_dq_i),
+        .midi_select(mode_q),.midi_valid(op_valid && !control_op && !cancel_audio),
+        .midi_ready(router_midi_ready),.midi_inflight(router_midi_inflight),
+        .midi_gate(gate),.midi_velocity(velocity),.midi_retrigger(retrigger),.midi_hard_clear(hard_clear),
+        .ns_rd_en(1'b0),.ns_rd_addr('0),.ns_rd_sel(1'b0),.ns_rd_data(),.ns_rd_valid()
+    );
+    // synthesis translate_off
+    initial if(CONTROL_TIMEOUT_CYCLES<1 || OP_TIMEOUT_CYCLES<1 || CONFIG_TIMEOUT_CYCLES<1)
+        $fatal(1,"midi_voice_top timeouts must be positive");
+    initial if(CONFIG_BACKEND && !SINGLE_SOURCE)
+        $fatal(1,"configuration backend requires one selected performance source");
+    // synthesis translate_on
+endmodule

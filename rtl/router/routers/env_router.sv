@@ -7,7 +7,9 @@ module env_router #(
     input  logic                    clk,
     input  logic                    rst_n,
     input  logic                    smp_tick,
-    input  pad_driver_pkg::mat4x4   fmap,
+    input  logic [SLOTS*8-1:0]      envelope_level,
+    input  logic [SLOTS-1:0]        retrigger, slot_clear,
+    input  logic                    midi_mode,
     input  logic [SLOTS-1:0]        note_on,
     input  logic [SLOTS-1:0]        note_gate,
     input  router_pkg::instrument_e inst,
@@ -59,7 +61,8 @@ module env_router #(
     end
 
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_adsr (
-        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
+        .retrigger(retrigger), .slot_clear(slot_clear),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),
         .note_on(note_on), .note_gate(note_gate),
@@ -67,15 +70,20 @@ module env_router #(
     );
 
     envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_dyn (
-        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick), .fmap(fmap),
+        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
+        .envelope_level(envelope_level), .slot_clear(slot_clear),
         .note_on(note_on), .note_gate(note_gate),
         .emap(m_dyn), .emap_valid(v_dyn), .dead(d_dyn)
     );
 
     always_comb begin
         emap_valid = smp_tick;
-        dead       = use_dyn ? d_dyn : (use_adsr ? d_adsr : '0);
+        dead       = use_dyn ? d_dyn : (use_adsr ? d_adsr :
+                     (midi_mode ? ~note_gate : '0));
+        dead = dead | slot_clear;
         for (int i = 0; i < SLOTS; i++)
-            emap[i] = use_dyn ? m_dyn[i] : (use_adsr ? m_adsr[i] : 32'sh7FFF_FFFF);
+            emap[i] = slot_clear[i] ? 32'sd0 :
+                      (use_dyn ? m_dyn[i] : (use_adsr ? m_adsr[i] :
+                       ((midi_mode && !note_gate[i]) ? 32'sd0 : 32'sh7FFF_FFFF)));
     end
 endmodule
