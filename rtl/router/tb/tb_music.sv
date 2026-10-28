@@ -242,7 +242,12 @@ module tb_music;
                 trip = (n - 200) * 200 / (HOLD - 200);      // 0..200
                 v    = (trip < 100) ? (232 + trip * 20 / 100)
                                     : (252 - (trip - 100) * 20 / 100);
-                fmap.flat_d[NOTE_SLOT].val = 8'(v);
+                // ALL16 时 16 个声部一起扫（压力测试：16 音齐响 + 揉弦）
+                if (ALL16 != 0) begin
+                    for (int k = 0; k < 16; k++) fmap.flat_d[k].val = 8'(v);
+                end else begin
+                    fmap.flat_d[NOTE_SLOT].val = 8'(v);
+                end
             end
             if (n == 40 + HOLD) begin
                 if (ALL16 != 0) begin

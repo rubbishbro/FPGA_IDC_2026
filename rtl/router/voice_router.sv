@@ -282,7 +282,6 @@ module voice_router #(
     // ---- bank A ----
     logic                 era_co_re, era_st_re, era_st_we, era_x_re, era_yv;
     logic [IW-1:0]        era_co_addr, era_st_addr, era_st_waddr;
-    logic [0:0]           era_x_addr;
     logic signed [63:0]   era_y;
     logic signed [QW-1:0] era_qwd;
     logic signed [VW-1:0] era_vwd;
@@ -290,7 +289,6 @@ module voice_router #(
     // ---- bank B ----
     logic                 erb_co_re, erb_st_re, erb_st_we, erb_x_re, erb_yv;
     logic [IW-1:0]        erb_co_addr, erb_st_addr, erb_st_waddr;
-    logic [0:0]           erb_x_addr;
     logic signed [63:0]   erb_y;
     logic signed [QW-1:0] erb_qwd;
     logic signed [VW-1:0] erb_vwd;
@@ -333,7 +331,7 @@ module voice_router #(
         .st_q(st_q_ra), .st_qdot(st_v_ra),
         .st_we(era_st_we), .st_waddr(era_st_waddr),
         .st_q_wdata(era_qwd), .st_qdot_wdata(era_vwd),
-        .x_re(era_x_re), .x_addr(era_x_addr), .x_data(x_ra),
+        .x_re(era_x_re), .x_data(x_ra),
         .y_valid(era_yv), .y_data(era_y)
     );
 
@@ -345,7 +343,7 @@ module voice_router #(
         .st_q(st_q_rb), .st_qdot(st_v_rb),
         .st_we(erb_st_we), .st_waddr(erb_st_waddr),
         .st_q_wdata(erb_qwd), .st_qdot_wdata(erb_vwd),
-        .x_re(erb_x_re), .x_addr(erb_x_addr), .x_data(x_rb),
+        .x_re(erb_x_re), .x_data(x_rb),
         .y_valid(erb_yv), .y_data(erb_y)
     );
     // =========================================================================

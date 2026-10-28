@@ -42,8 +42,7 @@
 `timescale 1ns/1ps
 
 module eng0 #(
-    parameter int   N_MODES  = 64,
-    parameter int   X_DEPTH  = 256
+    parameter int   N_MODES  = 64
 ) (
     input  logic                                     clk,
     input  logic                                     rst_n,
@@ -74,7 +73,6 @@ module eng0 #(
 
     // ---- 激励读口 ----
     output logic                                     x_re,
-    output logic [$clog2(X_DEPTH)-1:0]               x_addr,
     input  logic signed [modal_step_pkg::XW-1:0]     x_data,
 
     // ---- 结果流口（每帧一个 Σ wo·q；没有地址：由顶层按"第几个声部"累加）----
@@ -85,7 +83,6 @@ module eng0 #(
     import modal_step_pkg::*;
 
     localparam int IW = $clog2(N_MODES);
-    localparam int JW = $clog2(X_DEPTH);
 
     // ---- 乘法与舍入 ------------------------------------------------------
     // mul64：先符号扩展到累加器宽度再乘（SV 里 a*m 的结果宽度是操作数最大宽度，
@@ -204,7 +201,6 @@ module eng0 #(
         st_qdot_wdata = sat_v(vn_q);
 
         x_re   = (state == S_X);
-        x_addr = '0;                       // 一次 start 只跑一个采样；帧号由顶层补进地址
 
         // 这一拍：结果有效，同时就是本作业的最后一拍
         y_valid = (state == S_YWR);

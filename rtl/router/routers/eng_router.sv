@@ -36,7 +36,6 @@ module eng_router #(
 
     // ---- 激励读口 ----
     output logic                                     x_re,
-    output logic                                      x_addr,      // 恒 0（一次作业一个采样）
     input  logic signed [modal_step_pkg::XW-1:0]     x_data,
 
     // ---- 结果流口 ----
@@ -48,7 +47,6 @@ module eng_router #(
     import router_pkg::*;
 
     localparam int IW = $clog2(N_MODES);
-    localparam int XW_ = 1;              // 一次作业一个采样，激励地址恒 0（1 位足够）
 
     // =========================================================================
     // 两套引擎（互斥）+ 口 mux
@@ -57,7 +55,6 @@ module eng_router #(
     logic [IW-1:0]        e0_co_addr;
     logic                 e0_co_re, e0_st_re, e0_st_we;
     logic [IW-1:0]        e0_st_addr, e0_st_waddr;
-    logic [XW_-1:0]       e0_x_addr;
     logic                 e0_x_re;
     logic signed [63:0]   e0_y;
 
@@ -65,7 +62,6 @@ module eng_router #(
     logic [IW-1:0]        e1_co_addr;
     logic                 e1_co_re, e1_st_re, e1_st_we;
     logic [IW-1:0]        e1_st_addr, e1_st_waddr;
-    logic [XW_-1:0]       e1_x_addr;
     logic                 e1_x_re;
     logic signed [63:0]   e1_y;
 
@@ -90,11 +86,10 @@ module eng_router #(
     assign st_we    = sel_alt ? e1_st_we    : e0_st_we;
     assign st_waddr = sel_alt ? e1_st_waddr : e0_st_waddr;
     assign x_re     = sel_alt ? e1_x_re     : e0_x_re;
-    assign x_addr   = sel_alt ? e1_x_addr   : e0_x_addr;
     assign y_valid  = sel_alt ? e1_yv       : e0_yv;
     assign y_data   = sel_alt ? e1_y        : e0_y;
 
-    eng0 #(.N_MODES(N_MODES), .X_DEPTH(2)) u_eng0 (
+    eng0 #(.N_MODES(N_MODES)) u_eng0 (
         .clk(clk), .rst_n(rst_n),
         .start(e0_start), .st_zero(e0_zero), .n_modes(n_modes),
         .y_valid(e0_yv), .y_data(e0_y),
@@ -103,10 +98,10 @@ module eng_router #(
         .st_q(st_q), .st_qdot(st_qdot),
         .st_we(e0_st_we), .st_waddr(e0_st_waddr),
         .st_q_wdata(e0_qwd), .st_qdot_wdata(e0_vwd),
-        .x_re(e0_x_re), .x_addr(e0_x_addr), .x_data(x_data)
+        .x_re(e0_x_re), .x_data(x_data)
     );
 
-    eng1 #(.N_MODES(N_MODES), .X_DEPTH(2)) u_eng1 (
+    eng1 #(.N_MODES(N_MODES)) u_eng1 (
         .clk(clk), .rst_n(rst_n),
         .start(e1_start), .st_zero(e1_zero), .n_modes(n_modes),
         .y_valid(e1_yv), .y_data(e1_y),
@@ -115,7 +110,7 @@ module eng_router #(
         .st_q(st_q), .st_qdot(st_qdot),
         .st_we(e1_st_we), .st_waddr(e1_st_waddr),
         .st_q_wdata(e1_qwd), .st_qdot_wdata(e1_vwd),
-        .x_re(e1_x_re), .x_addr(e1_x_addr), .x_data(x_data)
+        .x_re(e1_x_re), .x_data(x_data)
     );
 
 endmodule

@@ -15,8 +15,7 @@
 // 存储复用 router 的阵列：ca_a11=G、ca_a12=a1、ca_a21=a2、q_ram=y1、v_ram=y2。
 // -----------------------------------------------------------------------------
 module eng1 #(
-    parameter int N_MODES = 64,
-    parameter int X_DEPTH = 64
+    parameter int N_MODES = 64
 ) (
     input  logic                                 clk,
     input  logic                                 rst_n,
@@ -40,7 +39,6 @@ module eng1 #(
     output logic signed [31:0]                   st_qdot_wdata, // y2' = y1
 
     output logic                                 x_re,
-    output logic [$clog2(X_DEPTH)-1:0]           x_addr,
     input  logic signed [31:0]                   x_data,
 
     output logic                                 y_valid,
@@ -99,7 +97,6 @@ module eng1 #(
     assign st_re   = (st == S_RD);
     assign st_addr = mi;
     assign x_re    = (st == S_RD);
-    assign x_addr  = '0;
 
     assign st_we         = (st == S_WB);
     assign st_waddr      = mi_q;

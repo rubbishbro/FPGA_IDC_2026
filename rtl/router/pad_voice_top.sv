@@ -12,7 +12,6 @@ module pad_voice_top #(
     parameter int  CLK_HZ        = 100_000_000,
     parameter int  SR_HZ         = 48_000,
     parameter int  N_MODES       = 48,
-    parameter int  X_DEPTH       = 64,
     parameter int  SLOTS         = 16,
     parameter bit  USE_PAD_DRIVER = 1'b1
 ) (
