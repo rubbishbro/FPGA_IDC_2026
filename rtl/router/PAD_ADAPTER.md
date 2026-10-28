@@ -15,7 +15,7 @@ fmap_ext ───────────────────────�
 pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_system
 ```
 
-16 个压力单元直接对应 16 个 slot；门控/起音、激励、包络、合成、混音和效果由 voice_router 持有。真实 MIDI 输入还需要通道/音符/踏板/音高资源的消费者，不能把解析字节直接当 fmap。
+16 个压力单元直接对应 16 个 slot；门控/起音、激励、包络、合成、混音和效果由 voice_router 持有。真实 MIDI 输入还需要通道/音符/踏板/音高资源的消费者，不能把解析字节直接当 fmap。当前门控起音要求fmap>230、保持到fmap<26才释放；旧>2/<1说明已过期。MIDI原始velocity仅0..127，直接复制无法起音；适配策略见 [MIDI接入](../../docs/MIDI演奏与通信接入.md#midi-consumer)。
 
 ## 参数与接口
 

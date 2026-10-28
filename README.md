@@ -2,14 +2,14 @@
 
 面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；`music_resources/` 录音用于离线提取参数，Python WAV 用于试听与验证。
 
-更新：**2026-10-27**，对照 `8e9d1cda` 及当前工作区。项目处于模块验证与整机集成阶段。
+更新：**2026-10-28**，对照 `c00e3646`，补核最近拉取的 `8e9d1cda`。项目处于模块验证与整机集成阶段，验证结果保留各自执行日期。
 
 ## 当前实现
 
 | 部分 | 已有实现 | 仍待完成 |
 |---|---|---|
 | 声部路由 `rtl/router/` | 默认 16 槽×64 模态，双 bank、两个 `eng_router` 并行处理各半声部；钢琴/吉他选 eng0，其余暂选 eng1；激励、逐声部包络、5 段腔体、四梳状混响 | 全路径数值/吞吐、bank B 独立性、真实 Flash 和整机验收 |
-| Flash 与音高 | loader 按 slot-major 读取独立音高表；钢琴打包器默认 16 个 MIDI 音 | 连续 32 音/音区切换、其它真实音色资源及真片协议验证 |
+| Flash 与音高 | loader按slot-major读取独立音高表；钢琴打包器默认16个MIDI音，现镜像仍来自旧默认系数表 | 新scaled表与打包链统一、吉他音高标签修正、连续32音/音区和真片验收 |
 | 压力垫/摇杆 | 采集 FSM 已有泄放、建立、请求、完成锁存与超时重试；成对 X/Y 出口及校准/八方向/连发适配器已实现 | 真实 ADC、矩阵逐键位置、扫描延迟和板级校准 |
 | 配置与中文侧栏 | `control_loop` → `config_dispatch` → 整包 CDC → 像素帧头提交；默认 LCD demo 使用中文隐藏侧栏 | 音量/音色/混响/MIDI 等真实后端接入；未接项按能力位禁用 |
 | 通信 `rtl/comm/` | 双 UART/HC-05、SLIP/CRC、MIDI/Config 解析、来源隔离与恢复接口 | MIDI→音符状态→fmap、配置协议转换、真实清音/退休确认与 App |
@@ -18,6 +18,8 @@
 | Python | 参数提取、整数/浮点模型、A/B/C 试听、eng1 对拍入口 | 模型与当前顶层的激励/选核/加载差异收口 |
 
 `rtl/core/` 是保留的共享 RAM ABC/E2 实现，与 `rtl/router/` 分开。其“21 项 PASS”属于 2026-10-22 历史记录；当前入口仍因 `rtl/simsynth/` 迁移而中断。`pad_voice_top` 默认 `N_MODES=48`，与 `voice_router`/钢琴镜像的 64 模态默认值不同，集成时必须统一。
+
+生成器当前写入piano_coeff_scaled.txt，打包器默认仍读取piano_coeff.txt；两者不能画成一条已接通的新表链。输入选择与定标细节见 [系数合同](rtl/router/README.md#coefficient-pipeline)。
 
 **阅读入口：**[代码架构](CODE_ARCHITECTURE.md) · [文档索引](docs/README.md) · [当前问题](docs/bugs.md) · [赛题核对](docs/赛题要求完成度核对.md)。
 

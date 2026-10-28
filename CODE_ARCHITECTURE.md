@@ -1,6 +1,6 @@
 # 代码架构与阅读路线
 
-更新：2026-10-27。按 `8e9d1cda` 及当前工作区的实例、参数和源清单核对。本文说明代码关系；问题与证据分别维护在 [bugs](docs/bugs.md) 和 [验证记录](docs/工程评审与验证.md#verification)。旧歌曲工程导读已归档到 [历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
+更新：2026-10-28。按 `c00e3646` 核对，并补充最近拉取 `8e9d1cda` 的系数输入/输出区别。本文说明代码关系；问题与证据分别维护在 [bugs](docs/bugs.md) 和 [验证记录](docs/工程评审与验证.md#verification)。旧歌曲工程导读已归档到 [历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
 
 ## 1. 当前顶层与边界
 
@@ -89,7 +89,7 @@ session_ctrl → 来源隔离、清理、退休和重建
 - `python/instruments.py`、`fft_analysis/`：样本目录、基频/分音/衰减、持续音与打击乐参数。
 - `python/modal_sim/engine.py`、`fixed_point.py`、`gen_hw_rom.py`：旧模态参考及旧 ROM 格式。
 - `python/modal_sim/router_eng1.py`、`eng1_bc.py`：router 级 eng1 整数参考与 A/B/C 试听；不等同于当前钢琴/吉他 eng0 路由。
-- `sythsound/piano_coeff_gen.py` → `sythsound/piano_coeff.txt` → `rtl/router/tools/piano_flash.py`：当前钢琴七系数 Flash 打包链。生成器与打包器的状态定标须一起核对，不能将旧数学推导当作所有中间表都未归一化的承诺。
+- `sythsound/piano_coeff_gen.py` → `piano_coeff_scaled.txt` 是新定标表生成链；`rtl/router/tools/piano_flash.py` 默认仍读旧 `sythsound/piano_coeff.txt` → 当前 `.bin/.mem`。两条链尚未默认接通，不能把生成器改动等同于镜像已经更新。选表/定标合同只维护在 [router说明](rtl/router/README.md#coefficient-pipeline)。
 - `.npz`、旧 `.mem` ROM、router Flash 64-byte 记录有不同合同，不能按扩展名互换。
 
 ## 6. 推荐阅读与验证

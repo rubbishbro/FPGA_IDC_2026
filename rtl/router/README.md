@@ -210,7 +210,7 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 | 信号 | 语义 | 谁产生 |
 |---|---|---|
 | `fmap[i]` | 力度 0..255（0 = 松键） | 外部（压力传感器） |
-| `note_on[i]` | **滞回门控电平**：按下 >2、松开 <1，不是脉冲 | `voice_router`（打一拍输出） |
+| `note_on[i]` | **滞回门控电平**：按下 >230、保持 ≥26、松开 <26，不是脉冲 | `voice_router`（打一拍输出） |
 | `note_ev/note_f` | 起音沿 / 攒到帧头的那份 | 各消费模块自己取（`excitation_gen`、`envelope_*` 内部各有一份） |
 | `dead[i]` | 这个声部**真的空了**：ADSR 走完 release 才给；dyn0 没按住就给 | `envelope_*` |
 | `clear` | 换乐器：清激励状态机 / 腔体历史 | **各子模块内部**比较自己的 `inst_q` 产生（`exc_router`/`body_router`）；混响的 `clr` 来自 `preset` 比较。`voice_router` 不产生 `clear` |
@@ -272,11 +272,32 @@ y  = wo*q
 `a12'=a12*k, a21'=a21/k, gq'=gq*sq, gv'=gv*sv, wo'=wo/sq`，a11/a22 不变。
 恢复力 a21 为负；物理域可选 `k=sqrt(abs(a21/a12))` 平衡矩阵元幅度，两者符号相反，不能写成 `a12'=a21'`。
 
-**当前钢琴生成器已经改过**：`sythsound/piano_coeff_gen.py` 直接生成
-`a12=es*omega0/wd`、`a21=-es*omega0/wd`，并计算 sq/sv 对 gq/gv/wo 定标。
-因此 `sythsound/piano_coeff.txt` 不能再默认解释成旧的未归一化物理表。
-`tools/piano_flash.py` 仍有根据输入矩阵比值选择 k/sq 的转换和 Q 量化步骤，
-应对最终生成表检查极点、量化误差和状态/输出余量，不能仅因没有系数字段饱和就认定整链正确。
+<a id="coefficient-pipeline"></a>
+
+**生成器输出与打包器输入是两条尚未统一的链，不能再画成一个默认箭头。**
+
+| 当前文件/工具 | 实际合同 |
+|---|---|
+| `sythsound/piano_coeff_gen.py` | main写`piano_coeff_scaled.txt`；MIDI40..79、每音64条（32模态的两组微失谐）；矩阵已采用a12=es*omega0/wd、a21=-es*omega0/wd，gq/gv/wo已定标 |
+| `sythsound/piano_coeff.txt` | 仍是打包器默认输入的旧表，矩阵未平衡；不是当前生成器默认写入目标 |
+| `sythsound/piano_coeff_scaled.txt` | 新生成器的已平衡/定标表；若采用，须显式传`--coeff`并另存镜像，当前默认脚本未切换 |
+| `tools/piano_flash.py` | 默认读旧piano_coeff.txt，scale_mode后Q量化；对新scaled表仍走scale_mode，已是冗余兼容步骤，不能据注释声称输入一律为物理域 |
+| `tools/piano_flash.bin/.mem` | 本轮内存重打包确认，两份现有镜像匹配旧默认表；不匹配改用scaled表生成的镜像 |
+| `sythsound/guitar_coeff_gen.py` | 写guitar_coeff_scaled.txt，但a12=es/wd、a21=-es*omega0²/wd，只缩放gq/wo；不具备钢琴同样的矩阵平衡合同 |
+
+新scaled钢琴表的全部非零矩阵比值k=1；当前打包器对其首模态选k=1、sq=1。旧默认表首模态则为k≈517.165、sq=512，因而“生成侧已改”不意味着当前默认打包链已经使用新表。检查必须区分生成器版本、所选输入、最终镜像，不直接删除scale_mode或自动替换已验证资源。
+
+对表时可另存候选镜像，避免覆盖现有TB资源：
+
+```bash
+mkdir -p /tmp/fpga-coeff-review
+python rtl/router/tools/piano_flash.py --coeff sythsound/piano_coeff.txt --out /tmp/fpga-coeff-review/legacy.bin --mem /tmp/fpga-coeff-review/legacy.mem
+python rtl/router/tools/piano_flash.py --coeff sythsound/piano_coeff_scaled.txt --out /tmp/fpga-coeff-review/scaled.bin --mem /tmp/fpga-coeff-review/scaled.mem
+```
+
+这只比较格式/定标与镜像，不证明新表音色、状态余量或实时出声。切换表前需重测极点/量化、正常与全槽幅度、激励/包络链和RTL golden。`--raw`跳过额外定标的选择也须单独核对，不能当成自动兼容开关。
+
+吉他当前脚本main的40..79循环仍固定调用print_guitar_coeff_by_midi(66)，现有guitar_coeff.txt的40个音标签实际只有一组不同的系数正文，不能计作40个可用音高。新增guitar_param_gen.py仍是七系数原型（a21为正），不是mod_par_t参数生成器，尚未接入router镜像链；详见 [问题台账](../../docs/bugs.md)。
 
 字段小数位：a11=28、a12=30、a21=23、a22=28、gq=31、gv=27、wo=15；
 eng0 状态 QF=24、激励 XF=28、输出 YF=40。eng1 的 G/a1/a2 使用另一套格式，
@@ -510,9 +531,7 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 5. **`DEBUG_PORT` 现在只吐"最近一次引擎读到的状态字"**（不能任意地址读），因为没有
    多余的 RAM 读口。要真调试得在外面加 ILA，或者接受多一块 RAM 复制的代价。
 6. **`eng0` 缺独立的 golden 值测试**（用 Python 模型逐样本对比），现在只有端到端。
-7. **音高 / 系数表**：`tools/piano_flash.py` 能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音
-   × 64 模态）按 16 个 slot 出镜像。**sq/sv 归一化这一步已经补上**（§4.5 有推导）；
-   归一化后 1024 个模态零饱和。黄金向量已删，TB 直接读 `piano_flash.mem`。
+7. **音高 / 系数表**：默认打包器仍读取旧piano_coeff.txt，生成器已写入另一份piano_coeff_scaled.txt；当前镜像属于旧默认输入。16slot资源与新旧表的定标/量化合同见§4.5，旧“零饱和”记录不能证明新表已进入音乐回归。
 8. **R7历史未通过记录**：旧用例只按声部15时观察到状态未有效写入，原TB已删除。2026-10-28在声明兼容副本中，用16槽不同状态夹具完成4帧、64次A/B独立比较并通过；该证据不等于原R7的真实音色场景及全部触发／释放交互已关闭，详见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)。
 9. **`voice_router.cst` 故意没有 `IO_LOC`**：P16/R15 在 GW5AST-LV138FPG676AES 上无效
    （PR2017/PR2028），要上板得按实际板子补。
