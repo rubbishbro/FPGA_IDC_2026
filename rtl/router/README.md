@@ -107,7 +107,7 @@ voice_router                      存储 + 调度 + 后级
 |---|---|---|---|
 | `voice_router` | 存储、调度、混音 | `start`、**`done`(电平：1=空闲可 start)**、**`ready`(1=会执行挂起的配置变更)**、`load_err`、`fmap[16]`、`inst`、`reverb_preset`、`reload`、`y_valid/y_data`、`ns_rd_*`(debug) | 旧 eng0 记录约 735 拍/采样（64 模态） |
 | `voice_router` | **声部数是参数 `SLOTS`**（不是端口） | `SLOTS` ∈ {4, 8, 16}：**只能 ≤16**（硬件只有 16 个按键），且必须 2 的幂、≥4（要拆两个 bank） | — |
-| `weight_loader` | 四线 SPI 读 + 写口 | `start/busy/done/err`、`ld_we/ld_addr/ld_co/ld_pm`、`qspi_*` | ~520 拍/记录 |
+| `weight_loader` | 四线 SPI 读 + 写口 | `start/busy/done/err`、`ld_we/ld_addr/ld_co/ld_pm`、`qspi_*` | 1024 拍/记录 @SCK_DIV=4 |
 | `eng0` | 直接型引擎：`y = Σ (coef × 状态)` | `co_re/co_addr/co_data`、`st_re/st_addr/st_q/st_qdot`、`st_we/...`、`x_re/x_data` | 每模态 5 级流水，N+8 拍/作业 |
 | `eng1` | ABC 引擎：`y = clamp((G*x - a1*y1 - a2*y2)>>24)` | 同上 | 每模态 ~5 拍 |
 | `eng_router` | 按 `inst` 在 eng0/eng1 间二选一 | 作业口 + 一套存储口 | 无额外延迟 |
@@ -481,7 +481,19 @@ S12 = a12 + k·d(a12_phys)/d(alpha)
 ### 5.7 加载是阻塞的
 
 - 换乐器 → 停帧 → 重灌 → 继续。一次 64 KB（16 声部 × 64 模态 × 64 字节）：
-  实测 **526 994 拍 ≈ 5.3 ms**（`SCK_DIV=4`，四线模式；原 `tb_loader_flash` 量的，TB 已删）。
+  实测 **526 994 拍 ≈ 5.3 ms**（`SCK_DIV=4`，四线模式）。
+**2026-10-28 用 W25Q128 公开行为模型重验**（`_analysis/tb_loader_ref.sv`）：
+钢琴表 2048 笔写（1024 系数 + 1024 参数）零差异；吉他表 640 笔零差异；
+空片（全 FF）4837 拍、`err=1`、两张表全填 0。
+
+**协议细节（0x6B Fast Read Quad Output）**：
+```
+CS↓ → 指令 8 SCK（DQ0 单线）→ 地址 24 SCK（**DQ0 单线**，MSB 先）
+     → 8 个 dummy SCK（总线交给 flash）→ 数据 4 位并出（每字节 2 SCK）
+头部总共 40 个 SCK；`qspi_dq_oe` 只在 beat<32 时驱动
+```
+之前这里把 24 位地址按"4 位一拍"发了 6 拍（那是 0xEB Quad-I/O 的格式），
+配 0x6B 的指令在真芯片上会读错地址 —— 基准模型一挂就露馅了。
   换句话说：**中途 reload 会丢掉约 250 个采样**，所以才有"等键全松再 reload"的策略问题（§8.2）。
 - **代价**：切换乐器时会断供样；旧记录约 5.3ms，整机须定义补静音/缓冲策略。要更快只能改 PHY（默认 4 拍/SCK；100MHz 输入对应 25MHz SCK）。
 - Quad 模式要求 flash 的 **QE 位**已置位（状态寄存器 2 bit1）——一次性配置，loader 不做

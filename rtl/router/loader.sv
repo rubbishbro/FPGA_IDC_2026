@@ -74,7 +74,7 @@ module weight_loader #(
     localparam int DPW  = (DIV4 > 1) ? $clog2(DIV4) : 1;
 
     // 头部 = 8 钟指令 + 6 钟地址（4 位一拍）+ 8 钟 dummy = 22 个 SCK
-    localparam int HDR_BEATS = 22;
+    localparam int HDR_BEATS = 40;
     localparam logic [5:0] HDR_LAST = 6'(HDR_BEATS - 1);
 
     typedef enum logic [2:0] { W_IDLE, W_HDR, W_DATA, W_WR, W_FILL, W_END } wstate_e;
@@ -112,15 +112,17 @@ module weight_loader #(
     assign bad_z      = (z_cnt  + 5'(rx_sh == 32'h0000_0000)) >= 5'(REC_WORDS);
     // SCK：相位 1、2 为高；只在收发状态翻钟
     assign qspi_sck   = (st == W_HDR || st == W_DATA) && (ph == 2'd1 || ph == 2'd2);
-    // 只有"指令 + 地址"这 14 个 SCK 驱动总线；dummy 阶段松开（换向给 flash）
-    assign qspi_dq_oe = (st == W_HDR) && (beat < 6'd14);
+    // 只有"指令 + 地址"这 32 个 SCK 驱动总线；8 个 dummy 阶段松开（换向给 flash）
+    assign qspi_dq_oe = (st == W_HDR) && (beat < 6'd32);
 
     // 头部第 b 个 SCK 要送出的 4 位
     function automatic logic [3:0] hdr_dq(input logic [5:0] b);
         if (b < 6'd8)                       // 指令：只走 DQ0，DQ1..3 给 1
             hdr_dq = {1'b1, 1'b1, 1'b1, CMD_QUAD[7 - b[2:0]]};
-        else                                // 地址：4 位一拍，MSB 先
-            hdr_dq = base24[23 - 4*(b - 6'd8) -: 4];
+        else if (b < 6'd32)                 // 地址：**单线**（DQ0），24 位 MSB 先
+            hdr_dq = {1'b1, 1'b1, 1'b1, base24[6'd31 - b]};
+        else                                // 8 个 dummy：总线交给 flash
+            hdr_dq = 4'b1111;
     endfunction
 
     // 一个模态的 16 个字收齐后直接装配到写数据口 ld_co / ld_pm
