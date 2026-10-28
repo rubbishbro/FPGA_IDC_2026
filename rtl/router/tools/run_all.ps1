@@ -118,3 +118,7 @@ try {
 } finally {
     Pop-Location
 }
+
+    Write-Host '=== 6/6 loader 基准模型回归（W25Q128 公开模型，3 个用例）===' -ForegroundColor Cyan
+    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run_loader.ps1')
+    if ($LASTEXITCODE -ne 0) { throw 'run_loader.ps1 失败' }

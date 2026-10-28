@@ -66,3 +66,7 @@ FFT_spectrumshow/sim/**/*.log
 FFT_spectrumshow/sim/archive/legacy/diag/*.csv
 FFT_spectrumshow/sim/archive/legacy/diag/*.svg
 FFT_spectrumshow/sim/archive/legacy/diag/*.txt
+
+# flash 模型的存储镜像（由 tools/gen_mem.py 每次生成）
+MEM.TXT
+

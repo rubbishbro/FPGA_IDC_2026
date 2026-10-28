@@ -35,7 +35,7 @@ module tb_music;
     parameter  int DBG    = 0;               // 1 = 前 4 个采样逐级打印（定位 X）
     parameter  int NOTE_SLOT = 0;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
-    parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
+    parameter  int ALL16  = 1;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;                    // 100 MHz 的时钟沿，CLK_HZ 只是分频参数
@@ -54,6 +54,12 @@ module tb_music;
     logic [3:0]  qspi_dq_o;
     logic        qspi_dq_oe;
 
+    // ---- W25Q128 基准模型（真 loader 的对手盘）----
+    wire [3:0] qspi_dq;
+    assign qspi_dq = qspi_dq_oe ? qspi_dq_o : 4'bzzzz;
+
+    w25q_dut u_flash (.cs_n(qspi_cs_n), .sck(qspi_sck), .dq(qspi_dq));
+
     voice_router #(
         .SLOTS(16), .N_MODES(64), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .DEBUG_PORT(1'b1)
     ) dut (
@@ -65,7 +71,7 @@ module tb_music;
         .ns_rd_en(ns_rd_en), .ns_rd_addr(ns_rd_addr), .ns_rd_sel(ns_rd_sel),
         .ns_rd_data(ns_rd_data), .ns_rd_valid(ns_rd_valid),
         .qspi_cs_n(qspi_cs_n), .qspi_sck(qspi_sck),
-        .qspi_dq_o(qspi_dq_o), .qspi_dq_oe(qspi_dq_oe), .qspi_dq_i(4'b0)
+        .qspi_dq_o(qspi_dq_o), .qspi_dq_oe(qspi_dq_oe), .qspi_dq_i(qspi_dq)
     );
 
     // ------------------------------------------------------------------
@@ -83,7 +89,12 @@ module tb_music;
     // ------------------------------------------------------------------
     // done 是**电平**：先等空闲 -> 发 start -> 等它落下 -> 再等它起来
     task automatic one_sample();
-        while (!done) @(posedge clk);
+        begin
+            int guard;
+            guard = 0;
+            while (!done && guard < 4_000_000) begin @(posedge clk); guard++; end
+            if (guard >= 4_000_000) $display("    !! one_sample 等 done 超时");
+        end
         @(negedge clk); start <= 1'b1;
         @(negedge clk); start <= 1'b0;
         while (done)  @(posedge clk);
@@ -94,6 +105,18 @@ module tb_music;
     task automatic press(input int slot, input int val);
         fmap.flat_d[slot].val = 8'(val);
     endtask
+
+    // ---- 加载写口覆盖统计：每个 (sel, slot) 有没有被写过 ----
+    bit          wr_cov [0:1][0:15];
+    int          n_ld_wr = 0;
+    initial for (int i = 0; i < 16; i++) begin wr_cov[0][i] = 1'b0; wr_cov[1][i] = 1'b0; end
+
+    always @(posedge clk) begin
+        if (rst_n && dut.ld_we) begin
+            n_ld_wr <= n_ld_wr + 1;
+            wr_cov[dut.ld_addr[9]][dut.ld_addr[8:5]] <= 1'b1;
+        end
+    end
 
     // ------------------------------------------------------------------
     // 系数直接从 flash 镜像读（tools/piano_flash.mem / guitar_flash.mem）
@@ -211,7 +234,6 @@ module tb_music;
             if (nsamp_v <= 0) nsamp_v = NSAMP;
         end
         inst          = (ins_sel == 1) ? router_pkg::INST_GUITAR : router_pkg::INST_PIANO;
-        dut.inst_prev = inst;
         load_coefs();
         $display("    INS=%0d（%0s）  SWEEP=%0d", ins_sel,
                  (ins_sel == 1) ? "吉他" : "钢琴", sweep_sel);
@@ -289,6 +311,18 @@ module tb_music;
 
         $display("渲染完成：%0d 个采样（%0d us），仿真墙钟 %0d ms，输出 %0d 个值",
                  NSAMP, 64'(NSAMP)*1000000/64'(SR_HZ), ($time - t0)/1000000, n_out);
+        $display("    flash 加载：写入 %0d 笔", n_ld_wr);
+        begin
+            int miss;
+            miss = 0;
+            for (int sl = 0; sl < 16; sl++)
+                if (!(wr_cov[0][sl] && wr_cov[1][sl])) begin
+                    miss++;
+                    $display("    !! slot %0d 没写全：系数=%0b 参数=%0b", sl, wr_cov[0][sl], wr_cov[1][sl]);
+                end
+            if (miss == 0) $display("    loader 覆盖：16 个 slot × 2 个半区 全部写到 ✓");
+            else           $display("    loader 覆盖：%0d 个 slot 没写全 ✗", miss);
+        end
         // ---- DBG：逐模态扫一遍 slot NOTE_SLOT 的系数和状态（查调制写坏没）----
         if (DBG != 0) begin
             $display("    DBG mode scan (slot %0d): a11(Q28) a12(Q30) wo(Q29) q(Q24)   |q|>2^24 或 |a11|>2^28 会标 *",

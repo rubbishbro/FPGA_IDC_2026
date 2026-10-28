@@ -43,7 +43,7 @@ SH_PM = dict(a11_0=28, a12_0=30, a22_0=28, wo_0=29,
              s11=29, s12=29, s22=29, swo=29)
 
 SLOTS = 16
-MODES_DEFAULT = 20          # = router_pkg::n_modes_of(INST_GUITAR)
+MODES_DEFAULT = 64          # flash 布局固定 64 条/slot（loader 按 N_MODES 读），吉他实际只用前 20
 INST_DEFAULT = 1            # = router_pkg::INST_GUITAR
 DEFAULT_MIDI = [40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 67, 71, 76]
 
@@ -98,6 +98,11 @@ def build(co_tbl, pm_tbl, midi_list, n_modes: int) -> bytes:
         if co is None or pm is None:
             raise SystemExit(f"表里没有 midi{midi}")
         for m in range(n_modes):
+            if m >= len(co):
+                # 表里只有 20 个模态：其余补 0（引擎按 n_modes_of 只读前 20 条）
+                out += record({f: 0 for f in CO_FIELDS},
+                              {f: 0 for f in FIELDS_PM})
+                continue
             c = {f: to_int(co[m][f], SH_CO[f], f) for f in CO_FIELDS}
             p = {
                 "a11_0": to_int(pm[m]["a11"], SH_PM["a11_0"], "a11_0"),
