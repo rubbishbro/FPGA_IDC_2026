@@ -35,7 +35,7 @@ module tb_music;
     parameter  int DBG    = 0;               // 1 = 前 4 个采样逐级打印（定位 X）
     parameter  int NOTE_SLOT = 0;            // 弹哪个 slot（镜像里 slot0 = midi40，每 slot +2 半音）
     parameter  int HOLD   = 20000;           // 按住多少采样后松键（剩下的是自由衰减）
-    parameter  int ALL16  = 1;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
+    parameter  int ALL16  = 0;               // 1 = 开头 16 个键一起按下（测饱和）；0 = 只弹一个音
 
     logic clk = 0, rst_n = 0;
     always #5 clk = ~clk;                    // 100 MHz 的时钟沿，CLK_HZ 只是分频参数
