@@ -159,3 +159,26 @@ python3 sim/run_ui.py
 每组系统测试连续至少1600个正常合成样本后执行重载、空表失败、恢复、run停启；MIDI顶层配置另切入真实MIDI模式验证A/B两bank的NoteOn、重复NoteOn、CC64延音、NoteOff与CC120清除，实际退休后检查门控；Flash为独立6Bh模型，eng1使用稳定的合成ABC表，不是正式长笛资源。12.5MHz场景覆盖此前约19.5ms漂移欠载时间；12.288MHz模拟准确48k配置，时钟边沿有仿真时间精度量化。所有音频时钟均与100MHz core异步相位。旧eng1_cosim.py/TB仍属历史入口，不替代新增对拍。
 
 结果：音频8项、router/联合配置11项、UI3项、MIDI状态2项，共24项通过。音频结果在build/i2s_pipeline/audio_final/results.json；追加真实MIDI事件验证的6组系统矩阵在build/i2s_pipeline/midi_clocked/results.json。12.5MHz帧间隔2048core拍，12.288MHz为2083/2084拍；正常窗口deadline/overflow/underflow均为0。钢琴64模态最大计算733拍，eng1实际48模态597拍（100MHz分别7.33μs、5.97μs），不等于物理时序收敛证明。详细接线见[rtl/audio](../rtl/audio/README.md)。本次不做panic音频队列flush；无实板/PnR/声学结论。
+
+### 四种eng1持续音色实现回归（2026-10-29）
+
+顶层I2S接线已恢复，本节覆盖此前“缺AUDIO_ENABLE”的工作区基线。正式命令：
+
+```bash
+python3 sim/run_sustain.py --out build/sustain/full
+python3 sim/run_audio.py --out build/sustain/audio_final
+python3 sim/run_router_midi.py --out build/sustain/router_final
+python3 sim/run_flash_ref.py --out build/sustain/flash
+python3 sim/run_ui.py
+python3 sim/run_midi.py --out build/sustain/state_final
+QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=software QT_OPENGL=software   ~/gowin/IDE/bin/gw_sh sim/synth/sustain_build.tcl
+```
+
+run_sustain可用--test frontend/config/system选择，--inst 2/3/4/5选音色，--samples设置16槽持音样本数（默认48000）。需要numpy/scipy的资源生成器默认使用本机torch312环境，异机用SUSTAIN_PYTHON指定。Questa沿用QSIM_INI或现有full ini，单项长测超时3600秒，仿真watchdog另外限界；不要把超时当通过。
+
+- frontend：四音色各48000采样，4槽不同周期/力度/包络，独立样本参考共848048次检查。
+- config：旧音色持键挂起、候选映射/偏移变化、非法配置不启动Flash、有界失败及显式恢复。
+- system：真实生成的32音B表经独立6Bh模型装入16槽×64存储/48计算；逐帧比较冲激、包络及全部模态递推/混音，独立解码I2S。含延音、重触发、释放阻止异来源抢槽、清零后复用、CC120、坏表失败不提交新周期和音区恢复。
+- Flash公开模型：独立runner在私有目录准备MEM/状态文件，钢琴64、吉他64、空片及两种音乐冒烟；不改写仓库TB、不直接灌DUT RAM。Windows脚本已同步源依赖、64存储、生成器路径和退出前执行回归；本机没有Windows xsim实际执行结果，Questa入口为本次复现证据。
+
+测试48..79资源显式允许重定音并记录来源，不是正式音域或六音色烧录镜像。生成器/配套配置与部署限制见eng1前端文档。综合探针仅证明代码可综合，不证明100MHz布局布线收敛。

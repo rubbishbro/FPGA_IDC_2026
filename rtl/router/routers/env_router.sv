@@ -7,6 +7,7 @@ module env_router #(
     input  logic                    clk,
     input  logic                    rst_n,
     input  logic                    smp_tick,
+    input logic [SLOTS*32-1:0] slot_a_step,slot_r_step,
     input  logic [SLOTS*8-1:0]      envelope_level,
     input  logic [SLOTS-1:0]        retrigger, slot_clear,
     input  logic                    midi_mode,
@@ -39,6 +40,10 @@ module env_router #(
             //     use_adsr = 1'b0;
             //     use_dyn  = 1'b1;
             // end
+            router_pkg::INST_FLUTE,router_pkg::INST_TRUMPET,
+            router_pkg::INST_CELLO,router_pkg::INST_VIOLIN:begin
+                use_adsr=1; s_level=32'h1fffffff;
+            end
             default: use_adsr = 1'b0;   // 常数包络（"无"）
         endcase
     end
@@ -49,10 +54,13 @@ module env_router #(
 
     // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
     logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r;
+    logic sustain_mode_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            sustain_mode_r <= 1'b0;
             a_step_r <= '0; d_step_r <= '0; s_level_r <= '0; r_step_r <= '0;
         end else begin
+            sustain_mode_r <= router_pkg::is_sustain(inst);
             a_step_r  <= a_step;
             d_step_r  <= d_step;
             s_level_r <= s_level;
@@ -60,8 +68,9 @@ module env_router #(
         end
     end
 
-    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_adsr (
+    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1)) u_adsr (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
+        .sustain_mode(sustain_mode_r),.slot_a_step(slot_a_step),.slot_r_step(slot_r_step),
         .retrigger(retrigger), .slot_clear(slot_clear),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),

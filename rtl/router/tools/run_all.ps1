@@ -54,6 +54,7 @@ try {
             'rtl/drivers/pkg/pad_driver_pkg.sv',
             'rtl/router/pkg/modal_step_pkg.sv',
             'rtl/router/pkg/router_pkg.sv',
+            'rtl/router/pkg/sustain_profiles_pkg.sv',
             'rtl/router/parts/envelope.sv',
             'rtl/router/parts/excitation.sv',
             'rtl/router/parts/modulation.sv',
@@ -73,6 +74,8 @@ try {
             'rtl/audio/audio_async_fifo.sv',
             'rtl/audio/i2s_amp_tx.sv',
             'rtl/audio/i2s_audio_output.sv',
+            'rtl/router/tb/w25q_dut.sv',
+            'rtl/router/tb/vendor/w25q128/W25Q128JVxIM.v',
             'rtl/router/tb/tb_music.sv'
         )
         foreach ($f in $srcs) {
@@ -90,6 +93,18 @@ try {
             throw 'xelab 失败'
         }
     }
+
+    # Prepare a fresh private model image before running music.
+    $vendor = 'rtl/router/tb/vendor/w25q128'
+    $musicMem=$mem
+    if (Test-Path '_analysis/case.txt') {
+        $caseInstrument=(Get-Content '_analysis/case.txt' | Select-Object -First 1).Trim()
+        if ($caseInstrument -eq '1') { $musicMem='rtl/router/tools/guitar_flash.mem' }
+    }
+    New-Item -ItemType Directory -Force '_analysis' | Out-Null
+    & $Python 'rtl/router/tools/gen_mem.py' --src $musicMem --base 0 --out 'MEM.TXT'
+    if ($LASTEXITCODE -ne 0) { throw 'gen_mem.py 失败' }
+    foreach ($f in @('SECSI.TXT','SFDP.TXT','SREG.TXT')) { Copy-Item "$vendor/$f" . -Force }
 
     # ---- 3) 跑 --------------------------------------------------------------
     Write-Host '=== 3/4 仿真（渲染音频） ===' -ForegroundColor Cyan
@@ -114,6 +129,8 @@ try {
         } else {
             Write-Host '    dec2wav 失败（仿真结论仍算 PASS，只是音频没导出）' -ForegroundColor Yellow
         }
+        & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run_loader.ps1') -Python $Python -Vivado $Vivado
+        if ($LASTEXITCODE -ne 0) { throw 'run_loader.ps1 失败' }
         exit 0
     } else {
         Write-Host 'tb_music             FAIL' -ForegroundColor Red
@@ -123,7 +140,3 @@ try {
 } finally {
     Pop-Location
 }
-
-    Write-Host '=== 6/6 loader 基准模型回归（W25Q128 公开模型，3 个用例）===' -ForegroundColor Cyan
-    & pwsh -NoProfile -File (Join-Path $PSScriptRoot 'run_loader.ps1')
-    if ($LASTEXITCODE -ne 0) { throw 'run_loader.ps1 失败' }

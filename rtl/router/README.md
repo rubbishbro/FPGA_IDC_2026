@@ -6,7 +6,7 @@
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
 按乐器加载。
 
-- nominal采样率48kHz，目标主频100MHz；当前演奏顶层缺I2S接口，恢复外部采样模式后Fs应由音频参考决定；旧 eng0 钢琴 64 模态记录为 **每采样约 735 拍**，不推广为 eng1 或当前整机保证。
+- nominal采样率48kHz，目标主频100MHz；两个演奏顶层已恢复I2S接口，AUDIO_ENABLE=1时Fs由音频参考决定；旧 eng0 钢琴 64 模态记录为 **每采样约 735 拍**，不推广为 eng1 或当前整机保证。
 - 两套引擎：`eng0`（7 个并行乘法的直接型）和 `eng1`（ABC 递推）。
   **当前 `eng_sel()` 把 `INST_PIANO`/`INST_GUITAR` 派给 `eng0`（模态引擎），其余乐器
   （FLUTE/TRUMPET/…）先默认派给 `eng1`** —— 分配还是占位，见 `router_pkg.sv` 的注释。同一时刻只用一种，
@@ -23,9 +23,9 @@
 
 ## MIDI演奏选源增量（3.2）
 
-2026-10-28已增加 [midi_voice_top.sv](midi_voice_top.sv) 连接MIDI状态层与真实voice_router；router内 [performance_input_mux.sv](routers/performance_input_mux.sv) 选择压力垫或MIDI的门控/激励力度，MIDI不伪装成fmap。原实例默认MIDI_ENABLE=0。激励模块新增明确的力度、重触发和逐槽清除输入；3.2阶段未改计算核心，后续工作区eng1已改流水，专用持续音色形状仍待补入。
+2026-10-28已增加 [midi_voice_top.sv](midi_voice_top.sv) 连接MIDI状态层与真实voice_router；router内 [performance_input_mux.sv](routers/performance_input_mux.sv) 选择压力垫或MIDI的门控/激励力度，MIDI不伪装成fmap。原实例默认MIDI_ENABLE=0。激励模块新增明确的力度、重触发和逐槽清除输入；3.2阶段未改计算核心，后续工作区eng1已改流水，四种持续音色已补逐槽冲激串/ADSR及释放清理退休。
 
-当前仓库源文件已前移必要声明，能够直接通过Questa编译；前文兼容副本限制仍描述早先补测。新增正式入口`python3 sim/run_router_midi.py`，3.2阶段五项、后续联合配置扩展至11项曾通过，当前工作区不可据此直接宣称全量重验通过；pending音色模态数和eng1 B结果锁存问题已在router修复。原压力垫256采样修改前后逐点一致。端口、切源/通道语义和验证限制统一见[MIDI接入3.2](../../docs/MIDI演奏与通信接入.md#router-midi-step32)，新入口不使用兼容副本或7061抑制，不替代真实Flash、音色资源、48k吞吐或上板验收。
+当前仓库源文件已前移必要声明，能够直接通过Questa编译；前文兼容副本限制仍描述早先补测。新增正式入口`python3 sim/run_router_midi.py`，3.2阶段五项、后续联合配置扩展至11项曾通过，本次实现后重跑11项通过，新的真实B表/音频矩阵单列于验证记录；pending音色模态数和eng1 B结果锁存问题已在router修复。原压力垫256采样修改前后逐点一致。端口、切源/通道语义和验证限制统一见[MIDI接入3.2](../../docs/MIDI演奏与通信接入.md#router-midi-step32)，新入口不使用兼容副本或7061抑制，不替代真实Flash、音色资源、48k吞吐或上板验收。
 
 ## 1. 概览
 
@@ -578,7 +578,7 @@ Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术�
 - DEBUG_PORT只返回最近缓存状态，eng0完整波形golden与真实音色bank独立性仍需补充。
 - 当前CST缺最终IO_LOC，历史85.44MHz/PnR不是当前整机100MHz签核。
 - 揉弦只调最低MOD_TOP=4、lambda<=0.035；历史探针中扩大到5/6模态超出稳定边界。线性化参照及量化后极点/幅度须独立重验，不能只依据guitar_param_gen --verify。
-- 当前音频顶层端口缺失、忙时panic回退、持续音色前端、混响宽乘积、调制原子提交及Windows运行器分别见台账，不在这里另维护第二份修复清单。
+- 板级音频、忙时panic、持续音色资源验收、混响宽乘积、调制原子提交及Windows运行器实测分别见台账，不在这里另维护第二份修复清单。
 
 ---
 
@@ -641,6 +641,12 @@ voice_router新增table_valid，失败不提交inst_prev、不出音频、不自
 
 eng1已改为R/M/S/N/W五级跨模态流水，II=1，保持原位宽/符号/舍入/饱和，空作业不读写RAM；存储64模态，n_modes_of为钢琴64、吉他20、其余eng1首版48。先前每模态5拍、约24k出样及零模态失败的记录是实施前基线，当前以sim/run_audio.py的生产源回归为准。
 
-音频模块和voice_router.EXTERNAL_SAMPLE_TICK接口仍在；当前midi_voice_top/pad_voice_top缺少AUDIO_ENABLE、audio_clk和I2S实例/端口。恢复接线时应保持I2S帧作为激励/包络/合成统一时基、Q24转PCM16、计划静音和独立诊断的合同；panic音频队列flush仍暂缓。详见[音频说明](../audio/README.md)。
+midi_voice_top/pad_voice_top已恢复AUDIO_ENABLE、audio_clk和I2S实例/端口。启用后I2S帧作为激励/包络/合成统一时基，使用Q24转PCM16、计划静音和独立诊断；panic音频队列flush仍暂缓。详见[音频说明](../audio/README.md)。
 
 先前接线快照的回归保留于[流水/I2S记录](../../docs/工程评审与验证.md#i2s-pipeline-test)；29日本次256组eng1及PCM模块复测通过，系统展开失败见[最新记录](../../docs/工程评审与验证.md#global-docs-2026-10-29)。尚无统一板级顶层或本次PnR/上板结论。
+
+## 四种持续音色前端（2026-10-29）
+
+现有excitation_gen增加周期冲激分支，env_router为FLUTE/TRUMPET/CELLO/VIOLIN选择同实例ADSR的逐槽A/R；x/E按帧锁存。voice_router的S_CFG逐槽准备配置，锁存目标映射/偏移，加载成功后启用；无效配置有失败完成。voice_idle须等释放归零及实际清理帧退休。
+
+配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；正式RESOURCE_MASK仍只开放钢琴，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。本次未改eng0/eng1算术核，未做整机PnR或烧录。

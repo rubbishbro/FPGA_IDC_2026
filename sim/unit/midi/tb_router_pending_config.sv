@@ -77,13 +77,13 @@ module tb_pad_load_failure;
         repeat(5)@(negedge clk);rst_n=1;
         wait(load_err && done);repeat(5000)@(negedge clk);
         if(table_valid || loads!=1)$fatal(1,"FAIL PAD boot fault/retry loop");
-        blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
+        @(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
         if(load_err || dut.N_MODES!=64)$fatal(1,"FAIL PAD default depth or recovery");
         blank=1;inst=INST_GUITAR;wait(load_err && done);
         if(table_valid || dut.u_voice.inst_prev!=INST_PIANO)$fatal(1,"FAIL PAD failed switch committed guitar");
-        blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
+        @(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(table_valid);wait(y_valid);
         if(load_err || dut.u_voice.inst_prev!=INST_GUITAR)$fatal(1,"FAIL PAD explicit retry did not recover");
         $display("PASS tb_pad_load_failure default64, error exported, no false audio/commit, explicit retry");$finish;
     end
-    initial begin #10000000;$fatal(1,"FAIL PAD failure watchdog");end
+    initial begin #10000000;$fatal(1,"FAIL PAD failure watchdog state=%0d inst=%0d prev=%0d lat=%0d error=%b valid=%b loads=%0d gate=%h",dut.u_voice.state,inst,dut.u_voice.inst_prev,dut.u_voice.inst_lat,load_err,table_valid,loads,dut.u_voice.note_on);end
 endmodule

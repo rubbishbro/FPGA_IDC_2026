@@ -120,4 +120,4 @@ FFT_results/sim/eng1/
 
 前述零模态/吞吐是旧阶段记录：当前工作区eng1已改为五级跨模态流水，空作业和满深度由sim/run_audio.py的新整数oracle验证。本文独立Python模型仍使用Q30；当前router激励/PCM按Q24解释，不能直接复制SHIFT22。
 
-B类周期驱动及ADSR仍未在RTL按乐器选择，逐槽period也未接入；本轮生产模块实测与建议见[eng1激励与包络接入复核](ENG1演奏前端设计.md#current-behavior)。BSynth是参考，不表示当前RTL已实现真实持续音色。
+B类周期驱动、ADSR及逐槽period现已接入RTL；实施合同和修复前实测统一见[eng1演奏前端](ENG1演奏前端设计.md)。BSynth提供参考，当前RTL验证结果另见[工程验证](工程评审与验证.md#sustain-implementation-2026-10-29)。

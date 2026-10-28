@@ -30,11 +30,14 @@
 module excitation_gen #(
     parameter int CLK_HZ = 100_000_000,
     parameter int SR_HZ  = 48_000,
-    parameter int SLOTS  = 16
+    parameter int SLOTS  = 16,
+    parameter bit SUSTAIN_ENABLE = 0
 )(
     input  logic                          clk,
     input  logic                          rst_n,
     input  logic                          clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
+    input logic sustain_mode,
+    input logic [SLOTS*16-1:0] slot_period,
     input  logic [5:0]                    SHIFT,      // 8 位力值 -> 32 位定点的左移量
     input  logic [5:0]                    RISE_SH,    // 上升步长 = target >> RISE_SH
     input  logic [15:0]                   PW_LEN,     // 上升段长度（采样数，>=1）
@@ -113,6 +116,16 @@ module excitation_gen #(
                     tgt[i] <= '0;
                     cnt[i] <= '0;
                     num[i] <= '0;
+                end else if (SUSTAIN_ENABLE && sustain_mode) begin
+                    // One-sample impulses with independent period. No taper/strike tail.
+                    st[i] <= X_IDLE; num[i] <= '0;
+                    if(!note_on[i] || slot_period[i*16 +:16]<2) begin
+                        acc[i]<='0;cnt[i]<='0;tgt[i]<='0;
+                    end else if(retrigger[i] || !note_q[i] || cnt[i]==0) begin
+                        acc[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
+                        tgt[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
+                        cnt[i] <= slot_period[i*16 +:16]-1'b1;
+                    end else begin acc[i]<='0;cnt[i]<=cnt[i]-1'b1;end
                 end else if (note_on[i] && (retrigger[i] || !note_q[i])) begin
                     // 按下那一下：第 1 个锤击，从 0 开始线性上升
                     st[i]  <= X_ATT;

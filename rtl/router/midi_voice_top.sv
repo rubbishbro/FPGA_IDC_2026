@@ -5,6 +5,9 @@
 // 超时/维护时control_cancel撤销未握手请求，后端不得在未握手时不可撤销地应用。
 module midi_voice_top #(
     parameter integer SLOTS=16, N_MODES=64, CLK_HZ=100_000_000, SR_HZ=48_000,
+    // AUDIO_ENABLE requires audio_clk; actual Fs = audio_clk / (64*AUDIO_CLK_DIV).
+    parameter bit AUDIO_ENABLE=1'b0,
+    parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=3,
     parameter bit NOTE_BANKS=1'b0, SINGLE_SOURCE=1'b1,
     // 开启后由backend事务独占配置；旧并行配置输入不再是第二个写入者。
     parameter bit CONFIG_BACKEND=1'b0,
@@ -15,6 +18,9 @@ module midi_voice_top #(
     parameter integer CONFIG_TIMEOUT_CYCLES=CLK_HZ/5
 ) (
     input logic clk,rst_n,run,
+    input logic audio_clk,
+    output logic amp_bclk,amp_ws,amp_din,
+    output logic audio_sample_tick,audio_deadline_miss,audio_overflow,audio_underflow,
     input pad_driver_pkg::mat4x4 fmap,
     input router_pkg::instrument_e pad_instrument,
     input router_pkg::reverb_preset reverb_preset,
@@ -76,7 +82,7 @@ module midi_voice_top #(
     logic [31:0] op_event_data;
     logic op_source_id,op_rejected;
     logic [SLOTS-1:0] gate,retrigger,hard_clear,voice_idle;
-    logic [SLOTS*7-1:0] velocity,note_map;
+    logic [SLOTS*7-1:0] velocity,note_map,slot_map_q,target_slot_map;
     logic [SLOTS*32-1:0] offsets;
     logic router_ready,router_done,router_midi_ready,router_midi_inflight,load_complete;
     logic maintenance_done,router_y_valid;
@@ -91,7 +97,7 @@ module midi_voice_top #(
     wire changing=!CONFIG_BACKEND && ((selected_channel!=channel_q) || (midi_select!=mode_q) ||
                   (SINGLE_SOURCE && midi_source_id!=source_q) ||
                   (NOTE_BANKS && (note_bank!=bank_q || first_midi_note!=first_q)) ||
-                  (!mode_q && pad_instrument!=pad_q));
+                  (!mode_q && pad_instrument!=pad_q) || (!NOTE_BANKS && slot_note_map!=slot_map_q));
     wire admit=cfg_state==C_RUN && !changing && !panic && mode_q;
     wire filtered=(!admit) || (SINGLE_SOURCE && event_source_id!=source_q) ||
                   (!note_off && event_data[27:24]!=channel_q) || (new_on && !channel_mapped);
@@ -180,7 +186,7 @@ module midi_voice_top #(
             4:ctrl_supported=CONTROL_SUPPORTED[4];
             default:;
         endcase
-        note_map=slot_note_map;
+        note_map=slot_map_q;
         offsets='0;
         for(integer i=0;i<SLOTS;i++) begin
             if(NOTE_BANKS) note_map[i*7 +: 7]=7'(first_q+(bank_q?SLOTS:0)+i);
@@ -212,6 +218,7 @@ module midi_voice_top #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
+            slot_map_q<=router_pkg::default_note_map();target_slot_map<=router_pkg::default_note_map();
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
             pad_q<=router_pkg::INST_PIANO;target_pad<=router_pkg::INST_PIANO;
@@ -247,6 +254,7 @@ module midi_voice_top #(
                 C_INIT,C_RUN,C_FAULT: if(cfg_state==C_INIT ||
                     (cfg_state==C_RUN && config_request) ||
                     (cfg_state==C_FAULT && ((reload && !reload_q) || (panic && !panic_q)))) begin
+                    target_slot_map<=slot_note_map;
                     target_channel<=CONFIG_BACKEND ? (have_commit ? 4'(backend_audio_state.channel-1'b1) : 4'd1) : selected_channel;
                     target_mode<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source!=0) : midi_select;
                     target_source<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source==2) : (SINGLE_SOURCE?midi_source_id:1'b0);
@@ -265,6 +273,7 @@ module midi_voice_top #(
                        (NOTE_BANKS && (32'(target_first)+2*SLOTS>128))) begin
                         config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
                     end else begin
+                        slot_map_q<=target_slot_map;
                         channel_q<=target_channel;mode_q<=target_mode;source_q<=target_source;
                         bank_q<=target_bank;first_q<=target_first;pad_q<=target_pad;
                         case(target_reverb)
@@ -304,6 +313,7 @@ module midi_voice_top #(
                     backend_response.result<=candidate_result;backend_response.applied_value<=0;
                     backend_rsp_valid<=1;
                 end else begin
+                    target_slot_map<=slot_note_map;
                     target_channel<=4'(candidate.channel-1'b1);target_mode<=candidate.source!=0;
                     target_source<=candidate.source==2;target_bank<=candidate.bank;
                     target_first<=NOTE_BANKS?first_midi_note:7'd0;target_pad<=candidate_pad;
@@ -328,13 +338,13 @@ module midi_voice_top #(
         .slot_source(),.slot_channel(),.slot_original_note(),.rejected_note_count(rejected_note_count)
     );
     voice_router #(.SLOTS(SLOTS),.N_MODES(N_MODES),.CLK_HZ(CLK_HZ),.SR_HZ(SR_HZ),
-        .MIDI_ENABLE(1),.DEBUG_PORT(0),.LOAD_OFFSETS(NOTE_BANKS),.FLASH_NOTES(NOTE_BANKS?2*SLOTS:SLOTS)) u_voice (
+        .EXTERNAL_SAMPLE_TICK(AUDIO_ENABLE),.MIDI_ENABLE(1),.DEBUG_PORT(0),.LOAD_OFFSETS(NOTE_BANKS),.FLASH_NOTES(NOTE_BANKS?2*SLOTS:SLOTS)) u_voice (
         .clk(clk),.rst_n(rst_n),.fmap(pad_use),.inst(inst_use),
         .reverb_preset(CONFIG_BACKEND ? reverb_q : reverb_preset),
         .reload(1'b0),.map_reload(map_reload),.load_offsets(offsets),.load_complete(load_complete),
         .maintenance_clear(maintain_req),.maintenance_done(maintenance_done),.voice_idle(voice_idle),
         .table_valid(),
-        .start(router_run),.done(router_done),.ready(router_ready),.load_err(load_err),
+        .slot_note_map(note_map),.start(router_run),.sample_tick(audio_sample_tick),.done(router_done),.ready(router_ready),.load_err(load_err),
         .y_valid(router_y_valid),.y_data(router_y),.qspi_cs_n(qspi_cs_n),.qspi_sck(qspi_sck),
         .qspi_dq_o(qspi_dq_o),.qspi_dq_oe(qspi_dq_oe),.qspi_dq_i(qspi_dq_i),
         .midi_select(mode_q),.midi_valid(op_valid && !control_op && !cancel_audio),
@@ -342,6 +352,17 @@ module midi_voice_top #(
         .midi_gate(gate),.midi_velocity(velocity),.midi_retrigger(retrigger),.midi_hard_clear(hard_clear),
         .ns_rd_en(1'b0),.ns_rd_addr('0),.ns_rd_sel(1'b0),.ns_rd_data(),.ns_rd_valid()
     );
+    generate if(AUDIO_ENABLE) begin : g_audio
+        i2s_audio_output #(.CLK_DIV(AUDIO_CLK_DIV),.PCM_HEADROOM_BITS(PCM_HEADROOM_BITS)) u_audio(
+            .clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),
+            .active(run && cfg_state==C_RUN && !config_failed && !maintain_req && !panic),
+            .in_valid(y_valid),.in_data(y_data),.sample_tick(audio_sample_tick),
+            .amp_bclk(amp_bclk),.amp_ws(amp_ws),.amp_din(amp_din),
+            .deadline_miss(audio_deadline_miss),.overflow(audio_overflow),.underflow(audio_underflow)
+        );
+    end else begin : g_no_audio
+        assign {amp_bclk,amp_ws,amp_din,audio_sample_tick,audio_deadline_miss,audio_overflow,audio_underflow}='0;
+    end endgenerate
     // synthesis translate_off
     initial if(CONTROL_TIMEOUT_CYCLES<1 || OP_TIMEOUT_CYCLES<1 || CONFIG_TIMEOUT_CYCLES<1)
         $fatal(1,"midi_voice_top timeouts must be positive");

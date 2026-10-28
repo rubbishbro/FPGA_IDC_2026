@@ -14,12 +14,13 @@
 
 module tb_loader_ref;
     localparam int SLOTS   = 16;
-    localparam int N_MODES = 64;
-    localparam int INST    = 0;
+    parameter int N_MODES = 64;
+    parameter int INST = 0;
+    parameter MEM_FILE=(INST==1 ? "rtl/router/tools/guitar_flash.mem" : "rtl/router/tools/piano_flash.mem");
     localparam int REC_B   = 64;
-    localparam int NBYTES  = SLOTS * N_MODES * REC_B;      // 40960
-    localparam int BASE    = INST * NBYTES;                // 0x5000
-    localparam bit BLANK   = 1'b1;                          // 1 = 空片用例
+    localparam int NBYTES  = SLOTS * N_MODES * REC_B;      // 65536 at 64 storage modes
+    localparam int BASE    = INST * NBYTES;                // 0x10000 for INST=1, N_MODES=64
+    parameter bit BLANK = 1'b0;                          // 1 = 空片用例
     localparam int MW2     = $clog2(N_MODES);              // mode 字段位宽（20 -> 5）
     localparam int VW2     = $clog2(SLOTS);                // slot 字段位宽（16 -> 4）
 
@@ -135,7 +136,7 @@ module tb_loader_ref;
         // 期望镜像
         begin
             int fd, v, i;
-            fd = $fopen("rtl/router/tools/piano_flash.mem", "r");
+            fd = $fopen(MEM_FILE, "r");
             if (fd == 0) begin $display("RESULT: FAIL（打不开 .mem）"); $finish; end
             i = 0;
             while ($fscanf(fd, "%h", v) == 1) begin

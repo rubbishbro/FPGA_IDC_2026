@@ -14,8 +14,7 @@
 //   * 输出：_analysis/music_dec.txt，每行一个 64 位有符号十进制（= y_data）。
 //   * 自检：帧数、无 X、有声音、松键后衰减到静音 -> RESULT: PASS/FAIL。
 //
-// 注意：没有 flash 行为模型，所以第一个 load 被跳过（直接灌 RAM 镜像）；
-//       loader 本身由 piano_flash.py / flash_image.py 的 --selftest 保证格式。
+// 当前使用入库 W25Q128 行为模型和真实 loader；所有 RAM 数据由 loader 写入。
 //
 // 运行（仓根目录）：
 //   xvlog -sv rtl/math/pkg/fxp_pkg.sv rtl/drivers/pkg/clk_rst_pkg.sv ^
@@ -106,91 +105,30 @@ module tb_music;
         fmap.flat_d[slot].val = 8'(val);
     endtask
 
-    // ---- 加载写口覆盖统计：每个 (sel, slot) 有没有被写过 ----
-    bit          wr_cov [0:1][0:15];
+    // ---- 加载写口覆盖统计：每个 (sel, slot, mode) 有没有被写过 ----
+    bit          wr_cov [0:1][0:15][0:63];
+    int missing_writes=0;
     int          n_ld_wr = 0;
-    initial for (int i = 0; i < 16; i++) begin wr_cov[0][i] = 1'b0; wr_cov[1][i] = 1'b0; end
+    initial foreach(wr_cov[t,sl,m])wr_cov[t][sl][m]=0;
 
     always @(posedge clk) begin
         if (rst_n && dut.ld_we) begin
             n_ld_wr <= n_ld_wr + 1;
-            wr_cov[dut.ld_addr[9]][dut.ld_addr[8:5]] <= 1'b1;
+            wr_cov[dut.ld_addr[10]][dut.ld_addr[9:6]][dut.ld_addr[5:0]] <= 1'b1;
         end
     end
 
     // ------------------------------------------------------------------
-    // 系数直接从 flash 镜像读（tools/piano_flash.mem / guitar_flash.mem）
+    // Resource selection (runner prepares the matching Flash model image).
     //   运行期用 plusargs 选乐器/是否扫力度：
     //     xsim tb_mu -testplusarg INS=0|1 -testplusarg SWEEP=0|1
     //   INS=0 钢琴（inst 0，每 slot 64 模态，镜像从 0 开始）
-    //   INS=1 吉他（inst 1，每 slot 20 模态，镜像从 16*20*64 开始）
+    //   INS=1 吉他（inst 1，存储64模态/slot，计算20模态，区域从0x10000开始）
     // ------------------------------------------------------------------
     int    ins_sel   = 0;
     int    sweep_sel = 0;
     int    nsamp_v   = 0;        // case.txt 第三个数：>0 时覆盖 NSAMP（快速调试用）
     int    act_modes = 64;          // 本乐器实际用的模态数（决定从镜像里读几条）
-    int    img_modes = 64;          // 镜像里每 slot 有几条记录
-    int    img_base  = 0;           // 本乐器的表在镜像里的起始字节
-    localparam int REC_B = 64;
-    localparam int IMG_BYTES = 3 * 16 * 64 * REC_B;     // 够大，两种乐器都能装
-    logic [7:0]    img [0:IMG_BYTES-1];
-    bit            img_loaded = 1'b0;
-
-    function automatic logic signed [31:0] rec_word(input int rec, input int fld);
-        return {img[rec + fld*4], img[rec + fld*4 + 1], img[rec + fld*4 + 2], img[rec + fld*4 + 3]};
-    endfunction
-
-    task automatic load_coefs();
-        if (!img_loaded) begin
-            if (ins_sel == 1) begin
-                $readmemh("rtl/router/tools/guitar_flash.mem", img);
-                act_modes = 20;  img_modes = 20;
-                img_base  = 1 * 16 * 20 * REC_B;        // INST_GUITAR = 1
-            end else begin
-                $readmemh("rtl/router/tools/piano_flash.mem", img);
-                act_modes = 64;  img_modes = 64;
-                img_base  = 0;                          // INST_PIANO = 0
-            end
-            img_loaded = 1'b1;
-        end
-        for (int sl = 0; sl < 16; sl++) begin
-            for (int m = 0; m < 4; m++)
-                $display("    DBG dump mode%0d a11=%0d a12=%0d a21=%0d a22=%0d wo=%0d",
-                         m, dut.ca_a11_a[(NOTE_SLOT%8)*64+m], dut.ca_a12_a[(NOTE_SLOT%8)*64+m],
-                         dut.ca_a21_a[(NOTE_SLOT%8)*64+m], dut.ca_a22_a[(NOTE_SLOT%8)*64+m],
-                         dut.ca_wo_a [(NOTE_SLOT%8)*64+m]);
-            for (int m = 0; m < act_modes; m++) begin
-                int rec, idx, pmidx;
-                rec = img_base + (sl*img_modes + m) * REC_B;
-                // 系数表拆成两个 bank：bank 内地址 = {slot mod HS, mode}
-                idx = (sl % 8) * 64 + m;
-                // 参数表**不拆 bank**：地址 = {slot, mode} = slot*NMP + mode
-                pmidx = sl * 64 + m;
-                if (sl >= 8) begin
-                    dut.ca_a11_b[idx] = rec_word(rec, 0); dut.ca_a12_b[idx] = rec_word(rec, 1);
-                    dut.ca_a21_b[idx] = rec_word(rec, 2); dut.ca_a22_b[idx] = rec_word(rec, 3);
-                    dut.ca_gq_b[idx]  = rec_word(rec, 4); dut.ca_gv_b[idx]  = rec_word(rec, 5);
-                    dut.ca_wo_b[idx]  = rec_word(rec, 6);
-                end else begin
-                    dut.ca_a11_a[idx] = rec_word(rec, 0); dut.ca_a12_a[idx] = rec_word(rec, 1);
-                    dut.ca_a21_a[idx] = rec_word(rec, 2); dut.ca_a22_a[idx] = rec_word(rec, 3);
-                    dut.ca_gq_a[idx]  = rec_word(rec, 4); dut.ca_gv_a[idx]  = rec_word(rec, 5);
-                    dut.ca_wo_a[idx]  = rec_word(rec, 6);
-                end
-                // 调制参数表（8 个字）：4 基值 + 4 斜率，按 {slot, mode} 平铺
-                dut.pm_a11[pmidx] = rec_word(rec, 8);  dut.pm_a12[pmidx] = rec_word(rec, 9);
-                dut.pm_a22[pmidx] = rec_word(rec, 10); dut.pm_wo[pmidx]  = rec_word(rec, 11);
-                dut.pm_s11[pmidx] = rec_word(rec, 12); dut.pm_s12[pmidx] = rec_word(rec, 13);
-                dut.pm_s22[pmidx] = rec_word(rec, 14); dut.pm_swo[pmidx] = rec_word(rec, 15);
-            end
-        end
-        $display("coefs from flash image: inst=%0d modes=%0d  slot0 a11=%0d a21=%0d pm_s12=%0d",
-                 ins_sel, act_modes, dut.ca_a11_a[0], dut.ca_a21_a[0], dut.pm_s12[0]);
-        $display("    DBG img base=%0d bytes52..55=%02h %02h %02h %02h -> word13=%0d",
-                 img_base, img[img_base + 52], img[img_base + 53],
-                 img[img_base + 54], img[img_base + 55], rec_word(img_base, 13));
-    endtask
-
     // ------------------------------------------------------------------
     // 谱子：每个 slot 一个音高（镜像里 slot0=midi40、slot1=42、...），
     //   所以"弹哪个 slot"就是"弹哪个音"。这里一条 8 音小句子 + 最后一个长音。
@@ -219,7 +157,7 @@ module tb_music;
         rst_n = 1;
         repeat (5) @(posedge clk);
 
-        // 没有 flash 行为模型：跳过第一次 load，直接灌 RAM 镜像
+        // Model MEM.TXT is prepared by the runner; never prefill the DUT RAM.
         // 用例选择走**文件**（xsim 的 -testplusarg 在 .bat 里会被 '=' 拆开，
         // 跟它较劲不划算）：_analysis/case.txt 三行：INS、SWEEP、采样数(<=0 用 NSAMP)
         begin : read_case
@@ -233,8 +171,9 @@ module tb_music;
             end
             if (nsamp_v <= 0) nsamp_v = NSAMP;
         end
+        act_modes = ins_sel==1 ? 20 : 64;
         inst          = (ins_sel == 1) ? router_pkg::INST_GUITAR : router_pkg::INST_PIANO;
-        load_coefs();
+        // Only the loader writes RAM; independent image comparison is in tb_loader_ref.
         $display("    INS=%0d（%0s）  SWEEP=%0d", ins_sel,
                  (ins_sel == 1) ? "吉他" : "钢琴", sweep_sel);
         repeat (5) @(posedge clk);
@@ -315,13 +254,10 @@ module tb_music;
         begin
             int miss;
             miss = 0;
-            for (int sl = 0; sl < 16; sl++)
-                if (!(wr_cov[0][sl] && wr_cov[1][sl])) begin
-                    miss++;
-                    $display("    !! slot %0d 没写全：系数=%0b 参数=%0b", sl, wr_cov[0][sl], wr_cov[1][sl]);
-                end
-            if (miss == 0) $display("    loader 覆盖：16 个 slot × 2 个半区 全部写到 ✓");
-            else           $display("    loader 覆盖：%0d 个 slot 没写全 ✗", miss);
+            foreach(wr_cov[t,sl,m]) if(!wr_cov[t][sl][m])miss++;
+            missing_writes=miss;
+            if (miss == 0) $display("    loader 覆盖：16 个 slot × 64 模态 × 2 个半区 全部写到 ✓");
+            else           $display("    loader 覆盖：缺少 %0d 个写地址 ✗", miss);
         end
         // ---- DBG：逐模态扫一遍 slot NOTE_SLOT 的系数和状态（查调制写坏没）----
         if (DBG != 0) begin
@@ -363,7 +299,7 @@ module tb_music;
                  (ymax_abs % (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000)) * 64'd10000
                      / (64'sh7FFF_FFFF_FFFF_FFFF / 64'd10000),
                  n_clip);
-        if (n_out == NSAMP && n_x == 0 && ymax_abs > 0)
+        if (n_out == NSAMP && n_x == 0 && ymax_abs > 0 && missing_writes==0 && !dut.load_err)
             $display("RESULT: PASS");
         else
             $display("RESULT: FAIL");

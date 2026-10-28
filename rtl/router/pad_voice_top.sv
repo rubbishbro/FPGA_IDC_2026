@@ -13,10 +13,17 @@ module pad_voice_top #(
     parameter int  SR_HZ         = 48_000,
     parameter int  N_MODES       = 64,
     parameter int  SLOTS         = 16,
+    parameter bit  AUDIO_ENABLE = 1'b0,
+    parameter int  AUDIO_CLK_DIV = 4, PCM_HEADROOM_BITS = 3,
     parameter bit  USE_PAD_DRIVER = 1'b1
 ) (
     input  logic clk,
     input  logic rst_n,
+    // Must match the selected resource manifest; legacy 16-note map by default.
+    input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(),
+    input  logic audio_clk,
+    output logic amp_bclk,amp_ws,amp_din,
+    output logic audio_sample_tick,audio_deadline_miss,audio_overflow,audio_underflow,
 
     // 演奏配置
     input  router_pkg::instrument_e   inst,
@@ -134,6 +141,7 @@ module pad_voice_top #(
     // voice_router 内部用滞回阈值生成 note_on/note_gate；
     // 16 个压力单元对应 16 个 slot，不需要外部 keycode/voice 分配。
     voice_router #(
+        .EXTERNAL_SAMPLE_TICK(AUDIO_ENABLE),
         .SLOTS(SLOTS),
         .N_MODES(N_MODES),
         .CLK_HZ(CLK_HZ),
@@ -145,7 +153,7 @@ module pad_voice_top #(
         .inst(inst),
         .reverb_preset(reverb_preset),
         .reload(reload),
-        .start(run),
+        .slot_note_map(slot_note_map),.start(run),.sample_tick(audio_sample_tick),
         // n_voices / n_modes / n_samples 已经从 voice_router 删掉：
         //   声部数 = SLOTS 参数，模态数 = router_pkg::n_modes_of(inst)（内部定）。
         // busy 也没了（done 是电平，1 = 空闲可以 start）—— 这里给上层留个等价信号。
@@ -159,6 +167,10 @@ module pad_voice_top #(
         .qspi_dq_o(qspi_dq_o),
         .qspi_dq_oe(qspi_dq_oe),
         .qspi_dq_i(qspi_dq_i),
+        .midi_select(1'b0),.midi_valid(1'b0),.midi_ready(),
+        .midi_gate('0),.midi_velocity('0),.midi_retrigger('0),.midi_hard_clear('0),
+        .maintenance_clear(1'b0),.map_reload(1'b0),.load_offsets('0),
+        .maintenance_done(),.midi_inflight(),.load_complete(),.voice_idle(),
         .ns_rd_en(1'b0),
         .ns_rd_addr('0),
         .ns_rd_sel(1'b0),
@@ -166,6 +178,16 @@ module pad_voice_top #(
         .ns_rd_valid()
     );
 
+    generate if(AUDIO_ENABLE) begin : g_audio
+        i2s_audio_output #(.CLK_DIV(AUDIO_CLK_DIV),.PCM_HEADROOM_BITS(PCM_HEADROOM_BITS)) u_audio(
+            .clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),.active(run && table_valid && !load_err),
+            .in_valid(y_valid),.in_data(y_data),.sample_tick(audio_sample_tick),
+            .amp_bclk(amp_bclk),.amp_ws(amp_ws),.amp_din(amp_din),
+            .deadline_miss(audio_deadline_miss),.overflow(audio_overflow),.underflow(audio_underflow)
+        );
+    end else begin : g_no_audio
+        assign {amp_bclk,amp_ws,amp_din,audio_sample_tick,audio_deadline_miss,audio_overflow,audio_underflow}='0;
+    end endgenerate
     assign busy = ~done;      // 兼容旧接口：busy = "没在空闲"
 
 endmodule

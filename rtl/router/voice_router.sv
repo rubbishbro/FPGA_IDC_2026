@@ -46,6 +46,7 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
+    input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(), // resource identity; latched with each load
     input  logic                                     sample_tick, // clk domain; I2S frame master when enabled
     // 每个乐器用多少模态在内部按 inst 查 router_pkg::n_modes_of()，不再是端口
     // ---- 作业流控 ----
@@ -90,11 +91,12 @@ module voice_router #(
 
     import modal_step_pkg::*;
     import router_pkg::*;
-    logic input_hold;
+    logic input_hold,load_now;
+    logic [SLOTS-1:0] note_on,perf_clear,dead_ev;
     instrument_e inst_prev;
     logic [SLOTS-1:0] dead_pend, dead_f;
     typedef enum logic [3:0] { S_DONE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
-                               S_ENVMUL, S_ENVACC, S_ADV, S_WAIT } st_e;
+                               S_ENVMUL, S_ENVACC, S_ADV, S_WAIT, S_CFG } st_e;
     st_e                 state;
 
     // fmap 先寄存一拍再分发给三个部件：它扇出很大（激励/包络/note_on 比较），
@@ -179,6 +181,29 @@ module voice_router #(
         end
     end endgenerate
 
+    sustain_cfg_t pending_play[0:SLOTS-1],active_play[0:SLOTS-1];
+    logic [SLOTS*7-1:0] pending_notes;
+    logic [SLOTS*32-1:0] pending_offsets;
+    logic [VWID-1:0] cfg_slot;
+    logic [1:0] cfg_phase;
+    logic [6:0] cfg_note;
+    sustain_cfg_t cfg_lookup;
+    logic cfg_error,cfg_fail_pulse;
+    logic [SLOTS*16-1:0] play_period;
+    logic [SLOTS*32-1:0] play_attack,play_release;
+    for(genvar pc=0;pc<SLOTS;pc++)begin:g_play_bus
+        assign play_period[pc*16 +:16]=active_play[pc].period;
+        assign play_attack[pc*32 +:32]=active_play[pc].a_step;
+        assign play_release[pc*32 +:32]=active_play[pc].r_step;
+    end
+    logic play_clear;
+    assign play_clear=!table_valid || state==S_CFG || state==S_LOAD || load_now;
+    logic [SLOTS-1:0] part_clear,part_gate;
+    assign part_clear=perf_clear | {SLOTS{play_clear}};
+    assign part_gate=play_clear ? '0 : note_on;
+    logic signed [SLOTS-1:0][31:0] emap_frame;
+    logic [SLOTS-1:0] idle_confirmed,zero_mask_f,gate_f,dead_frame;
+
     // =========================================================================
     // 三个部件子路由（各自按乐器号选实例，主 router 只连总线）
     // =========================================================================
@@ -200,7 +225,7 @@ module voice_router #(
     localparam logic [7:0] NOTE_ON_TH  = 8'd230;
     localparam logic [7:0] NOTE_OFF_TH = 8'd26;
 
-    logic [SLOTS-1:0] gate_r, pad_note_on, note_gate, note_on;
+    logic [SLOTS-1:0] gate_r, pad_note_on, note_gate;
     logic active_midi, frame_start, frame_retire;
     wire maintain_req = MIDI_ENABLE && maintenance_clear;
     logic maintenance_completed;
@@ -209,7 +234,7 @@ module voice_router #(
         else if(!maintain_req) maintenance_completed<=1'b0;
         else if(maintenance_done) maintenance_completed<=1'b1;
     end
-    logic [SLOTS-1:0] perf_trigger, perf_clear, clear_f;
+    logic [SLOTS-1:0] perf_trigger, clear_f;
     logic [SLOTS*8-1:0] strike_level, envelope_level;
     logic [SLOTS-1:0] note_on_q, note_ev;      // router 内部的起音沿
     logic [SLOTS-1:0] note_pend, note_f;       // 攒到帧头的那份（给引擎/调制器）
@@ -252,16 +277,18 @@ module voice_router #(
 
     exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
-        .strike_level(strike_level), .retrigger(perf_trigger), .slot_clear(perf_clear),
-        .note_on(note_on), .inst(inst_lat),
+        .slot_period(play_period),
+        .strike_level(strike_level), .retrigger(perf_trigger), .slot_clear(part_clear),
+        .note_on(part_gate), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
     env_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
         .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
+        .slot_a_step(play_attack),.slot_r_step(play_release),
         .envelope_level(envelope_level), .retrigger(perf_trigger),
-        .slot_clear(perf_clear), .midi_mode(active_midi),
-        .note_on(note_on), .note_gate(note_gate), .inst(inst_lat),
+        .slot_clear(part_clear), .midi_mode(active_midi),
+        .note_on(part_gate), .note_gate(part_gate), .inst(inst_lat),
         .emap(emap), .emap_valid(emap_valid), .dead(env_dead)
     );
 
@@ -314,7 +341,7 @@ module voice_router #(
     weight_loader #(.SLOTS(SLOTS), .N_MODES(N_MODES), .CLK_HZ(CLK_HZ),
                     .FLASH_NOTES(FLASH_NOTES), .USE_OFFSETS(LOAD_OFFSETS), .SUPPORT_ABORT(1)) u_ld (
         .clk(clk), .rst_n(rst_n), .inst(4'(inst_lat)),
-        .slot_offsets(load_offsets), .update_mask({SLOTS{1'b1}}),
+        .slot_offsets(pending_offsets), .update_mask({SLOTS{1'b1}}),
         .abort(maintain_req && !maintenance_completed), .error_code(),
         .start(ld_start), .busy(ld_busy), .done(ld_done), .err(ld_err),
         .ld_we(ld_we), .ld_addr(ld_addr), .ld_co(ld_co_data), .ld_pm(ld_pm_data),
@@ -514,7 +541,9 @@ module voice_router #(
             end
 
             // ---- 激励（是寄存器，不是 RAM）----
-            if (xw_run) for (int i = 0; i < SLOTS; i++) x_q[i] <= xmap[i];
+            if (xw_run) begin
+                for (int i = 0; i < SLOTS; i++) x_q[i] <= xmap[i];
+            end
             if (era_x_re) x_ra <= x_q[g[VWID-1:0]];
             if (erb_x_re) x_rb <= x_q[VWID'(g[VWID-1:0] + VWID'(HS))];
 
@@ -580,8 +609,8 @@ module voice_router #(
                 // A 先算，S_ADV 再把已锁存的 B 送入同一条乘法流水。
                 y_lat <= era_y;
                 y_b_lat <= erb_y;
-                e_b_lat <= $signed(emap[VWID'(g[VWID-1:0] + VWID'(HS))]);
-                e_lat <= $signed(emap[g[VWID-1:0]]);
+                e_b_lat <= $signed(emap_frame[VWID'(g[VWID-1:0] + VWID'(HS))]);
+                e_lat <= $signed(emap_frame[g[VWID-1:0]]);
             end
             // 乘法结果先落一拍，下一拍才做 64 位累加（原来是 mul + add 同一拍）
             if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
@@ -590,6 +619,26 @@ module voice_router #(
             if (state == S_ADV && !pick_b) begin
                 y_lat <= y_b_lat;
                 e_lat <= e_b_lat;
+            end
+        end
+    end
+
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n)begin emap_frame<='0;dead_frame<='1;end
+        else if(xw_run)begin emap_frame<=emap;dead_frame<=env_dead;end
+    end
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n)begin idle_confirmed<='0;zero_mask_f<='0;gate_f<='0;end
+        else begin
+            if(play_clear) idle_confirmed<='0;
+            else begin
+                if(frame_retire)
+                    idle_confirmed<=(idle_confirmed | (zero_mask_f & dead_frame & ~gate_f)) & ~note_gate;
+                else idle_confirmed<=idle_confirmed & ~note_gate & ~perf_trigger;
+            end
+            if(frame_start)begin
+                zero_mask_f<=dead_pend | dead_ev | perf_clear | {SLOTS{init_zero}};
+                gate_f<=note_gate;
             end
         end
     end
@@ -647,16 +696,16 @@ module voice_router #(
     assign change_pend = (inst != inst_prev) || reload_pend;
     assign done        = (state == S_DONE);
     assign ready       = !change_pend || !table_valid || (note_on == '0);
-    assign load_err    = ld_err;
-    assign load_complete = (state == S_LOAD) && ld_done;
-    assign voice_idle = env_dead & ~note_gate;
+    assign load_err    = ld_err || cfg_error;
+    assign load_complete = ((state == S_LOAD) && ld_done) || cfg_fail_pulse;
+    assign voice_idle = idle_confirmed & env_dead & ~note_gate;
     instrument_e run_inst;
     assign run_inst = (change_pend && !ready) ? inst_lat : inst;
 
     // 这一拍会不会在 S_DONE 里真正启动加载（和 case 里的判定同一条件）。
     //   必须用组合判据：always_ff 里调制器的门在 case 之前执行，非阻塞赋值下
     //   它看不到同一拍稍后才置起的 ld_start / S_LOAD，只加 !ld_start 挡不住。
-    logic                load_now;
+
     assign load_now = (state == S_DONE) && start && change_pend && ready;
 
     // synthesis translate_off
@@ -710,7 +759,6 @@ module voice_router #(
     // 比较结果打一拍：原来 emap -> 比较 -> eng_zero 是一条长组合链
     // （包络每采样才更新一次，晚一拍对 st_zero 没有影响）
     logic [SLOTS-1:0] voice_dead, voice_dead_q;
-    logic [SLOTS-1:0] dead_ev;         // 归零的那一拍
 
     // "这个声部空了"由包络自己给（ADSR：release 走完才给；dyn0：没按住就给），
     // 顶层不再拿 emap==0 去猜——起音头几个采样 emap 也是 0，猜错就会把刚打进去的
@@ -744,6 +792,9 @@ module voice_router #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            cfg_slot<='0;cfg_phase<=0;cfg_note<=0;cfg_lookup<='0;
+            pending_notes<='0;pending_offsets<='0;cfg_error<=0;cfg_fail_pulse<=0;
+            for(int p=0;p<SLOTS;p++)begin pending_play[p]<='0;active_play[p]<='0;end
             state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
@@ -766,6 +817,7 @@ module voice_router #(
             reload_pend<= 1'b0;
         end else begin
             if (body_accept) mix_v <= 1'b0;      // 这一笔混音已经被腔体接走
+            cfg_fail_pulse<=0;
             eng_start <= 1'b0;
             ld_start  <= 1'b0;
             mod_start <= 1'b0;
@@ -796,7 +848,7 @@ module voice_router #(
                     if (start) begin
                       // 失败不是成功的换表：持续run不自动反复重试，也不再出声。
                       // 仍允许真实维护帧清状态；显式reload或另一个inst才重新加载。
-                      if(ld_err && !reload_pend && inst==inst_lat)begin
+                      if((ld_err || cfg_error) && !reload_pend && inst==inst_lat)begin
                         if((maintain_req && !maintenance_completed) || (MIDI_ENABLE && midi_valid))begin
                             g<='0;pick_b<=0;wait_xmap<=1;state<=S_RUN_X;
                         end
@@ -813,9 +865,10 @@ module voice_router #(
                             if (ready) begin
                                 inst_lat    <= inst;
                                 reload_pend <= 1'b0;
-                                ld_start    <= 1'b1;
+                                cfg_error<=0;cfg_slot<='0;cfg_phase<=0;
+                                pending_notes<=slot_note_map;pending_offsets<=load_offsets;
                                 table_valid <= 1'b0;
-                                state       <= S_LOAD;
+                                state       <= S_CFG;
                             end else begin
                                 // 键还按着：先出这一帧（旧系数、旧乐器号），别停摆
                                 wait_xmap <= 1'b1;
@@ -830,12 +883,32 @@ module voice_router #(
                     end
                 end
 
+                S_CFG: begin
+                    // Break slot mux -> profile ROM -> validation/control into
+                    // separate cycles. This only runs before Flash loading.
+                    case(cfg_phase)
+                        0:begin cfg_note<=pending_notes[cfg_slot*7 +:7];cfg_phase<=1;end
+                        1:begin cfg_lookup<=sustain_profiles_pkg::lookup(inst_lat,cfg_note);cfg_phase<=2;end
+                        default:begin
+                            cfg_phase<=0;
+                            if(is_sustain(inst_lat) && (!cfg_lookup.valid || cfg_lookup.period<2 ||
+                               cfg_lookup.a_step==0 || cfg_lookup.r_step==0))begin
+                                cfg_error<=1;cfg_fail_pulse<=1;state<=S_DONE;
+                            end else begin
+                                pending_play[cfg_slot]<=is_sustain(inst_lat) ? cfg_lookup : sustain_cfg_t'('0);
+                                if(cfg_slot==VWID'(SLOTS-1))begin ld_start<=1;state<=S_LOAD;end
+                                else cfg_slot<=cfg_slot+1'b1;
+                            end
+                        end
+                    endcase
+                end
                 S_LOAD: begin
                     if (ld_done) begin
                         table_valid <= !ld_err;
                         if(ld_err)begin
                             state<=S_DONE;
                         end else begin
+                            for(int p=0;p<SLOTS;p++) active_play[p]<=pending_play[p];
                             zero_frames <= (IW+1)'(1);
                             inst_prev <= inst_lat;
                             g         <= '0;

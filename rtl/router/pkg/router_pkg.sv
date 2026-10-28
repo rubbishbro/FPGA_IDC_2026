@@ -30,6 +30,29 @@ package router_pkg;
         REVERB_NONE
     } reverb_preset;
 
+    typedef struct packed {
+        logic valid;
+        logic [15:0] period;
+        logic [31:0] a_step;
+        logic [31:0] r_step;
+    } sustain_cfg_t;
+    function automatic logic is_sustain(input instrument_e inst);
+        return inst inside {INST_FLUTE,INST_TRUMPET,INST_CELLO,INST_VIOLIN};
+    endfunction
+    // Legacy 16-note resource mapping. Banked resources supply their own map.
+    function automatic logic [6:0] default_note(input int slot);
+        case(slot)
+            0:return 40;1:return 42;2:return 44;3:return 46;
+            4:return 48;5:return 50;6:return 52;7:return 54;
+            8:return 56;9:return 58;10:return 60;11:return 62;
+            12:return 64;13:return 67;14:return 71;15:return 76;
+            default:return 0;
+        endcase
+    endfunction
+    function automatic logic [16*7-1:0] default_note_map();
+        for(int i=0;i<16;i++) default_note_map[i*7 +:7]=default_note(i);
+    endfunction
+
     // 调制参数记录（每个 槽×模态 一条，8 个字段 = flash 记录的 +32..+60）
     //
     // 模型：揉弦主要调**弦张力**，一阶近似下所有模态频率同比例变 alpha = 1+lambda，

@@ -1,6 +1,6 @@
 # pad_driver → voice_router 适配
 
-更新：2026-10-29。描述当前[pad_voice_top.sv](pad_voice_top.sv)：默认64模态、加载失败状态透出，输出signed64。音频模块已有，但本顶层当前缺音频时钟/I2S端口及实例，不能按先前快照设置AUDIO_ENABLE。
+更新：2026-10-29。描述当前[pad_voice_top.sv](pad_voice_top.sv)：默认64模态、加载失败状态透出，输出signed64。AUDIO_ENABLE=1时已接PCM/FIFO/I2S，以音频帧为采样时基；默认0保留独立合成入口。
 
 ## 数据流
 
@@ -21,7 +21,9 @@ pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_syste
 
 | 项目 | 当前值/语义 |
 |---|---|
-| CLK_HZ / SR_HZ | 100MHz / 48kHz；router 内部产生采样节拍 |
+| CLK_HZ / SR_HZ | 100MHz / 48kHz；AUDIO_ENABLE=0时router内部产生采样节拍，1时采用I2S帧节拍 |
+| AUDIO_ENABLE / audio_clk / amp_* | 默认0；启用时提供音频参考时钟并输出I2S；准确48k资源需匹配12.288MHz参考 |
+| slot_note_map | 每槽7bit MIDI音高，须匹配当前Flash布局；B类周期/包络由该映射查表，与加载事务一起锁存 |
 | SLOTS | 默认 16，router 支持 4/8/16 |
 | N_MODES | 本适配器默认 **64**，与voice_router及钢琴工具默认一致；正式镜像深度仍必须匹配 |
 | USE_PAD_DRIVER | 1 综合真实压力/摇杆驱动；0 时只使用 fmap_ext，采集/LED/摇杆出口为零 |
@@ -31,7 +33,7 @@ pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_syste
 | ready | 挂起乐器/reload 变更能执行；不是通用 start ready 或 cfg_applied |
 | inst / reverb_preset / reload | 乐器编号、router 原生混响枚举、reload 上升沿请求 |
 | load_err / table_valid | 加载错误与当前表有效性；done/ready不代替成功确认 |
-| y_valid / y_data | 每个结果一个valid，signed64 Q24；无ready，PCM/FIFO/I2S模块已有但本顶层待恢复连接 |
+| y_valid / y_data | 每个结果一个valid，signed64 Q24；无ready，启用音频分支时内部转换PCM并送FIFO/I2S |
 | qspi_* | 转接 loader；需要真片协议/引脚验收 |
 | pad_row_s / pad_ch_s / pad_fmap / pad_pos | 原始调试出口；旧 pad_pos 为极坐标 |
 | joy_sample_valid / joy_raw_x/y | 同 clk 域，一拍 valid、14 bit 原始 X/Y 成对快照；接 [摇杆适配](../drivers/JOYSTICK_ADAPTER.md) |
@@ -50,4 +52,4 @@ PAD_DIV=`CLK_HZ/2_500_000`，计数器目前 8 bit；非默认频率必须核对
 
 `python3 sim/run_joystick.py` 本轮 26 组通过，其中两组使用真实采集 FSM/坐标转换和 ADC 行为模型，检查 X/Y 成对出口、dummy、超时重试。没有例化整套 pad_voice_top、真实 ADC 或 LED，不证明 16 键位置/独立发声。
 
-待接/待验：正式32音资源、上板逐键校准、真Flash、四路可闻复音、音频顶层接线及DAC。源切换清理与UI联合后端已有于midi_voice_top；本PAD包装器不提供其完整事务。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。
+持续音色已接逐槽周期冲激、ADSR和释放后清零退休，详见[ENG1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)。待验：正式32音资源、上板逐键校准、真Flash、四路可闻复音、板级音频时钟/引脚及DAC。源切换清理与UI联合后端已有于midi_voice_top；本PAD包装器不提供其完整事务。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。

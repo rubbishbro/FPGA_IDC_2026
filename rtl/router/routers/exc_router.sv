@@ -21,6 +21,7 @@ module exc_router #(
     input  logic                    clk,
     input  logic                    rst_n,
     input  logic                    smp_tick,
+    input logic [SLOTS*16-1:0] slot_period,
     input  logic [SLOTS*8-1:0]      strike_level,
     input  logic [SLOTS-1:0]        retrigger, slot_clear,
     input  logic [SLOTS-1:0]        note_on,
@@ -72,14 +73,17 @@ module exc_router #(
     logic [5:0]  shift_r, rise_sh_r;
     logic [15:0] pw_len_r, gap_len_r;
     logic [2:0]  n_pulse_r;
+    logic sustain_mode_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            sustain_mode_r <= 1'b0;
             shift_r   <= '0;
             rise_sh_r <= '0;
             pw_len_r  <= '0;
             gap_len_r <= '0;
             n_pulse_r <= '0;
         end else begin
+            sustain_mode_r <= router_pkg::is_sustain(inst);
             shift_r   <= shift;
             rise_sh_r <= rise_sh;
             pw_len_r  <= pw_len;
@@ -97,8 +101,9 @@ module exc_router #(
     end
     assign clear = (inst != inst_q);
 
-    excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_gen (
+    excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1)) u_gen (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
+        .sustain_mode(sustain_mode_r),.slot_period(slot_period),
         .SHIFT(shift_r), .RISE_SH(rise_sh_r),
         .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
         .clear(clear), .strike_level(strike_level),

@@ -29,11 +29,13 @@ try {
         Write-Host '=== 2/3 编译 ===' -ForegroundColor Cyan
         if (Test-Path 'xsim.dir') { Remove-Item -Recurse -Force 'xsim.dir' }
         $srcs = @(
+            'rtl/config_pkg.sv',
             'rtl/math/pkg/fxp_pkg.sv',
             'rtl/drivers/pkg/clk_rst_pkg.sv',
             'rtl/drivers/pkg/pad_driver_pkg.sv',
             'rtl/router/pkg/modal_step_pkg.sv',
             'rtl/router/pkg/router_pkg.sv',
+            'rtl/router/pkg/sustain_profiles_pkg.sv',
             'rtl/router/parts/envelope.sv',
             'rtl/router/parts/excitation.sv',
             'rtl/router/parts/modulation.sv',
@@ -50,6 +52,8 @@ try {
             'rtl/router/routers/reverb_router.sv',
             'rtl/router/loader.sv',
             'rtl/router/voice_router.sv',
+            'rtl/router/tb/w25q_dut.sv',
+            'rtl/router/tb/vendor/w25q128/W25Q128JVxIM.v',
             'rtl/router/tb/tb_music.sv'
         )
         foreach ($f in $srcs) {
@@ -60,6 +64,11 @@ try {
         if ($LASTEXITCODE -ne 0) { $out | Select-String 'ERROR' | ForEach-Object { "    $_" }; throw 'xelab 失败' }
     }
 
+    New-Item -ItemType Directory -Force '_analysis' | Out-Null
+    & $Python 'rtl/router/tools/gen_mem.py' --src 'rtl/router/tools/guitar_flash.mem' --base 0 --out 'MEM.TXT'
+    if ($LASTEXITCODE -ne 0) { throw '吉他MEM生成失败' }
+    foreach ($f in @('SECSI.TXT','SFDP.TXT','SREG.TXT')) { Copy-Item "rtl/router/tb/vendor/w25q128/$f" . -Force }
+    $failures=0
     Write-Host '=== 3/3 两个用例 ===' -ForegroundColor Cyan
     $cases = @(
         @{ name = 'guitar_dec'; sweep = 0; wav = '_analysis/guitar_dec.wav'; note = '自然衰减（力度不变）' },
@@ -73,13 +82,14 @@ try {
         $log | Select-String '渲染完成|自检|余量|RESULT|INS=' | ForEach-Object { "     $_" }
         if (-not ($log | Select-String 'RESULT: PASS')) {
             Write-Host "     $($c.name) FAIL" -ForegroundColor Red
-            continue
+            $failures++; continue
         }
         # tb_music 固定写 _analysis/music_dec.txt，跑完复制成这个用例的名字
         Copy-Item '_analysis/music_dec.txt' "_analysis/$($c.name)_dec.txt" -Force
         & $Python 'rtl/router/tools/dec2wav.py' "_analysis/$($c.name)_dec.txt" $c.wav '48000' 2>&1 |
             Select-String '采样数|峰值|增益|写出' | ForEach-Object { "     $_" }
     }
+    if ($failures -ne 0) { throw "$failures 个吉他用例失败" }
     Write-Host '完成：_analysis/guitar_dec.wav、_analysis/guitar_vib.wav' -ForegroundColor Green
 } finally {
     Pop-Location

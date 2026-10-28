@@ -14,7 +14,7 @@
 | 本地主机 | `web/midi-editor/` | 编辑/参考试听/Web Serial；无板端PCM回传或远程音色设置 |
 | 保留core | `rtl/core/router_system_top.sv` | 另一套共享RAM ABC/E2实现，与当前router无父子关系 |
 
-没有同时连接输入、DAC及LCD的统一板级顶层。当前两个演奏顶层未保留先前音频测试快照中的 `AUDIO_ENABLE/audio_clk/amp_*`；外部sample_tick口与音频模块还在，不能由文件存在推断已接通。
+没有同时连接输入、DAC及LCD的统一板级顶层。两个演奏顶层已恢复`AUDIO_ENABLE/audio_clk/amp_*`，开启后以I2S帧为合成采样基准；输入、DAC和LCD的统一板级顶层仍待拼合。
 
 ## 2. 演奏与合成
 
@@ -40,7 +40,7 @@ voice_router默认16槽、64模态存储、100MHz/48kHz参数，合法槽数4/8/
 
 压力起音为fmap>230，保持到fmap<26；MIDI使用独立gate/retrigger与7bit velocity，避免受压力门限阻挡。持续压力变化也会登记吉他后台调制，MIDI velocity不进入压力调音。调制采用一阶近似、MOD_TOP=4、lambda最大0.035；逐模态更新仍未保证整帧表版本原子一致。
 
-eng1已改五级跨模态流水，空作业返回零且不读写状态。本次256组算术对拍通过，但四种持续音色仍使用默认32样本单次激励及常数包络，未接逐槽period和B类ADSR。其行为复核与待实施合同统一在[eng1演奏前端设计](docs/ENG1演奏前端设计.md)。
+eng1已改五级跨模态流水，空作业返回零且不读写状态。四种持续音色已接逐槽周期冲激和ADSR；配置与系数加载一起提交，释放后清零退休才报告idle。资源生成与实施合同统一在[eng1演奏前端设计](docs/ENG1演奏前端设计.md)。
 
 ### 运行与加载
 

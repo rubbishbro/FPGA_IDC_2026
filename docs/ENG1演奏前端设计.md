@@ -1,6 +1,6 @@
 # eng1 演奏前端：现状与设计
 
-2026-10-29。周期激励/ADSR方案尚未实施。本文合并行为复核与设计草案，统一维护持续音色的前端合同；整数算术模型归[ENG1 Python模型](ENG1_PY_MODEL.md)，执行证据归[工程验证](工程评审与验证.md#global-docs-2026-10-29)。
+更新：2026-10-29。周期激励/ADSR已实施，当前状态见第11节；前文行为测量属于实施前基线。本文统一维护持续音色的前端合同；整数算术模型归[ENG1 Python模型](ENG1_PY_MODEL.md)，执行证据归[工程验证](工程评审与验证.md#global-docs-2026-10-29)。
 
 <a id="current-behavior"></a>
 
@@ -189,3 +189,43 @@ pending无效或Flash加载失败，均保持静音、通过现有失败结果�
 ## 10. 当前工作区差异
 
 本轮设计核对时发现，midi_voice_top/pad_voice_top当前缺少上轮已测试快照中的AUDIO_ENABLE/audio_clk/I2S出口；voice_router的外部sample_tick口和音频模块文件仍在。两个顶层及相关测试有新的工作区改动。设计实施前先核对并发改动和上轮测试快照，再确定恢复/合并方式；本次文档审查未覆盖这些RTL修改。29日重新运行sim/run_audio.py：256组eng1算术对拍和PCM/I2S单测通过；首个系统矩阵因缺AUDIO_ENABLE参数在展开时失败。旧24项结果仅属于当时快照。
+
+## 11. 2026-10-29 实施状态
+
+本方案的RTL及回归入口已实现；以下更新覆盖前面的“草案/尚未实施”和第10节接线缺失基线。旧测量留作修复前证据。
+
+- 在原excitation_gen内增加B类冲激串分支，复用逐槽cnt，四种音色经exc_router选择；固定单样本冲激，无锤击taper。PAD在发冲激时采样当前力度，MIDI沿用保存的velocity。
+- 同一envelope_ADSR实例增加可选逐槽A/R及当帧B输出；钢琴仍保留旧输出延迟及全局参数。B类D_STEP=1048576、S_LEVEL=0x1fffffff。持续音色译码与原有参数同步寄存，避免音色比较串入包络算术。x与E一起锁存成帧快照，全部A/B声部使用同一帧。
+- voice_router增加S_CFG，按槽查找并锁存pending配置，避免16份并行查表。每槽依次寄存音高、查表结果、校验提交，三拍完成；16槽共48拍准备（100MHz下0.48μs）。接受换表时同时锁存slot MIDI映射和Flash字节偏移；配置非法有独立、有界的失败完成，不启动loader、不假提交；成功加载才更新active配置。
+- voice_idle改为包络归零、门控解除且实际清零帧退休后才置位。新的起音会取消本槽旧空闲确认；无新增MIDI归属表。
+- MIDI顶层增加slot_map_q/target_slot_map，旧16音自定义映射随配置事务锁存，避免候选音高先泄漏到音符分配；NOTE_BANKS=1仍由first MIDI和bank产生映射。PAD顶层新增同源slot_note_map输入，默认旧16音映射仅用于兼容。
+- 两个现有顶层恢复AUDIO_ENABLE/audio_clk/I2S分支，音频模式下使用I2S主时基。默认AUDIO_ENABLE=0保留旧独立仿真入口。panic FIFO flush仍暂缓，原忙时panic问题M14本轮未扩展。
+
+### 参数与镜像生成
+
+新增生产资源为类型、生成的package/manifest及离线脚本，没有新增生产RTL模块。sustain_cfg_t另包含一个valid位，实际每槽81bit；pending+active的16槽参数共2592bit（324B逻辑容量），不计已有映射/计数器。具体物理映射以综合为准。
+
+生成器：rtl/router/tools/sustain_resources.py，依赖现有numpy/scipy参考模型。已入库sustain_profiles_pkg.sv与sustain_profiles.json为四种音色MIDI0..127的配置目录，包含来源音高、力度、retuned标志、参数来源文件hash和各音符系数hash；目录存在不表示Flash已安装对应资源，也不改变默认RESOURCE_MASK只开放钢琴。
+
+配置目录显式允许从邻近采样重定音，512条中349条有重定音标记；其余为同音高采样来源。实际演奏仍受当前装载音组限制，不承诺128音可同时访问。正式32音域仍未冻结。测试候选48..79是生成的32音资源，不能把它写成赛题或产品正式音域。
+
+```bash
+# 生成一组候选32音的四种B音色镜像和manifest；不会改仓库中的钢琴/吉他镜像。
+# Python环境需numpy/scipy，示例路径为本机已安装环境。
+/home/rubbishbro/micromamba/envs/torch312/bin/python rtl/router/tools/sustain_resources.py \
+  --first-midi 48 --notes 32 --allow-retune --out build/sustain/resources
+```
+
+每乐器区域131072B，B四种音色放在inst2..5；前两个区域为FF占位，不能直接把这个候选文件覆盖含钢琴/吉他的正式整片镜像。部署时必须将有效乐器区域与当前钢琴/吉他资源合并，并保持32音区域步长一致。当前16音钢琴/吉他镜像不能直接拼到32音区域里。修改镜像资源需同步更新生成配置和manifest；没有运行时Flash hash认证。
+
+不带--allow-retune时，缺少原音高采样会明确失败。包含此选项时生成器记录来源并为目标音高重新生成极点及G，不仅修改标签。48kHz资源需匹配实际48kHz音频时钟；12.5MHz调试参考仍只能用于时基/传输检查。
+
+### 验证入口
+
+- sim/run_sustain.py：四种音色各48000样本前端独立参考、资源事务、真实B表16槽逐帧递推与包络比较、I2S独立线端解码；生成测试镜像到私有build目录，不覆写默认资源。
+- sim/run_audio.py：既有流水、PCM、两类顶层与时钟矩阵。
+- sim/run_router_midi.py：既有MIDI、配置及失败恢复。
+- sim/run_flash_ref.py：公开vendor模型的钢琴/吉他64存储/空片与音乐冒烟；不再靠预灌RAM。
+- sim/synth/sustain_build.tcl：Gowin仅综合探针，可用QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=software QT_OPENGL=software启动无界面工具；不是板级顶层或PnR证明。
+
+实施的日期化结果统一写入工程评审与验证，本文不重复全局PASS计数。
