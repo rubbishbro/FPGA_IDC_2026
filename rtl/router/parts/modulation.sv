@@ -54,12 +54,16 @@ module modulation0 #(
     output modal_step_pkg::coeff_t    co_wdata
 );
 
-    // ---- lambda 的临时映射（Q30）----
-    localparam logic signed [31:0] LAM_MAX = 32'sd32_212_255;   // 0.03 * 2^30
-    localparam logic signed [31:0] LAM_OFF = 32'sd242;          // 中心：和 NOTE_ON_TH(230) 对齐
-    localparam int                 LAM_SH  = 21;                // (fmap-242)<<21 -> 覆盖 ±0.03（fmap 230..255）
+    // ---- lambda 的映射（Q30）----
+    //   要求：fmap = 255 时 lambda = 0.035，且只做非负方向。
+    //   中心 LAM_OFF=242（贴着 NOTE_ON_TH=230 之上），所以 fmap-242 只有 0..13 这 14 档，
+    //   每档步长 = 0.035*2^30/13 = 2,890,843（Q30）。用一张 14 项的查表实现：
+    //   精确、不用乘法器、组合路径也短（只有 4 位比较 + mux）。
+    localparam logic signed [31:0] LAM_MAX  = 32'sd37_580_959;   // 13 * 2_890_843 = 0.0349999
+    localparam logic signed [31:0] LAM_STEP = 32'sd2_890_843;    // 0.035/13
+    localparam logic signed [31:0] LAM_OFF  = 32'sd242;          // fmap 到这里为止 = 不调制
     // 只调制最低 MOD_TOP 个模态（其余保持表里的基值，避免高模态被推出稳定域）
-    localparam int                 MOD_TOP  = 6;    // 实测 N=6 时 lambda 到 0.0254 仍全稳定，8 及以上最高模态会 |eig|>1
+    localparam int                 MOD_TOP  = 4;    // lambda 上限提到 0.035 后实测：N=4 全稳定(0.999987)，N=5 就 1.000005 了
 
     typedef enum logic [2:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY, S_OUT } mst_e;
     mst_e st;
@@ -75,23 +79,18 @@ module modulation0 #(
     logic signed [63:0] prod_q;
     logic signed [63:0] acc_q;                                  // lambda*S 的乘积寄存器
 
-    // lambda 限幅：先算 (fmap - LAM_OFF)<<LAM_SH，再夹到 **0 .. +LAM_MAX**
-    //
-    // 只做**单向**（张力变大 = 音高往上弯）：
+    // lambda：只做**非负**方向（张力变大 = 音高往上弯）
     //   * 有符号问题：`32'(fmap_i)` 是无符号，和 LAM_OFF（有符号）相减会整段按
     //     无符号解释（fmap=240 本该 -2，变成 0xFFFFFFFE），所以用 $signed 包一层；
     //   * 负方向禁用：一阶线性化在 lambda<0 那一侧会把某些高模态的 a12 推大，
-    //     使 det = a11*a22 - a12*a21 > 1 -> |eig| 1.02 > 1 自激（_analysis/mod_model.py
-    //     实测 fmap<=235 时 slot15 mode18 就是 1.024）。所以下限直接夹 0：
-    //     fmap <= LAM_OFF(=242) 就等于不调制。
+    //     使 det = a11*a22 - a12*a21 > 1 -> |eig| 1.02 > 1 自激。
+    //   * fmap <= LAM_OFF 就等于不调制；步长 2,890,843（Q30），fmap=255 -> 0.0349999
     logic signed [31:0] lam_diff;
-    logic signed [31:0] lam_raw;
     always_comb begin
         lam_diff = $signed({24'd0, fmap_i}) - LAM_OFF;
-        lam_raw  = lam_diff <<< LAM_SH;
-        if (lam_raw < 0)             lam_q = '0;       // 负方向不调制
-        else if (lam_raw > LAM_MAX)  lam_q = LAM_MAX;
-        else                         lam_q = lam_raw;
+        if (lam_diff <= 0)            lam_q = '0;
+        else if (lam_diff >= 32'sd13) lam_q = LAM_MAX;
+        else                          lam_q = LAM_STEP * lam_diff;   // 常数乘法，综合成移位加法
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
