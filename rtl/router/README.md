@@ -10,7 +10,7 @@
   （FLUTE/TRUMPET/…）先默认派给 `eng1`** —— 分配还是占位，见 `router_pkg.sv` 的注释。同一时刻只用一种，
   但**两个引擎实例各管 8 个声部并行跑**。
 - 每采样拍数取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
-  `n_modes=64` 约 **735 拍**（钢琴/吉他都是 64；`n_modes_of()` 定的）。
+  `n_modes=64` 约 **735 拍**（钢琴 64 模态；吉他 20 模态，帧更短，由 `n_modes_of()` 定）。
 
 本文档按"结构 → 约定 → 取舍 → 现状 → 测试 → 待定"组织。想改代码先看 §4（约定）和
 §5（取舍），那里写了"为什么不能那样改"。
@@ -167,11 +167,15 @@ ld_addr = {sel, slot, mode}      sel = 1 表示写调制参数表，0 表示写�
 base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 记录顺序 = RAM 地址顺序（slot-major）：slot 0 的 N_MODES 条，然后 slot 1 ...
 第 (slot, mode) 条记录 64 字节（大端 signed 32-bit）：
-  +0  a11   +4  a12   +8  a21   +12 a22
+  +0  a11   +4  a12   +8  a21   +12 a22        ← 系数表
   +16 gq    +20 gv    +24 wo    +28 保留(0)
-  +32 c0    +36 s0    +40 gam   +44 theta0
-  +48 g     +52 k12   +56 k21   +60 保留(0)
+  +32 a11_0 +36 a12_0 +40 a22_0 +44 wo_0       ← 参数表：4 个基值
+  +48 s11   +52 s12   +56 s22   +60 swo        ← 参数表：4 个对 lambda 的斜率
 ```
+
+参数表**只存 4 个基值 + 4 个斜率**：`a21 = −a12`、`S21 = −2a12 − S12` 都由 RTL 现算
+（`a21` 的 Q 和 `a12` 不同，见 §4.2）。基值带 `_0` 后缀是为了和系数表的同名字段区分
+（`flash_image.parse()` 把一条记录读成一个 dict，重名会互相覆盖）。
 
 **每个声部一张表**（loader 一对一写，不复制）。想给 16 个声部不同音高，就在 flash 里
 预先排好 16 张表。
@@ -278,7 +282,9 @@ base = inst * TABLE_BYTES        TABLE_BYTES = SLOTS * N_MODES * 64
 `envelope_ADSR` 虽然有 `fmap` 端口，但模块内部**没有用它**；`env_router` 里的
 `A_STEP/D_STEP/S_LEVEL/R_STEP` 是常量（钢琴：2.67 ms 爬满、32 ms 衰到 0.25、
 松键 10.7 ms 归零）。所以现在**力度只通过激励影响音色/音头强度**，持续段电平
-永远是 0.25。只有吉他走的 `envelope_dyn0` 是力度驱动的（`emap = fmap<<23`）。
+永远是 0.25。吉他现在**走「无包络」分支**（`use_adsr=0`/`use_dyn=0` → `emap` 恒 1.0、
+`dead` 恒 0），所以状态 RAM 的清零**不能**再靠 `dead`（见 §5.3 的 `init_zero`）。
+`envelope_dyn0` 还留着（`emap = fmap<<23`，力度驱动），但吉他暂时不用它。
 
 > 想让力度也缩放包络电平，最小改法是起音那一拍把 `fmap<<SHIFT` 锁存成 `peak[i]`
 > （衰减目标用 `peak>>2`），每声部多 2 个 32 位寄存器、不用乘法器 —— 现在是
@@ -340,51 +346,85 @@ y  = wo*q
 
 ```
 a12' = a21' = 0.010774 ≈ ω0·Δt    （两种字段的 Q 都只占 0.4~50%）
-gq'  = 0.0585（Q31 占 100%）      gv' = 10.86（Q27 占 99.4%）
+gq'  = 0.0585（Q32 占 41%）       gv' = 10.86（Q27 占 99.4%）
 ```
 
 **全部 1024 个模态零饱和**（不归一化时 `a21` 有 936 个撞 Q23 上限）。
+（`gq` 的 Q 从 35 降到 32 是因为吉他表里 `gq` 最大 0.2075，Q35 会饱和 30 次；
+两张表都按 Q32 打包，钢琴只占 1.4%。）
 
-> 注意两个"约定"：
-> - `mod_par_t.k12 = sq/sv`、`k21 = sv/sq` —— 调制器改频率时必须重新乘这两个比值
->   （见 §4.6），这也是它们存在的唯一理由。
+> 注意：`mod_par_t` 里已经**没有** `k12/k21` 了 —— 调制改成"基值 + lambda·斜率"
+> 之后不再走 cos/sin 重构，用不到状态定标比值（见 §4.6）。
 > - **黄金向量已删**（`tools/golden_seq_piano.txt`）：它不符合这条配方（`a21/a12 ≈ 22`，
 >   按本节应该是 1），而且只有 4 个模态。现在 TB 直接从 `tools/piano_flash.mem`（完整
 >   系数表）灌系数，以后所有合成测试都从系数表跑（见 §7.0）。
 
 ### 4.6 调制器（吉他揉弦）的公式
 
-`modulation0` 一次处理一个声部的 `n_modes` 个模态，**只改 a11/a12/a21/a22**（gq/gv/wo 不动）。
-输入是参数表里的 `c0/s0/gam/theta0/g/k12/k21` 加上从 `fmap` 得到的 `alpha`：
+`modulation0` 一次处理一个声部，**只改 a11/a12/a21/a22/wo 五个字段**，而且**只改最低
+`MOD_TOP` 个模态**（`MOD_TOP = 4`）；更高的模态一个字段都不写（保持系数表里的基值）。
+
+模型：揉弦主要调**弦张力**，一阶近似下所有模态频率同比例变成 `alpha = 1 + lambda`，
+所以每个系数都能写成"基值 + lambda·斜率"（斜率在参数表里，由
+`sythsound/guitar_param_gen.py` 生成）：
 
 ```
-alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 123437）
+a11' = a11_0 + lambda·S11        a12' = a12_0 + lambda·S12
+a22' = a22_0 + lambda·S22        wo'  = wo_0  + lambda·Swo
+a21' = −a12'                     （a21 恒等于 −a12，不单独存斜率）
 ```
 
-然后每个模态按 15 步（单乘法器串行，每步 `S_LD → S_MUL → S_APPLY` 三拍）算：
+一个模态 15 拍（单乘法器串行）：
 
-| step | 算的东西 | 含义 |
+| 状态 | 干什么 |
+|---|---|
+| `S_RD` | 给参数表地址（8 个字：4 基值 + 4 斜率） |
+| `S_W` | 等两级读延迟，把 8 个参数锁进本地寄存器；`mode >= MOD_TOP` 直接跳 `S_OUT` |
+| 4×(`S_LD → S_MUL → S_APPLY`) | `prod = lambda·Sxx`（Q30×Q29 → Q59），右移 31/29/31/30 落到 Q28/Q30/Q28/Q29 并加到基值上 |
+| `S_OUT` | 写回 5 个字段；`a21' = −(a12' >>> (SH_A12−SH_A21))`（**a12 是 Q30、a21 是 Q23**，差 7 位） |
+
+**lambda 的映射**（Q30，只做非负方向）：
+
+```
+LAM_OFF  = 242                        fmap <= 242 -> lambda = 0（不调制）
+LAM_STEP = 0.035·2^30/13 = 2,890,843  fmap = 255 -> lambda = 0.0349999
+LAM_MAX  = 13·LAM_STEP
+lam_q = (fmap−242 <= 0) ? 0 : ((fmap−242 >= 13) ? LAM_MAX : LAM_STEP·(fmap−242))
+```
+
+常数乘法（综合成移位加法，不额外占乘法器）。**负方向禁用**：一阶线性化在
+`lambda < 0` 一侧会把某些高模态的 `a12` 推大，使 `det = a11·a22 − a12·a21 > 1`
+→ `|eig| > 1` 自激。
+
+为什么只调最低 4 个模态（`_analysis/lam035_ntop.py` 实测，lambda 扫到 0.035）：
+
+| MOD_TOP | max\|eig\| | |
 |---|---|---|
-| 1 | `D  = (alpha−1)·theta0` | 频率偏移量 |
-| 2 | `d  = 1 − gam/FS` | 每采样的衰减因子（`gam` 是 Q16.16） |
-| 3 | `c  = c0 − s0·D` | `cos(theta0 + D)` 的一阶展开 |
-| 4 | `s  = s0 + c0·D` | `sin(theta0 + D)` 的一阶展开 |
-| 5 | `ea = d·c` | a11/a22 的对称部分 |
-| 7 | `a12a = d·s·g/alpha` | 未归一化的 a12（`g = Δt/theta0`） |
-| 8 | `a12  = a12a·k12` | **乘 sq/sv**，回到硬件的状态定标 |
-| 9 | `t  = a12·gam` | 反对称部分 |
-| 11/12 | `w0 = omega0·2^16`、`w2 = omega0²` | |
-| 13 | `a21 = −a12·alpha²·w0²·k21` | **乘 sv/sq** |
-| out | `a11' = (ea+t)>>2`、`a22' = (ea−t)>>2`、`a12'`、`a21'` | 写回（Q28/Q30/Q23） |
+| 4 | 0.999987 | ✓ |
+| 5 | 1.000005 | ✗ |
+| 6 | 1.000056 | ✗ |
+| 20 | 1.000851 | ✗ |
 
-- 门控：`theta0 >= 0.8 rad`（`TH_GATE`）或 `fmap == 0` 时 `co_we = 0`，一个字段都不写
-  （高模态的 theta0 很大，硬调会把谐振点推飞）。
-- `a21` 里那个 `alpha²` 和 `w0²`：频率改 alpha 倍后，a21（≈ `es·ω0²/ωd`）要按 `ω0²` 缩放；
-  `k21` 再把状态定标换回去。
-- 因为是"改频率 → 重新推系数"，所以**幂等**：同一个 `(声部, fmap)` 跑几遍结果一样。
+高模态的 `theta` 接近 π/2、`a12 = sin(theta)` 贴着 1，一阶展开的二阶误差
+~(lambda·theta)² 很容易把它推出稳定域；而揉弦听感主要来自基频和前几个谐波，
+所以不动高模态最划算。
+
+**灵敏度公式的坑**（`S12` 曾经小 4~5 个数量级）：`a12` 的硬件域系数是
+`k·a12_phys`，而 `k = omega0` 本身随 alpha 变（`k' = k`），所以
+
+```
+S12 = a12 + k·d(a12_phys)/d(alpha)
+```
+
+漏掉前面那个 `+a12` 时，`S12/a12` 只有 1e-5 量级（`a12_phys = es·sin(theta)/wd`
+的 alpha 依赖几乎完全抵消，`theta·cos − sin ≈ −theta³/3`），结果调制只改幅度
+（`wo ±3.5%` = 颤音），音高纹丝不动。补上之后 fmap=255 时音高 +59.6 音分。
+
+- **幂等**：基值单独存（参数表的 4 个 `*_0`），重复跑结果一样，不依赖上次写回的值。
+- **触发**：`voice_router` 在"起音沿"和"按住期间 fmap 变化"两种情况登记 `mod_req`，
+  调制器空闲时按最低位服务。
 
 ---
-
 ## 5. 设计取舍（为什么这样 + 代价）
 
 ### 5.1 两个引擎并行 + 双 bank —— 1577 → 735 拍（64 模态）
@@ -471,6 +511,17 @@ alpha = 1 + K_ALPHA·fmap            K_ALPHA = 50 cent / 255（Q30，常数 1234
 
 瓶颈的顺序：混响（`u_rev`）> eng1 累加链 > eng0。要冲 100 MHz 按这个顺序拆。
 
+**两个乐器的端到端实测**（`tb_music`，混响 NONE，0.5 s，24 000 采样）：
+
+| 用例 | n_modes | 峰值（= 满幅的几倍） | 削波 | 仿真墙钟 |
+|---|---|---|---|---|
+| 钢琴 单音（ADSR） | 64 | 2 985 903 = 0.178 | 0 | 444 s |
+| 吉他 单音（无包络、无调制） | 20 | 2 738 927 = 0.163 | 0 | ~460 s |
+| 吉他 单音 + 揉弦（λ→0.035） | 20 | 2 923 002 = 0.174 | 0 | ~500 s |
+| 吉他 16 音齐响 + 揉弦 | 20 | 12 183 302 = **0.726** | 0 | 808 s |
+
+（"满幅"= Q24 的 1.0 = 16 777 216。）
+
 ---
 
 ## 7. 测试
@@ -497,7 +548,17 @@ _analysis/music_dec.txt  →  tools/dec2wav.py  →  _analysis/music.wav
 - **每个 slot 一个音高**（镜像里 slot0 = midi40、slot1 = 42 …），所以弹不同 slot 就是
   弹不同音，这段是**真旋律**（8 个音：4-6-8-9-8-6-4-0）。
 - 没有 flash 行为模型，第一个 load 被跳过（直接灌 RAM 镜像）；loader 的格式由
-  `flash_image.py --selftest` / `piano_flash.py` 的量化余量报告保证。
+  `flash_image.py --selftest` / `piano_flash.py` / `guitar_flash.py` 的量化余量报告保证
+  （**真 loader 的加载路径目前没有 TB 覆盖**，见 §8.6）。
+- **两个乐器都支持**，用 `_analysis/case.txt` 选（三行：`INS`、`SWEEP`、采样数）：
+  `INS=0` 钢琴（`piano_flash.mem`，每 slot 64 模态）/ `INS=1` 吉他（`guitar_flash.mem`，
+  每 slot 20 模态，基地址 `16*20*64`）。第三个值 >0 时覆盖 `NSAMP`（调试用几百采样，
+  一次只要十几秒）。
+- 用例选择走**文件**而不是 `-testplusarg`：`xsim` 的 `-testplusarg "INS=1"` 在 `.bat`
+  里会被 `=` 拆成两个参数。
+- `DBG=1` 打开逐级打印：前 4 个采样打 `y/mix_q/body_y/emap/x_q/a11/wo`，每 1000 采样打
+  `MODTRK`（`fmap` 和**实际写进系数表的** `a12/a11/wo`，查调制到底有没有生效），
+  结束再扫一遍逐模态的 `|q|`/`a11` 越界。
 
 ### 7.2 怎么跑
 
@@ -505,7 +566,11 @@ _analysis/music_dec.txt  →  tools/dec2wav.py  →  _analysis/music.wav
 pwsh -File rtl/router/tools/run_all.ps1                # 一条命令：镜像 -> 编译 -> 仿真 -> 自检 -> 出 WAV
 pwsh -File rtl/router/tools/run_all.ps1 -SkipBuild     # 只重跑（编译过了）
 pwsh -File rtl/router/tools/run_all.ps1 -SkipFlash     # 镜像已生成，不重新跑 python
+pwsh -File rtl/router/tools/run_guitar.ps1             # 吉他两个用例（自然衰减 / 揉弦）各出一个 WAV
 ```
+
+`run_guitar.ps1` 会自己重建吉他镜像、编译、跑 `guitar_dec` 和 `guitar_vib` 两个用例
+（`_analysis/guitar_dec.wav`、`_analysis/guitar_vib.wav`）。
 
 它会依次做：
 
@@ -534,6 +599,7 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 | 无 X | 输出里没有 `x` —— 抓"系数没灌到、RAM 读空、位宽截断" |
 | 有声音 | `|ymax| > 0` —— 抓"引擎一个模态都没算"（`n_modes` 被截成 0 那类） |
 | 削波计数 | 打印 `n_clip`，>0 说明增益链有问题（不拦 PASS） |
+| 余量 | 打印 `mix_q`/`body_y`/`y_data` 的峰值占 2^63 的比例（现在都在 1e-10 量级） |
 
 **已知没覆盖**（见 §8）：`DEBUG_PORT` 读口；loader 的 SPI 时序（只有格式自检）；
 少于 16 声部的配置；`eng1`（现在只由 `eng_sel` 的默认分支用到，钢琴/吉他走 eng0）。
@@ -577,15 +643,24 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 5. **`DEBUG_PORT` 现在只吐"最近一次引擎读到的状态字"**（不能任意地址读），因为没有
    多余的 RAM 读口。要真调试得在外面加 ILA，或者接受多一块 RAM 复制的代价。
 6. **`eng0` 缺独立的 golden 值测试**（用 Python 模型逐样本对比），现在只有端到端。
+   **loader 的真加载路径也没有 TB 覆盖**：`tb_music` 一直直接 poke `ca_*`/`pm_*`，
+   绕开 `weight_loader`；8 字参数半区、`gq` 换 Q32 之后只验证了 Python 打包侧。
 7. **音高 / 系数表**：`tools/piano_flash.py` 能读 `sythsound/piano_coeff.txt`（40 个 MIDI 音
    × 64 模态）按 16 个 slot 出镜像。**sq/sv 归一化这一步已经补上**（§4.5 有推导）；
    归一化后 1024 个模态零饱和。黄金向量已删，TB 直接读 `piano_flash.mem`。
-8. **R7（bank B 独立性）没过**：只按声部 15 时 `note_on[15]=1`、`emap[15]=0.78`，
-   但 `q_ram_b[56..59]` 一直是 0 —— 状态没被有效写入。怀疑 `erb_zero`/`dead_f` 或
-   B 的写地址；暂时只在 TB 里打印、不拦 RESULT。
+8. **R7（bank B 独立性）**：原来单独按声部 15 时 `q_ram_b[56..59]` 一直是 0。
+   现在 **16 音齐响用例已经间接覆盖 bank B**（16 个 slot 全响、`n_x=0`、
+   `|ymax| = 12183302 = 0.726 倍满幅`、无削波），说明 B 的写入是通的；
+   但"单独按某个 B 声部"这个定向用例还是没做。
 9. **`voice_router.cst` 故意没有 `IO_LOC`**：P16/R15 在 GW5AST-LV138FPG676AES 上无效
    （PR2017/PR2028），要上板得按实际板子补。
 10. 想冲 100 MHz：混响写 RAM 已拆两级，下一个是干湿相加（`u_rev/y_63`）和 eng1 累加链。
+11. **揉弦是一阶线性化，有稳定域边界**：只调最低 `MOD_TOP=4` 个模态，`lambda` 上限
+    0.035（fmap=255）。`_analysis/lam035_ntop.py` 实测：MOD_TOP=4 时全表
+    `max|eig| = 0.999987` ✓；MOD_TOP=5 就 1.000005 ✗、6 是 1.000056 ✗。
+    再加大 lambda 或模态数要重跑这个脚本。
+12. **`guitar_param_gen.py --verify` 目前没参考意义**：它的参照 `coeffs()` 里的 `a12`
+    本身不带音高依赖（就是 §4.6 说的那个漏项），所以报出来的误差是"和错误参照比"。
 
 ---
 
@@ -609,6 +684,17 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
    端口会给 X（改标量端口）；`string` 拼接在 task 里会崩（用 `$write` 循环）；同拍改
    激励要打在 `negedge`，否则会盖住被测信号。
 9. **`git add -u` 不会加新文件**，但 index 里已有的会被带进提交——提交前看 `git status`。
+10. **`xvlog` 编译突然变慢（700~1100 s/文件）= work 库坏了**：删掉 `xsim.dir`、`.Xil`、
+    `*.jou/*.log` 再来一遍，单文件 2 s、全量 21 个文件 40 s。别怀疑代码。
+11. **`tri` 是 SystemVerilog 保留字**（net 类型），`int tri` 直接语法错误；而 xelab 失败后
+    再 `xsim` 会**跑旧快照**，看起来"改了没生效"。
+12. **参数表不拆 bank**：地址是 `{slot, mode}` = `slot*64 + mode`；系数表才是
+    `(slot%8)*64 + mode`。TB 里 poke 用错会把 slot 8~15 盖到 0~7 上。
+13. **字段的 Q 不一样**：`a12` 是 Q30、`a21` 是 Q23（`SH_A12 - SH_A21 = 7`）。
+    `a21 = -a12` 必须右移 7 位，否则 a21 大 128 倍 → `det > 1` → 自激（表现为
+    "只要写系数就爆满幅"）。
+14. **数组 poke 要看 `$fscanf` 的返回值**：`_analysis/case.txt` 少一行时后面那个变量
+    保持默认值，别指望报错。
 
 ---
 
