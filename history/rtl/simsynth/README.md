@@ -139,7 +139,7 @@ rtl/simsynth/
 ## 揉弦与按弦（变调）
 
 > 注：按键已经区分音高，实际产品**不需要按弦**，只需要 aftertouch 揉弦；
-> 落地设计（线性近似的存储/算力/调度）见 [ROUTER.md](ROUTER.md) 第 3 节。本节保留完整的模型推导。
+> 落地设计（线性近似的存储/算力/调度）见 `ROUTER.md`（当时文件，现已移除；当前说明见 [router](../../../rtl/router/README.md)） 第 3 节。本节保留完整的模型推导。
 
 模型里这两个演奏手法就是两个**无量纲比值**（`sim_guitar.py` 的 `length_r` / `tension_r`，
 语义是 current/default，范围 0.9~1.1），它们只影响频率和输出增益，不碰阻尼：

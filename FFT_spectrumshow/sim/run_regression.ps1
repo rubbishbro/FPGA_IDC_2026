@@ -6,16 +6,19 @@ $ErrorActionPreference = "Stop"
 $vlog = "D:\gowin\win64\vlog.exe"
 $vsim = "D:\gowin\win64\vsim.exe"
 $pkg  = "..\src\ui\ui_pkg.sv"
+$shared = @("..\..\rtl\config_pkg.sv", "..\..\rtl\drivers\pkg\joystick_pkg.sv",
+            "..\src\ui\sidebar_font_pkg.sv", "..\..\rtl\control_loop.sv",
+            "..\..\rtl\config_dispatch.sv", "..\..\rtl\drivers\joystick_adapter.sv")
 
 $src = Get-ChildItem ..\src -Recurse -File -Include *.v,*.sv |
-       Where-Object { $_.Name -ne "ui_pkg.sv" } |
+       Where-Object { $_.Name -notlike "*pkg.sv" } |
        ForEach-Object { $_.FullName }
 
 $tb = Get-ChildItem . -File |
       Where-Object { $_.Extension -in ".v",".sv" } |
       ForEach-Object { $_.FullName }
 
-& $vlog -sv $pkg $src
+& $vlog -sv $pkg $shared $src
 if ($LASTEXITCODE -eq 0) {
     & $vlog -sv $tb
 }

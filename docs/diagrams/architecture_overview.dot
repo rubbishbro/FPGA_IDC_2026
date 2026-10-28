@@ -1,69 +1,31 @@
-// -----------------------------------------------------------------------------
-// 文件: architecture_overview.dot
-// 用途: 新架构总览图（router_system_top 正式顶层）
-// 状态: POST_EN=1；Icarus 16/16；Gowin 100.166MHz，setup/hold 0
-// 生成: dot -Tsvg architecture_overview.dot -o architecture_overview.svg
-//       dot -Tpng -Gdpi=180 architecture_overview.dot -o architecture_overview.png
-// -----------------------------------------------------------------------------
+// 当前结构；不在图内维护 PASS/Fmax，结果见文档维护与验证。
 digraph architecture_overview {
-    graph [
-        fontname="Noto Sans CJK TC", fontsize=18,
-        rankdir=TB, compound=true, newrank=true,
-        nodesep=0.45, ranksep=0.55, bgcolor="white", pad=0.30
-    ];
-    node [shape=box, style="rounded,filled", fontname="Noto Sans CJK TC",
-          fontsize=10, margin="0.12,0.07", color="#4a5568", fillcolor="#edf2f7"];
-    edge [fontname="Noto Sans CJK TC", fontsize=8, color="#4a5568", arrowsize=0.7];
+graph [fontname="Noto Sans CJK SC",fontsize=17,rankdir=TB,nodesep=0.4,ranksep=0.55,bgcolor="white",pad=0.25];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=11,margin="0.16,0.10",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=10,color="#64748b",arrowsize=0.7];
 
-    subgraph cluster_top {
-        label="router_system_top  ——  新正式顶层（POST_EN=1）";
-        fontsize=14; color="#2b6cb0"; style="rounded"; fillcolor="#ebf8ff";
-
-        subgraph cluster_in {
-            label="外部输入";
-            fontsize=11; color="#718096"; style="rounded,dashed"; fillcolor="#f7fafc";
-            load [label="load event\nclass / voice / inst / note / vel / dyn", fillcolor="#bee3f8"];
-            cfg [label="rcfg + fmap\nconfig / pressure / key", fillcolor="#bee3f8"];
-            off [label="note off\nvoice", fillcolor="#bee3f8"];
-            { rank=same; load; cfg; off; }
-        }
-
-        subgraph cluster_ctrl {
-            label="控制面";
-            fontsize=12; color="#2f855a"; style="rounded"; fillcolor="#f0fff4";
-            rf [label="router_frontend\nrouter_ctrl + excitation_convert\ninstrument_id / engine_sel / x", fillcolor="#9ae6b4"];
-            rl [label="router_loader\nindex_loader20(A) + index_loader64(B/C/E2)", fillcolor="#fefcbf"];
-            rom [label="ROM / Flash backend\nindex / coeff / ctrl / seed", shape=cylinder, fillcolor="#faf089"];
-            { rank=same; rf; rl; }
-            rl -> rom [label="read", style=dotted, color="#b7791f"];
-        }
-
-        subgraph cluster_sys {
-            label="shared_engines_system_top";
-            fontsize=12; color="#6b46c1"; style="rounded"; fillcolor="#faf5ff";
-            va [label="router_voice_alloc\n16 voice / active / class / gate", fillcolor="#d6bcfa"];
-
-            subgraph cluster_core {
-                label="shared_engines_top";
-                fontsize=11; color="#805ad5"; style="rounded,dashed"; fillcolor="#faf5ff";
-                mux [label="engine_mux\npure_engine_abc / e2_engine\n唯一 shared_modal_ram\n唯一尾部加法器", fillcolor="#e9d8fd"];
-                post [label="post_chain（POST_EN=1）\nenvelope → body biquad → reverb\n→ dry/wet → final_adder", fillcolor="#fed7d7"];
-                mux -> post [label="mix_sum"];
-            }
-            va -> mux [label="active / gate / zero", color="#6b46c1", style=dashed];
-        }
-
-        out [label="mix_sum\n64-bit mono", fillcolor="#f6ad55"];
-    }
-
-    note [shape=note, label="Icarus：16/16 PASS\nGowin P&R：100.166 MHz\nsetup/hold 0\nPOST_EN=1", fillcolor="#f0fff4", color="#2f855a"];
-
-    load -> rl [label="load", color="#b7791f", style=bold];
-    cfg -> rf [label="config/fmap", color="#2f855a", style=bold];
-    off -> va [label="note_off", color="#6b46c1"];
-    rf -> rl [label="instrument / load cmd", color="#2f855a", style=dashed];
-    rf -> mux [label="x slot0 / engine_sel", color="#2f855a", style=dashed];
-    rl -> mux [label="cfg / clr / seed", color="#b7791f", style=bold];
-    post -> out;
-    out -> note [style=dotted, color="#2f855a"];
+label="系统实现边界 · 2026-10-27\n实线：已有内部连接　虚线：待接入整机";labelloc=t;
+subgraph cluster_audio {label="合成 · 目标 100MHz";color="#93c5fd";
+ pad [label="压力矩阵 / 外部 fmap"];
+ top [label="pad_voice_top → voice_router\n双 bank · 默认 16 槽",fillcolor="#dbeafe"];
+ y [label="y_valid / signed64 y_data"];
+ pad -> top -> y;
+}
+subgraph cluster_comm {label="独立通信 · 系统 clk";color="#c4b5fd";
+ phy [label="双 UART / HC-05"];
+ comm [label="transport / parser / session\nMIDI 事件与配置请求",fillcolor="#ede9fe"];
+ phy -> comm;
+}
+subgraph cluster_lcd {label="独立 LCD demo";color="#86efac";
+ source [label="内部三音 / 扫频测试源"];
+ fft [label="FFT / WAVE / FALL\n约 33.333MHz",fillcolor="#dcfce7"];
+ side [label="sidebar_system\n50MHz 控制 / 像素帧头提交",fillcolor="#dcfce7"];
+ lcd [label="LCD RGB / DE"];
+ source -> fft -> side -> lcd;
+}
+consumer [label="待接：MIDI 演奏消费者\n配置协议转换 / 音频 backend",style="rounded,dashed",fillcolor="#fff7ed"];
+output [label="待接：PCM / FIFO / I2S / DAC",style="rounded,dashed",fillcolor="#fff7ed"];
+tap [label="待接：PCM tap / 音频异步 FIFO",style="rounded,dashed",fillcolor="#fff7ed"];
+comm -> consumer [style=dashed];consumer -> top [style=dashed];consumer -> side [style=dashed,dir=both];
+y -> output [style=dashed];y -> tap [style=dashed];tap -> fft [style=dashed];
 }

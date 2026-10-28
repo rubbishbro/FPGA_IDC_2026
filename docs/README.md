@@ -1,42 +1,32 @@
-# 文档索引
+# 文档索引与职责
 
-## 当前有效
+整理：2026-10-28。根目录 [README](../README.md) 负责项目总览，[CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md) 负责当前实例/数据流；本目录每个专题只维护一种主要问题，交叉内容通过链接引用。
 
-| 文档 | 内容 |
-|---|---|
-| [UI控制Loop与配置层设计.md](UI控制Loop与配置层设计.md) | 保持现有结构，独立 control_loop.sv 已实现；轮询／转交接口及 15 组独立仿真结果（2026-10-27） |
-| [控制层与主循环设计调研.md](控制层与主循环设计调研.md) | 基于当前 router／通信／UI 的事件驱动控制建议、配置生效边界、MIDI 状态与时钟责任（2026-10-27，设计调研） |
-| [ENGINE_INTERNAL.md](ENGINE_INTERNAL.md) | §0 为当前源码／验证摘要；后文保留早期目标稿和阶段记录 |
-| [TIMING_RAM_ANALYSIS.md](TIMING_RAM_ANALYSIS.md) | 100MHz 时序余量与 BSRAM/逻辑/DSP 占用分析 |
-| [ENG1_PY_MODEL.md](ENG1_PY_MODEL.md) | router 级 eng1 整数模型：A/B/C 共用核、位宽契约、RTL 对拍、试听与边界 |
-| [diagrams/README.md](diagrams/README.md) | 新架构三张图和 review 说明 |
-| [产品需求与竞品调研.md](产品需求与竞品调研.md) | 乐器硬件＋电脑上位机＋手机 App 的整套竞品比较；网页仅作次级参考（非实现报告） |
-| [上位机可行性分析.md](上位机可行性分析.md) | 上位机/MIDI/链路可行性评估（讨论稿） |
-| [通信子系统实现与汇报](../rtl/comm/README.md) | 独立 UART／HC-05 驱动、transport、会话协调和共享解析；含 13 项仿真／独立时序汇报 |
-| [HC-05 设备驱动](../rtl/drivers/bluetooth_hc05/README.md) | 复用通用 UART、可选 STATE；已实现设备包装，历史设计单独归档，尚无实物验收 |
-| [赛题要求完成度核对.md](赛题要求完成度核对.md) | 按基础／拓展／现场标准核对已做、待集成、设计空缺与自主增加项（2026-10-23） |
-| [../FFT_spectrumshow/README.md](../FFT_spectrumshow/README.md) | 独立 FFT／频谱／瀑布核心，未接主引擎；含本轮编译阻塞记录 |
+## 当前专题
 
-2026-10-22 实现复核基线 `cdc4e8a2`：核心回归 21 项 PASS；FFT 链级编译失败。已保存的 `router_probe` P&R 为 100.063 MHz／+0.006 ns，属于测试 ROM 探针，不是当前整机板级签核。
+| 文档 | 负责什么 | 交给其它文档的内容 |
+|---|---|---|
+| [产品需求与竞品调研](产品需求与竞品调研.md) | 用户任务、功能范围、竞品来源、音色塑形的产品含义 | 不维护端口/帧格式、DSP实现或测试计数 |
+| [上位机可行性分析](上位机可行性分析.md) | 电脑连接/编辑/试听、带宽/延迟预算、回传/部署和先导实验 | 不另定义线上协议、设备演奏状态或产品定位 |
+| [控制与侧栏设计](控制与侧栏设计.md) | 参数字典、菜单交互、Loop、提交/结果、能力位、CDC与接线 | 不维护线上编码、MIDI音符归属或日期化测试表 |
+| [MIDI演奏与通信接入](MIDI演奏与通信接入.md) | MIDI功能范围、音符/踏板/槽位、变调边界、协议转换和来源恢复 | 线上字段归PROTOCOL_V1，本地字典/显示提交归控制文档 |
+| [管弦乐器音高提取与合成](管弦乐器音高提取与合成.md) | 离线样本筛选、基频/模态提取、持续音与连续音高生成 | 不代替router级整数模型/对拍或板级验收 |
+| [ENG1 Python模型](ENG1_PY_MODEL.md) | eng1整数契约、A/B/C模型、试听和RTL差异 | 不重复离线提取方法、主路由选核或周期测量 |
+| [赛题要求完成度核对](赛题要求完成度核对.md) | 要求→实现→验收证据、优先级、设计报告素材 | 缺陷复现归bugs，实际执行结果归验证记录 |
+| [当前问题](bugs.md) | 缺陷/风险编号、触发与影响、修复状态和关闭条件 | 不再维护第二份整机完成勾选表或测试汇总 |
+| [工程评审与验证](工程评审与验证.md) | 评审方法/提示词、证据等级、文档规则和日期化验证记录 | 不复制专题实现合同；运行器用法归sim说明 |
 
-## 已归档
+## 代码、协议与图
 
-以下文档是重构前/中间稿，已移到：
+- [架构图](diagrams/README.md)：系统边界、配置流和双bank合成图；解释配合根目录架构导读。
+- [router](../rtl/router/README.md) / [压力适配](../rtl/router/PAD_ADAPTER.md)：存储、字段格式、作业/加载及适配器端口。
+- [通信](../rtl/comm/README.md) / [解析器](../rtl/drivers/analyzer/README.md) / [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md)：分层接口、Event32和唯一线上字节合同。
+- [驱动](../rtl/drivers/README.md) / [摇杆](../rtl/drivers/JOYSTICK_ADAPTER.md) / [可视化](../FFT_spectrumshow/README.md)：各模块自身操作/接口。
+- [sim说明](../sim/README.md)：命令、工具与运行目录；[数学推导](../python/MATH.md)、[提取汇总](../FFT_results/report.md)、[试听](../FFT_results/sim/README.md) 分别维护原用途。
+- [赛题摘录](../reference_agent_readfirst/competition_requements_most_important.md)、[平台](../reference_agent_readfirst/fpga_platform.md)及其docs内的板卡/比赛/答疑：原始依据。
 
-```text
-history/docs/legacy/
-```
+## 合并与历史
 
-包括：
+四份控制/UI方案/实施/Loop/调研已合为控制与侧栏设计；MIDI接入吸收演奏消费者约束；架构检查表/报告底稿并入验收；Review提示词/维护记录合为工程评审与验证。旧文件移除，引用直接指向合并后的章节，不留重复正文或跳转壳。
 
-```text
-新架构总览_step1.md
-ENG1_ENG2_统一架构_2026-10-21.md
-ENGINE2_REVERB_PLAN.md
-```
-
-历史图在：
-
-```text
-history/docs/diagrams/legacy/
-```
+[2026-10-25快照](history/2026-10-25/) 与 [history](../history/README.md) 保留对应日期的历史问题/交付记录；不是第二套现行设计。非docs目录最多两份说明文档；专题设计在docs内按职责组织，不按讨论轮次重复建稿。

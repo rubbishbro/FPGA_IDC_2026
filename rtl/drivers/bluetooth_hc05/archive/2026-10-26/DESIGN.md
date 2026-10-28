@@ -1558,7 +1558,7 @@ link_pkg
 - [CRC RevEng — CRC-16/IBM-3740 (CCITT-FALSE)](https://reveng.sourceforge.io/crc-catalogue/16.htm#crc.cat.crc-16-ibm-3740)
 - [MIDI Association — Summary of MIDI 1.0 Messages](https://midi.org/summary-of-midi-1-0-messages)
 - [Android Bluetooth 概览](https://developer.android.com/develop/connectivity/bluetooth) 与 [BluetoothSocket API](https://developer.android.com/reference/android/bluetooth/BluetoothSocket)
-- 本仓库：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧向量](../../../analyzer/frame_vectors.json)、[MIDI/UART 协议草案](../../../../../docs/MIDI_UART协议草案.md)、[上位机可行性分析](../../../../../docs/上位机可行性分析.md)
+- 本仓库：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧向量](../../../analyzer/frame_vectors.json)、[MIDI/UART 协议草案](../../../../../docs/MIDI演奏与通信接入.md)、[上位机可行性分析](../../../../../docs/上位机可行性分析.md)
 - HC-05 的 AT 指令集/引脚定义以具体模块厂商手册为准；不同固件/克隆模块存在差异。本文不复制厂商手册，只给出集成约束。
 
 ---

@@ -2,13 +2,13 @@
 
 Modal parameters extracted from the sample libraries, for the "one-shot excitation
 pulse → N modal resonators (IIR) → fixed body filter" engine. **These are parameters,
-not audio** — no sample audio is shipped.
+not audio**. Model-rendered WAV files are kept separately under `sim/`; they are not board recordings.
 
-Source libraries (read-only, under `../`):
+Source libraries (read-only, under `../music_resources/`):
 
-- **guitar / banjo / mandolin** — Philharmonia Orchestra (`../<inst>/*.mp3`), 44.1 kHz,
+- **guitar / banjo / mandolin** — Philharmonia Orchestra (`../music_resources/<inst>/*.mp3`), 44.1 kHz,
   lossy. Only the `normal` articulation is used (tremolo etc. are separate performances).
-- **piano** — Upright Piano KW, FreePats/Zenvoid, CC0 (`../UprightPian/samples/*.flac`
+- **piano** — Upright Piano KW, FreePats/Zenvoid, CC0 (`../music_resources/UprightPian/samples/*.flac`
   + `UprightPianoKW-20220221.sfz`), stereo 44.1 kHz, 24-bit, looped tails.
 
 The instrument list and per-instrument settings live in `python/instruments.py`; every
@@ -87,6 +87,8 @@ Flat (concatenated) arrays; `note_id` indexes the per-note arrays at the end:
 | `f0`, `B`, `midi`, `note`, `dynamic` | per-note scalars/labels |
 
 ## Using it in the synthesis engine
+
+These NPZ tables, the retained core ROMs, and the current router Flash records have different formats. The router piano packer defaults to the older `sythsound/piano_coeff.txt`, while the current generator writes `piano_coeff_scaled.txt`; switching inputs is explicit. Flash uses slot-major 64-byte records; do not copy NPZ/old MEM files into Flash directly. See [router format](../rtl/router/README.md).
 
 - mode frequency: `f_k` directly, or regenerate as `k·f0·√(1+B k²)` for any f0.
 - mode weight: `a0` (normalise per note), **gated on `trusted`**.

@@ -1,8 +1,8 @@
 # FPGA Hardware Platform
 
-> 作用：描述本项目的平台分工、跨板迁移边界和 Coding Agent 的硬件假设。  
-> 赛题功能与评分要求见 `competition_reques_important.md`、`gowin_competition_notes.md`。  
-> Tang Mega 138K Pro 的详细资源、接口和工具链信息见 `tang_mega_138k_pro_platform.md`。
+> 作用：描述本项目的平台分工、跨板迁移边界和 Coding Agent 的硬件假设。
+> 赛题功能与评分要求见 [赛题摘录](competition_requements_most_important.md)、[比赛说明](docs/gowin_competition_notes.md)。
+> Tang Mega 138K Pro 的详细资源、接口和工具链信息见 [Tang Mega Pro 详情](docs/tang_mega_138k_pro_platform.md)。
 
 ## 1. 平台分工
 
@@ -29,7 +29,7 @@
 - 板载 DDR3：**1 GB**
 - 调试接口：**JTAG + UART**
 
-完整板卡资源和接口定义不在本文重复维护，统一以 `tang_mega_138k_pro_platform.md` 为准，避免两个文件产生不同版本的参数。
+完整板卡资源和接口定义不在本文重复维护，统一以 [Tang Mega Pro 详情](docs/tang_mega_138k_pro_platform.md) 为准，避免两个文件产生不同版本的参数。
 
 ### 2.1 工程使用原则
 
@@ -44,7 +44,7 @@ Tang Mega 138K Pro 与普通 Tang Mega 138K 的器件和工具链要求不同。
 具体 Gowin IDE、Programmer、License 和板卡资料要求统一见：
 
 ```text
-tang_mega_138k_pro_platform.md
+reference_agent_readfirst/docs/tang_mega_138k_pro_platform.md
 ```
 
 ## 3. 前期验证平台：立创·逻辑派 FPGA-G1
@@ -248,7 +248,7 @@ Agent 不得：
 
 ## 10. 来源优先级
 
-1. `tang_mega_138k_pro_platform.md`：主力平台详细硬件与工具链说明。
+1. [Tang Mega Pro 详情](docs/tang_mega_138k_pro_platform.md)：主力平台详细硬件与工具链说明。
 2. 高云竞赛官方选题指南：确认竞赛支持的技术平台和自备高云 FPGA 板卡规则。
 3. Sipeed Tang Mega 138K Pro 官方硬件资料：原理图、规格书、约束、芯片资料。
 4. 立创逻辑派官方资料：前期验证平台的接口、时钟和例程。

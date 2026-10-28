@@ -1,4 +1,4 @@
-module lcd_draw (
+module lcd_draw #(parameter LEGACY_UI=1'b1) (
     // 33.333 MHz 像素时钟与低有效复位
     input               clk,
     input               rst_n,
@@ -103,9 +103,9 @@ module lcd_draw (
     wire [5:0] base_r = page_hit ? page_r : bg_hit ? bg_r : 6'h00;
     wire [5:0] base_g = page_hit ? page_g : bg_hit ? bg_g : 6'h00;
     wire [5:0] base_b = page_hit ? page_b : bg_hit ? bg_b : 6'h00;
-    wire [5:0] draw_r = ui_hit ? ui_r : base_r;
-    wire [5:0] draw_g = ui_hit ? ui_g : base_g;
-    wire [5:0] draw_b = ui_hit ? ui_b : base_b;
+    wire [5:0] draw_r = (LEGACY_UI && ui_hit) ? ui_r : base_r;
+    wire [5:0] draw_g = (LEGACY_UI && ui_hit) ? ui_g : base_g;
+    wire [5:0] draw_b = (LEGACY_UI && ui_hit) ? ui_b : base_b;
 
     assign lcd_r = lcd_valid ? draw_r : 6'b0;
     assign lcd_g = lcd_valid ? draw_g : 6'b0;

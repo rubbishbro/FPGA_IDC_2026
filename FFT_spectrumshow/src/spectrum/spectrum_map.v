@@ -40,7 +40,9 @@ module spectrum_map #(
 
     reg [17:0] bin_mag [0:511];
     reg [19:0] bar_range [0:N_BARS-1];
-    reg [9:0]  smooth_ram [0:N_BARS-1];
+    // 小型平滑表固定用寄存器，避免当前 Gowin 将互斥读/写映射成该器件
+    // 不支持 WRITE_MODE=2'b10 的单口 BSRAM。保留原有读写时序/数值。
+    (* syn_ramstyle="registers" *) reg [9:0] smooth_ram [0:N_BARS-1];
 
     integer i;
     initial begin

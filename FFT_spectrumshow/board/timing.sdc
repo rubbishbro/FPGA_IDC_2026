@@ -8,3 +8,4 @@ set_clock_groups -asynchronous -group {clk50} -group {clk_pix}
 
 # Board key is asynchronous; first synchronizer stage is intentional.
 set_false_path -from [get_ports {key0}]
+set_false_path -from [get_ports {key1}]

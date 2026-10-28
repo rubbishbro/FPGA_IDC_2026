@@ -1,0 +1,17 @@
+rtl/config_pkg.sv
+rtl/drivers/pkg/joystick_pkg.sv
+FFT_spectrumshow/src/ui/ui_pkg.sv
+FFT_spectrumshow/src/ui/sidebar_font_pkg.sv
+rtl/control_loop.sv
+rtl/config_dispatch.sv
+rtl/drivers/joystick_adapter.sv
+FFT_spectrumshow/src/ui/sidebar_mailbox.sv
+FFT_spectrumshow/src/ui/sidebar_ctrl.sv
+FFT_spectrumshow/src/ui/sidebar_system.sv
+FFT_spectrumshow/src/display/lcd_sidebar.sv
+FFT_spectrumshow/src/display/lcd_draw.v
+FFT_spectrumshow/src/display/lcd_ui.sv
+FFT_spectrumshow/src/display/lcd_fft.v
+FFT_spectrumshow/src/display/lcd_wave.v
+FFT_spectrumshow/src/display/lcd_curve_spectrum.sv
+FFT_spectrumshow/src/display/lcd_background.v

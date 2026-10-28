@@ -4,7 +4,7 @@
 
 这个目录现在只有 `eng1/`：由 [`python/modal_sim/router_eng1.py`](../../python/modal_sim/router_eng1.py)
 和 [`python/modal_sim/eng1_bc.py`](../../python/modal_sim/eng1_bc.py) 逐样本整数模拟
-当前 `rtl/router/engines/eng1.sv` 链路（16 slot、Q1.31 包络、Q4.27 腔体、四梳状
+router 级 eng1 的意图链路（16 slot、Q1.31 包络、Q4.27 腔体、四梳状
 混响；A/B/C 共用 `Eng1Core`）产生的音频。
 
 ```text
@@ -17,7 +17,9 @@ eng1/
   eng1_c_groove.wav         C 类鼓组 groove（共享 Eng1Core，seed + timer + choke）
 ```
 
-钢琴提取表目前只有 C / Eb / F# / A / B 这些音高类，所以前奏按这组音写；
+这些音频是 Python 模型输出；当前钢琴/吉他 RTL 选 eng0，激励形状也已变化，不能当作最新顶层逐位对拍或板级录音。对拍现状见模型说明。
+
+这里的 Python 钢琴提取表目前只有 C / Eb / F# / A / B 这些音高类，所以前奏按这组音写；
 不是用采样补齐缺失音。
 
 生成：

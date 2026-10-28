@@ -6,6 +6,16 @@
     <Device name="GW5AST-138B" pn="GW5AST-LV138FPG676AES">gw5ast138b-002</Device>
     <FileList>
         <File path="../src/ui/ui_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/config_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/drivers/pkg/joystick_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/sidebar_font_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/control_loop.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/config_dispatch.sv" type="file.verilog" enable="1"/>
+        <File path="../../rtl/drivers/joystick_adapter.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/sidebar_mailbox.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/sidebar_ctrl.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/sidebar_system.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_sidebar.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/key_ui_event.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/ui_ctrl.sv" type="file.verilog" enable="1"/>
         <File path="../src/fft/fft1024_iter.sv" type="file.verilog" enable="1"/>

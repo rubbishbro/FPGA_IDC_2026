@@ -1,6 +1,6 @@
 # 通信集成与协议适配
 
-日期：2026-10-26。入口为 [comm_top.sv](comm_top.sv)，对外端口、参数默认值和线上 v1 协议保持兼容。源码统一列在 [sim/comm_sources.f](../../sim/comm_sources.f)，仿真、Gowin 综合和时序源码哈希均读取该清单。
+驱动分层日期：2026-10-26；2026-10-27 文档核对并重跑 13 项回归通过。入口为 [comm_top.sv](comm_top.sv)，对外端口、参数默认值和线上 v1 协议保持兼容。源码统一列在 [sim/comm_sources.f](../../sim/comm_sources.f)，仿真、Gowin 综合和时序源码哈希均读取该清单。
 
 ```text
 有线 UART 引脚 ↔ uart_driver ───────↔ transport_link[0] ─┐
@@ -87,3 +87,5 @@ GOWIN_SH=/home/rubbishbro/gowin/IDE/bin/gw_sh python3 sim/check_comm_timing.py
 ```
 
 13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。没有新增 AT 初始化、TX 字节 FIFO 或线上命令；真实 MIDI→fmap、EQ／混响后级和板级端点仍由调用者提供。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
+
+与当前侧栏的统一配置口还未直连：comm 的 source_id/SEQ/command/shadow 需显式转换为统一请求并保留回复上下文。sidebar 的外部来源槽不能区分两条物理链路，远程权限/会话恢复应在保留物理来源的适配端执行。

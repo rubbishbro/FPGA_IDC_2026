@@ -30,13 +30,13 @@
 | 腔体系数 | signed 32, Q4.27；内部 68 位状态 / 104 位累加 |
 | 混响增益 | signed 32, Q4.27；4 条 64 位延迟线 |
 
-## 两个模式
+## 模型模式与当前 RTL
 
-- `rtl_compat=False`（默认）：按 `docs/bugs.md` 修好后的意图：F05 用当前 modal
-  状态、`st_zero` 清全部 modal、F08 attack 钳位、F09 全宽乘积。
-- `rtl_compat=True`：复刻当前 RTL 的 F05（上一 modal 状态、跨作业残留、`nmod_lat`
-  截断）。`eng1_cosim.py` 默认用这个模式与当前 RTL 对拍；修完 F05 后跑
-  `--mode intended`。
+- `rtl_compat=False`（默认）：使用当前模态状态、全模态 st_zero、attack 钳位和全宽混响乘积的意图模型。
+- `rtl_compat=True`：复刻 2026-10-25 旧 F05 的跨模态状态/数量截断，仅用于历史追溯。当前 RTL 的反馈和 st_zero 已改，不能再称这个模式与当前实现一致。
+- `eng1_cosim.py` 的 CLI 默认仍为旧 `--mode rtl`，头部帮助也未同步；本轮显式使用 `--mode intended`。66 作业中非零模态的 63 项一致，3 个 n_modes=0 作业失败，见 [F12](bugs.md)。不要把“换模式”写成已经全通过。
+
+当前钢琴/吉他由 eng_sel 选择 eng0；本文是 eng1 参考链，不代表这两个实际路由已改用 eng1。当前激励也已升级为斜坡/指数尾部/递减锤击，试听模型未逐项跟进，所以整链不能称与最新 RTL 逐样本完全一致。
 
 ## B/C 也走同一个 Eng1Core
 
@@ -80,10 +80,9 @@ FFT_results/sim/eng1/
 `python/modal_sim/eng1_pieces.py` 用重构后的引擎写了两段新曲：
 
 - **guitar — Estudio in D minor**：Dm | Bb | Gm | A | Dm | A，84 BPM，4/4；
-  RTL guitar 路径（`body_router` 吉他 5 段、`envelope_dyn0`、2 采样激励脉冲）。
+  模型 guitar 配置（吉他 5 段、dyn0、旧 2 采样激励；当前 RTL 已有斜坡/尾部）。
 - **piano — Prelude in C diminished**：Cdim | F#dim | Cdim | Bm7(no3) | Cdim |
-  Cdim，60 BPM，4/4；RTL piano 路径（`body_router` 直通、`envelope_ADSR`、
-  默认 1 采样激励脉冲）。提取的钢琴表只有 C / Eb / F# / A / B 这些音高类，
+  Cdim，60 BPM，4/4；模型 piano 配置（腔体直通、ADSR、旧 1 采样激励；当前 RTL 钢琴为 32 采样上升/448 间隔/4 次锤击）。提取的钢琴表只有 C / Eb / F# / A / B 这些音高类，
   曲子按这组音写，不假装缺失的音存在。
 
 ```bash
@@ -100,22 +99,19 @@ FFT_results/sim/eng1/
 
 脚本只写 WAV；peak/RMS、body 饱和计数打印到 stdout，不落 JSON/图片。
 
-## 验证
+## 验证入口与模型检查
 
-- pytest：**33 passed**（含 A 类片段、B/C 共用核、C seed/timer/choke 与动态回退）。
-- RTL 对拍：**66 cases，errors=0，RESULT: PASS**（`rtl_compat` 模式，64 位 `y`）。
-- B 表全音域扫描：flute/trumpet/cello/violin/oboe 共 198 个音符，`G` 无饱和、
-  量化后极点全部 `r < 1`。
+模型pytest与RTL对拍的命令/日期化结果统一见 [工程评审与验证](工程评审与验证.md#verification) 和 [运行器说明](../sim/unit/eng1/README.md)。intended与兼容模式的选择按本页契约；零模态失败的复现/关闭条件见 [问题台账](bugs.md)，不在模型说明再维护一份全局测试汇总。
+
+模型特有的既有B表检查覆盖flute/trumpet/cello/violin/oboe共198个音符，G无饱和、量化后极点r<1；它只说明这批参数的定常检查，不证明时变调制稳定或已接板端。
 
 ## 边界
 
-- 不模拟拍数/实时预算（F07 仍看 `tb_throughput`）。
-- 不模拟 loader 地址；模型允许每 slot 独立系数表，当前 loader 仍把同一张表复制
-  到所有 slot（I01）。
+- 不模拟拍数/实时预算（旧 tb_throughput 已移除，需新的周期证据；本模型不证明 F07）。
+- 不模拟 loader 地址；模型允许每 slot 独立系数表，当前 loader 已按 slot 独立读取表，但本模型不验证地址/真片协议。
 - 不模拟 `mod_router` 的 a1/a2 更新，所以揉弦不在这个模型里。
 - `fmap_q`/`note_on`/`emap` 的一拍寄存、腔体 93 拍和混响 6 拍流水没有逐拍模拟；
   整链 RTL 对拍要先按 valid 对齐。
-- A 类表的 `G` 是按升余弦脉冲生成的，RTL guitar 激励是 2 采样矩形；两者电平和
+- A 类表的 `G` 是按升余弦脉冲生成的，模型 guitar 激励仍是旧 2 采样形状，当前 RTL 已升级；两者电平和
   音色不会与 `engine.py` 逐样本一致，这是表/激励口径差异。
-- 长笛用 `SHIFT=22, PW=1, GAP=T-1, N_PULSE=7` 的周期冲激参数；当前 `exc_router`
-  对 PAD/BASS 给的是连续力，不是这个组合。
+- 长笛用 `SHIFT=22, PW=1, GAP=T-1, N_PULSE=7` 的周期冲激参数；当前 exc_router 除钢琴/吉他外使用默认参数；旧 PAD/BASS 枚举已不存在，也没有自动得到这里的 B 类周期驱动。

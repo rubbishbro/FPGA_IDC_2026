@@ -1,17 +1,21 @@
 # FFT Spectrum Show
 
+**2026-10-27 侧栏更新：**默认 `ui_demo_top` 已切换为中文隐藏侧栏，显示样式/视觉参数经 `control_loop` 提交，并在像素帧头实际应用后反馈。主控用板载 50MHz，频谱绘制仍约 33.3MHz；摇杆/整机配置接线入口为 `sidebar_system`。独立 demo 仍用测试音源和两按键，音频配置后端及摇杆 ADC 未接，不可用项显示“未接入”。详见[实施与接线](../docs/控制与侧栏设计.md#integration)。下面的 tab/SETTINGS 操作说明保留为 `SIDEBAR_UI=0` 的旧 demo 记录。
+
 GW5AST-138B + 800×480 LCD 的可视化子系统，当前作为独立 demo 验证。
 它不包含主合成引擎，也不直接连接主引擎的 PCM 输出。
 
-当前状态（2026-10-24）：
+当前默认配置（2026-10-27）：
 
-- 页面：BARS / WAVE / FALL / SETTINGS
-- 全部可视化逻辑运行在 **33.333 MHz** 像素时钟域
+- 主画面样式：BARS / WAVE / FALL；默认中文隐藏侧栏；旧 SETTINGS/tab 仅 SIDEBAR_UI=0
+- FFT/绘制运行在 **33.333 MHz** 像素域；侧栏控制在 **50 MHz**，配置快照整包跨域
 - 正常 bitstream 使用三音正弦测试源
 - 扫频 bitstream 使用 1 kHz → 10 kHz 测试源
-- 主引擎 PCM tap、100 MHz→33.3 MHz FIFO、摇杆解析均未实现
+- 主引擎 PCM tap、100 MHz→33.3 MHz 音频 FIFO 未接；摇杆适配/侧栏接线已实现，独立 demo 未接 ADC
 
 ---
+
+本轮复测入口 `python3 sim/run_ui.py --legacy`：17 项通过（包含原 14 项）；既有 LCD PnR 报告复核通过，非本轮重新构建。旧 PowerShell 回归和下文历史构建记录按其日期/参数使用，不能套作默认侧栏的验证范围。
 
 ## 1. 对外接口
 
@@ -20,8 +24,8 @@ GW5AST-138B + 800×480 LCD 的可视化子系统，当前作为独立 demo 验�
 ```text
 clk          50 MHz 板级晶振
 rst_n        低有效复位
-key0         短按下一页 / 长按进入设置
-key1         短按上一页 / 长按返回 BARS
+key0         默认：短按向下 / 长按确认；首次按键开栏
+key1         默认：短按向上 / 长按返回；SIDEBAR_UI=0 时为旧 tab 行为
 lcd_clk      33.333 MHz 像素时钟输出
 lcd_en       有效显示区
 lcd_r[5:0]   R
@@ -78,7 +82,11 @@ curve_rd_data[39:0]← FALL 曲线数据
 
 不要把主引擎直接接到 `real_audio_chain` 的 100M 时钟上。
 
-### 1.3 UI 控制：`src/ui/ui_ctrl.sv`
+### 1.3 UI 控制
+
+默认使用 `src/ui/sidebar_system.sv`，统一请求/结果、能力位和原始摇杆端口见实施说明。下面 ui_ctrl 接口仅用于 `SIDEBAR_UI=0` 的旧 tab 分支。
+
+#### 旧 tab：`src/ui/ui_ctrl.sv`
 
 ```text
 ev_valid / ev[2:0]   UI 事件
@@ -104,6 +112,7 @@ board/bar2bin.mem          512 bin → 128 bar 映射
 board/hann1024.mem         1024 点 Hann 窗
 board/twiddle1024.mem      FFT 旋转因子
 board/waterfall_zero.mem   历史 RAM 初始化
+board/sidebar_font.mem     中文/ASCII 侧栏字模
 ```
 
 `$readmemh` 使用工程运行目录下的文件名，因此 `board/` 和 `sim/` 各有一份所需表。
@@ -114,8 +123,8 @@ board/waterfall_zero.mem   历史 RAM 初始化
 
 | 时钟/节拍 | 频率 | 来源 | 使用范围 |
 |---|---:|---|---|
-| `clk50` / `clk` | 50 MHz | 板级晶振 P16 | PLL 输入、按键 |
-| `clk_pix` | 33.333 MHz | `Gowin_PLL`，50M × 2 ÷ 3 | LCD 扫描、FFT、曲线、UI |
+| `clk50` / `clk` | 50 MHz | 板级晶振 P16 | PLL 输入、默认侧栏控制、按键 |
+| `clk_pix` | 33.333 MHz | `Gowin_PLL`，50M × 2 ÷ 3 | LCD 扫描、FFT、曲线、侧栏绘制/动画；旧 tab UI |
 | `clk_core` | 33.333 MHz | demo 中直接同 `clk_pix` | 可视化计算 |
 | `samp_en` | 48.03 kHz | `clk_pix / 694` | demo PCM 采样节拍 |
 | `frame_pulse` | ~52.5 Hz | `lcd_timing` | 双 bank 切换 |
@@ -124,7 +133,7 @@ board/waterfall_zero.mem   历史 RAM 初始化
 
 - `samp_en` 是使能脉冲，不是时钟。
 - 当前没有 100 MHz 可视化逻辑。
-- 当前没有真正的跨时钟 FIFO；`display_frame_buffer`、`curve_store` 等虽然带双时钟端口，但 demo 中两端同频。
+- 配置有整包 mailbox 跨域；音频仍没有真正的跨时钟 FIFO；`display_frame_buffer`、`curve_store` 等虽然带双时钟端口，但 demo 中两端同频。
 - 主引擎目标是 100 MHz，但主引擎不在此目录内，也没有接入。
 
 ---
@@ -151,7 +160,8 @@ lcd_timing / lcd_draw
         ├─ BARS
         ├─ WAVE
         ├─ FALL
-        └─ SETTINGS + 顶部 tab
+        └─ SETTINGS + 顶部 tab（仅旧 SIDEBAR_UI=0）
+默认底图 → 一拍对齐 → lcd_sidebar 中文覆盖 → 同步 RGB/DE 输出
 ```
 
 ### FALL 曲线
@@ -201,7 +211,11 @@ src/
   ui/
     ui_pkg.sv          页面/事件常量
     key_ui_event.sv    按键去抖 + 短按/长按事件
-    ui_ctrl.sv         页面、设置项、特效状态机
+    ui_ctrl.sv         旧 tab 状态机（SIDEBAR_UI=0）
+    sidebar_system.sv  摇杆/请求/配置/CDC/绘制集成
+    sidebar_ctrl.sv    交互、草稿、提交和结果
+    sidebar_mailbox.sv 整包快照跨域
+    sidebar_font_pkg.sv 字形索引
   audio/
     real_audio_chain.v PCM → 时域窗口 → FFT → 频谱/波形/曲线链
     time_pingpong.v    1024×24 双 bank
@@ -226,12 +240,13 @@ src/
     display_frame_buffer.sv  BARS 柱高/超调双 bank
     waterfall_store.sv 64×128 历史（FALL age 来源）
     wave_frame_buffer.sv 波形双 bank
-    lcd_ui.sv          顶部 tab、设置页
+    lcd_ui.sv          旧顶部 tab、设置页
+    lcd_sidebar.sv     中文侧栏覆盖、同步字模 ROM
   input/
     key_debounce.v     基础按键去抖
 
 sim/
-  run_regression.ps1   全部可视化回归入口
+  run_regression.ps1   原 14 项可视化入口；含侧栏用根 sim/run_ui.py --legacy
   *_tb.sv             自检 testbench
 
 archive/
@@ -321,7 +336,7 @@ PnR：
 扫频 bitstream : SETUP +5.951 ns, HOLD +0.144 ns
 ```
 
-两者都在 33.333 MHz 下通过。Catmull-Rom 是当前主要 LUT/时序开销。
+这两份是 2026-10-24 旧 tab demo 记录，不是默认侧栏重新构建结果；侧栏已有 50MHz/33.333MHz 报告最差 setup/hold +1.448/+0.216ns。Catmull-Rom 是当前主要 LUT/时序开销。
 
 ---
 
@@ -333,7 +348,8 @@ PnR：
 - WAVE 真实时域波形
 - FALL 4 条真实历史曲线 + 下半镜像
 - FALL Catmull-Rom + 柱中心控制点 + 线条加粗
-- 顶部 tab、设置页、参数开关
+- 默认中文隐藏侧栏、统一请求/结果、能力禁用、整包 CDC/帧头提交
+- 旧顶部 tab/设置页兼容分支、显示参数开关
 - 双按键短按/长按
 - 三音正弦 demo 源
 - 1k→10k 扫频测试源和独立 bitstream
@@ -345,25 +361,18 @@ PnR：
 
 ### 主引擎 PCM
 
-- 还没有 `pcm_tap`：主引擎 `mix_sum[63:0]` → 24-bit PCM 的缩放/饱和。
+- 还没有 `pcm_tap`：主引擎 `y_data[63:0]`（旧 core 为 mix_sum） → 24-bit PCM 的缩放/饱和。
 - 还没有 100M→33.3M 异步 FIFO。
 - 还没有主引擎 `48k valid` 到可视化 `pcm_valid` 的连接。
 - 当前 `samp_en` 是 33.333M/694 ≈ 48.03k，只用于 demo，不是主引擎采样节拍。
 - 主引擎完成后，建议在 **100M 侧只做 PCM 捕获和 FIFO 写**，可视化继续留 33.3M。
 
-### 摇杆
+### 摇杆与真实控制后端
 
-- 还没有摇杆解析器。
-- 旧 `rtl/drivers/pad_driver.sv` 不在本目录构建中，且只输出极坐标 `pos`，没有 `pos_valid`、没有中心校准、没有死区/迟滞。
-- 当前 `ui_demo.cst` 没有摇杆/ADC 引脚约束。
-- 后续应单独做 `joystick_parser`：
-  - 原始 `x/y` 输入；
-  - 上电自动校准中心；
-  - 死区 + 迟滞；
-  - 左右切页、上下选设置项；
-  - 有按键时再做 OK/Back；
-  - 与 key0/key1 的事件合并。
-- 不要把旧 `pos.x=r / pos.y=w` 直接当方向使用。
+- joystick_adapter 已提供中心校准、死区/迟滞、连续轴、八方向及连发；sidebar_system 已连接到侧栏交互。
+- pad_driver/pad_voice_top 已引出成对 `joy_raw_x/y` 与 `joy_sample_valid`，旧 pos 是极坐标，不能接原始坐标口。
+- 独立 ui_demo.cst 没有摇杆/ADC 引脚，因此 HAS_JOYSTICK=0、仍用双按键；整机须接真实采集并验证物理方向/中心。
+- 音色/音量/混响等实际消费者及通信协议转换仍待接，未接项显示“未接入”。
 
 ### 其他
 
@@ -382,5 +391,5 @@ PnR：
 - 不要把主引擎 100M 逻辑直接加进 `ui_demo_top`。
 - 不要重新启用 `archive/` 里的模块。
 - 不要做 100M 全可视化；如要尝试，先单独开分支并重新设计 Catmull 流水线。
-- 修改后至少运行 `sim/run_regression.ps1`，并检查 PnR 的 setup/hold。
+- 当前默认侧栏修改后运行根目录 `python3 sim/run_ui.py --legacy`，按改动范围重建并检查 PnR；原 PowerShell 入口只覆盖旧 14 项。
 - 目录内生成物（`board/impl/`、`sim/work/`）已被 `.gitignore` 忽略。

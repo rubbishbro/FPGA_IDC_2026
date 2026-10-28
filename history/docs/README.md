@@ -1,13 +1,15 @@
-# 项目文档
+# 历史项目文档
+
+> 仅供追溯：下文“当前/正式/日常”指当时阶段。当前阅读入口为 [仓库 README](../../README.md) 和 [docs](../../docs/README.md)。
 
 **日常只读[工程汇报](工程汇报.md)**：当前实现、资源占用、验证结果和实板待办集中在这一份；它是**汇报入口**，第二节已汇总四份专题文档的结论。
 
-ENG1/ENG2 四引擎统一架构（9×32、16 slot、4 lane、router、seed ROM）以[ENG1/ENG2 统一架构](ENG1_ENG2_统一架构.md)为准；旧版 `ENG1_架构.md` 已归档到 `archive/2026-10/ENG1_架构_2026-10-20.md`。
+ENG1/ENG2 四引擎统一架构（9×32、16 slot、4 lane、router、seed ROM）以[ENG1/ENG2 统一架构](legacy/ENG1_ENG2_统一架构_2026-10-21.md)为准；旧版 `ENG1_架构.md` 已归档到 `archive/2026-10/ENG1_架构_2026-10-20.md`。
 
 四份专题文档只在需要推导/位宽表/证据时查：[B类迁移硬件估算](archive/2026-10/docs/B类迁移硬件估算.md)、[双引擎统一顶层架构](archive/2026-10/docs/双引擎统一顶层架构.md)、[统一IIR合成数据格式与C类设计](archive/2026-10/docs/统一IIR合成数据格式与C类设计.md)、[音色合成缺陷台账](archive/2026-10/docs/音色合成缺陷台账.md)。
 
 B 类/管弦乐音色合成的已知缺陷、测量基线、迁移前置项和回头调试顺序，见[音色合成缺陷台账](archive/2026-10/docs/音色合成缺陷台账.md)。
 
-写代码时再查[冻结规格](../rtl/DECISIONS.md)和[代码架构](../CODE_ARCHITECTURE.md)，接硬件时查[接线说明](../rtl/platform/tang_mega_138k_pro/MAX98357A_WIRING.md)。这些是规格/操作手册，不是另一份进度汇报。
+写代码时再查[冻结规格](../rtl/DECISIONS.md)和[代码架构](../../CODE_ARCHITECTURE.md)，接硬件时查[接线说明](../rtl/platform/tang_mega_138k_pro/MAX98357A_WIRING.md)。这些是规格/操作手册，不是另一份进度汇报。
 
 旧轮次报告移入`archive/2026-10/`，原始工具证据保留在`reports/evidence/`。只有追溯某次试验才需要打开；已知局限和最新结果不再在多份导航中重复维护。
