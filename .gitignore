@@ -70,3 +70,9 @@ FFT_spectrumshow/sim/archive/legacy/diag/*.txt
 # flash 模型的存储镜像（由 tools/gen_mem.py 每次生成）
 MEM.TXT
 
+
+# flash 模型的数据文件（由 run_loader.ps1 每次从 tb/vendor 拷到工作目录）
+SECSI.TXT
+SFDP.TXT
+SREG.TXT
+
