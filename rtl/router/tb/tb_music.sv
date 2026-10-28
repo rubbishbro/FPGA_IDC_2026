@@ -238,10 +238,11 @@ module tb_music;
             if (sweep_sel == 2 && ins_sel == 1 && n > 60) begin
                 fmap.flat_d[NOTE_SLOT].val = 8'd250;      // 固定 lambda=+0.015625
             end else if (sweep_sel == 1 && ins_sel == 1 && n > 200 && n < HOLD) begin
-                int trip, v;
-                trip = (n - 200) * 200 / (HOLD - 200);      // 0..200
-                v    = (trip < 100) ? (232 + trip * 20 / 100)
-                                    : (252 - (trip - 100) * 20 / 100);
+                int ph, v;
+                // 揉弦 6 Hz：一个完整三角波周期 = 48000/6 = 8000 采样
+                ph = ((n - 200) % 8000) * 200 / 8000;      // 0..199（上 100 / 下 100）
+                v  = (ph < 100) ? (232 + ph * 20 / 100)
+                                : (252 - (ph - 100) * 20 / 100);
                 // ALL16 时 16 个声部一起扫（压力测试：16 音齐响 + 揉弦）
                 if (ALL16 != 0) begin
                     for (int k = 0; k < 16; k++) fmap.flat_d[k].val = 8'(v);
