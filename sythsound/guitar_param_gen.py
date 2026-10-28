@@ -187,8 +187,14 @@ def gen_slot(midi: int, verify: bool = False):
 
         k = 2.0 * math.pi * n * f0
         S11, S22, S12_phys = sensitivities(f0, gamma, n)
-        S12h = k * S12_phys
-        S21h = -2.0 * a12h - S12h
+        # a12 的缩放域系数是 k*a12_phys，而 **k = omega0 本身随 alpha 变**（k' = k）。
+        #   原来只写了 S12h = k*S12_phys，漏了 +a12 这一项；而 a12_phys = es*sin(theta)/wd
+        #   的 alpha 依赖几乎完全抵消（theta*cos - sin ≈ -theta^3/3），于是
+        #   S12/a12 只有 1e-5 量级 -> 揉弦只有音量起伏（颤音 tremolo），没有音高起伏。
+        #   补上 (k*a12_phys)' = a12 + k*S12_phys 之后，a12' ≈ sin(theta*alpha)，
+        #   才是真正的揉弦（mode0 在 lambda=0.0156 时约 +27 音分）。
+        S12h = a12h + k * S12_phys
+        S21h = -S12h                       # a21 = -a12，导数直接取负
         Swoh = WO_SIGN * 2.0 * woh
 
         base = dict(a11=a11h, a12=a12h, a21=a21h, a22=a22h, wo=woh,
