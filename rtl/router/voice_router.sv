@@ -221,6 +221,7 @@ module voice_router #(
     // 后台调制请求位图：起音的声部在这里置位，调制器空闲时按最低位服务，做完清那一位。
     //   这样谁请求都不会丢（幂等的调制器重复跑也无害），而且**不挡引擎**。
     logic [SLOTS-1:0]        mod_req;
+    logic [7:0]              fmap_prev [0:SLOTS-1];   // 上次调制用的力度（变了才重新调制）
 
     function automatic logic [VWID-1:0] first_req(input logic [SLOTS-1:0] r);
         first_req = '0;
@@ -702,6 +703,7 @@ module voice_router #(
             xw_run     <= 1'b0;
             wait_xmap  <= 1'b0;
             mod_req    <= '0;
+            for (int i = 0; i < SLOTS; i++) fmap_prev[i] <= '0;
             mod_start  <= 1'b0;
             mod_slot   <= '0;
             reload_q   <= 1'b0;
@@ -800,6 +802,22 @@ module voice_router #(
                         if (note_f[g[VWID-1:0]])            mod_req[g[VWID-1:0]] <= 1'b1;
                         if (note_f[VWID'(g + VWID'(HS))])
                                                             mod_req[VWID'(g + VWID'(HS))] <= 1'b1;
+                        // 按住期间**力度变化**也要重新调制（揉弦就靠这个）：
+                        //   以前只有 note_f（起音沿）会登记，按住之后 fmap 怎么变
+                        //   都没人管 -> 揉弦只生效一下。这里补一个"fmap 变了"的触发，
+                        //   每帧每组两个声部各比一次，改了才登记（幂等，重复跑无害）。
+                        if (note_gate[g[VWID-1:0]] &&
+                            (fmap_q.flat_d[g[VWID-1:0]].val != fmap_prev[g[VWID-1:0]])) begin
+                            mod_req[g[VWID-1:0]]          <= 1'b1;
+                            fmap_prev[g[VWID-1:0]]        <= fmap_q.flat_d[g[VWID-1:0]].val;
+                        end
+                        if (note_gate[VWID'(g + VWID'(HS))] &&
+                            (fmap_q.flat_d[VWID'(g + VWID'(HS))].val !=
+                             fmap_prev[VWID'(g + VWID'(HS))])) begin
+                            mod_req[VWID'(g + VWID'(HS))] <= 1'b1;
+                            fmap_prev[VWID'(g + VWID'(HS))] <=
+                                fmap_q.flat_d[VWID'(g + VWID'(HS))].val;
+                        end
                         pick_b <= 1'b0;
                         state  <= S_ENVMUL;
                     end
