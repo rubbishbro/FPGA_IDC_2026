@@ -21,6 +21,12 @@
 
 ---
 
+## MIDI演奏选源增量（3.2）
+
+2026-10-28已增加 [midi_voice_top.sv](midi_voice_top.sv) 连接MIDI状态层与真实voice_router；router内 [performance_input_mux.sv](routers/performance_input_mux.sv) 选择压力垫或MIDI的门控/激励力度，MIDI不伪装成fmap。原实例默认MIDI_ENABLE=0。激励模块新增明确的力度、重触发和逐槽清除输入；计算核心eng0/eng1未修改，eng1专用形状待后续补入激励模块。
+
+当前仓库源文件已前移必要声明，能够直接通过Questa编译；前文兼容副本限制仍描述早先补测。新增正式入口`python3 sim/run_router_midi.py`，3.2阶段五项、当前扩展至八项通过；pending音色模态数和eng1 B结果锁存问题已在router修复。原压力垫256采样修改前后逐点一致。端口、切源/通道语义和验证限制统一见[MIDI接入3.2](../../docs/MIDI演奏与通信接入.md#router-midi-step32)，新入口不使用兼容副本或7061抑制，不替代真实Flash、音色资源、48k吞吐或上板验收。
+
 ## 1. 概览
 
 ```
@@ -43,6 +49,7 @@
 
 ```
 rtl/router/
+├── midi_voice_top.sv        MIDI状态层、通道映射、控制分流与voice_router连接入口
 ├── voice_router.sv          ★顶层：存储（双 bank）+ 两个引擎 + 调度 FSM + 后级链
 ├── loader.sv                weight_loader：W25Q64 四线 SPI 读 + 记录装配 + 写口
 ├── fmax_router.sv           时序/面积探针（clk/rst_n/led），给 PnR 用的薄外壳
@@ -56,6 +63,7 @@ rtl/router/
 │   ├── eng0.sv              7 乘法并行引擎（直接型，一个模态 5 级流水）
 │   └── eng1.sv              ABC 引擎（acc = G*x - a1*y1 - a2*y2）
 ├── routers/
+│   ├── performance_input_mux.sv 压力垫/MIDI演奏控制选源与帧完成确认
 │   ├── eng_router.sv        双引擎薄封装（按乐器二选一），默认两个实例各管 8 个声部
 │   ├── env_router.sv        按乐器选包络（ADSR / dyn0 / 常数 1.0）
 │   ├── exc_router.sv        按乐器选激励参数（幅度/斜坡/宽度/间隔/脉冲数）
@@ -711,3 +719,17 @@ python rtl/router/tools/dec2wav.py _analysis/music_dec.txt _analysis/music.wav 4
 - `rtl/simsynth/ROUTER.md`（已删）：旧版路由器的结构/时序分析，在 git 历史里。
 
 2026-10-27未运行音乐xsim／PnR；28日Questa补测没有改变这个xsim／PnR边界。Questa的eng1 intended对拍同样为66项中3个n_modes=0失败，独立模型33项通过不覆盖该RTL边界。详细日期化结果见[验证记录](../../docs/工程评审与验证.md#verification)及[Questa补测](../../docs/工程评审与验证.md#questa-2026-10-28)。
+
+## 当前MIDI分组装载合同（2026-10-28）
+
+现有midi_voice_top开启`NOTE_BANKS=1`时使用连续32音资源、16个工作槽，`note_bank`选择半区，`first_midi_note`必须匹配镜像清单；默认0兼容旧16音镜像。切组先清理实际声部与内部尾音，再整组装载，成功后提交active；加载失败保持静音并显式重试，不进行跨组动态分配。
+
+weight_loader接收并锁存16×32bit字节偏移、inst及mask，源地址为`inst*(FLASH_NOTES*N_MODES*64)+offset[slot]`，目的仍为`{sel,slot,mode}`。6Bh已改为8串行命令、24串行地址、8 dummy及quad数据，QE由板级初始化提供。范围/对齐/空表/abort/timeout失败将目标填零，done必须结合err判断。支持32音的piano_flash打包器保留默认16音产物不变；正式32音资源和范围尚待确认。
+
+完整接口、故障处理、测试及保留项见[MIDI当前修复](../../docs/MIDI演奏与通信接入.md#midi-bank-fixes)。本轮无新增生产模块，eng0/eng1源码不变；8项Questa和原PAD256点一致性通过不替代真实Flash、满规模吞吐或PCM/I2S验收。
+
+## 联合配置后端（2026-10-28）
+
+midi_voice_top设CONFIG_BACKEND=1后，既有清理/加载状态机接sidebar_system的backend请求/结果，使用实际audio_config_t快照同步音色/通道/来源/音区/混响。sidebar_system同时设AUDIO_BACKEND=1；普通并行配置口不再作为第二个写入者。默认RESOURCE_MASK只开钢琴，音量和调制深度能力保持关闭。完整接线、字段编号、故障和资源限制见[MIDI联合配置实施](../../docs/MIDI演奏与通信接入.md#joint-config-backend)。
+
+voice_router新增table_valid，失败不提交inst_prev、不出音频、不自动重试同一目标；维护及清理操作仍允许真实退休，成功换表首帧重清状态。pad_voice_top引出load_err/table_valid，默认N_MODES统一64。不要再用done表示成功。硬panic独立于配置队列，可取消未提交装载并在旧作业排空后恢复上次成功身份。新增正式回归见sim说明；核心算法未改。

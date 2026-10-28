@@ -19,6 +19,49 @@ package config_pkg;
     localparam logic [19:0] LOCAL_MASK=DISPLAY_MASK | 20'h10000;
     // 一个统一值数组；字段只在 cfg_id/cfg_index 中定义，UI 不拥有音频寄存器。
     typedef logic [CFG_COUNT-1:0][31:0] cfg_values_t;
+    // 音频后端的已提交快照；channel使用UI的1-based编号，source沿用0/1/2。
+    // 仅audio_valid=1时有效。标量结果仍保留原tag/id，关联字段由此快照统一更新。
+    typedef struct packed {
+        logic [15:0] instrument;
+        logic [4:0] channel;
+        logic [1:0] source;
+        logic bank;
+        logic [1:0] reverb;
+    } audio_config_t;
+    function automatic logic [15:0] midi_instrument(input logic [4:0] channel);
+        case(channel)
+            1:midi_instrument=1; 2:midi_instrument=0; 3:midi_instrument=3;
+            4:midi_instrument=5; 5:midi_instrument=4; 6:midi_instrument=2;
+            default:midi_instrument=16'hffff;
+        endcase
+    endfunction
+    function automatic logic [4:0] instrument_channel(input logic [15:0] instrument);
+        case(instrument)
+            0:instrument_channel=2; 1:instrument_channel=1; 2:instrument_channel=6;
+            3:instrument_channel=3; 4:instrument_channel=5; 5:instrument_channel=4;
+            default:instrument_channel=0;
+        endcase
+    endfunction
+    function automatic logic audio_config_valid(input audio_config_t a);
+        return a.source<=2 && a.reverb<=2 && a.instrument<=9 &&
+               a.channel>=1 && a.channel<=6 &&
+               (a.source==0 || midi_instrument(a.channel)==a.instrument);
+    endfunction
+    function automatic logic audio_parameter(input logic [15:0] id);
+        return id==16'h0100 || id==16'h0200 || id==16'h0300 ||
+               id==16'h0500 || id==16'h0501;
+    endfunction
+    function automatic logic signed [31:0] audio_value(input audio_config_t a,
+                                                      input logic [15:0] id);
+        case(id)
+            16'h0100:return 32'(a.instrument);
+            16'h0200:return 32'(a.reverb);
+            16'h0300:return 32'(a.bank);
+            16'h0500:return 32'(a.source);
+            16'h0501:return 32'(a.channel);
+            default:return 0;
+        endcase
+    endfunction
     typedef struct packed {
         logic [15:0] style_id;
         logic theme, peak, smooth, grid;

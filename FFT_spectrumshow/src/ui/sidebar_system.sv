@@ -5,6 +5,7 @@ module sidebar_system #(
     parameter integer CALIB_LOG2=4,
     parameter integer HOT_DWELL_MS=180,
     parameter bit HAS_JOYSTICK=1'b1,
+    parameter bit AUDIO_BACKEND=1'b0,
     parameter FONT_FILE="sidebar_font.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
@@ -26,6 +27,8 @@ module sidebar_system #(
     input logic backend_rsp_valid,
     output logic backend_rsp_ready,
     input config_pkg::cfg_response_t backend_response,
+    input logic backend_audio_valid,backend_audio_fault,
+    input config_pkg::audio_config_t backend_audio_state,
     input logic frame_pulse,lcd_valid,
     input logic[9:0] pix_x,pix_y,q_y,q_ov,
     input logic[9:0] wave_rd_data,
@@ -87,18 +90,23 @@ module sidebar_system #(
     logic[15:0] render_epoch;
     logic view_done;
     sidebar_snapshot_t current_view,sent_view,done_view,wire_view,pixel_view;
-    config_dispatch #(.LOCAL_SUPPORTED(LOCAL_SUPPORTED)) u_config(
+    config_dispatch #(.LOCAL_SUPPORTED(LOCAL_SUPPORTED),.AUDIO_BACKEND(AUDIO_BACKEND)) u_config(
         .clk(ctrl_clk),.rst_n(ctrl_n),.tick_ms(tick_ms),.req_valid(req_valid),.req_ready(req_ready),
         .request(request),.request_source(req_source),.rsp_valid(rsp_valid),.rsp_ready(rsp_ready),
         .response(response),.response_source(rsp_source),.backend_supported(backend_supported),
         .backend_valid(backend_valid),.backend_ready(backend_ready),.backend_request(backend_request),
         .backend_source(backend_source),.backend_rsp_valid(backend_rsp_valid),.backend_rsp_ready(backend_rsp_ready),
         .backend_response(backend_response),.active_values(active_values),.render_config(render_config),
+        .backend_audio_valid(backend_audio_valid),.backend_audio_state(backend_audio_state),
         .render_epoch(render_epoch),.display_done(view_done),.display_done_epoch(done_view.epoch),
         .joy_recalibrate(joy_recalibrate),.joy_calibrated(joy_calibrated),.joy_stale(joy_stale));
     always_comb begin
         current_view.epoch=render_epoch;current_view.display_cfg=render_config;
         current_view.scene=ui_scene;current_view.values=active_values;current_view.supported=supported;
+        // 故障时旧active只是历史身份；沿用已有结果显示明确提示声音后端故障。
+        if(AUDIO_BACKEND && backend_audio_fault)begin
+            current_view.scene.has_result=1'b1;current_view.scene.result=CFG_FAILED;
+        end
     end
     logic snapshot_ready,snapshot_valid,sent_once;
     wire snapshot_offer=!sent_once||(current_view!=sent_view);

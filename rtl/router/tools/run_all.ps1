@@ -1,13 +1,13 @@
 # -----------------------------------------------------------------------------
-# run_all.ps1 -- rtl/router 的唯一回归：**渲染一段音频**（tb_music）
+# run_all.ps1 -- rtl/router 的压力垫音乐回归：**渲染一段音频**（tb_music）
 #
 #   模块级 TB 已经全部删掉（见 README §7.0）：它们要跟着内部信号改，同步成本高，
-#   而且照样漏 bug。现在只有一条端到端路径：
+#   而且照样漏 bug。本脚本保留压力垫端到端路径（MIDI 见 sim/run_router_midi.py）：
 #     喂 fmap -> voice_router -> 收 y_valid/y_data -> 自检 + 输出音频数据
 #
 #   步骤：
 #     1. 生成系数镜像：tools/piano_flash.py -> tools/piano_flash.mem
-#     2. 编译 RTL + tb/tb_music.sv（**逐个文件**编译：一条命令塞 20 个文件时
+#     2. 编译 RTL + tb/tb_music.sv（**逐个文件**编译：一次传入大量文件时
 #        xvlog 偶发长时间不返回，逐个编稳定在 1 s/个）
 #     3. xelab + xsim，抓 "RESULT: PASS"
 #     4. 判 RESULT: PASS
@@ -48,6 +48,7 @@ try {
         Write-Host '=== 2/4 编译 RTL + tb_music（逐个文件） ===' -ForegroundColor Cyan
         if (Test-Path 'xsim.dir') { Remove-Item -Recurse -Force 'xsim.dir' }
         $srcs = @(
+            'rtl/config_pkg.sv',
             'rtl/math/pkg/fxp_pkg.sv',
             'rtl/drivers/pkg/clk_rst_pkg.sv',
             'rtl/drivers/pkg/pad_driver_pkg.sv',
@@ -61,6 +62,7 @@ try {
             'rtl/router/engines/eng0.sv',
             'rtl/router/engines/eng1.sv',
             'rtl/router/routers/eng_router.sv',
+            'rtl/router/routers/performance_input_mux.sv',
             'rtl/router/routers/env_router.sv',
             'rtl/router/routers/exc_router.sv',
             'rtl/router/routers/mod_router.sv',

@@ -21,7 +21,8 @@ module exc_router #(
     input  logic                    clk,
     input  logic                    rst_n,
     input  logic                    smp_tick,
-    input  pad_driver_pkg::mat4x4   fmap,
+    input  logic [SLOTS*8-1:0]      strike_level,
+    input  logic [SLOTS-1:0]        retrigger, slot_clear,
     input  logic [SLOTS-1:0]        note_on,
     input  router_pkg::instrument_e inst,
     output logic signed [SLOTS-1:0][31:0] xmap,
@@ -32,8 +33,8 @@ module exc_router #(
     logic [2:0]  n_pulse;
 
     // 常量表：加乐器 = 加一行
-    //   SHIFT 的物理含义：x = (fmap << SHIFT) / 2^XF，现在 XF = QF = 24，
-    //   所以 fmap=250 / SHIFT=16 -> x = 0.977（和 Python SF 的 amplitude 同量纲）。
+    //   SHIFT 的物理含义：x = (strike_level << SHIFT) / 2^XF，现在 XF = QF = 24，
+    //   所以 strike_level=250 / SHIFT=16 -> x = 0.977（和 Python SF 的 amplitude 同量纲）。
     always_comb begin
         shift   = 6'd16;
         rise_sh = 6'd5;          // 默认 32 采样上升（0.67 ms）
@@ -55,8 +56,8 @@ module exc_router #(
                 //   这里:   32 采样上升(0.67 ms) + tau≈48 采样(1 ms) + 周期 480(10 ms) + 0.6875^k
                 //   PW_LEN = 1<<RISE_SH = 32 -> 上升结束正好到峰值
                 //   GAP_LEN = 周期 - PW_LEN = 448（实测周期 = PW_LEN + GAP_LEN）
-                //   峰值幅度由 SHIFT 决定：250<<16 / 2^24 = 0.977
-                //     （Python SF 默认 amplitude=1.4，demo 里是 1.0）
+                //   峰值幅度由 SHIFT 决定：xmap = strike_level<<SHIFT
+                //     250<<16 / 2^24 = 0.977（Python SF 默认 amplitude=1.4，demo 里是 1.0）
                 shift   = 6'd16;
                 rise_sh = 6'd5;
                 pw_len  = 16'd32;
@@ -100,7 +101,8 @@ module exc_router #(
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
         .SHIFT(shift_r), .RISE_SH(rise_sh_r),
         .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
-        .clear(clear), .fmap(fmap), .note_on(note_on),
+        .clear(clear), .strike_level(strike_level),
+        .retrigger(retrigger), .slot_clear(slot_clear), .note_on(note_on),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 

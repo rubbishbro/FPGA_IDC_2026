@@ -220,9 +220,22 @@ module tb_comm_top;
         expect_reply(0,1,2,0);send_frame(0,2,1,2,256'h0102,0);wait_all();
         if(commit_requests!=2) $fatal(1,"duplicate or conflict committed");
         send_frame(0,2,10,2,256'h0102,1);
+        wait(quarantine[0]);@(negedge clk);restart=1;@(negedge clk);restart=0;
+        wait(!quarantine[0]);repeat(10) @(negedge clk);
         send_frame(0,2,11,17,256'h02,0);
+        wait(quarantine[0]);@(negedge clk);restart=1;@(negedge clk);restart=0;
+        wait(!quarantine[0]);repeat(10) @(negedge clk);
         expect_event(0,event_word(0,0,60,0));send_frame(0,1,2,3,256'h003c90,0);wait_all();
         if(!errors[2] || !errors[1] || commit_requests!=2) $fatal(1,"bad CRC/length recovery");
+
+        // A truncated NoteOff must quarantine its physical source after a prior On.
+        expect_event(0,event_word(1,0,60,80));send_frame(0,1,12,3,256'h503c90,0);wait_all();
+        send_frame(0,1,13,2,256'h3c80,0);
+        wait(quarantine[0]);repeat(30) @(negedge clk);
+        if(!errors[4] || quarantine[1]) $fatal(1,"MIDI syntax fault source attribution");
+        expect_event(1,event_word(1,0,64,80));send_frame(1,1,12,3,256'h504090,0);wait_all();
+        @(negedge clk);restart=1;@(negedge clk);restart=0;wait(!quarantine[0]);
+        repeat(10) @(negedge clk);
 
         hold_events=1;payload=0;
         for(int i=0;i<16;i++) begin payload[i*16+:8]=8'hc0;payload[i*16+8+:8]=8'(i);expect_event(0,event_word(3,0,i,0));end

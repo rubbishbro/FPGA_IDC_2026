@@ -1,8 +1,8 @@
 `timescale 1ns/1ps
 // =============================================================================
-// 激励生成：整张 fmap -> 整张 xmap（每个 clk_en 一个样本）
+// 激励生成：整张 strike_level -> 整张 xmap（每个 clk_en 一个样本）
 //
-// 每个声部一个小的"力包络"状态机，**只看 note_on（按下电平，带滞回）**：
+// 每个声部一个小的"力包络"状态机，由 note_on / retrigger 起音，slot_clear 强制清除：
 //
 //   按下上升沿 -> 第 1 个锤击：
 //        X_ATT   : 每采样 acc += target>>RISE_SH，共 PW_LEN 个采样（线性上升）
@@ -18,7 +18,7 @@
 // 全用移位/加法，**没有乘法器**。
 //
 // 参数全部由上级 router（exc_router）按乐器填：
-//   SHIFT    峰值幅度（x = fmap << SHIFT）
+//   SHIFT    峰值幅度（x = strike_level << SHIFT）
 //   RISE_SH  每采样的上升步长 = target>>RISE_SH；配 PW_LEN = 1<<RISE_SH 时刚好升到峰值
 //   PW_LEN   上升段长度（采样）
 //   GAP_LEN  衰减段长度（采样）；**周期 = PW_LEN + GAP_LEN**
@@ -41,7 +41,9 @@ module excitation_gen #(
     input  logic [15:0]                   GAP_LEN,    // 衰减段长度（采样数）
     input  logic [2:0]                    N_PULSE,    // 0..6 -> 最多 N+1 个；7 -> 按住期间无限
     input  logic                          clear,      // 换乐器：清全部声部状态
-    input  pad_driver_pkg::mat4x4         fmap,
+    input  logic [SLOTS*8-1:0]            strike_level, // 已选源的激励幅度
+    input  logic [SLOTS-1:0]              retrigger,   // 同 gate 下也能重新起音
+    input  logic [SLOTS-1:0]              slot_clear,  // 采样边界逐槽清除
     input  logic [SLOTS-1:0]              note_on,    // 按下电平（router 的滞回门控）
     output logic signed [SLOTS-1:0][31:0] xmap,       // 打包：xmap[i] 取第 i 个声部
     output logic                          xmap_valid
@@ -104,18 +106,18 @@ module excitation_gen #(
             end
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
-                if (clear || clr_pend) begin
+                if (clear || clr_pend || slot_clear[i]) begin
                     // 换乐器：力归零、状态机复位
                     st[i]  <= X_IDLE;
                     acc[i] <= '0;
                     tgt[i] <= '0;
                     cnt[i] <= '0;
                     num[i] <= '0;
-                end else if (note_on[i] && !note_q[i]) begin
+                end else if (note_on[i] && (retrigger[i] || !note_q[i])) begin
                     // 按下那一下：第 1 个锤击，从 0 开始线性上升
                     st[i]  <= X_ATT;
                     acc[i] <= '0;
-                    tgt[i] <= signed'(32'(fmap.flat_d[i].val) <<< SHIFT);
+                    tgt[i] <= signed'(32'(strike_level[i*8 +: 8]) <<< SHIFT);
                     cnt[i] <= 16'd1;
                     num[i] <= 4'd1;
                 end else begin

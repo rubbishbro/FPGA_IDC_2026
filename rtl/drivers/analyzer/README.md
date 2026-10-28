@@ -74,7 +74,7 @@ SysEx 数据不缓存；F8..FF 保持 skip，F7 结束 skip，其他非实时 st
 
 ### 错误处理与验证
 
-孤立数据、不完整消息、异常帧边界／长度等产生 `parse_error`，由顶层输出为 `midi_parse_error` 单拍诊断。新 status 可重新同步；同包之前已输出的合法事件不回滚。来源故障清理由 `comm_top` 的隔离与消费者握手完成。
+孤立数据、不完整消息、异常帧边界／长度等产生 `parse_error`，由顶层输出为 `midi_parse_error` 单拍诊断。新 status 可重新同步；同包之前已输出的合法事件不回滚。当前`comm_top`默认ISOLATE_PROTOCOL_ERRORS=1，MIDI语法错误也按物理来源隔离（集成层延迟一拍上报，避免组合回路）；来源故障清理由隔离与真实消费者握手完成，显式session_restart才可恢复。
 
 `tb_midi_analyzer` 已核对 215 个事件，包含支持消息、全部 CC 编号、16 通道、running status、实时插入、SysEx／Common 跳过、异常帧、背压与复位；双 UART 集成测试另检查事件来源和配置屏障。结果见 [VERIFICATION.md](../../comm/VERIFICATION.md)。
 

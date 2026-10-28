@@ -2,7 +2,8 @@
 // 配置端点：显示等待真实帧头确认，校准等待真实完成，其余交给显式后端。
 module config_dispatch #(
     parameter integer CAL_TIMEOUT_MS=2000,
-    parameter logic[19:0] LOCAL_SUPPORTED=config_pkg::LOCAL_MASK
+    parameter logic[19:0] LOCAL_SUPPORTED=config_pkg::LOCAL_MASK,
+    parameter bit AUDIO_BACKEND=1'b0
 )(
     input logic clk,rst_n,tick_ms,
     input logic req_valid,
@@ -21,6 +22,8 @@ module config_dispatch #(
     input logic backend_rsp_valid,
     output logic backend_rsp_ready,
     input config_pkg::cfg_response_t backend_response,
+    input logic backend_audio_valid,
+    input config_pkg::audio_config_t backend_audio_state,
     output config_pkg::cfg_values_t active_values,
     output config_pkg::display_config_t render_config,
     output logic [15:0] render_epoch,
@@ -35,6 +38,15 @@ module config_dispatch #(
     cfg_request_t pending;
     integer index;
     logic [$clog2(CAL_TIMEOUT_MS+1)-1:0] cal_age;
+    logic audio_synced;
+    wire audio_reply_ok=backend_audio_valid && audio_config_valid(backend_audio_state) &&
+        (!audio_parameter(pending.id) ||
+         (audio_value(backend_audio_state,pending.id)==backend_response.applied_value &&
+          backend_response.applied_value==pending.value));
+    wire audio_commit=AUDIO_BACKEND && backend_audio_valid && audio_config_valid(backend_audio_state) &&
+        ((!audio_synced && state==IDLE) ||
+         (state==BACKEND_WAIT && backend_rsp_valid && backend_response.tag==pending.tag &&
+          backend_response.id==pending.id && backend_response.result==CFG_OK && audio_reply_ok));
     wire [19:0] supported=backend_supported|LOCAL_SUPPORTED;
     assign req_ready=(state==IDLE)&&rst_n;
     assign rsp_valid=(state==REPLY)&&rst_n;
@@ -48,8 +60,18 @@ module config_dispatch #(
             state<=IDLE;pending<='0;response<='0;response_source<=0;
             active_values<=cfg_defaults();render_config<=display_defaults();render_epoch<=0;
             index<=0;cal_age<=0;joy_recalibrate<=0;
+            audio_synced<=0;
         end else begin
             joy_recalibrate<=0;
+            // 后端是音频实际配置的唯一所有者，启动及联合提交均一次性同步。
+            if(audio_commit)begin
+                audio_synced<=1;
+                active_values[0]<=32'(backend_audio_state.instrument);
+                active_values[2]<=32'(backend_audio_state.reverb);
+                active_values[5]<=32'(backend_audio_state.bank);
+                active_values[11]<=32'(backend_audio_state.source);
+                active_values[12]<=32'(backend_audio_state.channel);
+            end
             case(state)
                 IDLE:if(req_valid)begin
                     pending<=request;response_source<=request_source;
@@ -86,10 +108,14 @@ module config_dispatch #(
                     end else if(backend_response.result==CFG_OK && pending.id<16'h8000 &&
                                 !cfg_value_valid(index,backend_response.applied_value))begin
                         response.result<=CFG_FAILED;
+                    end else if(AUDIO_BACKEND && backend_response.result==CFG_OK &&
+                                (audio_parameter(pending.id) || pending.id==16'h8001) && !audio_reply_ok)begin
+                        response.result<=CFG_FAILED;
                     end else begin
                         response.result<=backend_response.result;
                         response.applied_value<=backend_response.applied_value;
-                        if(backend_response.result==CFG_OK && pending.id<16'h8000)
+                        if(backend_response.result==CFG_OK && pending.id<16'h8000 &&
+                           !(AUDIO_BACKEND && audio_parameter(pending.id)))
                             active_values[index]<=backend_response.applied_value;
                     end
                     state<=REPLY;

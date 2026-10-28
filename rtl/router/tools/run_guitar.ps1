@@ -42,6 +42,7 @@ try {
             'rtl/router/engines/eng0.sv',
             'rtl/router/engines/eng1.sv',
             'rtl/router/routers/eng_router.sv',
+            'rtl/router/routers/performance_input_mux.sv',
             'rtl/router/routers/env_router.sv',
             'rtl/router/routers/exc_router.sv',
             'rtl/router/routers/mod_router.sv',

@@ -49,9 +49,9 @@ HC-05 引脚 ↔ hc05_driver ───────────↔ transport_link
 | `source_quarantine/link_fault_pending[1:0]` | 来源维护状态，保持到有序恢复；消费者不得继续将隔离来源的旧事件发声 |
 | `source_cleanup_done/source_ops_idle[1:0]` | 真实消费者确认音符／踏板已清理、已接受操作已退休，不应未经处理直接绑 1 |
 | `session_restart[1:0]` | 显式会话重建请求；可选 STATE connect 也会提出蓝牙重建请求 |
-| `error_sticky[15:0]` | 每源 8 位，从低到高为 SLIP、LEN、CRC、VERSION/TYPE、半帧超时、framing、break、RX overflow |
+| `error_sticky[15:0]` | 每源 8 位，从低到高为 SLIP、LEN、CRC、VERSION/TYPE、半帧超时或MIDI语法、framing、break、RX overflow |
 | `rx_error_count[63:0]` | 每源 32-bit 饱和的错误时钟周期数，同拍多个错误只加一次，具体原因由 sticky 保留 |
-| `midi_parse_error` | MIDI 语法错误单拍诊断；false_start 只在 UART 驱动提供，不自动触发会话隔离 |
+| `midi_parse_error` | MIDI 语法错误单拍诊断；默认同时按来源隔离，集成层延迟一拍送session_ctrl以避免组合回路。false_start 只在 UART 驱动提供，不自动触发会话隔离 |
 
 帧 payload 直接写入 32-byte 槽，每路另有一个候选槽；每路回复描述符 FIFO 固定深度 2。大 FIFO／帧存储为同步 RAM 读，预取与 pop 允许气泡。没有物理流控时，有限缓冲不能保证无限突发不溢出。
 
@@ -69,7 +69,7 @@ HC-05 引脚 ↔ hc05_driver ───────────↔ transport_link
 
 `session_ctrl` 接收物理错误、协议错误及连接事件，不通过层级路径访问 FIFO／parser 状态。集成层通过入队／出队握手、arbiter/parser busy 与来源、消费者 `source_ops_idle/source_cleanup_done` 提供恢复证据。
 
-1. framing／break／overflow／半帧超时／物理断开使对应来源隔离；CRC／转义／长度错误只丢弃候选并诊断。
+1. 默认`ISOLATE_PROTOCOL_ERRORS=1`：framing／break／overflow／物理断开，以及SLIP／长度／CRC／版本类型／半帧超时和MIDI语法错误均使对应来源隔离，防止丢失Off后挂音。参数置0才使用旧的仅严重链路错误隔离策略。
 2. 同拍的 `cancel_source` 禁止新帧准入、抑制新配置提交／旧回复并丢弃该来源的排队事件。`flush_link` 清理对应驱动与 transport；已 pin 的帧继续收束。
 3. 已被后级接受的配置必须等真实结果；parser 忙状态包含这段退休等待。共享效果已经生效时，不因单源故障回滚。
 4. 来源事件计数为 0、帧与 parser 均退休、消费者清理／操作完成，且已锁存重启请求后，解除隔离并脉冲 `cache_reset`，清该来源 Config 重试缓存及旧链路状态。

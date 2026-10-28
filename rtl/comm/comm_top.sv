@@ -11,6 +11,7 @@ module comm_top #(
     parameter int RX_DEPTH = 1024,
     parameter int FRAME_DEPTH = 8,
     parameter int EVENT_DEPTH = 64,
+    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b1,
     parameter int EQ_BANDS = 3,
     parameter int TIMEOUT_CYCLES = CLK_HZ,
     parameter bit BT_HAS_STATE = 1'b0,
@@ -115,11 +116,17 @@ module comm_top #(
                              ((frame_type[g*8 +: 8] != 8'h02) || reply_space[g]);
     end
 
-    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH)) u_session (
+    // 延迟一拍锁存语法错误来源，避免parse_error/flush形成组合环。
+    logic [1:0] midi_error_sources;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) midi_error_sources<=0;
+        else midi_error_sources<=midi_parse_error ? (2'b01 << dispatch_source) : 2'b00;
+    end
+    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH),.ISOLATE_PROTOCOL_ERRORS(ISOLATE_PROTOCOL_ERRORS)) u_session (
         .clk(clk), .rst_n(rst_n), .session_restart(session_restart),
         .connect_event({bt_connect, 1'b0}), .disconnect_event({bt_disconnect, 1'b0}),
         .framing_err(rx_frame_err), .break_detect(rx_break), .overflow(rx_overflow),
-        .protocol_errors(frame_errors),
+        .protocol_errors(frame_errors), .midi_error(midi_error_sources),
         .source_cleanup_done(source_cleanup_done), .source_ops_idle(source_ops_idle),
         .arb_busy(arb_busy), .arb_source(arb_source),
         .parser_busy(dispatch_busy), .parser_source(dispatch_source),
@@ -161,6 +168,8 @@ module comm_top #(
         .s_valid(parsed_valid), .s_ready(parsed_ready), .s_data({parsed_source, parsed_data}),
         .m_valid(ev_valid), .m_ready(ev_ready), .m_data(ev_data), .level(ev_level)
     );
+
+    // 输出数据
     assign event_source_id = ev_data[32];
     assign event_data = ev_data[31:0];
     // quarantine 是显式的维护取消，不是普通流反压。
