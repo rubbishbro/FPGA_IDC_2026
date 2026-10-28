@@ -58,6 +58,8 @@ module modulation0 #(
     localparam logic signed [31:0] LAM_MAX = 32'sd32_212_255;   // 0.03 * 2^30
     localparam logic signed [31:0] LAM_OFF = 32'sd242;          // 中心：和 NOTE_ON_TH(230) 对齐
     localparam int                 LAM_SH  = 21;                // (fmap-242)<<21 -> 覆盖 ±0.03（fmap 230..255）
+    // 只调制最低 MOD_TOP 个模态（其余保持表里的基值，避免高模态被推出稳定域）
+    localparam int                 MOD_TOP  = 6;    // 实测 N=6 时 lambda 到 0.0254 仍全稳定，8 及以上最高模态会 |eig|>1
 
     typedef enum logic [2:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY, S_OUT } mst_e;
     mst_e st;
@@ -135,11 +137,15 @@ module modulation0 #(
                 end
 
                 // 把 8 个参数锁进本地寄存器（乘法从 FF 出发，路径里不含 BSRAM 的 CLK->Q）
+                //   只调制**最低的 MOD_TOP 个模态**：高模态的 theta 接近 pi/2，
+                //   a12 = sin(theta) 已经贴着 1，一阶线性化很容易把它推出稳定域
+                //   （|eig| > 1）；而揉弦的听感主要来自基频和前几个谐波，
+                //   所以高模态直接不动（不写 = 保持表里的基值）。
                 S_W: begin
                     a11_l <= p_a11;  a12_l <= p_a12;  a22_l <= p_a22;  wo_l  <= p_wo;
                     s11_l <= p_s11;  s12_l <= p_s12;  s22_l <= p_s22;  swo_l <= p_swo;
                     step  <= 2'd0;
-                    st    <= S_LD;
+                    st    <= (mode < MOD_TOP) ? S_LD : S_OUT;    // 高模态跳过 4 次乘加
                 end
 
                 // 操作数直接在这里按 step 选（寄存器输出，乘法从 FF 出发）
@@ -188,7 +194,7 @@ module modulation0 #(
                     co_wdata.a21 <= -32'(a12_l >>> (modal_step_pkg::SH_A12 - modal_step_pkg::SH_A21));
                     co_wdata.a22 <= a22_l;
                     co_wdata.wo  <= wo_l;
-                    co_we        <= 5'b11111;
+                    co_we        <= (mode < MOD_TOP) ? 5'b11111 : 5'b00000;
                     if (mode + 1'b1 >= nmod_lat) begin
                         done <= 1'b1;
                         busy <= 1'b0;
