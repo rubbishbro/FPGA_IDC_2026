@@ -8,7 +8,8 @@ module envelope_ADSR #(
     parameter int CLK_HZ  = 100_000_000,
     parameter int SR_HZ   = 48_000,
     parameter int SLOTS   = 16,
-    parameter bit SUSTAIN_ENABLE=0
+    parameter bit SUSTAIN_ENABLE=0,
+    parameter bit PRECOMPUTED_DECAY_LIMIT=0
 )(
     input  logic                        clk,
     input  logic                        rst_n,
@@ -19,6 +20,7 @@ module envelope_ADSR #(
     input  logic [31:0]                 A_STEP,
     input  logic [31:0]                 D_STEP,
     input  logic [31:0]                 S_LEVEL,
+    input logic [31:0] decay_limit,
     input  logic [31:0]                 R_STEP,        // 松键后的每采样下降量
     input  logic [SLOTS-1:0]            retrigger, slot_clear,
     input  logic [SLOTS-1:0]            note_on,       // router 给：新音符
@@ -37,27 +39,40 @@ module envelope_ADSR #(
     wire use_slot=SUSTAIN_ENABLE && sustain_mode;
     assign dead=dead_r;
     assign onset=(note_on & ~note_on_q) | retrigger;
+    // Four independent octet comparisons plus a balanced prefix, avoiding
+    // a LUT carry chain across the entire 32-bit release/decay comparator.
+    function automatic logic le32(input logic[31:0] a,b);
+        logic[3:0] lt,eq;
+        begin
+            for(integer j=0;j<4;j++)begin
+                lt[j]=a[j*8 +:8]<b[j*8 +:8];eq[j]=a[j*8 +:8]==b[j*8 +:8];
+            end
+            return lt[3] || (eq[3]&&lt[2]) || (eq[3]&&eq[2]&&lt[1]) ||
+                   (eq[3]&&eq[2]&&eq[1]&&(lt[0]||eq[0]));
+        end
+    endfunction
     always_comb begin
         for(int i=0;i<SLOTS;i++) begin
             logic [31:0] a,r,dec_th;
             logic [32:0] attack_sum;
             a=use_slot ? slot_a_step[i*32 +:32] : A_STEP;
             r=use_slot ? slot_r_step[i*32 +:32] : R_STEP;
-            dec_th=(S_LEVEL>32'h7fffffff-D_STEP) ? 32'h7fffffff : S_LEVEL+D_STEP;
+            dec_th=PRECOMPUTED_DECAY_LIMIT ? decay_limit :
+                ((S_LEVEL>32'h7fffffff-D_STEP) ? 32'h7fffffff : S_LEVEL+D_STEP);
             attack_sum={1'b0,lvl[i]}+{1'b0,a};
             next_lvl[i]=lvl[i];next_st[i]=st[i];next_dead[i]=dead_r[i];
             if(slot_clear[i]) begin next_lvl[i]=0;next_st[i]=E_IDLE;next_dead[i]=1;end
             else if(onset[i]) begin next_lvl[i]=0;next_st[i]=E_ATK;next_dead[i]=0;end
             else if(!note_gate[i]) begin
-                if(lvl[i]<=r)begin next_lvl[i]=0;next_st[i]=E_IDLE;next_dead[i]=1;end
+                if(le32(lvl[i],r))begin next_lvl[i]=0;next_st[i]=E_IDLE;next_dead[i]=1;end
                 else begin next_lvl[i]=lvl[i]-r;next_st[i]=E_REL;next_dead[i]=0;end
             end else begin
                 next_dead[i]=0;
                 case(st[i])
                     E_IDLE:next_st[i]=E_ATK;
-                    E_ATK:if(attack_sum>33'h07fffffff)begin next_lvl[i]=32'h7fffffff;next_st[i]=E_DEC;end
+                    E_ATK:if((attack_sum[32] || attack_sum[31]))begin next_lvl[i]=32'h7fffffff;next_st[i]=E_DEC;end
                           else next_lvl[i]=attack_sum[31:0];
-                    E_DEC:if(lvl[i]<=dec_th)begin next_lvl[i]=S_LEVEL;next_st[i]=E_SUS;end
+                    E_DEC:if(le32(lvl[i],dec_th))begin next_lvl[i]=S_LEVEL;next_st[i]=E_SUS;end
                           else next_lvl[i]=lvl[i]-D_STEP;
                     E_SUS:;
                     E_REL:next_st[i]=E_IDLE;

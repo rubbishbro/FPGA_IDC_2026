@@ -53,27 +53,28 @@ module env_router #(
     logic [SLOTS-1:0]   d_adsr, d_dyn;
 
     // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
-    logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r;
+    logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r,decay_limit_r;
+    wire[31:0] decay_limit_c=(s_level>32'h7fffffff-d_step)?32'h7fffffff:s_level+d_step;
     logic sustain_mode_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             sustain_mode_r <= 1'b0;
-            a_step_r <= '0; d_step_r <= '0; s_level_r <= '0; r_step_r <= '0;
+            a_step_r <= '0; d_step_r <= '0; s_level_r <= '0; r_step_r <= '0;decay_limit_r<=0;
         end else begin
             sustain_mode_r <= router_pkg::is_sustain(inst);
             a_step_r  <= a_step;
             d_step_r  <= d_step;
             s_level_r <= s_level;
-            r_step_r  <= r_step;
+            r_step_r  <= r_step;decay_limit_r<=decay_limit_c;
         end
     end
 
-    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1)) u_adsr (
+    envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1),.PRECOMPUTED_DECAY_LIMIT(1)) u_adsr (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
         .sustain_mode(sustain_mode_r),.slot_a_step(slot_a_step),.slot_r_step(slot_r_step),
         .retrigger(retrigger), .slot_clear(slot_clear),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
-        .R_STEP(r_step_r),
+        .R_STEP(r_step_r),.decay_limit(decay_limit_r),
         .note_on(note_on), .note_gate(note_gate),
         .emap(m_adsr), .emap_valid(v_adsr), .dead(d_adsr)
     );

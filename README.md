@@ -2,41 +2,43 @@
 
 面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；录音用于离线提取参数，模型与 RTL WAV 用于试听验证。
 
-更新：**2026-10-29**。核对已提交的 `32b92498` 及当前未提交工作区。项目处于模块验证与整机集成阶段；已执行的历史测试和本次复测分别记录。
+更新：**2026-10-29**。核对已提交的 `d93778af` 及当前板级集成工作区。项目处于模块验证与整机集成阶段；已执行的历史测试和本次复测分别记录。
 
 ## 当前实现
 
 | 部分 | 已有实现 | 仍待完成 |
 |---|---|---|
-| 合成 `rtl/router/` | 默认16槽、64模态存储，双bank并行；钢琴/吉他选eng0，其余选五级流水eng1；实际计算64/20/48模态 | eng1四种持续音色的逐槽周期驱动/ADSR、真实资源及整机验收 |
+| 合成 `rtl/router/` | 默认16槽、64模态存储，双bank并行；钢琴/吉他选eng0，其余选五级流水eng1；实际计算64/20/48模态；四种持续音色已接逐槽周期驱动/ADSR和释放退休 | 正式资源、物理时序、实板听感及整机验收 |
 | Flash与音高 | 6Bh串行地址修复、逐槽偏移/掩码/中止/超时、失败静音；钢琴/吉他scaled表接入打包，默认16音镜像按64条/槽存储 | 六种正式连续32音资源、统一烧录清单、真片QE/时序和听测 |
-| 演奏与配置 | MIDI音符归属、力度、重触发、踏板、来源清理、两组16音切换；本地UI音色/通道联合提交与实际结果 | 远程配置协议桥、CC音量/EQ/Bend等DSP消费者、当前panic抢占回归 |
-| 压力垫/摇杆 | 采集FSM、X/Y成对出口、校准/八方向/连发 | 真实ADC、16键位置/扫描延迟及板级校准 |
-| 音频 `rtl/audio/` | PCM16舍入/饱和、异步FIFO、I2S、帧节拍CDC模块已有 | 当前两个演奏顶层缺少音频端口/实例，系统回归中断；须恢复接线后验证时钟/约束/DAC |
-| 可视化 | 1024点FFT、BARS/WAVE/FALL、中文隐藏侧栏；独立demo使用测试音源 | 主合成PCM抽头、独立音频跨域与现场同源显示 |
+| 演奏与配置 | MIDI音符归属、力度、重触发、踏板、来源清理、两组16音切换；本地UI音色/通道联合提交与实际结果 | 板级已接REVERB_SET真实结果和0502权限；CC音量/EQ/Bend DSP、忙时panic及实物联机仍待完成 |
+| 压力垫/摇杆 | 采集FSM、X/Y成对出口、校准/八方向/连发；板级已接LED与逐轴死区 | 模拟ADC、16键位置/扫描延迟和实板校准 |
+| 音频 `rtl/audio/` | PCM16舍入/饱和、异步FIFO、I2S、帧节拍CDC模块已有 | 两个演奏顶层已恢复I2S并接入统一板级；当前物理时序不达标，DAC实板待验 |
+| 可视化 | 1024点FFT、BARS/WAVE/FALL、中文隐藏侧栏；独立demo使用测试音源 | 统一板级显示真实菜单，FFT读口暂接零；PCM抽头/独立CDC留到第二阶段 |
 | 本地上位机 | WebGL MIDI编辑、多轨/循环/力度、导入导出、有线Web Serial和v1编码 | 物理UART/Flash/DAC联调、板端能力查询/远程配置/PCM回传 |
 | Python | 参数提取、整数/浮点模型、A/B/C试听与对拍 | 模型Q30与当前router Q24、激励/选核/资源差异继续对齐 |
 
-**本次复测：**eng1 **256组逐模态对拍通过**，PCM/I2S模块单测通过；系统集成在展开时报告缺少 `AUDIO_ENABLE`。此前8项音频回归通过属于先前接线快照，不能代表当前工作区。上位机 **17项单测及语法检查通过**；钢琴/吉他默认打包结果与现有bin/mem逐字节相同。详见[最新核对记录](docs/工程评审与验证.md#global-docs-2026-10-29)。
+**当前主要阻塞是板级物理时序。** 单PLL三个时钟域、通信/PAD/UI/合成/I2S已组成统一入口；时钟域优化后新增28个RTL测试顶层通过，eng0/eng1、loader及系数/状态RAM布局未改。像素域已达到33.333MHz目标，core100MHz和最小脉宽仍须物理签核；bitstream未验收、未烧录。最新结果及报告边界见[时钟域验证](docs/工程评审与验证.md#clock-domains-2026-10-29)。
 
-`rtl/core/` 保留另一套共享RAM实现，与当前router分开。其历史21项PASS不代表当前回归通过；旧入口仍有迁移缺失。当前源码没有同时接通输入、DAC与LCD的统一板级顶层。
+`rtl/core/`保留另一套共享RAM实现，其历史21项PASS不代表当前回归通过。统一板级入口为[instrument_board_top](rtl/platform/tang_mega_138k_pro/README.md)，默认仅钢琴16音；12.5MHz音频参考对应48.828125kHz，相对48k资源快约1.725%，精确48k和正式六种32音资源仍需收口。
 
 **阅读入口：**[代码架构](CODE_ARCHITECTURE.md) · [专题索引](docs/README.md) · [当前问题](docs/bugs.md) · [赛题验收](docs/赛题要求完成度核对.md)。
 
 ## 数据流与目录
 
 ```text
-离线：录音 → python/fft_analysis → FFT_results/params → 模型试听/候选资源
-      sythsound/*_coeff_scaled.txt → router/tools/*_flash.py → Flash镜像
-演奏：comm_top事件 → midi_voice_top → 音符状态/选源 → voice_router → signed64
-      压力/外部fmap → pad_voice_top ──────────────────────┘
-配置：侧栏 → control_loop → config_dispatch → MIDI联合配置后端/显示CDC
-输出：signed64 → 待恢复顶层接线 → rtl/audio → I2S → 待验DAC
-显示：独立测试音源 → FFT/LCD；主合成PCM仍待接入
+统一入口 instrument_board_top
+  ├─ 50MHz → core100MHz / audio12.5MHz / pixel33.333MHz，失锁共同复位
+  ├─ PAD/摇杆/LED ──────────┐
+  ├─ 双UART → comm → MIDI ──┴─→ 一套voice_router → PCM/FIFO/I2S → 待验DAC
+  └─ 摇杆/按键/远程REVERB → loop/dispatch → 真实音频后端 + LCD菜单
+                                             FFT读口暂为零
+离线：录音/提取表 → 资源生成/manifest → Flash系数及同源逐槽配置
+后续：合成PCM的独立副本/CDC → FFT/WAVE/FALL，不能反压I2S
 ```
 
 | 目录 | 用途 |
 |---|---|
+| `rtl/platform/tang_mega_138k_pro/` | 统一板级入口、唯一源清单、时钟/复位、引脚/约束、构建与验收 |
 | `rtl/router/`、`rtl/midi/` | 当前合成、loader、演奏状态及配置后端 |
 | `rtl/audio/` | PCM/FIFO/I2S模块与接入合同 |
 | `rtl/drivers/`、`rtl/comm/` | 压力/摇杆、UART/HC-05、传输/解析/来源会话 |
@@ -83,11 +85,14 @@ python3 sim/check_comm_vectors.py
 python3 sim/run_midi.py
 python3 sim/run_router_midi.py
 python3 sim/run_ui.py --legacy
-python3 sim/run_audio.py --test eng1 --test bridge
+python3 sim/run_audio.py
+python3 sim/run_sustain.py
+python3 sim/run_flash_ref.py
+python3 sim/run_board.py
 npm --prefix web/midi-editor test
 ```
 
-`sim/run_audio.py` 的完整系统矩阵当前因顶层接口缺失而失败。旧 `eng1_cosim.py` 使用历史测试接口，不再作为流水eng1的当前通过依据。Windows音乐/loader脚本、工具要求及已知入口缺口见[sim说明](sim/README.md)；本次未运行xsim、PnR或上板。
+持续前端、完整音频、vendor Flash模型及板级回归均已有正式入口。旧eng1_cosim.py仍使用历史接口，不作为当前流水核通过依据。命令/工具条件见[sim说明](sim/README.md)，板级构建、接线及自动时序验收只在[板级说明](rtl/platform/tang_mega_138k_pro/README.md)维护。本次不重跑长测/PnR或烧录；功能复测与既有报告复核分别记录。
 
 ## 文档约定
 

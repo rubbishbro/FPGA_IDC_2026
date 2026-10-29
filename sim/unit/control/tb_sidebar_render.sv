@@ -16,16 +16,19 @@ module tb_sidebar_render;
         @(negedge clk);frame_pulse=1;@(negedge clk);frame_pulse=0;
     endtask
     task automatic capture(input string name);
+        frame(); // snapshots are prepared after publication at frame boundary
+        repeat(4) @(negedge clk);
         image=$fopen(name,"wb");$fwrite(image,"P6\n800 480\n255\n");
-        for(integer yy=0;yy<480;yy=yy+1)begin
-            for(integer xx=0;xx<800;xx=xx+1)begin
-                @(negedge clk);x=10'(xx);y=10'(yy);
-                @(posedge clk);#1;
+        for(integer k=0;k<800*480+2;k=k+1)begin : pixels
+            integer xx,yy;
+            @(negedge clk);x=10'(k%800);y=10'(k/800);
+            @(posedge clk);#1;
+            if(k>=2)begin
+                xx=(k-2)%800;yy=(k-2)/800;
                 if(hit)begin
                     $fwrite(image,"%c%c%c",{r,r[5:4]},{g,g[5:4]},{b,b[5:4]});panel=panel+1;
                     if(r>40&&g>40&&b>40)bright=bright+1;
                 end else begin
-                    // 测试底图，不是音频或 FFT 数据；用来检查侧栏覆盖与透明区。
                     if(yy>260+((xx/12)%7)*18)$fwrite(image,"%c%c%c",8'd25,8'd145,8'd115);
                     else $fwrite(image,"%c%c%c",8'd9,8'd17,8'd24);
                 end

@@ -1,6 +1,6 @@
 # Router —— 物理模型合成器的数字后端
 
-更新：2026-10-29，核对32b92498及工作区。当前合同按下文维护；历史周期/PnR和兼容副本结果保留日期，不能升级为当前整机证明。最新复测、当前顶层音频缺口及运行器限制见[验证记录](../../docs/工程评审与验证.md#global-docs-2026-10-29)和[问题台账](../../docs/bugs.md)。
+更新：2026-10-29，核对d93778af及统一板级工作区。当前合同按下文维护；历史周期/PnR和兼容副本结果保留日期，不能升级为当前整机证明。最新复核、板级时序失败及验证边界见[验证记录](../../docs/工程评审与验证.md#doc-refresh-board-2026-10-29)和[问题台账](../../docs/bugs.md)。
 
 一块 FPGA 上的 16 声部模态（modal）合成器：**16 个声部 × N_MODES 个模态**，每个模态一个
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
@@ -528,7 +528,7 @@ CS↓ → 指令 8 SCK（DQ0 单线）→ 地址 24 SCK（**DQ0 单线**，MSB �
 
 ### 7.1 音乐集成 TB
 
-当前音乐TB为tb/tb_music.sv，已连接w25q_dut和vendor W25Q128模型，通过实际weight_loader写RAM，并统计16槽×两个半区写口覆盖。源码头部仍有“无Flash模型/直灌RAM”的旧注释，应以实例及加载流程为准。原直灌RAM和常量输出仍被判PASS的发现保留在[28日补测](../../docs/工程评审与验证.md#questa-2026-10-28)，不能混成当前加载方式。
+当前音乐TB为tb/tb_music.sv，已连接w25q_dut和vendor W25Q128模型，通过实际weight_loader写RAM，并统计16槽×两个半区写口覆盖。TB与运行器已补齐模型源、MEM准备和参数覆盖。原直灌RAM和常量输出仍被判PASS的发现保留在[28日补测](../../docs/工程评审与验证.md#questa-2026-10-28)，不能混成当前加载方式。
 
 ```text
 系数镜像 → MEM.TXT → W25Q128模型 ↔ QSPI/weight_loader → RAM
@@ -546,9 +546,9 @@ pwsh -File rtl/router/tools/run_guitar.ps1
 pwsh -File rtl/router/tools/run_loader.ps1
 ```
 
-这些是已有Windows/Vivado 2017.4入口，本次未运行xsim。**当前run_all未列w25q_dut/vendor模型，也没有准备MEM.TXT；run_loader仍调用被忽略的_analysis/gen_mem.py和mk_blank64.py，吉他参数仍用旧20模态。** 仅在已有work库/本机辅助文件时成功，不表示干净clone可复现。可维护的MEM生成器已在tools/gen_mem.py；修复运行器、统一布局后再完整验证，不用文档声称命令一键通过。
+Windows/Vivado 2017.4入口已补齐vendor模型源、MEM生成、空片用例、64存储步长与失败退出，改用入库脚本并参数覆盖TB。Linux的sim/run_flash_ref.py已验证公开vendor模型5项；本次未执行PowerShell/Vivado，不将Linux结果写成xsim通过。
 
-Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术与PCM模块为python3 sim/run_audio.py --test eng1 --test bridge。完整音频系统当前受顶层缺端口阻塞，见[sim说明](../../sim/README.md)。
+Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术与PCM模块为python3 sim/run_audio.py --test eng1 --test bridge。完整音频系统已恢复接线并有8项回归记录，统一板级功能与时序分别验收，见[sim说明](../../sim/README.md)。
 
 ### 7.3 判据与覆盖
 
@@ -643,10 +643,10 @@ eng1已改为R/M/S/N/W五级跨模态流水，II=1，保持原位宽/符号/舍�
 
 midi_voice_top/pad_voice_top已恢复AUDIO_ENABLE、audio_clk和I2S实例/端口。启用后I2S帧作为激励/包络/合成统一时基，使用Q24转PCM16、计划静音和独立诊断；panic音频队列flush仍暂缓。详见[音频说明](../audio/README.md)。
 
-先前接线快照的回归保留于[流水/I2S记录](../../docs/工程评审与验证.md#i2s-pipeline-test)；29日本次256组eng1及PCM模块复测通过，系统展开失败见[最新记录](../../docs/工程评审与验证.md#global-docs-2026-10-29)。尚无统一板级顶层或本次PnR/上板结论。
+早期接线回归见[历史记录](../../docs/工程评审与验证.md#i2s-pipeline-test)，恢复后的8项矩阵见[持续前端实施](../../docs/工程评审与验证.md#sustain-implementation-2026-10-29)。统一instrument_board_top已接通信/PAD/UI/I2S，PnR完成但时序失败，尚未烧录，详见[板级说明](../platform/tang_mega_138k_pro/README.md)。
 
 ## 四种持续音色前端（2026-10-29）
 
 现有excitation_gen增加周期冲激分支，env_router为FLUTE/TRUMPET/CELLO/VIOLIN选择同实例ADSR的逐槽A/R；x/E按帧锁存。voice_router的S_CFG逐槽准备配置，锁存目标映射/偏移，加载成功后启用；无效配置有失败完成。voice_idle须等释放归零及实际清理帧退休。
 
-配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；正式RESOURCE_MASK仍只开放钢琴，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。本次未改eng0/eng1算术核，未做整机PnR或烧录。
+配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；正式RESOURCE_MASK仍只开放钢琴，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。持续前端实施未改eng0/eng1算术核；后续统一板级已有实际PnR，时序未通过，尚未烧录。

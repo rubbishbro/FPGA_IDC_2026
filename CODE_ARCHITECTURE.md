@@ -1,20 +1,21 @@
 # 代码架构与阅读路线
 
-更新：2026-10-29。核对 `32b92498` 及当前工作区；本文说明实例、接口和集成责任。问题状态见[bugs](docs/bugs.md)，执行结果见[验证记录](docs/工程评审与验证.md#global-docs-2026-10-29)。旧歌曲工程导读在[历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
+更新：2026-10-29。基线 `d93778af` 及整版第一阶段工作区；本文说明实例、接口和集成责任。问题状态见[bugs](docs/bugs.md)，执行结果见[验证记录](docs/工程评审与验证.md#board-integration-2026-10-29)。旧歌曲工程导读在[历史文档](history/docs/legacy/CODE_ARCHITECTURE_2026-10-06.md)。
 
 ## 1. 当前入口与边界
 
 | 路径 | 入口 | 当前边界 |
 |---|---|---|
+| 统一板级入口 | `rtl/platform/tang_mega_138k_pro/instrument_board_top.sv` | 单PLL三时钟域/复位、双UART、PAD/LED、真实UI后端、QSPI和I2S；FFT数据入口留到第二阶段 |
 | 压力/外部fmap | `rtl/router/pad_voice_top.sv` | pad_driver、QSPI、摇杆原始出口、signed64合成值；默认64模态 |
 | MIDI及联合配置 | `rtl/router/midi_voice_top.sv` | 音符/来源状态、两组16音、清理/装载/实际结果、signed64输出 |
-| 音频模块 | `rtl/audio/i2s_audio_output.sv` | PCM/FIFO/I2S及帧节拍CDC；当前两个演奏顶层没有该实例及音频端口 |
-| 通信 | `rtl/comm/comm_top.sv` | Event32+source、Config shadow及会话接口；演奏消费者已有，整机物理接线与远程配置桥待接 |
+| 音频模块 | `rtl/audio/i2s_audio_output.sv` | PCM/FIFO/I2S及帧节拍CDC；两个演奏顶层及统一板级入口均已实例化，统一以I2S帧推进合成 |
+| 通信 | `rtl/comm/comm_top.sv` | Event32+source、Config shadow及会话接口；演奏消费者已有，统一板级接线已有，REVERB_SET映射真实后端；EQ明确NOT_READY |
 | 显示/配置 | `FFT_spectrumshow/src/ui/sidebar_system.sv` | loop/dispatch、真实后端握手、整包显示CDC；独立demo后端能力仍为0 |
 | 本地主机 | `web/midi-editor/` | 编辑/参考试听/Web Serial；无板端PCM回传或远程音色设置 |
 | 保留core | `rtl/core/router_system_top.sv` | 另一套共享RAM ABC/E2实现，与当前router无父子关系 |
 
-没有同时连接输入、DAC及LCD的统一板级顶层。两个演奏顶层已恢复`AUDIO_ENABLE/audio_clk/amp_*`，开启后以I2S帧为合成采样基准；输入、DAC和LCD的统一板级顶层仍待拼合。
+[统一板级入口](rtl/platform/tang_mega_138k_pro/README.md)已将输入、I2S和LCD菜单拼合，只有一套合成引擎。第一阶段功能回归已有通过记录，实际PnR时序未满足目标，问题见I04；尚未烧录。默认沿用16音钢琴镜像，板级音频参考12.5MHz，对应48.828125kHz；正式32音镜像及精确48k参考另行收口。FFT入口目前明确接零，第二阶段接真实PCM及独立CDC。
 
 ## 2. 演奏与合成
 
@@ -38,7 +39,7 @@ voice_router → performance_input_mux
 
 voice_router默认16槽、64模态存储、100MHz/48kHz参数，合法槽数4/8/16。每次作业产生一个样本并处理全部槽；两个bank按声部拆分，不是新旧系数双缓冲。钢琴/吉他选eng0，分别计算64/20模态；其余选eng1，首版计算48并限幅到存储深度。
 
-压力起音为fmap>230，保持到fmap<26；MIDI使用独立gate/retrigger与7bit velocity，避免受压力门限阻挡。持续压力变化也会登记吉他后台调制，MIDI velocity不进入压力调音。调制采用一阶近似、MOD_TOP=4、lambda最大0.035；逐模态更新仍未保证整帧表版本原子一致。
+模块默认压力起音为fmap>230，保持到fmap<26；统一板级入口按ADCV实测量程将正原始字节乘4并饱和、负值置零，配置门限64/48（对应原始16/12）。MIDI使用独立gate/retrigger与7bit velocity，避免受压力门限阻挡。持续压力变化也会登记吉他后台调制，MIDI velocity不进入压力调音。调制采用一阶近似、MOD_TOP=4、lambda最大0.035；逐模态更新仍未保证整帧表版本原子一致。
 
 eng1已改五级跨模态流水，空作业返回零且不读写状态。四种持续音色已接逐槽周期冲激和ADSR；配置与系数加载一起提交，释放后清零退休才报告idle。资源生成与实施合同统一在[eng1演奏前端设计](docs/ENG1演奏前端设计.md)。
 
@@ -68,17 +69,17 @@ control_loop（1kHz） → config_dispatch
                      └─ midi_voice_top(CONFIG_BACKEND=1) → 真实提交/实际快照
 ```
 
-请求64bit `{tag,id,value}`，结果72bit `{tag,id,result,applied_value}`。loop只轮询/暂存配置，不调度音符或音频样本。联合后端已有音色/通道、来源、音组、混响和清音事务；RESOURCE_MASK默认只开放钢琴，音量/调制开关深度/EQ/Bend等消费者仍未完成。独立LCD demo只开显示能力。
+请求64bit `{tag,id,value}`，结果72bit `{tag,id,result,applied_value}`。loop只轮询/暂存配置，不调度音符或音频样本。联合后端已有音色/通道、来源、音组、混响和清音事务；RESOURCE_MASK默认只开放钢琴，音量/调制开关深度/EQ/Bend等消费者仍未完成。独立LCD demo只开显示能力；统一板级启用真实后端，并在外围持有远程权限策略。
 
-comm按UART/HC-05→transport→arbiter/parser→事件或配置分层，33bit事件FIFO保留source侧带。session_ctrl的清理/退休必须接真实演奏消费者。Config shadow含物理来源/SEQ/命令，不能截成统一64bit请求；远程权限/最终回复桥仍需接入。唯一线上合同为[PROTOCOL_V1](rtl/drivers/analyzer/PROTOCOL_V1.md)，演奏归属与配置事务只在[MIDI文档](docs/MIDI演奏与通信接入.md)维护。
+comm按UART/HC-05→transport→arbiter/parser→事件或配置分层，33bit事件FIFO保留source侧带。session_ctrl的清理/退休必须接真实演奏消费者。Config shadow含物理来源/SEQ/命令，不能截成统一64bit请求；整版适配端保留这些字段到退休，远程权限由本地0502后端持有；REVERB_SET等待真实结果，EQ无消费者时返回NOT_READY。唯一线上合同为[PROTOCOL_V1](rtl/drivers/analyzer/PROTOCOL_V1.md)，演奏归属与配置事务只在[MIDI文档](docs/MIDI演奏与通信接入.md)维护。
 
 ## 4. 输出与显示的接入责任
 
-已有i2s_audio_output实现Q24→PCM16、独立FIFO和连续I2S，帧toggle同步到core后可作为统一sample_tick。恢复顶层连接时必须同时让激励、包络和引擎使用外部节拍；仅给start一个音频脉冲仍会与内部整数分频竞争。采样率、PCM余量、诊断和复位合同见[音频说明](rtl/audio/README.md)。当前接口缺失已经使系统TB展开失败，旧快照的周期余量不代表当前完整系统通过。
+已有i2s_audio_output实现Q24→PCM16、独立FIFO和连续I2S，帧toggle同步到core后可作为统一sample_tick。当前顶层同时让激励、包络和引擎使用外部帧节拍；不能另外给start接独立采样分频。采样率、PCM余量、诊断和复位合同见[音频说明](rtl/audio/README.md)。接口缺失的历史问题已修复；系统回归及整版构建结果以日期化验证为准。
 
-可视化应取得独立PCM副本，不能和I2S共同pop同一个队列，也不能反压播放。real_audio_chain需要24bit输入，当前demo的core/pix都接像素域；内部写侧仍用clk_pix，wr_ready未向上暴露。正式接入须冻结PCM扩展/抽头位置、入口CDC、连续1024点窗口与丢窗口诊断，不能只改一个clk端口就认为安全。
+统一板级第一阶段只实例化菜单/扫描，不实例化FFT，显示读口固定零；独立demo继续保留三音/扫频。下一阶段可视化应取得独立PCM副本，不能和I2S共同pop同一个队列，也不能反压播放。real_audio_chain需要24bit输入，当前demo的core/pix都接像素域；内部写侧仍用clk_pix，wr_ready未向上暴露。正式接入须冻结PCM扩展/抽头位置、入口CDC、连续1024点窗口与丢窗口诊断，不能只改一个clk端口就认为安全。
 
-sidebar控制域50MHz，像素约33.333MHz，整包快照在帧头提交。同步字模使RGB/DE延迟一拍，外围再寄存必须保持对齐。配置mailbox不承担音频CDC。显示应读取完整发布帧，不能直接把引擎缓存状态口当任意地址RAM读口。
+独立demo的sidebar控制域50MHz，统一板级控制域100MHz，两者像素约33.333MHz；整包快照在帧头提交。菜单布局、字模及最终输出使RGB/DE统一延迟4个像素时钟，外围必须保持对齐。配置mailbox不承担音频CDC。显示应读取完整发布帧，不能直接把引擎缓存状态口当任意地址RAM读口。
 
 ## 5. 阅读与验证
 

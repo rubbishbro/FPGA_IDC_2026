@@ -3,6 +3,7 @@ import {parseMidi,writeMidi} from './midi-file.mjs';
 import {PianoRoll} from './piano-roll.mjs';
 import {SerialLink} from './serial.mjs';
 import {Playback,ReferenceSynth} from './playback.mjs';
+import {setupSidebars} from './sidebars.mjs';
 const $=id=>document.getElementById(id),DRAFT='fpga-midi-studio:v1';
 let toastTimer,autosaveTimer,selectedTrack,clipboard=[],worker,output='local',manifest=null,starting=false,lastTick=0,startGeneration=0;
 let project=demoProject();
@@ -104,8 +105,7 @@ $('hardware-exercise').onclick=()=>{try{const p=profileExercise(hardwareProfile(
 $('load-manifest').onclick=()=>$('manifest-input').click();
 function applyManifest(){const bank=Number($('manifest-bank').value),notes=manifest.notes??manifest.midi_notes;if(!Array.isArray(notes)||notes.some(n=>!Number.isInteger(n)||n<0||n>127)||new Set(notes).size!==notes.length||![16,32].includes(notes.length))throw Error('manifest 需包含 16 / 32 项 notes 或 midi_notes 清单');const active=notes.slice(bank*16,bank*16+16);if(active.length!==16)throw Error('该清单没有高音组');$('hw-notes').value=active.join(',');stopPlayback();status('已读取资源清单；主机未向板端发送切组命令');}
 $('manifest-input').onchange=async e=>{try{if(!e.target.files[0])return;manifest=JSON.parse(await e.target.files[0].text());applyManifest();toast('资源音高清单已载入；请在板端选择对应音组');}catch(err){toast(err.message,true);}finally{e.target.value='';}};$('manifest-bank').onchange=()=>{if(manifest){try{applyManifest();}catch(e){toast(e.message,true);}}else toast('请先载入 Flash manifest');};
-$('close-inspector').onclick=()=>{document.querySelector('.inspector').classList.remove('open');$('toggle-inspector').setAttribute('aria-expanded','false');};
-$('toggle-inspector').onclick=()=>{const open=document.querySelector('.inspector').classList.toggle('open');$('toggle-inspector').setAttribute('aria-expanded',open);};
+setupSidebars();
 $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$('help-dialog').close();
 $('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 document.addEventListener('keydown',e=>{

@@ -4,10 +4,10 @@ graph [fontname="Noto Sans CJK SC",fontsize=17,rankdir=TB,nodesep=0.4,ranksep=0.
 node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=11,margin="0.16,0.10",color="#64748b",fillcolor="#f1f5f9"];
 edge [fontname="Noto Sans CJK SC",fontsize=10,color="#64748b",arrowsize=0.7];
 
-label="voice_router 数据流 · 2026-10-29\neng0/eng1 格式不同；当前输出止于数字合成值";labelloc=t;
+label="voice_router 数据流 · 2026-10-29\neng0/eng1 格式不同；I2S帧统一推进激励、包络与计算";labelloc=t;
 fmap [label="PAD fmap / MIDI gate·velocity\n选源 / retrigger / clear"];
-exc [label="exc_router → excitation_gen\n单样本 x_q[SLOTS]",fillcolor="#dcfce7"];
-env [label="env_router\nADSR / dyn0 / const\nQ1.31 包络",fillcolor="#dcfce7"];
+exc [label="exc_router → excitation_gen\n钢琴/吉他打击 · B类逐槽周期冲激\n单样本 x_q[SLOTS]",fillcolor="#dcfce7"];
+env [label="env_router\n钢琴 / B类ADSR · dyn0 / const\nB类逐槽A/R · Q1.31包络",fillcolor="#dcfce7"];
 load [label="weight_loader / 6Bh串行地址\n锁存偏移 / mask / 失败保护",fillcolor="#fef3c7"];
 mod [label="mod_router / modulation0\n起音及持音压力变化 / 逐模态更新",fillcolor="#fef3c7"];
 a [label="bank A · 前半声部\n系数 / q / v 同步 RAM",shape=cylinder,fillcolor="#dbeafe"];
@@ -17,7 +17,9 @@ eb [label="eng_router B → 相同选核\n有效拍同时锁存 A/B",fillcolor="
 mix [label="复用逐声部包络乘法\n跨声部 signed64 累加",fillcolor="#fce7f3"];
 body [label="body_router → 五段 biquad\nQ4.27 系数",fillcolor="#fce7f3"];
 rev [label="reverb_router → 四梳状线\n干湿混合 / 预设切换清理",fillcolor="#fce7f3"];
-y [label="y_valid / signed64 y_data\n音频模块已有；顶层接线待恢复",fillcolor="#fff7ed"];
+y [label="y_valid / signed64 Q24\nPCM16 / FIFO / I2S已接入",fillcolor="#fff7ed"];
+cfg [label="同源slot MIDI / period / A·R\nS_CFG准备 → loader成功 → active\n释放清零帧退休才确认idle",fillcolor="#fef3c7"];
+cfg -> exc;cfg -> env;cfg -> load [label="锁存偏移"];
 fmap -> exc;fmap -> env;fmap -> mod [label="PAD压力变化"];
 load -> a;load -> b;mod -> a;mod -> b;
 a -> ea [dir=both];b -> eb [dir=both];exc -> ea;exc -> eb;

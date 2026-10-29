@@ -28,6 +28,7 @@ module tb_midi_note_state;
         event_data = {k[3:0], ch[3:0], d1[6:0], d2[6:0], 10'b0};
         @(negedge clk);
         event_valid = 0;
+        while(!op_valid) @(negedge clk);
         ck(op_valid && !event_ready && !midi_ops_idle, "op waits for retirement");
     endtask
     task automatic retire;
@@ -122,6 +123,36 @@ module tb_midi_note_state;
             send(c[4],2,c%16,64,0);
             ck(!slot_gate[0], "matching pedal register releases note");
         end
+        // A quarantine may arrive in either pre-commit cycle. The accepted
+        // event must not leak an On, and cleanup cannot acknowledge itself.
+        for(integer delay_cycles=0;delay_cycles<2;delay_cycles++) begin
+            @(negedge clk);event_valid=1;event_source_id=0;
+            event_data={4'd1,4'd0,7'd60,7'd100,10'd0};
+            @(negedge clk);event_valid=0;
+            ck(!event_ready && !midi_ops_idle && !source_ops_idle[0] && !op_valid,
+               "accepted staged event participates in barriers");
+            // Change unaccepted input immediately: accepted payload is held.
+            event_data={4'd1,4'd9,7'd61,7'd1,10'd0};event_source_id=1;
+            repeat(delay_cycles) @(negedge clk);
+            source_cleanup_req=1;
+            wait(op_valid);@(negedge clk);
+            ck(op_cleanup_sources==1 && !slot_gate[10] && op_retrigger==0,
+               "quarantine cancels precommit On, publishes only cleanup");
+            ck(!source_cleanup_done[0],"staged cancellation does not bypass backend retirement");
+            retire();ck(source_cleanup_done[0],"cancelled source cleanup retires normally");
+            source_cleanup_req=0;@(negedge clk);
+        end
+        // A peer quarantine does not discard an already accepted healthy event.
+        @(negedge clk);event_valid=1;event_source_id=0;
+        event_data={4'd1,4'd0,7'd60,7'd73,10'd0};
+        @(negedge clk);event_valid=0;source_cleanup_req=2;
+        event_data=0;event_source_id=1;
+        wait(op_valid);@(negedge clk);
+        ck(op_cleanup_sources==0 && !op_source_id && slot_gate[10] && slot_velocity[70 +:7]==73,
+           "peer cleanup preserves accepted source and payload");
+        retire();wait(op_valid);@(negedge clk);
+        ck(op_cleanup_sources==2 && slot_gate[10],"peer cleanup follows accepted op and isolates owner");
+        retire();source_cleanup_req=0;@(negedge clk);
         offer(0,1,0,60,100);
         rst_n = 0; @(negedge clk);
         ck(!op_valid && slot_gate == 0 && rejected_note_count == 0, "reset clears all state");

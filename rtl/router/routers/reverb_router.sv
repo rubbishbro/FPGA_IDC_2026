@@ -25,6 +25,7 @@ module reverb_router #(
 ) (
     input  logic                        clk,
     input  logic                        rst_n,
+    input  logic                        clear_req,
     input  router_pkg::reverb_preset    preset,
 
     input  logic                        in_valid,
@@ -101,7 +102,7 @@ module reverb_router #(
         if (!rst_n) preset_q <= router_pkg::REVERB_NONE;
         else        preset_q <= preset;
     end
-    assign comb_clr = !rst_n || (preset != preset_q);
+    assign comb_clr = clear_req || (preset != preset_q);
     comb_reverb #(.N(N), .G_FRAC(G_FRAC)) u_comb (
         .clk(clk), .rst_n(rst_n),
         .n1(len[0]), .n2(len[1]), .n3(len[2]), .n4(len[3]),
@@ -142,6 +143,9 @@ module reverb_router #(
             wet_w <= '0;
             y     <= '0;
             vq    <= '0;
+        end else if (comb_clr) begin
+            for (int k = 0; k < 4; k++) xd[k] <= '0;
+            dry_w <= '0; wet_w <= '0; y <= '0; vq <= '0;
         end else begin
             vq <= {vq[4:0], in_valid};
 

@@ -5,6 +5,7 @@
 // 超时/维护时control_cancel撤销未握手请求，后端不得在未握手时不可撤销地应用。
 module midi_voice_top #(
     parameter integer SLOTS=16, N_MODES=64, CLK_HZ=100_000_000, SR_HZ=48_000,
+    parameter logic [7:0] PAD_NOTE_ON_TH=8'd230, PAD_NOTE_OFF_TH=8'd26,
     // AUDIO_ENABLE requires audio_clk; actual Fs = audio_clk / (64*AUDIO_CLK_DIV).
     parameter bit AUDIO_ENABLE=1'b0,
     parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=3,
@@ -78,6 +79,10 @@ module midi_voice_top #(
     logic [1:0] target_reverb;
     logic [31:0] cfg_timer,op_timer,ctrl_timer,cleanup_timer;
     logic state_idle,state_ready,state_valid,op_valid,op_ready;
+    logic [1:0] backend_stage;
+    config_pkg::audio_config_t candidate_q;
+    router_pkg::instrument_e candidate_pad_q;
+    logic [7:0] candidate_result_q;
     logic [1:0] state_cleanup_done,state_source_idle,op_cleanup_sources;
     logic [31:0] op_event_data;
     logic op_source_id,op_rejected;
@@ -98,7 +103,7 @@ module midi_voice_top #(
                   (SINGLE_SOURCE && midi_source_id!=source_q) ||
                   (NOTE_BANKS && (note_bank!=bank_q || first_midi_note!=first_q)) ||
                   (!mode_q && pad_instrument!=pad_q) || (!NOTE_BANKS && slot_note_map!=slot_map_q));
-    wire admit=cfg_state==C_RUN && !changing && !panic && mode_q;
+    wire admit=cfg_state==C_RUN && !backend_inflight && !changing && !panic && mode_q;
     wire filtered=(!admit) || (SINGLE_SOURCE && event_source_id!=source_q) ||
                   (!note_off && event_data[27:24]!=channel_q) || (new_on && !channel_mapped);
     wire lifecycle_op=op_event_data[31:28]==0 || op_event_data[31:28]==1 ||
@@ -123,7 +128,7 @@ module midi_voice_top #(
     endfunction
     midi_instrument_map u_map(.channel(channel_q),.mapped(channel_mapped),.instrument(mapped_inst));
     assign inst_use=mode_q && channel_mapped ? mapped_inst : pad_q;
-    assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && !backend_rsp_valid &&
+    assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && backend_stage==0 && !backend_rsp_valid &&
                          (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !reload;
     assign backend_audio_valid=CONFIG_BACKEND && have_commit && cfg_state==C_RUN && !config_failed;
     assign backend_audio_fault=CONFIG_BACKEND && config_failed;
@@ -143,24 +148,24 @@ module midi_voice_top #(
         candidate_pad=have_commit ? committed_pad : router_pkg::INST_PIANO;
         candidate_result=config_pkg::CFG_OK;
         candidate_supported=1;
-        case(backend_request.id)
+        case(pending_request.id)
             16'h0100:begin
-                candidate.instrument=16'(backend_request.value);
-                if(candidate.source==0)candidate_pad=router_pkg::instrument_e'(backend_request.value);
-                else candidate.channel=config_pkg::instrument_channel(16'(backend_request.value));
+                candidate.instrument=16'(pending_request.value);
+                if(candidate.source==0)candidate_pad=router_pkg::instrument_e'(pending_request.value);
+                else candidate.channel=config_pkg::instrument_channel(16'(pending_request.value));
             end
-            16'h0200:candidate.reverb=2'(backend_request.value);
+            16'h0200:candidate.reverb=2'(pending_request.value);
             16'h0300:begin
-                candidate.bank=1'(backend_request.value);
+                candidate.bank=1'(pending_request.value);
                 if(!NOTE_BANKS)candidate_supported=0;
             end
             16'h0500:begin
-                candidate.source=2'(backend_request.value);
+                candidate.source=2'(pending_request.value);
                 candidate.instrument=candidate.source==0 ? 16'(candidate_pad) :
                                      config_pkg::midi_instrument(candidate.channel);
             end
             16'h0501:begin
-                candidate.channel=5'(backend_request.value);
+                candidate.channel=5'(pending_request.value);
                 if(candidate.source!=0)candidate.instrument=config_pkg::midi_instrument(candidate.channel);
             end
             16'h8001:;
@@ -168,9 +173,9 @@ module midi_voice_top #(
         endcase
         candidate_inst=candidate.source==0 ? 16'(candidate_pad) : candidate.instrument;
         if(!candidate_supported)candidate_result=config_pkg::CFG_UNSUPPORTED;
-        else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(backend_request.id),backend_request.value))
+        else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(pending_request.id),pending_request.value))
             candidate_result=config_pkg::CFG_OUT_OF_RANGE;
-        else if((backend_request.id==16'h0100 && backend_request.value>9) ||
+        else if((pending_request.id==16'h0100 && pending_request.value>9) ||
                 !config_pkg::audio_config_valid(candidate) || candidate_inst>9)
             candidate_result=config_pkg::CFG_UNSUPPORTED;
         else if(!RESOURCE_MASK[candidate_inst[3:0]])candidate_result=config_pkg::CFG_UNSUPPORTED;
@@ -223,6 +228,7 @@ module midi_voice_top #(
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
             pad_q<=router_pkg::INST_PIANO;target_pad<=router_pkg::INST_PIANO;
             reload_q<=0;panic_q<=0;map_reload<=0;maint_seen<=0;
+            backend_stage<=0;candidate_q<='0;candidate_pad_q<=router_pkg::INST_PIANO;candidate_result_q<=0;
             backend_inflight<=0;backend_rsp_valid<=0;backend_response<='0;pending_request<='0;
             backend_audio_state<='0;have_commit<=0;committed_pad<=router_pkg::INST_PIANO;
             reverb_q<=router_pkg::REVERB_NONE;target_reverb<=0;
@@ -231,7 +237,7 @@ module midi_voice_top #(
         end else begin
             reload_q<=reload;panic_q<=panic;map_reload<=0;
             if(backend_rsp_valid && backend_rsp_ready)backend_rsp_valid<=0;
-            if(CONFIG_BACKEND && backend_inflight && cfg_state==C_FAULT)begin
+            if(CONFIG_BACKEND && backend_inflight && backend_stage==0 && cfg_state==C_FAULT)begin
                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
                 backend_response.result<=config_pkg::CFG_FAILED;backend_response.applied_value<=0;
                 backend_rsp_valid<=1;backend_inflight<=0;
@@ -306,19 +312,32 @@ module midi_voice_top #(
                 end
                 default: cfg_state<=C_FAULT;
             endcase
+            // Request transport, validation and execution are separate cycles.
+            // Never propagate an upstream ID decode through the whole backend.
             if(backend_valid && backend_ready)begin
                 pending_request<=backend_request;
-                if(candidate_result!=config_pkg::CFG_OK)begin
-                    backend_response.tag<=backend_request.tag;backend_response.id<=backend_request.id;
-                    backend_response.result<=candidate_result;backend_response.applied_value<=0;
-                    backend_rsp_valid<=1;
+                backend_inflight<=1;
+                backend_stage<=1;
+            end
+            if(backend_stage==1)begin
+                candidate_q<=candidate;candidate_pad_q<=candidate_pad;
+                candidate_result_q<=candidate_result;backend_stage<=2;
+            end
+            if(backend_stage==2)begin
+                backend_stage<=0;
+                if(candidate_result_q!=config_pkg::CFG_OK || panic || reload ||
+                   (cfg_state!=C_RUN && cfg_state!=C_FAULT))begin
+                    backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
+                    backend_response.result<=candidate_result_q!=config_pkg::CFG_OK ? candidate_result_q : config_pkg::CFG_FAILED;
+                    backend_response.applied_value<=0;
+                    backend_rsp_valid<=1;backend_inflight<=0;
                 end else begin
                     target_slot_map<=slot_note_map;
-                    target_channel<=4'(candidate.channel-1'b1);target_mode<=candidate.source!=0;
-                    target_source<=candidate.source==2;target_bank<=candidate.bank;
-                    target_first<=NOTE_BANKS?first_midi_note:7'd0;target_pad<=candidate_pad;
-                    target_reverb<=candidate.reverb;
-                    backend_inflight<=1;config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                    target_channel<=4'(candidate_q.channel-1'b1);target_mode<=candidate_q.source!=0;
+                    target_source<=candidate_q.source==2;target_bank<=candidate_q.bank;
+                    target_first<=NOTE_BANKS?first_midi_note:7'd0;target_pad<=candidate_pad_q;
+                    target_reverb<=candidate_q.reverb;
+                    config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
                 end
             end
             if((config_busy && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
@@ -338,6 +357,7 @@ module midi_voice_top #(
         .slot_source(),.slot_channel(),.slot_original_note(),.rejected_note_count(rejected_note_count)
     );
     voice_router #(.SLOTS(SLOTS),.N_MODES(N_MODES),.CLK_HZ(CLK_HZ),.SR_HZ(SR_HZ),
+        .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH),.PAD_NOTE_OFF_TH(PAD_NOTE_OFF_TH),
         .EXTERNAL_SAMPLE_TICK(AUDIO_ENABLE),.MIDI_ENABLE(1),.DEBUG_PORT(0),.LOAD_OFFSETS(NOTE_BANKS),.FLASH_NOTES(NOTE_BANKS?2*SLOTS:SLOTS)) u_voice (
         .clk(clk),.rst_n(rst_n),.fmap(pad_use),.inst(inst_use),
         .reverb_preset(CONFIG_BACKEND ? reverb_q : reverb_preset),
@@ -356,7 +376,7 @@ module midi_voice_top #(
         i2s_audio_output #(.CLK_DIV(AUDIO_CLK_DIV),.PCM_HEADROOM_BITS(PCM_HEADROOM_BITS)) u_audio(
             .clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),
             .active(run && cfg_state==C_RUN && !config_failed && !maintain_req && !panic),
-            .in_valid(y_valid),.in_data(y_data),.sample_tick(audio_sample_tick),
+            .in_valid(router_y_valid),.in_data(router_y),.sample_tick(audio_sample_tick),
             .amp_bclk(amp_bclk),.amp_ws(amp_ws),.amp_din(amp_din),
             .deadline_miss(audio_deadline_miss),.overflow(audio_overflow),.underflow(audio_underflow)
         );

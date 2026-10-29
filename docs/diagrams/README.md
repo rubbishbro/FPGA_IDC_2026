@@ -1,24 +1,24 @@
 # 当前架构图
 
-更新：2026-10-29。三张图按当前工作区更新，包含MIDI消费者、联合配置、持音压力调制和音频接线缺口；实线为现有内部连接，虚线表示待整机接入。具体接口见 [代码导读](../../CODE_ARCHITECTURE.md)，验证结果见 [维护记录](../工程评审与验证.md#verification)。图内不将旧 core PASS/Fmax 当作当前整机结论。
+更新：2026-10-29。三张图按d93778af及统一板级工作区更新，包含统一板级、MIDI/远程配置、持续前端、I2S连接与FFT第二阶段边界；实线为现有生产连接，虚线表示后续阶段或实物待验；当前整板物理时序未达标。具体接口见 [代码导读](../../CODE_ARCHITECTURE.md)，验证结果见 [维护记录](../工程评审与验证.md#verification)。图内不将旧 core PASS/Fmax 当作当前整机结论。
 
 ## 系统边界
 
 [![系统边界](architecture_overview.png)](architecture_overview.svg)
 
-[DOT 源](architecture_overview.dot)：已实现演奏消费者/音频模块、当前缺失的顶层连接、独立LCD与整机边界。
+[DOT 源](architecture_overview.dot)：统一板级三PLL/演奏/真实配置/I2S/LCD菜单、默认资源，以及FFT第二阶段和实物边界。
 
 ## 配置与显示提交
 
 [![配置与侧栏](router_control_flow.png)](router_control_flow.svg)
 
-[DOT 源](router_control_flow.dot)：摇杆/按键、control_loop、config_dispatch、联合配置后端、真实结果与显示快照CDC；独立demo未启用后端。侧栏 CDC 不覆盖主音频。
+[DOT 源](router_control_flow.dot)：摇杆/按键、control_loop、config_dispatch、远程REVERB桥、物理来源权限、联合配置后端及显示CDC；独立demo未启用音频后端。侧栏 CDC 不覆盖主音频。
 
 ## router 与后级
 
 [![router 数据流](engine_post_flow.png)](engine_post_flow.svg)
 
-[DOT 源](engine_post_flow.dot)：双 bank、流水eng1与两路选核、单采样激励、逐声部包络/混音、五段腔体与四梳状混响。
+[DOT 源](engine_post_flow.dot)：双 bank、流水eng1与两路选核、逐槽周期激励/ADSR、资源提交、逐声部包络/混音、五段腔体与四梳状混响。
 
 ## 历史图与重新生成
 

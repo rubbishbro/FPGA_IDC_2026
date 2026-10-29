@@ -2,14 +2,20 @@
 
 更新：2026-10-29。命令均从仓库根目录执行，隔离Questa补测另行注明运行目录；各验证范围分开计数。Python 脚本优先使用 IVERILOG/VVP、PATH，再尝试本机 `~/micromamba/envs/torch312/bin/`；`run_core.sh` 只使用环境变量/PATH。
 
-## 当前工作区入口与本次复测（2026-10-29）
+## 最近实现与回归状态（2026-10-29）
 
-- `python3 sim/run_audio.py --test eng1 --test bridge`：256组流水eng1逐模态整数oracle与PCM/I2S模块测试通过。
-- `python3 sim/run_audio.py`：前两项通过，首个系统用例展开报 `Module parameter AUDIO_ENABLE not found for override`；两个演奏顶层当前缺音频接口，完整矩阵未通过。
-- `npm --prefix web/midi-editor test` 和 `npm --prefix web/midi-editor run check`：17项Node单测及语法检查通过；本次没有重做浏览器或物理串口验证。
-- 默认钢琴/吉他镜像按当前scaled表内存重建，与现bin/mem相同且零量化饱和；细节见[29日核对](../docs/工程评审与验证.md#global-docs-2026-10-29)。
+当前基线为d93778af加统一板级工作区。持续音色前端和两个演奏顶层I2S接线已恢复，早先缺AUDIO_ENABLE导致的系统展开错误不再是当前阻塞。
 
-下文按日期保留旧测试条件。旧eng1零模态FAIL、声明顺序兼容副本和4166拍测量均属修复前；先前音频8项/联合配置11项PASS只代表当时快照。当前音频顶层及忙时panic有接口/逻辑差异，需在接线收口后重验。
+| 入口 | 当前范围/记录 |
+|---|---|
+| python3 sim/run_board.py | 本次重新执行3项全部通过：逐轴摇杆输入、严格800×480扫描、真实UART/UI/PAD/合成/I2S板级系统；仅PLL/ADC/Flash用模型 |
+| python3 rtl/platform/tang_mega_138k_pro/check_board.py | 47端口/75份生产源检查通过；加--timing解析现有报告返回失败：setup11717/hold83，不代表重新PnR |
+| python3 sim/run_sustain.py | 已有6项及四音色16槽各48000样本长测，见持续前端实施记录；本次不重复长测 |
+| python3 sim/run_audio.py | 恢复接线后的8项已有通过记录，旧展开错误仅保留为修复前证据 |
+| python3 sim/run_flash_ref.py | 公开vendor模型的loader/音乐5项已有通过记录；Windows入口另验 |
+| npm --prefix web/midi-editor test / run check | 本次17项Node测试及语法检查通过，新增sidebars.mjs另过node --check；不含本次浏览器或物理串口验收 |
+
+本次输出在/tmp/fpga-doc-refresh-20261029，详细[文档核对记录](../docs/工程评审与验证.md#doc-refresh-board-2026-10-29)。既有持续前端35项和板级43项功能汇总属于各阶段范围，有重叠项，不能相加成独立用例总数；实际整板时序仍失败，未烧录。下文旧失败均标其执行阶段。
 
 ## 2026-10-27 复测结果
 
@@ -145,7 +151,7 @@ Flash是独立6Bh行为模型，像素帧脉冲加速；CTRL_HZ也只为UI测试
 
 ### eng1五级流水与I2S采样基准（2026-10-28至29，先前接线快照）
 
-以下是先前已接线快照的命令与结果。当前顶层音频端口缺失，完整矩阵展开失败；本次通过项与错误见本页开头和最新验证记录。
+以下保留先前接线快照的结果。其后曾出现顶层接口缺失，现已由持续前端实施恢复并完成8项音频回归；当前整板阻塞为物理时序，见本页开头。
 
 ```bash
 python3 sim/run_audio.py --out build/i2s_pipeline/audio_final
@@ -182,3 +188,10 @@ run_sustain可用--test frontend/config/system选择，--inst 2/3/4/5选音色�
 - Flash公开模型：独立runner在私有目录准备MEM/状态文件，钢琴64、吉他64、空片及两种音乐冒烟；不改写仓库TB、不直接灌DUT RAM。Windows脚本已同步源依赖、64存储、生成器路径和退出前执行回归；本机没有Windows xsim实际执行结果，Questa入口为本次复现证据。
 
 测试48..79资源显式允许重定音并记录来源，不是正式音域或六音色烧录镜像。生成器/配套配置与部署限制见eng1前端文档。综合探针仅证明代码可综合，不证明100MHz布局布线收敛。
+
+
+### 整版第一阶段
+
+`python3 sim/run_board.py`运行真实UART→comm→MIDI、实体按键→UI→实际后端、PAD扫描/LED/I2S/LCD及失锁复位；仅PLL、ADC和Flash是模型。独立输入用例覆盖逐轴死区，LCD用例检查严格800×480。`--test inputs|lcd|system|clocks|polyphony|audio|pcm|numeric|led`可选择，`--out`指定私有库/日志。板级生产清单、引脚预检和Gowin构建见[整版入口](../rtl/platform/tang_mega_138k_pro/README.md)。本阶段不接FFT音频数据。
+
+当前时钟域回归新增：clocks检查mailbox八种复位相位/停钟及效果器同步清理；polyphony检查两引擎各16槽供样、释放清零及复用；pcm以624324个参考向量检查PCM舍入/饱和逐位等价；numeric检查配置范围与32bit无符号比较等价；led比较两帧随机GRAM在线端的完整波形。`python3 sim/run_board_pll.py`另用GW5A厂商库运行生产三输出PLL及PLL_INIT，测量100MHz/12.5MHz/33.333MHz与占空比。板级行为模型的PASS不能代替此项或物理时序验收。

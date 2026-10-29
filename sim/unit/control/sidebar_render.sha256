@@ -1,0 +1,3 @@
+# Frozen before clock/pixel pipeline changes; deterministic tb_sidebar_render fixtures.
+1850d9669cef2077dfcc670d2a1e2c58e394c31351e93f3b6d28b154ad13b9df  sidebar.ppm
+e4451467f376d7ec00172a73efd50979962c90c1bb2bbf9ab79b13a2a45c8291  sidebar.ppm.dropdown.ppm

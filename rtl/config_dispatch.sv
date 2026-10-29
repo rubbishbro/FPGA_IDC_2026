@@ -33,22 +33,21 @@ module config_dispatch #(
     input logic joy_calibrated,joy_stale
 );
     import config_pkg::*;
-    typedef enum logic[2:0] {IDLE,DISPLAY,BACKEND_SEND,BACKEND_WAIT,CAL_START,CAL_WAIT,REPLY} state_t;
+    typedef enum logic[3:0] {IDLE,VALIDATE,DISPLAY,BACKEND_SEND,BACKEND_WAIT,BACKEND_CHECK,BACKEND_APPLY,CAL_START,CAL_WAIT,REPLY} state_t;
     state_t state;
     cfg_request_t pending;
     integer index;
     logic [$clog2(CAL_TIMEOUT_MS+1)-1:0] cal_age;
     logic audio_synced;
-    wire audio_reply_ok=backend_audio_valid && audio_config_valid(backend_audio_state) &&
+    cfg_response_t backend_q;
+    audio_config_t audio_q;
+    logic audio_valid_q,commit_audio,commit_scalar,boot_pending;
+    wire audio_reply_ok=audio_valid_q && audio_config_valid(audio_q) &&
         (!audio_parameter(pending.id) ||
-         (audio_value(backend_audio_state,pending.id)==backend_response.applied_value &&
-          backend_response.applied_value==pending.value));
-    wire audio_commit=AUDIO_BACKEND && backend_audio_valid && audio_config_valid(backend_audio_state) &&
-        ((!audio_synced && state==IDLE) ||
-         (state==BACKEND_WAIT && backend_rsp_valid && backend_response.tag==pending.tag &&
-          backend_response.id==pending.id && backend_response.result==CFG_OK && audio_reply_ok));
+         (audio_value(audio_q,pending.id)==backend_q.applied_value &&
+          backend_q.applied_value==pending.value));
     wire [19:0] supported=backend_supported|LOCAL_SUPPORTED;
-    assign req_ready=(state==IDLE)&&rst_n;
+    assign req_ready=(state==IDLE)&&!boot_pending&&rst_n;
     assign rsp_valid=(state==REPLY)&&rst_n;
     assign backend_valid=(state==BACKEND_SEND)&&rst_n;
     assign backend_request=pending;
@@ -60,41 +59,50 @@ module config_dispatch #(
             state<=IDLE;pending<='0;response<='0;response_source<=0;
             active_values<=cfg_defaults();render_config<=display_defaults();render_epoch<=0;
             index<=0;cal_age<=0;joy_recalibrate<=0;
-            audio_synced<=0;
+            audio_synced<=0;backend_q<='0;audio_q<='0;audio_valid_q<=0;
+            commit_audio<=0;commit_scalar<=0;boot_pending<=0;
         end else begin
             joy_recalibrate<=0;
-            // 后端是音频实际配置的唯一所有者，启动及联合提交均一次性同步。
-            if(audio_commit)begin
-                audio_synced<=1;
-                active_values[0]<=32'(backend_audio_state.instrument);
-                active_values[2]<=32'(backend_audio_state.reverb);
-                active_values[5]<=32'(backend_audio_state.bank);
-                active_values[11]<=32'(backend_audio_state.source);
-                active_values[12]<=32'(backend_audio_state.channel);
+            // Initial publication uses the same held snapshot, independent of
+            // upstream backend mux/valid propagation and ordinary requests.
+            if(AUDIO_BACKEND && !audio_synced && state==IDLE && !req_valid &&
+               !boot_pending && backend_audio_valid)begin
+                audio_q<=backend_audio_state;audio_valid_q<=backend_audio_valid;boot_pending<=1;
+            end
+            if(boot_pending)begin
+                boot_pending<=0;
+                if(audio_valid_q && audio_config_valid(audio_q))begin
+                    audio_synced<=1;
+                    active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
+                    active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
+                    active_values[12]<=32'(audio_q.channel);
+                end
             end
             case(state)
-                IDLE:if(req_valid)begin
+                IDLE:if(req_valid && req_ready)begin
                     pending<=request;response_source<=request_source;
                     response.tag<=request.tag;response.id<=request.id;
                     response.applied_value<=0;response.result<=CFG_OK;
-                    index<=cfg_index(request.id);
-                    if(cfg_index(request.id)<0)begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
-                    else if(!supported[cfg_index(request.id)])begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
-                    else if(!cfg_value_valid(cfg_index(request.id),request.value))begin
+                    index<=cfg_index(request.id);state<=VALIDATE;
+                end
+                VALIDATE:begin
+                    if(index<0)begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
+                    else if(!supported[index])begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
+                    else if(!cfg_value_valid(index,pending.value))begin
                         response.result<=CFG_OUT_OF_RANGE;state<=REPLY;
-                    end else if(request.id==16'h0400 && !style_supported(request.value[15:0]))begin
+                    end else if(pending.id==16'h0400 && !style_supported(pending.value[15:0]))begin
                         response.result<=CFG_UNSUPPORTED;state<=REPLY;
-                    end else if(DISPLAY_MASK[cfg_index(request.id)])begin
-                        case(request.id)
-                            16'h0400:render_config.style_id<=request.value[15:0];
-                            16'h0401:render_config.theme<=request.value[0];
-                            16'h0402:render_config.peak<=request.value[0];
-                            16'h0403:render_config.smooth<=request.value[0];
-                            16'h0404:render_config.grid<=request.value[0];
+                    end else if(DISPLAY_MASK[index])begin
+                        case(pending.id)
+                            16'h0400:render_config.style_id<=pending.value[15:0];
+                            16'h0401:render_config.theme<=pending.value[0];
+                            16'h0402:render_config.peak<=pending.value[0];
+                            16'h0403:render_config.smooth<=pending.value[0];
+                            16'h0404:render_config.grid<=pending.value[0];
                             default:;
                         endcase
                         render_epoch<=render_epoch+1'b1;state<=DISPLAY;
-                    end else if(request.id==16'h8000)begin
+                    end else if(pending.id==16'h8000)begin
                         joy_recalibrate<=1;cal_age<=0;state<=CAL_START;
                     end else state<=BACKEND_SEND;
                 end
@@ -103,21 +111,35 @@ module config_dispatch #(
                 end
                 BACKEND_SEND:if(backend_ready)state<=BACKEND_WAIT;
                 BACKEND_WAIT:if(backend_rsp_valid)begin
-                    if(backend_response.tag!=pending.tag || backend_response.id!=pending.id)begin
+                    backend_q<=backend_response;audio_q<=backend_audio_state;
+                    audio_valid_q<=backend_audio_valid;state<=BACKEND_CHECK;
+                end
+                BACKEND_CHECK:begin
+                    commit_audio<=0;commit_scalar<=0;
+                    if(backend_q.tag!=pending.tag || backend_q.id!=pending.id)begin
                         response.result<=CFG_FAILED;
-                    end else if(backend_response.result==CFG_OK && pending.id<16'h8000 &&
-                                !cfg_value_valid(index,backend_response.applied_value))begin
+                    end else if(backend_q.result==CFG_OK && pending.id<16'h8000 &&
+                                !cfg_value_valid(index,backend_q.applied_value))begin
                         response.result<=CFG_FAILED;
-                    end else if(AUDIO_BACKEND && backend_response.result==CFG_OK &&
+                    end else if(AUDIO_BACKEND && backend_q.result==CFG_OK &&
                                 (audio_parameter(pending.id) || pending.id==16'h8001) && !audio_reply_ok)begin
                         response.result<=CFG_FAILED;
                     end else begin
-                        response.result<=backend_response.result;
-                        response.applied_value<=backend_response.applied_value;
-                        if(backend_response.result==CFG_OK && pending.id<16'h8000 &&
-                           !(AUDIO_BACKEND && audio_parameter(pending.id)))
-                            active_values[index]<=backend_response.applied_value;
+                        response.result<=backend_q.result;response.applied_value<=backend_q.applied_value;
+                        commit_audio<=AUDIO_BACKEND && backend_q.result==CFG_OK && audio_reply_ok;
+                        commit_scalar<=backend_q.result==CFG_OK && pending.id<16'h8000 &&
+                                       !(AUDIO_BACKEND && audio_parameter(pending.id));
                     end
+                    state<=BACKEND_APPLY;
+                end
+                BACKEND_APPLY:begin
+                    if(commit_audio)begin
+                        audio_synced<=1;
+                        active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
+                        active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
+                        active_values[12]<=32'(audio_q.channel);
+                    end
+                    if(commit_scalar)active_values[index]<=backend_q.applied_value;
                     state<=REPLY;
                 end
                 CAL_START,CAL_WAIT:begin

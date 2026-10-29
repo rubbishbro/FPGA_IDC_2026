@@ -3,31 +3,27 @@ graph [fontname="Noto Sans CJK SC",fontsize=17,rankdir=TB,nodesep=0.4,ranksep=0.
 node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=11,margin="0.16,0.10",color="#64748b",fillcolor="#f1f5f9"];
 edge [fontname="Noto Sans CJK SC",fontsize=10,color="#64748b",arrowsize=0.7];
 
-label="系统实现边界 · 2026-10-29\n实线：现有模块连接　虚线：待整机接入/恢复";labelloc=t;
-host [label="本地 MIDI 编辑器\n参考试听 / v1 UART",fillcolor="#ede9fe"];
-phy [label="双 UART / HC-05\ntransport / parser / session",fillcolor="#ede9fe"];
-subgraph cluster_synth {label="演奏与合成 · 目标 100MHz";color="#93c5fd";
- pad [label="压力矩阵 / 外部 fmap"];
- pt [label="pad_voice_top",fillcolor="#dbeafe"];
+label="统一板级第一阶段 · 2026-10-29\n实线：已有生产连接　虚线：下一阶段或实物待验\n功能仿真通过；当前布线后时序未达标、未烧录";labelloc=t;
+host [label="本地 MIDI 编辑器\n参考试听 / v1 有线 UART",fillcolor="#ede9fe"];
+subgraph cluster_board {label="instrument_board_top → instrument_system · 一套合成引擎";color="#93c5fd";
+ clock [label="板载50MHz → 单PLL三输出 / 共同复位\ncore100M · audio12.5M · pixel33.333M",fillcolor="#fef3c7"];
+ pad [label="压力/摇杆采集 + LED\n正压力×4 / 64·48门限\n逐轴死区 / 2×2 LED",fillcolor="#dbeafe"];
+ comm [label="双 UART / HC-05\ntransport / parser / session",fillcolor="#ede9fe"];
+ bridge [label="REVERB_SET → 0200 / 最终结果\n保留物理来源 / 0502权限\nEQ：NOT_READY",fillcolor="#ede9fe"];
+ side [label="摇杆 / 按键 → sidebar_system\n100MHz配置 / 整包显示CDC",fillcolor="#dcfce7"];
  mt [label="midi_voice_top\n音符归属 / 来源清理 / 联合配置",fillcolor="#dbeafe"];
- vr [label="voice_router\n双 bank / 64 条存储 / 64·20·48 计算",fillcolor="#dbeafe"];
- y [label="y_valid / signed64 Q24"];
- flash [label="Flash / loader\n偏移事务 / 加载失败保护",fillcolor="#fef3c7"];
- pad -> pt -> vr;mt -> vr;flash -> vr;vr -> y;
+ flash [label="QSPI / weight_loader\n默认仅钢琴16音 / 64条每槽",fillcolor="#fef3c7"];
+ vr [label="voice_router\n双bank · eng0 / 流水eng1\n持续音色前端已实现",fillcolor="#dbeafe"];
+ audio [label="PCM16 / 异步FIFO / I2S\n帧主时基 · 当前Fs=48.828125kHz",fillcolor="#fce7f3"];
+ lcd [label="真实菜单 / 配置结果 / 故障\nLCD 800×480 / FFT读口为零",fillcolor="#dcfce7"];
+ clock -> pad [style=invis];clock -> comm [style=invis];
+ pad -> mt;comm -> mt [dir=both,label="事件 / 清理退休"];
+ comm -> bridge [dir=both];bridge -> side [dir=both];pad -> side [label="摇杆快照"];
+ side -> mt [dir=both,label="真实后端 / active快照"];
+ flash -> vr;mt -> vr -> audio;audio -> vr [label="统一采样tick"];
+ side -> lcd;
 }
-subgraph cluster_display {label="独立 LCD demo";color="#86efac";
- source [label="内部三音 / 扫频源"];
- fft [label="FFT / WAVE / FALL\n约 33.333MHz",fillcolor="#dcfce7"];
- side [label="sidebar_system\n50MHz 控制 / 显示 CDC",fillcolor="#dcfce7"];
- lcd [label="LCD RGB / DE"];
- source -> fft -> side -> lcd;
-}
-audio [label="rtl/audio 模块已有\nPCM16 / FIFO / I2S\n当前演奏顶层缺端口与实例",fillcolor="#fff7ed",style="rounded,dashed"];
-dac [label="待验：时钟/约束/引脚 / DAC",fillcolor="#fff7ed",style="rounded,dashed"];
-tap [label="待接：独立 PCM 副本 / CDC\n连续窗口与丢窗诊断",fillcolor="#fff7ed",style="rounded,dashed"];
-bridge [label="待接：远程 Config 协议桥",fillcolor="#fff7ed",style="rounded,dashed"];
-host -> phy [style=dashed,label="物理联机待验"];phy -> mt [style=dashed,label="已有消费者；板级待接"];
-phy -> bridge [style=dashed];bridge -> side [style=dashed];
-side -> mt [style=dashed,dir=both,label="联合后端已测；demo未启用"];
-y -> audio [style=dashed,label="恢复接线"];audio -> dac [style=dashed];y -> tap [style=dashed];tap -> fft [style=dashed];
+dac [label="MAX98357A / 实物待验\n先通过目标时序，再烧录验收",fillcolor="#fff7ed",style="rounded,dashed"];
+tap [label="第二阶段：独立PCM副本 / CDC\nFFT / WAVE / FALL",fillcolor="#fff7ed",style="rounded,dashed"];
+host -> comm [style=dashed,label="物理联机待验"];audio -> dac [style=dashed];vr -> tap [style=dashed];tap -> lcd [style=dashed];
 }

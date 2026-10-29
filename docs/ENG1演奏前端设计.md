@@ -1,40 +1,14 @@
 # eng1 演奏前端：现状与设计
 
-更新：2026-10-29。周期激励/ADSR已实施，当前状态见第11节；前文行为测量属于实施前基线。本文统一维护持续音色的前端合同；整数算术模型归[ENG1 Python模型](ENG1_PY_MODEL.md)，执行证据归[工程验证](工程评审与验证.md#global-docs-2026-10-29)。
+更新：2026-10-29。周期激励/ADSR已实施，当前状态见第11节；前文行为测量属于实施前基线。本文统一维护持续音色的前端合同；整数算术模型归[ENG1 Python模型](ENG1_PY_MODEL.md)，执行证据归[持续前端实施验证](工程评审与验证.md#sustain-implementation-2026-10-29)。
 
 <a id="current-behavior"></a>
 
-## 当前行为基线
+## 实施前行为基线（历史）
 
-### 已连接的部分
+实施前，四种eng1音色均为32样本单次激励和常数包络，4800采样持音探针各只有32个非零激励样本；MIDI松键立即静音，PAD松键未进入release。该发现已由d93778af修复，不能继续作为当前行为。原临时证据在/tmp/fpga-eng1-review-20261029，早期音频接线缺失见[文档核对第13节](工程评审与验证.md#global-docs-2026-10-29)。
 
-voice_router.sv 中 u_exc（253行）、u_env（260行）已接同一个 smp_tick、门控、力度、retrigger 和 slot_clear。激励经 x_q 进入两 bank 引擎，结果经 Q1.31 包络乘法再混音。前一轮的算术/吞吐/I2S回归验证了这些通路；不能据此称持续音色行为已实现。
-
-### 实测缺口
-
-用生产 exc_router/env_router/parts 和独立 Questa TB，按样本使能推进4800个持音样本（按48k折算100ms；仿真加速使能间隔，不模拟本轮实时预算），四种eng1音色的结果完全相同：
-
-| 音色 | 持音4800样本中的非零激励 | 第1000样本后非零激励 | 按住包络 | MIDI松键后 | PAD松键后 |
-|---|---:|---:|---|---|---|
-| 长笛/小号/小提琴/大提琴（分别运行） | 各32样本 | 各0 | 0x7fffffff | emap立即0、dead=1 | emap仍0x7fffffff、dead=0 |
-
-这是占位行为的复现，不是持续演奏验收通过。临时TB/runner/日志位于 /tmp/fpga-eng1-review-20261029，不加入正式回归的PASS计数。
-
-1. **持续激励缺失**：exc_router.sv:38–67只有钢琴/吉他专用分支；其余使用32样本上升、GAP=0、N=0。不能保持B类音色的周期驱动。引擎可能靠状态衰减继续出声，但没有持续注入。
-2. **每槽周期缺失**：exc_router只有全局 pw_len/gap_len，没有每槽音高/period输入。和弦里各槽不能共用一个period。Python build_b_table明确用T=round(SR/f0)校准模态频率与G，周期必须与同一音高的系数一致。
-3. **不能只把N改7**：当前 excitation_gen.sv:151–156每次重发都会taper(tgt)，并有斜坡和指数尾巴；B类参考需要固定幅度、单样本、周期性的冲激。只改参数仍不符合系数标定的输入形状。
-4. **正常包络未选择**：env_router.sv:34–42只为钢琴启用ADSR，其余走常数；79–87行使MIDI NoteOff立即静音并声明dead，而PAD松键不声明dead。这与B类起音/保持/释放及释放结束后再清状态的目标不符。这项是普通音符生命周期，不属于已经决定暂缓的panic音频队列flush。
-5. **真实音色回归尚缺**：tb_router_midi_eng1使用force的合成ABC系数；tb_i2s_synthesis使用ABC_COEFF合成Flash表。它们证明计算、路由与传输，不证明真实长笛等音色的持续输出、音高及包络。正式后端RESOURCE_MASK仍默认只开放钢琴，不能仅因枚举存在就开放其它音色。
-
-### 可复用依据与定标
-
-python/modal_sim/eng1_bc.py 的BSynth已实现：各槽独立period/phase；gate期间固定幅度周期冲激；NoteOff停止新冲激但保留谐振状态，包络release结束才清状态。router_eng1.py:325–374输出drive_period、attack_s、release_s及ABC系数；FFT_results/params有四种乐器的sustain.npz。
-
-本轮能实际生成这四种乐器的MIDI69参考表，period均109，活动模态分别32/36/36/36，证明已有可用的离线模型入口。Python参数选择允许借用最近音高/力度，这不是硬件资源合法性证明，正式打包仍需明确音高及来源。正式32音范围尚未冻结，不能把测试音域当资源承诺。
-
-旧BSynth采用Q30与SHIFT22；当前router输出/激励按Q24解释，等价单位幅度应使用SHIFT16。不能直接复制SHIFT22，再按Q24转PCM；也不能把velocity既乘入激励又重复乘入包络。沿用当前velocity映射一次进入激励，包络负责音量随时间变化。
-
-
+BSynth仍是Q30参考，生产输入/PCM按Q24解释；力度应只缩放一次，不能直接复制SHIFT22。下文维护当前实现合同，历史开发顺序和实际结果通过链接追溯。
 
 ## 1. 首版范围
 
@@ -115,23 +89,24 @@ A/R由同一音符的参考表派生：
 
 ### dead与真正idle的区别
 
-现有voice_idle来自env_dead，启用release后需要在voice_router补一个逐槽清理待办位，复用/扩展已有dead_pend/dead_f：dead只表示包络归零；只有该槽的引擎清零作业已真实退休，才对外报告voice_idle。不能在env_dead一置位时就允许另一归属抢槽。
+voice_router现已在dead_pend/dead_f及清理退休状态中维护逐槽确认：dead只表示包络归零；只有该槽的引擎清零作业已真实退休，才对外报告voice_idle。不能在env_dead一置位时就允许另一归属抢槽。
 
 清理帧若有新的本槽retrigger，按新的起音优先级处理，不能把新音符当成旧release的空闲完成。此合同需用并发On/Off/重触发测试验证，不新增第二份MIDI生命周期表。
 
 ## 6. 逐槽配置及资源来源
 
-建议在router_pkg内定义：
+router_pkg现定义的逐槽配置：
 
 ```systemverilog
 typedef struct packed {
+    logic valid;
     logic [15:0] period;
     logic [31:0] a_step;
     logic [31:0] r_step;
 } sustain_cfg_t;
 ```
 
-每槽80bit，16槽一份共1280bit（160B逻辑参数容量）；若同时保存pending和active两份，共320B，不含已有MIDI音高映射与计数器。实际寄存器/ROM映射以综合结果为准，不声称一定不占BSRAM。
+每槽81bit，16槽一份共1296bit；pending和active共2592bit（324B逻辑参数容量），不含已有MIDI音高映射与计数器。实际寄存器/ROM映射以综合结果为准，不声称一定不占BSRAM。
 
 离线生成器一次生成：
 
@@ -140,17 +115,17 @@ typedef struct packed {
 
 配置常量从同一次build_b_table结果导出，不独立手填第二张音高表。16槽对应当前装载半区，32音仍通过loader切两组16；可在同一音高的MIDI/PAD演奏之间共用配置。
 
-首版配置常量随RTL构建，使用生成的函数/ROM查找，不修改Flash记录、loader读协议或擅自占用参数半区；更换资源需要同时更新配套构建产物。若未来需要独立升级Flash而不更新配置常量，则必须升级为loader读回元数据/校验身份的资源协议，不属于本次最小接入。
+配置常量已随RTL构建，使用生成的函数/ROM查找，不修改Flash记录、loader读协议或擅自占用参数半区；更换资源需要同时更新配套构建产物。若未来需要独立升级Flash而不更新配置常量，则必须升级为loader读回元数据/校验身份的资源协议，不属于本次最小接入。
 
 Python的最近音高回退不能自动视为合法硬件资源。生成时要显式允许并记录重定音来源，或拒绝缺少的音高；正式32音范围仍由资源清单冻结。首版RESOURCE_MASK只有在实际资源与对应配置都齐全后才开放音色。
 
 ## 7. 接口与提交边界
 
-- midi_voice_top：把已经使用的slot MIDI映射送入voice_router。NOTE_BANKS=1时从first_midi_note和bank生成；NOTE_BANKS=0时沿用slot_note_map。
-- pad_voice_top：增加同源slot MIDI映射输入/资源配置参数，不能假定slot0永远等于MIDI0。默认映射必须与使用的资源manifest一致。
-- voice_router：新增slot MIDI映射口，在真正接受inst/reload换表事务时，锁存候选音高映射并查找pending sustain_cfg；活动配置供exc/env使用，外部输入变化不能直接穿透。
-- exc_router/excitation_gen：增加B模式选择与逐槽period输入。
-- env_router/envelope_ADSR：增加B选择与可选逐槽A/R输入；旧全局参数分支保留。
+- midi_voice_top：已将锁存的slot MIDI映射送入voice_router。NOTE_BANKS=1时从first_midi_note和bank生成；NOTE_BANKS=0时沿用slot_note_map。
+- pad_voice_top：已有同源slot MIDI映射输入/资源配置参数，不能假定slot0永远等于MIDI0。默认映射必须与使用的资源manifest一致。
+- voice_router：已有slot MIDI映射口，在真正接受inst/reload换表事务时，锁存候选音高映射并查找pending sustain_cfg；活动配置供exc/env使用，外部输入变化不能直接穿透。
+- exc_router/excitation_gen：已有B模式选择与逐槽period输入。
+- env_router/envelope_ADSR：已有B选择与可选逐槽A/R输入；旧全局参数分支保留。
 - eng1、系数RAM地址布局、Flash记录格式与读协议不改。
 
 换表事务：
@@ -173,11 +148,11 @@ pending无效或Flash加载失败，均保持静音、通过现有失败结果�
 
 所有相位、激励和包络只在统一音频采样使能推进一次。配置查找和逐槽准备可以使用帧间系统时钟，不得在一个采样内推进64次相位。
 
-采样边界先决定本帧gate/trigger/clear和激励/包络next值；router在随后系统时钟锁存同一帧x/E快照供全部A/B槽作业使用。不要用新帧的x搭旧帧的E，也不要在帧尾用变化后的E覆盖前面声部。包络状态lvl与emap现有的一帧关系须在实施时统一成上述明确合同，钢琴旧行为保持兼容分支。
+采样边界先决定本帧gate/trigger/clear和激励/包络next值；router在随后系统时钟锁存同一帧x/E快照供全部A/B槽作业使用。不要用新帧的x搭旧帧的E，也不要在帧尾用变化后的E覆盖前面声部。包络状态lvl与emap现有的一帧关系已按B类当帧输出及x/E快照对齐，钢琴旧行为保持兼容分支。
 
 采样率必须来自资源manifest：周期按resource_fs生成；I2S实际Fs必须与它匹配。12.5MHz/256虽没有生产消费漂移，但播放48k资源仍有速度/音高偏差，不能把它算作精确48k音高验收。
 
-## 9. 实施与验收顺序
+## 9. 开发与验收顺序（已执行步骤及后续验收）
 
 1. 固定上述逐槽参数和采样合同，生成两种不同音高的真实B表及配置，建立独立整数参考。
 2. 修改现有激励模块，单测单样本冲激、精确间隔、跨槽独立、力度和重触发。
@@ -186,9 +161,9 @@ pending无效或Flash加载失败，均保持静音、通过现有失败结果�
 5. 16槽、64存储/48计算、真实B表、I2S时基下持音至少1秒并比较PCM；再跑已有MIDI/UI/loader/音频回归。定常音高比较使用表的实际drive频率resource_fs/T，另报告与理论MIDI频率的整数周期偏差。
 6. 通过后进入外部子系统完整联调；键盘分支修复另行迁移并回归。
 
-## 10. 当前工作区差异
+## 10. 历史快照与当前板级边界
 
-本轮设计核对时发现，midi_voice_top/pad_voice_top当前缺少上轮已测试快照中的AUDIO_ENABLE/audio_clk/I2S出口；voice_router的外部sample_tick口和音频模块文件仍在。两个顶层及相关测试有新的工作区改动。设计实施前先核对并发改动和上轮测试快照，再确定恢复/合并方式；本次文档审查未覆盖这些RTL修改。29日重新运行sim/run_audio.py：256组eng1算术对拍和PCM/I2S单测通过；首个系统矩阵因缺AUDIO_ENABLE参数在展开时失败。旧24项结果仅属于当时快照。
+实施前曾缺少顶层AUDIO_ENABLE/audio_clk/I2S端口，现已恢复，并通过完整音频及持续音色系统回归。统一板级默认仅开放钢琴16音，未安装四种B类候选镜像；当前整板PnR时序未通过。这不撤销持续前端的模块/系统仿真证据，也不意味着候选资源已经完成部署或实板听感验收。详见[板级入口](../rtl/platform/tang_mega_138k_pro/README.md)。
 
 ## 11. 2026-10-29 实施状态
 

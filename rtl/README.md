@@ -6,7 +6,8 @@
 |---|---|
 | [router/](router/README.md) | voice_router：双 bank、多槽音高表、eng0/eng1、激励/包络/腔体/混响；默认 16×64，输出 signed64，待完整音频集成 |
 | [router/PAD_ADAPTER.md](router/PAD_ADAPTER.md) | pad_voice_top：压力/外部 fmap 选择、运行启动、QSPI 与摇杆原始出口；默认N_MODES=64，透出load_err/table_valid |
-| [audio/](audio/README.md) | PCM16/FIFO/I2S与帧主时基模块已有；当前演奏顶层缺音频实例/端口 |
+| [audio/](audio/README.md) | PCM16/FIFO/I2S与帧主时基，两个演奏顶层及统一板级均已接入 |
+| [platform/tang_mega_138k_pro/](platform/tang_mega_138k_pro/README.md) | 统一板级入口、单PLL三时钟域/复位、通信/PAD/UI/I2S、CST/SDC与时序验收；FFT PCM待第二阶段 |
 | `midi/`、`router/midi_voice_top.sv` | 音符归属/踏板/来源清理、两组16音、UI联合配置与实际结果 |
 | [drivers/](drivers/README.md) | 压力/摇杆/LED、UART/HC-05、共享 FIFO 与 MIDI/Config parser |
 | [comm/](comm/README.md) | 双链路分帧、仲裁、回复、来源会话隔离/恢复 |
@@ -16,7 +17,7 @@
 | [math/](math/README.md) | 定点与坐标变换公共模块 |
 | `rom/` | 保留路径的 ROM/索引数据，不能直接作为新 router Flash 镜像 |
 
-当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。历史FIFO/I2S原件保留在history/rtl/audio，当前复用模块在audio/；顶层接线及实板DAC仍待收口。
+当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。历史FIFO/I2S原件保留在history/rtl/audio，当前复用模块在audio/；顶层接线已恢复；整板PnR时序未达标，实板DAC仍待验。
 
 ## 保留共享 RAM 路径
 

@@ -6,6 +6,8 @@ module sidebar_system #(
     parameter integer HOT_DWELL_MS=180,
     parameter bit HAS_JOYSTICK=1'b1,
     parameter bit AUDIO_BACKEND=1'b0,
+    parameter integer JOY_DEADZONE_ON=1400, JOY_DEADZONE_OFF=900,
+    parameter bit JOY_FILTER_CENTER=1'b0,
     parameter FONT_FILE="sidebar_font.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
@@ -35,7 +37,7 @@ module sidebar_system #(
     output wire[9:0] wave_rd_addr,
     input logic[39:0] curve_rd_data,
     output wire[9:0] curve_rd_addr,
-    output wire[5:0] lcd_r,lcd_g,lcd_b,
+    output logic[5:0] lcd_r,lcd_g,lcd_b,
     output logic lcd_valid_out,
     output config_pkg::cfg_values_t active_values,
     output config_pkg::sidebar_scene_t ui_scene,
@@ -58,7 +60,8 @@ module sidebar_system #(
     logic signed[14:0] dx,dy;
     joystick_pkg::joy_dir_t direction,nav_dir;
     logic nav_valid,nav_ready,nav_repeat;
-    joystick_adapter #(.CLK_HZ(CTRL_HZ),.CALIB_LOG2(CALIB_LOG2)) u_joystick(
+    joystick_adapter #(.CLK_HZ(CTRL_HZ),.CALIB_LOG2(CALIB_LOG2),
+        .DEADZONE_ON(JOY_DEADZONE_ON),.DEADZONE_OFF(JOY_DEADZONE_OFF),.FILTER_CENTER(JOY_FILTER_CENTER)) u_joystick(
         .clk(ctrl_clk),.rst_n(ctrl_n),.recalibrate(joy_recalibrate),
         .sample_valid(joy_sample_valid),.raw_x(joy_raw_x),.raw_y(joy_raw_y),
         .calibrated(joy_calibrated),.stale(joy_stale),.center_x(),.center_y(),
@@ -109,7 +112,19 @@ module sidebar_system #(
         end
     end
     logic snapshot_ready,snapshot_valid,sent_once;
-    wire snapshot_offer=!sent_once||(current_view!=sent_view);
+    // Compare independent words in parallel, then register the dirty vector.
+    // A monolithic ~800-bit inequality otherwise becomes a long LUT cascade
+    // driving every held snapshot register's CE. Capture remains whole-packet.
+    localparam integer VIEW_W=$bits(sidebar_snapshot_t),VIEW_WORDS=(VIEW_W+31)/32;
+    logic[VIEW_WORDS-1:0] view_dirty;
+    wire[VIEW_WORDS*32-1:0] current_bits={{(VIEW_WORDS*32-VIEW_W){1'b0}},current_view};
+    wire[VIEW_WORDS*32-1:0] sent_bits={{(VIEW_WORDS*32-VIEW_W){1'b0}},sent_view};
+    always_ff @(posedge ctrl_clk or negedge ctrl_n)begin
+        if(!ctrl_n)view_dirty<='1;
+        else for(integer word_index=0;word_index<VIEW_WORDS;word_index++)
+            view_dirty[word_index]<=current_bits[word_index*32 +:32]!=sent_bits[word_index*32 +:32];
+    end
+    wire snapshot_offer=!sent_once||(|view_dirty);
     always_ff @(posedge ctrl_clk or negedge ctrl_n)begin
         if(!ctrl_n)begin sent_view<='0;sent_once<=0;end
         else if(snapshot_offer&&snapshot_ready)begin sent_view<=current_view;sent_once<=1;end
@@ -129,7 +144,8 @@ module sidebar_system #(
     wire[3:0] effects={pixel_view.display_cfg.grid,pixel_view.display_cfg.theme,
                         pixel_view.display_cfg.peak,pixel_view.display_cfg.smooth};
     wire[5:0] base_r,base_g,base_b,overlay_r,overlay_g,overlay_b;
-    logic[5:0] base_r_q,base_g_q,base_b_q;
+    logic[2:0][5:0] base_r_q,base_g_q,base_b_q;
+    logic[2:0] de_q;
     wire overlay_hit;
     lcd_draw #(.LEGACY_UI(1'b0)) u_spectrum(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
@@ -142,10 +158,18 @@ module sidebar_system #(
         .pix_x(pix_x),.pix_y(pix_y),.view(pixel_view),.hit(overlay_hit),
         .r(overlay_r),.g(overlay_g),.b(overlay_b),.visible_width(sidebar_width));
     always_ff @(posedge pix_clk or negedge pix_n)begin
-        if(!pix_n)begin base_r_q<=0;base_g_q<=0;base_b_q<=0;lcd_valid_out<=0;end
-        else begin base_r_q<=base_r;base_g_q<=base_g;base_b_q<=base_b;lcd_valid_out<=lcd_valid;end
+        if(!pix_n)begin base_r_q<=0;base_g_q<=0;base_b_q<=0;de_q<=0;end
+        else begin base_r_q<={base_r_q[1:0],base_r};base_g_q<={base_g_q[1:0],base_g};base_b_q<={base_b_q[1:0],base_b};de_q<={de_q[1:0],lcd_valid};end
     end
-    assign lcd_r=lcd_valid_out?(overlay_hit?overlay_r:base_r_q):6'd0;
-    assign lcd_g=lcd_valid_out?(overlay_hit?overlay_g:base_g_q):6'd0;
-    assign lcd_b=lcd_valid_out?(overlay_hit?overlay_b:base_b_q):6'd0;
+    // Final color/DE register: the synchronous font ROM no longer drives pads
+    // through glyph-bit selection and the full overlay compositor in one path.
+    always_ff @(posedge pix_clk or negedge pix_n)begin
+        if(!pix_n)begin lcd_valid_out<=0;lcd_r<=0;lcd_g<=0;lcd_b<=0;end
+        else begin
+            lcd_valid_out<=de_q[2];
+            lcd_r<=de_q[2]?(overlay_hit?overlay_r:base_r_q[2]):6'd0;
+            lcd_g<=de_q[2]?(overlay_hit?overlay_g:base_g_q[2]):6'd0;
+            lcd_b<=de_q[2]?(overlay_hit?overlay_b:base_b_q[2]):6'd0;
+        end
+    end
 endmodule

@@ -119,6 +119,21 @@ module comb_reverb #(
             wet   <= '0;
             v1 <= 1'b0; v2 <= 1'b0; v3 <= 1'b0;
             out_valid <= 1'b0;
+        end else if (clr && !clr_q) begin
+            clr_run <= 1'b1;      // 上电先当"清空中"；上层复位时也会给 clr
+            clr_q   <= 1'b1;
+            clr_cnt <= '0;
+            p1 <= '0;  p2 <= '0;  p3 <= '0;  p4 <= '0;
+            ad_a1 <= '0; ad_a2 <= '0; ad_a3 <= '0; ad_a4 <= '0;
+            ad_b1 <= '0; ad_b2 <= '0; ad_b3 <= '0; ad_b4 <= '0;
+            s1 <= '0;  s2 <= '0;  s3 <= '0;  s4 <= '0;
+            din_a <= '0; din_b <= '0;
+            fb1 <= '0; fb2 <= '0; fb3 <= '0; fb4 <= '0;
+            t1 <= '0;  t2 <= '0;  t3 <= '0;  t4 <= '0;
+            sum_q <= '0;
+            wet   <= '0;
+            v1 <= 1'b0; v2 <= 1'b0; v3 <= 1'b0;
+            out_valid <= 1'b0;
         end else begin
             clr_q <= clr;
             // 清空请求：任何一拍都能启动/重启（不用等有样本进来）

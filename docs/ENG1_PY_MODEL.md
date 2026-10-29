@@ -114,7 +114,7 @@ FFT_results/sim/eng1/
   整链 RTL 对拍要先按 valid 对齐。
 - A 类表的 `G` 是按升余弦脉冲生成的，模型 guitar 激励仍是旧 2 采样形状，当前 RTL 已升级；两者电平和
   音色不会与 `engine.py` 逐样本一致，这是表/激励口径差异。
-- 长笛用 `SHIFT=22, PW=1, GAP=T-1, N_PULSE=7` 的周期冲激参数；当前 exc_router 除钢琴/吉他外使用默认参数；旧 PAD/BASS 枚举已不存在，也没有自动得到这里的 B 类周期驱动。
+- 长笛用 `SHIFT=22, PW=1, GAP=T-1, N_PULSE=7` 的周期冲激参数；生产exc_router现已为四种持续音色使用逐槽period的B模式，Q24/SHIFT16；不能将Q30参考整数直接比较为生产PCM。旧PAD/BASS枚举已不存在。
 
 ## 2026-10-29 接入复核补充
 

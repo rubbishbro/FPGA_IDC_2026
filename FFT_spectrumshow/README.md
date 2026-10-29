@@ -1,5 +1,7 @@
 # FFT Spectrum Show
 
+**2026-10-29 板级集成补充：**独立ui_demo_top仍保留测试音源；统一[instrument_board_top](../rtl/platform/tang_mega_138k_pro/README.md)复用本目录LCD扫描、按键和sidebar_system，控制域100MHz、像素域约33.333MHz，已接真实摇杆与音频配置后端。统一板级当前未实例化FFT，频谱/波形读口接零，PCM独立CDC留到第二阶段。lcd_timing已修为严格800×480、总周期1192×533；当前整板PnR时序失败，旧独立demo通过记录不能代替它。
+
 **2026-10-27 侧栏更新：**默认 `ui_demo_top` 已切换为中文隐藏侧栏，显示样式/视觉参数经 `control_loop` 提交，并在像素帧头实际应用后反馈。主控用板载 50MHz，频谱绘制仍约 33.3MHz；摇杆/整机配置接线入口为 `sidebar_system`。独立 demo 仍用测试音源和两按键，音频配置后端及摇杆 ADC 未接，不可用项显示“未接入”。详见[实施与接线](../docs/控制与侧栏设计.md#integration)。下面的 tab/SETTINGS 操作说明保留为 `SIDEBAR_UI=0` 的旧 demo 记录。
 
 GW5AST-138B + 800×480 LCD 的可视化子系统，当前作为独立 demo 验证。
@@ -161,7 +163,7 @@ lcd_timing / lcd_draw
         ├─ WAVE
         ├─ FALL
         └─ SETTINGS + 顶部 tab（仅旧 SIDEBAR_UI=0）
-默认底图 → 一拍对齐 → lcd_sidebar 中文覆盖 → 同步 RGB/DE 输出
+默认底图 → 三拍对齐 → lcd_sidebar 中文覆盖 → 最终RGB/DE寄存（共四拍）
 ```
 
 ### FALL 曲线

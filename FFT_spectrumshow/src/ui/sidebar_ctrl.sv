@@ -29,8 +29,10 @@ module sidebar_ctrl #(
     logic[15:0] tag;
     logic[2:0] action;
     logic action_valid,action_repeat;
-    logic signed[15:0] abs_x,abs_y;
-    integer step_x,step_y,next_x,next_y,item,count,limit,change;
+    logic[14:0] abs_x,abs_y;
+    logic[3:0] step_x,step_y;
+    logic signed[10:0] next_x,next_y;
+    integer item,count,limit,change;
     assign nav_ready=1'b1;
     assign rsp_ready=1'b1;
     always_comb begin
@@ -38,8 +40,8 @@ module sidebar_ctrl #(
         abs_y=dy<0?-$signed({dy[14],dy}):$signed({dy[14],dy});
         step_x=(abs_x>900 && direction!=JOY_CENTER)?((abs_x>>11)==0?1:(abs_x>>11)):0;
         step_y=(abs_y>900 && direction!=JOY_CENTER)?((abs_y>>11)==0?1:(abs_y>>11)):0;
-        next_x=int'(scene.cursor_x)+(dx<0?-step_x:step_x);
-        next_y=int'(scene.cursor_y)+(dy>0?-step_y:step_y);
+        next_x=$signed({1'b0,scene.cursor_x})+(dx<0?-$signed({7'd0,step_x}):$signed({7'd0,step_x}));
+        next_y=$signed({2'b0,scene.cursor_y})+(dy>0?-$signed({7'd0,step_y}):$signed({7'd0,step_y}));
         if(next_x<0)next_x=0;else if(next_x>799)next_x=799;
         if(next_y<0)next_y=0;else if(next_y>479)next_y=479;
         action=0;action_valid=0;action_repeat=nav_repeat;

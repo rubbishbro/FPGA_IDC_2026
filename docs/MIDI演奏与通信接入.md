@@ -2,9 +2,9 @@
 
 更新：2026-10-29。第3.1/3.2及9/10节保留各实施阶段范围；当前代码差异和日期化结果分别以[问题台账](bugs.md)与[最新核对](工程评审与验证.md#global-docs-2026-10-29)为准。演奏状态、两组16音、加载失败保护和UI联合配置已有；当前忙时panic逻辑不再等同于原测试快照，音频顶层接线已恢复，逐槽持续激励/ADSR已实施，本轮结果见[实施验证](工程评审与验证.md#sustain-implementation-2026-10-29)。持续音色前端统一见[设计与基线](ENG1演奏前端设计.md)。
 
-本页只维护MIDI功能范围、演奏状态/音高适配、线上配置到内部请求的转换和恢复语义。通信位/帧/解析已有实现；演奏状态层和router内MIDI选源已连接真实eng0/eng1仿真，私有配置与其它DSP消费者仍待接。线上字段/编码只在 [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md) 维护；本地配置字典/提交/CDC见 [控制与侧栏](控制与侧栏设计.md)，日期化结果见 [工程评审与验证](工程评审与验证.md)。
+本页只维护MIDI功能范围、演奏状态/音高适配、线上配置到内部请求的转换和恢复语义。通信位/帧/解析已有实现；演奏状态层和router内MIDI选源已连接真实eng0/eng1仿真，统一板级已有REVERB_SET真实结果桥，其它CC/EQ/Bend DSP仍待接。线上字段/编码只在 [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md) 维护；本地配置字典/提交/CDC见 [控制与侧栏](控制与侧栏设计.md)，日期化结果见 [工程评审与验证](工程评审与验证.md)。
 
-**当前联合配置与接线见[第10节](#joint-config-backend)**，两组16音基础见[第9节](#midi-bank-fixes)：32音资源按两组16音切换，保留16个发声槽，不引入动态单槽装载或新增生产模块。第8节保存总体合同，未实现的DSP能力和整机验证不计入已完成。
+**统一板级远程桥见[第11节](#board-config-bridge)**；当前联合配置与接线见[第10节](#joint-config-backend)，两组16音基础见[第9节](#midi-bank-fixes)：32音资源按两组16音切换，保留16个发声槽，不引入动态单槽装载或新增生产模块。第8节保存总体合同，未实现的DSP能力和整机验证不计入已完成。
 
 ## 1. 已确定的首版功能范围
 
@@ -555,3 +555,15 @@ RESOURCE_MASK按router音色ID给出真实资源存在位，默认只开钢琴�
 ### 10.5 仿真范围
 
 正式入口仍为sim/run_router_midi.py，新增tb_joint_config（真实sidebar_system、loop/dispatch/mailbox、16槽/64模态、32音及真实loader/router）、tb_config_joint_result（错误结果防护）和tb_pad_load_failure（真实PAD适配顶层）。像素帧脉冲和Flash为模型，LCD物理扫描/真片QE/PCM/I2S/PnR不在本轮证明范围。结果与命令见sim/README及工程验证记录。
+
+<a id="board-config-bridge"></a>
+
+## 11. 统一板级的线上配置桥（2026-10-29）
+
+实现位于instrument_system，属于comm_top之外的集成适配，不扩展v1命令。REVERB_SET（command=2、len=2、预设0..2）转换为统一0200请求，tag沿用SEQ；物理source、SEQ、command、len、shadow锁存到真实后端结果退休。成功须收到匹配tag/id的结果，之后才将v1结果交回parser；原parser继续负责去重缓存和线上回复。
+
+桥在来源隔离或未获权限时不发后端请求；0502策略保留物理有线/蓝牙位，默认两者允许，本地菜单可更改，远程不能自行授权。线上没有DENIED码时返回NOT_READY。EQ虽已能解析，当前没有DSP消费者，明确返回NOT_READY；音色/通道/音组的远程命令仍未定义。网页编辑器尚未提供Config操作。
+
+来源清理/操作退休已接真实MIDI消费者。加载故障保留屏障，本地8001清音/重载或整板复位恢复后再接受远程配置。有线会话隔离后依当前板级流程整板复位；HC-05启用STATE才可依重新连接提出restart，菜单8002尚未开放。忙时硬panic和音频队列flush仍按既有边界保留。
+
+接线/时钟/默认资源只维护在[板级说明](../rtl/platform/tang_mega_138k_pro/README.md)，功能及物理时序证据见[第一阶段验证](工程评审与验证.md#board-integration-2026-10-29)。功能仿真通过不等于真实UART/Flash/DAC或目标频率通过。

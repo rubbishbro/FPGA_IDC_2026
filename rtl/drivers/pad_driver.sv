@@ -21,7 +21,7 @@ module pad_driver(
 );
 
 // led矩阵
-led8x8 led_inst (.cr(cr), .x(led_p.x), .y(led_p.y), .pix(led_p.pix), 
+led8x8 #(.PIPELINED_READ(1)) led_inst (.cr(cr), .x(led_p.x), .y(led_p.y), .pix(led_p.pix),
             .wr(led_p.wr), .dat(dat));
 
 // 压力垫和摇杆的模拟采集器
@@ -36,7 +36,7 @@ endmodule
 /*
 8×8 LED 点阵屏驱动
 
-要求有效时钟周期 T = 400ns 2.5khz扫描
+要求有效时钟周期 T = 400ns，2.5MHz扫描使能
 
 x、y：目标像素坐标
 red、green、blue：该像素的 RGB 分量
@@ -46,7 +46,7 @@ wr：高电平写显存，低电平刷新一次屏幕
 
 dat：屏幕串行数据输入
 */
-module led8x8(
+module led8x8 #(parameter bit PIPELINED_READ=0)(
     input  clk_rst     cr,
     input  logic [2:0] x, y,
     input  pixel_t     pix,
@@ -83,6 +83,22 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
     end
 end
 
+// The 400ns protocol enable leaves many core clocks between LED bits.
+// Read the unchanged 1536-bit image with two small mux stages, not one huge mux.
+logic led_bit;
+generate if(PIPELINED_READ)begin:g_prefetch
+    logic[23:0] bucket;
+    always_ff @(posedge cr.clk or negedge cr.rst_n)begin
+        if(!cr.rst_n)begin bucket<=0;led_bit<=0;end
+        else begin
+            for(integer j=0;j<24;j++)bucket[j]<=1'(gram.raw[j*64 +:64] >> idx[5:0]);
+            led_bit<=idx[10:6]<24 ? bucket[idx[10:6]] : 1'b0;
+        end
+    end
+end else begin:g_direct
+    assign led_bit=gram.raw[idx];
+end endgenerate
+
 //刷新屏幕
 always_ff @(posedge cr.clk or negedge cr.rst_n) begin
     if(!cr.rst_n) begin
@@ -94,7 +110,7 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
     end
     else if(cr.clk_en) begin
         case(state)
-        S_PREPARE: 
+        S_PREPARE:
             if(!wr) begin
                 state <= S_TX;
             end
@@ -105,7 +121,7 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
             end
             else if(t0_v == 3'b100) begin
                 dat <= 1'b1;
-                trig <= gram.raw[idx] ? 3'b001 : 3'b010;
+                trig <= led_bit ? 3'b001 : 3'b010;
             end
             else if(t0_v == trig) begin
                 dat <= 1'b0;
@@ -244,7 +260,8 @@ cart2polar #(.IN_L(14), .OUT_L(8)) c2p_inst (.cr({cr.clk, cr.clk_en, cr.rst_n}),
 // 只把完成“上升沿”变成一个 sticky 标志，再交给 400ns 的扫描 FSM 消费：
 // 这样无论 ready 是窄脉冲还是电平，都不会被慢速 FSM 漏掉，也不会重复消费。
 // ---------------------------------------------------------------------------
-logic           adc_rdy_meta, adc_rdy_sync, adc_rdy_d;
+(* ASYNC_REG="TRUE" *) logic adc_rdy_meta, adc_rdy_sync;
+logic adc_rdy_d;
 logic           adc_done;
 logic  [13:0]   adc_val_lat;
 

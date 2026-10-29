@@ -31,6 +31,7 @@ module voice_router #(
     parameter int   N_MODES    = 64,          // 唯一的模态数：系数表/状态/激励/参数表都按它开
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
+    parameter logic [7:0] PAD_NOTE_ON_TH=8'd230, PAD_NOTE_OFF_TH=8'd26,
     parameter logic DEBUG_PORT = 1'b1,
     parameter bit EXTERNAL_SAMPLE_TICK = 1'b0,
     parameter bit MIDI_ENABLE = 1'b0,
@@ -91,6 +92,13 @@ module voice_router #(
 
     import modal_step_pkg::*;
     import router_pkg::*;
+    // Local reset leaves: async assertion, two-clock release. Preserve each
+    // leaf so synthesis cannot merge the DSP banks back onto one huge reset net.
+    (* ASYNC_REG="TRUE", syn_preserve=1 *) logic [6:0][1:0] child_reset;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) child_reset<='0;
+        else for(integer i=0;i<7;i++) child_reset[i]<={child_reset[i][0],1'b1};
+    end
     logic input_hold,load_now;
     logic [SLOTS-1:0] note_on,perf_clear,dead_ev;
     instrument_e inst_prev;
@@ -198,9 +206,10 @@ module voice_router #(
     end
     logic play_clear;
     assign play_clear=!table_valid || state==S_CFG || state==S_LOAD || load_now;
-    logic [SLOTS-1:0] part_clear,part_gate;
-    assign part_clear=perf_clear | {SLOTS{play_clear}};
-    assign part_gate=play_clear ? '0 : note_on;
+    logic [SLOTS-1:0] part_clear,part_gate,part_trigger;
+    logic [SLOTS*8-1:0] part_strike,part_envelope;
+    logic part_tick,part_midi,part_commit;
+    logic [SLOTS-1:0] committed_gate;
     logic signed [SLOTS-1:0][31:0] emap_frame;
     logic [SLOTS-1:0] idle_confirmed,zero_mask_f,gate_f,dead_frame;
 
@@ -222,11 +231,11 @@ module voice_router #(
     //   note_gate 与 note_on 是同一个电平（保留旧端口名，部件那边还在用）。
     //   加载系数期间 fmap_q 冻结，这个电平也就跟着冻住——等于忽略外部输入，
     //   装完之后按当前键态重新判：装的过程中按下的键照样能起音。
-    localparam logic [7:0] NOTE_ON_TH  = 8'd230;
-    localparam logic [7:0] NOTE_OFF_TH = 8'd26;
+    localparam logic [7:0] NOTE_ON_TH  = PAD_NOTE_ON_TH;
+    localparam logic [7:0] NOTE_OFF_TH = PAD_NOTE_OFF_TH;
 
     logic [SLOTS-1:0] gate_r, pad_note_on, note_gate;
-    logic active_midi, frame_start, frame_retire;
+    logic active_midi, performance_commit, frame_start, frame_retire;
     wire maintain_req = MIDI_ENABLE && maintenance_clear;
     logic maintenance_completed;
     always_ff @(posedge clk or negedge rst_n) begin
@@ -254,7 +263,7 @@ module voice_router #(
 
     assign note_gate = note_on;
     performance_input_mux #(.SLOTS(SLOTS), .MIDI_ENABLE(MIDI_ENABLE)) u_input (
-        .clk(clk), .rst_n(rst_n), .sample_commit(frame_start), .frame_retire(frame_retire),
+        .clk(clk), .rst_n(rst_n), .sample_commit(performance_commit), .frame_retire(frame_retire),
         .maintenance_clear(maintain_req), .maintenance_done(maintenance_done), .midi_inflight(midi_inflight),
         .pad_gate(pad_note_on), .pad_level(fmap_q.raw[SLOTS*8-1:0]),
         .midi_select(midi_select), .midi_valid(midi_valid), .midi_ready(midi_ready),
@@ -266,7 +275,7 @@ module voice_router #(
     // 强制清除走现有 st_zero，全部模态写回后才确认完成。
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) clear_f <= '0;
-        else if (frame_start) clear_f <= perf_clear;
+        else if (performance_commit) clear_f <= perf_clear;
     end
 
     // 滞回用的上一次门控状态
@@ -275,19 +284,36 @@ module voice_router #(
         else if (smp_tick) gate_r <= pad_note_on;
     end
 
+    // One coherent performance snapshot before the high-fanout DSP controls.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            part_clear<='0;part_gate<='0;part_trigger<='0;
+            part_strike<='0;part_envelope<='0;part_tick<=0;part_midi<=0;part_commit<=0;committed_gate<='0;
+        end else begin
+            part_tick<=smp_tick;part_commit<=performance_commit;
+            if(performance_commit)committed_gate<=note_on;
+            if(smp_tick) begin
+                part_clear<=perf_clear | {SLOTS{play_clear}};
+                part_gate<=play_clear ? '0 : note_on;
+                part_trigger<=perf_trigger;part_strike<=strike_level;
+                part_envelope<=envelope_level;part_midi<=active_midi;
+            end
+        end
+    end
+
     exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
+        .clk(clk), .rst_n(child_reset[0][1]), .smp_tick(part_tick),
         .slot_period(play_period),
-        .strike_level(strike_level), .retrigger(perf_trigger), .slot_clear(part_clear),
+        .strike_level(part_strike), .retrigger(part_trigger), .slot_clear(part_clear),
         .note_on(part_gate), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
     );
 
     env_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
-        .clk(clk), .rst_n(rst_n), .smp_tick(smp_tick),
+        .clk(clk), .rst_n(child_reset[1][1]), .smp_tick(part_tick),
         .slot_a_step(play_attack),.slot_r_step(play_release),
-        .envelope_level(envelope_level), .retrigger(perf_trigger),
-        .slot_clear(part_clear), .midi_mode(active_midi),
+        .envelope_level(part_envelope), .retrigger(part_trigger),
+        .slot_clear(part_clear), .midi_mode(part_midi),
         .note_on(part_gate), .note_gate(part_gate), .inst(inst_lat),
         .emap(emap), .emap_valid(emap_valid), .dead(env_dead)
     );
@@ -311,7 +337,7 @@ module voice_router #(
     logic signed [31:0]      mod_s11_r, mod_s12_r, mod_s22_r, mod_swo_r;
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
-        .clk(clk), .rst_n(rst_n), .start(mod_start),
+        .clk(clk), .rst_n(child_reset[2][1]), .start(mod_start),
         .fmap_i(fmap_q.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
         .inst(inst_lat), .busy(mod_busy), .done(mod_done),
         .p_re(mod_p_re), .p_mode(mod_p_mode),
@@ -401,7 +427,7 @@ module voice_router #(
     end
 
     eng_router #(.N_MODES(N_MODES)) u_era (
-        .clk(clk), .rst_n(rst_n), .inst(inst_lat),
+        .clk(clk), .rst_n(child_reset[5][1]), .inst(inst_lat),
         .start(eng_start), .st_zero(era_zero), .n_modes(nm_lat),
         .co_re(era_co_re), .co_addr(era_co_addr), .co_data(co_ra),
         .st_re(era_st_re), .st_addr(era_st_addr),
@@ -413,7 +439,7 @@ module voice_router #(
     );
 
     eng_router #(.N_MODES(N_MODES)) u_erb (
-        .clk(clk), .rst_n(rst_n), .inst(inst_lat),
+        .clk(clk), .rst_n(child_reset[6][1]), .inst(inst_lat),
         .start(eng_start), .st_zero(erb_zero), .n_modes(nm_lat),
         .co_re(erb_co_re), .co_addr(erb_co_addr), .co_data(co_rb),
         .st_re(erb_st_re), .st_addr(erb_st_addr),
@@ -593,6 +619,11 @@ module voice_router #(
     logic signed [AW-1:0] y_env;       // 本声部过包络后的输出
     logic signed [95:0]   y_mul;
 
+    // Local, one-cycle delayed group copy isolates the envelope mux from the
+    // coefficient/state-address fanout of g. It settles long before y_valid.
+    (* syn_preserve=1 *) logic [HVW-1:0] envelope_group;
+    always_ff @(posedge clk or negedge rst_n)
+        if(!rst_n)envelope_group<='0;else envelope_group<=g[HVW-1:0];
     assign y_mul = y_lat * e_lat;
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -609,8 +640,8 @@ module voice_router #(
                 // A 先算，S_ADV 再把已锁存的 B 送入同一条乘法流水。
                 y_lat <= era_y;
                 y_b_lat <= erb_y;
-                e_b_lat <= $signed(emap_frame[VWID'(g[VWID-1:0] + VWID'(HS))]);
-                e_lat <= $signed(emap_frame[g[VWID-1:0]]);
+                e_b_lat <= $signed(emap_frame[VWID'($unsigned(envelope_group))+VWID'(HS)]);
+                e_lat <= $signed(emap_frame[VWID'($unsigned(envelope_group))]);
             end
             // 乘法结果先落一拍，下一拍才做 64 位累加（原来是 mul + add 同一拍）
             if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
@@ -633,12 +664,12 @@ module voice_router #(
             if(play_clear) idle_confirmed<='0;
             else begin
                 if(frame_retire)
-                    idle_confirmed<=(idle_confirmed | (zero_mask_f & dead_frame & ~gate_f)) & ~note_gate;
-                else idle_confirmed<=idle_confirmed & ~note_gate & ~perf_trigger;
+                    idle_confirmed<=(idle_confirmed | (zero_mask_f & dead_frame & ~gate_f)) & ~committed_gate;
+                else idle_confirmed<=idle_confirmed & ~committed_gate & ~part_trigger;
             end
             if(frame_start)begin
-                zero_mask_f<=dead_pend | dead_ev | perf_clear | {SLOTS{init_zero}};
-                gate_f<=note_gate;
+                zero_mask_f<=dead_pend | dead_ev | clear_f | {SLOTS{init_zero}};
+                gate_f<=committed_gate;
             end
         end
     end
@@ -657,7 +688,8 @@ module voice_router #(
     logic                 rev_out_valid;
     logic signed [63:0]   rev_y;
     logic [3:0]           mix_outstd, rev_outstd;
-    assign frame_retire = (state == S_WAIT) && (mix_outstd == '0) &&
+    logic frame_drained;
+    assign frame_drained = (state == S_WAIT) && (mix_outstd == '0) &&
                           !mix_v && (rev_outstd == '0);
 
     assign body_accept = mix_v && body_in_ready;
@@ -695,10 +727,15 @@ module voice_router #(
     logic                change_pend;
     assign change_pend = (inst != inst_prev) || reload_pend;
     assign done        = (state == S_DONE);
-    assign ready       = !change_pend || !table_valid || (note_on == '0);
+    // Only stable, committed gates decide reload eligibility. The instant MIDI
+    // apply mux must not feed a combinational path back into the frame FSM.
+    assign ready       = !change_pend || !table_valid ||
+                         ((active_midi ? committed_gate : pad_note_on) == '0);
     assign load_err    = ld_err || cfg_error;
     assign load_complete = ((state == S_LOAD) && ld_done) || cfg_fail_pulse;
-    assign voice_idle = idle_confirmed & env_dead & ~note_gate;
+    // Published only from retirement-qualified state. Do not feed combinational
+    // maintenance/gate/envelope paths back into the MIDI allocator.
+    assign voice_idle = idle_confirmed;
     instrument_e run_inst;
     assign run_inst = (change_pend && !ready) ? inst_lat : inst;
 
@@ -735,7 +772,8 @@ module voice_router #(
     // 到**作业头**（S_RUN_X 那一拍）一次性交给 note_f，note_f 只在这一次作业里有效：
     // 不跨帧粘住，也不会跨加载残留。
 
-    assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid;
+    assign performance_commit = (state == S_RUN_X) && wait_xmap && smp_tick;
+    assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid && part_commit;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -922,7 +960,7 @@ module voice_router #(
                 // 一次作业只跑一个采样，所以 xmap 只要整张寄存进 x_q（一拍），
                 // 不需要再分 SLOTS 拍写 x_ram
                 S_RUN_X: begin
-                    if (wait_xmap && xmap_valid) begin
+                    if (frame_start) begin
                         wait_xmap <= 1'b0;
                         xw_run    <= 1'b1;          // 下一拍照抄 xmap -> x_q
                         state     <= S_XS;
@@ -952,12 +990,12 @@ module voice_router #(
                         //   以前只有 note_f（起音沿）会登记，按住之后 fmap 怎么变
                         //   都没人管 -> 揉弦只生效一下。这里补一个"fmap 变了"的触发，
                         //   每帧每组两个声部各比一次，改了才登记（幂等，重复跑无害）。
-                        if (note_gate[g[VWID-1:0]] &&
+                        if (!active_midi && !maintain_req && part_gate[g[VWID-1:0]] &&
                             (fmap_q.flat_d[g[VWID-1:0]].val != fmap_prev[g[VWID-1:0]])) begin
                             mod_req[g[VWID-1:0]]          <= 1'b1;
                             fmap_prev[g[VWID-1:0]]        <= fmap_q.flat_d[g[VWID-1:0]].val;
                         end
-                        if (note_gate[VWID'(g + VWID'(HS))] &&
+                        if (!active_midi && !maintain_req && part_gate[VWID'(g + VWID'(HS))] &&
                             (fmap_q.flat_d[VWID'(g + VWID'(HS))].val !=
                              fmap_prev[VWID'(g + VWID'(HS))])) begin
                             mod_req[VWID'(g + VWID'(HS))] <= 1'b1;
@@ -1001,7 +1039,7 @@ module voice_router #(
                 // 排空：等腔体 + 混响把最后几笔都吐完，才回 S_DONE（这时 done 才变 1）
                 //   这段时间 done=0，上层不会发新的 start。
                 S_WAIT: begin
-                    if (mix_outstd == '0 && !mix_v && rev_outstd == '0) begin
+                    if (frame_retire) begin
                         state <= S_DONE;
                     end
                 end
@@ -1017,19 +1055,42 @@ module voice_router #(
     //         （一次作业里乐器号不变，系数就不会中途跳）
     //   混响：预设由上层给（reverb_preset），NONE 时是逐位直通的延迟
     // =========================================================================
-    wire effects_rst_n = rst_n && !maintenance_done &&
-        !(frame_retire && active_midi && (|clear_f) && note_gate=='0);
+    logic effects_clear, effects_pending, effects_cleared, body_clear_busy;
+    wire effects_need = (maintain_req || active_midi) && (|clear_f) && committed_gate=='0;
+    // Retirement is a registered fence, not a combinational feedback through
+    // the same frame's performance-input mux. It can only delay completion.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n)frame_retire<=0;
+        else frame_retire<=frame_drained && (!effects_need || effects_cleared);
+    end
+    // Business clear is synchronous. Hold frame retirement until the body RAM
+    // clear has finished; comb RAM is invalidated logically, without changing layout.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            effects_clear<=0; effects_pending<=0; effects_cleared<=0;
+        end else begin
+            effects_clear<=0;
+            if(frame_start) effects_cleared<=0;
+            if(frame_drained && effects_need && !effects_pending && !effects_cleared) begin
+                effects_clear<=1; effects_pending<=1;
+            end
+            if(effects_pending && !effects_clear && !body_clear_busy) begin
+                effects_pending<=0; effects_cleared<=1;
+            end
+        end
+    end
     body_router #(
         .SLOTS(SLOTS), .NSEC(5), .NTAP(5), .COEFF_FRAC(27), .GUARD_BITS(4)
     ) u_body (
-        .clk(clk), .rst_n(effects_rst_n),
+        .clk(clk), .rst_n(child_reset[3][1]),
+        .clear_req(effects_clear), .clear_busy(body_clear_busy),
         .inst(inst_lat),
         .in_valid(mix_v), .in_ready(body_in_ready), .x(mix_q),
         .out_valid(body_out_valid), .y(body_y)
     );
 
     reverb_router #(.N(2048)) u_rev (
-        .clk(clk), .rst_n(effects_rst_n), .preset(reverb_preset),
+        .clk(clk), .rst_n(child_reset[4][1]), .clear_req(effects_clear), .preset(reverb_preset),
         .in_valid(body_out_valid), .x(body_y),
         .out_valid(rev_out_valid), .y(rev_y)
     );

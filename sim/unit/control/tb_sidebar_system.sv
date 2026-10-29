@@ -155,7 +155,7 @@ module tb_sidebar_system #(parameter integer PIX_HALF=7);
         frames_enabled=1;clocks(200);
         if(ext_rsp_valid||backend_valid||ui_scene.busy||active_values[6]!=0)$fatal(1,"stale transaction after reset");
         @(negedge pix_clk);lcd_valid=0;
-        repeat(3)@(negedge pix_clk);
+        repeat(4)@(negedge pix_clk);
         if(lcd_valid_out||{lcd_r,lcd_g,lcd_b}!=0)$fatal(1,"DE/RGB alignment");
         $display("PASS sidebar_system pixel_half=%0d completed=%0d backend=%0d",PIX_HALF,results,backend_accepts);
         $finish;

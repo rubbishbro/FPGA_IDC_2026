@@ -44,33 +44,31 @@ module midi_note_state #(
     logic [31:0] sustain; // {source, channel}；不需要 128 音符的 RAM。
     logic [1:0] cleanup_issued; // 仅在 op_valid && !op_ready 期间保持稳定
     wire [1:0] cleanup_new = source_cleanup_req & ~cleanup_issued; // 仅在 op_valid && !op_ready 期间保持稳定
-    wire [3:0] kind = event_data[31:28];
-    wire [3:0] channel = event_data[27:24];
-    wire [6:0] data1 = event_data[23:17];
-    wire [6:0] data2 = event_data[16:10];
-    wire [4:0] control_index = {event_source_id, channel};
-    integer owner_slot, mapped_slot;
-
-    // 已有归属优先于改动后的映射表。Note Off 绝不按当前映射重新算槽位。
-    // 空闲槽只能按它预载的音高被占用。
+    logic pending, matched, event_source_q;
+    logic [31:0] event_q;
+    wire [3:0] kind = event_q[31:28];
+    wire [3:0] channel = event_q[27:24];
+    wire [6:0] data1 = event_q[23:17];
+    wire [6:0] data2 = event_q[16:10];
+    wire [4:0] control_index = {event_source_q, channel};
+    logic [SLOTS-1:0] owner_match, mapped_match;
+    logic [SLOTS-1:0] owner_pick, mapped_pick, target_pick;
+    // Match is registered before priority selection. Every write below uses a
+    // constant slice; no integer target*7 barrel mux / address DSP is needed.
     always_comb begin
-        owner_slot = -1;
-        mapped_slot = -1;
-        for (integer i = 0; i < SLOTS; i = i + 1) begin
-            if (slot_owned[i] && slot_source[i] == event_source_id &&
-                slot_channel[i*4 +: 4] == channel &&
-                slot_original_note[i*7 +: 7] == data1 && owner_slot == -1)
-                owner_slot = i;
-            if (slot_note_map[i*7 +: 7] == data1 &&  !slot_gate[i] &&
-                (!CHECK_VOICE_IDLE || !slot_owned[i] || voice_idle[i]) && mapped_slot == -1)
-                mapped_slot = i;
+        for (integer i=0;i<SLOTS;i=i+1) begin
+            owner_pick[i] = owner_match[i] &&
+                ((owner_match & ((SLOTS'(1)<<i)-1'b1)) == '0);
+            mapped_pick[i] = mapped_match[i] &&
+                ((mapped_match & ((SLOTS'(1)<<i)-1'b1)) == '0);
         end
+        target_pick = (|owner_match) ? owner_pick : mapped_pick;
     end
-
-    assign event_ready = rst_n && !op_valid && !(|source_cleanup_req);
-    assign midi_ops_idle = rst_n && !op_valid;
+    assign event_ready = rst_n && !pending && !op_valid && !(|source_cleanup_req);
+    assign midi_ops_idle = rst_n && !pending && !op_valid;
     always_comb begin
         source_ops_idle = {2{rst_n}};
+        if (pending) source_ops_idle[event_source_q] = 1'b0;
         if (op_valid) begin
             if (|op_cleanup_sources) source_ops_idle = ~op_cleanup_sources;
             else source_ops_idle[op_source_id] = 1'b0;
@@ -79,6 +77,8 @@ module midi_note_state #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
+            pending<=0; matched<=0; event_q<='0; event_source_q<=0;
+            owner_match<='0; mapped_match<='0;
             sustain <= '0;
             cleanup_issued <= '0;
             source_cleanup_done <= '0;
@@ -106,7 +106,20 @@ module midi_note_state #(
                     source_cleanup_done <=
                         (source_cleanup_done | op_cleanup_sources) & source_cleanup_req;
                 end
-            end else if (|cleanup_new) begin
+            end else if (pending && source_cleanup_req[event_source_q]) begin
+                // Accepted but not committed: quarantine cancels this source's
+                // staged event. Its cleanup is issued next, never acknowledged early.
+                pending <= 1'b0;
+                matched <= 1'b0;
+            end else if (pending && !matched) begin
+                matched <= 1'b1;
+                for (integer i=0;i<SLOTS;i=i+1) begin
+                    owner_match[i] <= slot_owned[i] && slot_source[i]==event_source_q &&
+                        slot_channel[i*4 +:4]==channel && slot_original_note[i*7 +:7]==data1;
+                    mapped_match[i] <= slot_note_map[i*7 +:7]==data1 && !slot_gate[i] &&
+                        (!CHECK_VOICE_IDLE || !slot_owned[i] || voice_idle[i]);
+                end
+            end else if (!pending && (|cleanup_new)) begin
                 // 等之前的 op 退休；绝不修改一个已经卡住的 op。
                 cleanup_issued <= (cleanup_issued & source_cleanup_req) | cleanup_new;
                 op_valid <= 1'b1;
@@ -126,26 +139,28 @@ module midi_note_state #(
                         slot_gate[i] <= 1'b0;
                         slot_velocity[i*7 +: 7] <= '0;
                     end
-            end else if (event_valid && event_ready) begin
+            end else if (pending) begin
+                pending <= 1'b0;
+                matched <= 1'b0;
                 op_valid <= 1'b1;
-                op_event_data <= event_data;
-                op_source_id <= event_source_id;
+                op_event_data <= event_q;
+                op_source_id <= event_source_q;
                 op_cleanup_sources <= '0;
                 op_rejected <= 1'b0;
                 op_retrigger <= '0;
                 op_hard_clear <= '0;
                 if (kind == NOTE_ON && data2 != 0) begin
-                    if (owner_slot != -1 || mapped_slot != -1) begin : claim
-                        integer target;
-                        target = owner_slot != -1 ? owner_slot : mapped_slot;
-                        slot_owned[target] <= 1'b1;
-                        slot_source[target] <= event_source_id;
-                        slot_channel[target*4 +: 4] <= channel;
-                        slot_original_note[target*7 +: 7] <= data1;
-                        slot_velocity[target*7 +: 7] <= data2;
-                        slot_key_down[target] <= 1'b1;
-                        slot_gate[target] <= 1'b1;
-                        op_retrigger[target] <= 1'b1;
+                    if (|target_pick) begin
+                        for (integer i=0;i<SLOTS;i=i+1) if(target_pick[i]) begin
+                            slot_owned[i] <= 1'b1;
+                            slot_source[i] <= event_source_q;
+                            slot_channel[i*4 +:4] <= channel;
+                            slot_original_note[i*7 +:7] <= data1;
+                            slot_velocity[i*7 +:7] <= data2;
+                            slot_key_down[i] <= 1'b1;
+                            slot_gate[i] <= 1'b1;
+                            op_retrigger[i] <= 1'b1;
+                        end
                     end else begin
                         // 不支持的音高 / 已被占用的音高：显式拒绝，
                         // 不抢占，也不清除另一个归属的音。
@@ -154,21 +169,21 @@ module midi_note_state #(
                             rejected_note_count <= rejected_note_count + 1'b1;
                     end
                 end else if (kind == NOTE_OFF || (kind == NOTE_ON && data2 == 0)) begin
-                    if (owner_slot != -1) begin
-                        slot_key_down[owner_slot] <= 1'b0;
-                        slot_gate[owner_slot] <= slot_gate[owner_slot] && sustain[control_index];
+                    for (integer i=0;i<SLOTS;i=i+1) if(owner_pick[i]) begin
+                        slot_key_down[i] <= 1'b0;
+                        slot_gate[i] <= slot_gate[i] && sustain[control_index];
                     end
                 end else if (kind == CC) begin
                     if (data1 == 64) begin
                         sustain[control_index] <= data2 >= 64;
                         if (data2 < 64)
                             for (integer i = 0; i < SLOTS; i = i + 1)
-                                if (slot_owned[i] && slot_source[i] == event_source_id &&
+                                if (slot_owned[i] && slot_source[i] == event_source_q &&
                                     slot_channel[i*4 +: 4] == channel && !slot_key_down[i])
                                     slot_gate[i] <= 1'b0;
                     end else if ((data1 == 123 || data1 == 120) && data2 == 0) begin
                         for (integer i = 0; i < SLOTS; i = i + 1)
-                            if (slot_owned[i] && slot_source[i] == event_source_id &&
+                            if (slot_owned[i] && slot_source[i] == event_source_q &&
                                 slot_channel[i*4 +: 4] == channel) begin
                                 slot_key_down[i] <= 1'b0;
                                 slot_gate[i] <= slot_gate[i] && data1 == 123 && sustain[control_index];
@@ -178,6 +193,9 @@ module midi_note_state #(
                 end
                 // Program/Bend/CC1/7/11 仍留在 op_event_data 里，交给它们真正的
                 // 消费者。不要把 op_ready 直接接 1 然后声称已经实现。
+            end else if(event_valid && event_ready) begin
+                event_q<=event_data; event_source_q<=event_source_id;
+                pending<=1'b1; matched<=1'b0;
             end
         end
     end

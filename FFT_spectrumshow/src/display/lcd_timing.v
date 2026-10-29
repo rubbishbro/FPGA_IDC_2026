@@ -26,12 +26,8 @@ module lcd_timing (
             V_PixelCount <= 16'b0;
             H_PixelCount <= 16'b0;
         end
-        else if (H_PixelCount == PixelForHS) begin
-            V_PixelCount <= V_PixelCount + 1'b1;
-            H_PixelCount <= 16'b0;
-        end
-        else if (V_PixelCount == PixelForVS) begin
-            V_PixelCount <= 16'b0;
+        else if (H_PixelCount == PixelForHS-1) begin
+            V_PixelCount <= V_PixelCount == PixelForVS-1 ? 16'd0 : V_PixelCount + 1'b1;
             H_PixelCount <= 16'b0;
         end
         else begin
@@ -40,11 +36,11 @@ module lcd_timing (
     end
 
     // DE: active region only
-    assign lcd_en = (H_PixelCount >= H_BackPorch) && (H_PixelCount <= H_Pixel_Valid + H_BackPorch) &&
-                    (V_PixelCount >= V_BackPorch) && (V_PixelCount <= V_Pixel_Valid + V_BackPorch);
+    assign lcd_en = (H_PixelCount >= H_BackPorch) && (H_PixelCount < H_Pixel_Valid + H_BackPorch) &&
+                    (V_PixelCount >= V_BackPorch) && (V_PixelCount < V_Pixel_Valid + V_BackPorch);
 
     // one-cycle pulse at the very end of a frame
-    assign frame_pulse = (V_PixelCount == PixelForVS) && (H_PixelCount == 16'd0);
+    assign frame_pulse = (V_PixelCount == PixelForVS-1) && (H_PixelCount == PixelForHS-1);
 
     // clean pixel coordinate in active area: pix_x 0..799, pix_y 0..479
     assign pix_x = (H_PixelCount >= H_BackPorch) ? (H_PixelCount - H_BackPorch) : 10'd0;

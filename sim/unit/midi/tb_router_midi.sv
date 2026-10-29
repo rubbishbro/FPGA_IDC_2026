@@ -52,9 +52,9 @@ module tb_router_midi;
             if($isunknown(y_data)) $fatal(1,"FAIL unknown audio output");
             if(y_data!=0) nonzero_outputs++;
         end
-        if(dut.u_voice.perf_trigger[3]) begin
+        if(dut.u_voice.part_tick && dut.u_voice.part_trigger[3]) begin
             triggers++;
-            expected_level=dut.u_voice.strike_level[31:24];
+            expected_level=dut.u_voice.part_strike[31:24];
             #1;
             if(dut.u_voice.u_exc.u_gen.tgt[3] !== (32'(expected_level)<<16))
                 $fatal(1,"FAIL velocity did not reach actual excitation target");

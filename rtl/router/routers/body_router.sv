@@ -28,6 +28,8 @@ module body_router #(
 ) (
     input  logic                    clk,
     input  logic                    rst_n,
+    input  logic                    clear_req,
+    output logic                    clear_busy,
     input  router_pkg::instrument_e inst,
 
     // 样本输入（in_valid && in_ready 一拍握手）
@@ -116,7 +118,7 @@ module body_router #(
     end
 
     // ------------------------------------------------------------------
-    // 清历史：**只在换乐器时清**（换了一套系数，旧状态没意义）
+    // 清历史：换乐器，或调用方排空样本后的 clear_req 维护请求
     //   起音不清：腔体是所有声部共用的，起音就清会把上一音的腔体尾音切掉。
     //   clear 再打一拍才送进 biquad：inst 比较 -> clear -> 状态写 mux，
     //   寄存之后两边各只剩一级。
@@ -135,6 +137,15 @@ module body_router #(
     end
 
     assign clear_c = (inst != inst_q);
+    logic core_ready;
+    // A request is accepted only after the caller has drained its samples.
+    // Keep completion low until the core has physically zeroed its history RAM.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) clear_busy <= 1'b1;
+        else if (clear_req || clear || clear_c) clear_busy <= 1'b1;
+        else if (core_ready) clear_busy <= 1'b0;
+    end
+    assign in_ready = core_ready && !clear_busy;
 
     // ------------------------------------------------------------------
     // 2) 内嵌 parts/body_biquad
@@ -147,8 +158,8 @@ module body_router #(
         .COEFF_FRAC(COEFF_FRAC), .GUARD_BITS(GUARD_BITS)
     ) u_core (
         .clk(clk), .rst_n(rst_n),
-        .clear(clear),
-        .in_valid(in_valid), .in_ready(in_ready), .in_sum(x),
+        .clear(clear || clear_req),
+        .in_valid(in_valid && !clear_busy), .in_ready(core_ready), .in_sum(x),
         .coef_q(coef_q),
         .out_valid(out_valid), .out_sum(y),
         .out_sat(body_sat), .sat_count(body_sat_cnt)

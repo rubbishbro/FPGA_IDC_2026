@@ -19,6 +19,8 @@
 
 ## 代码、协议与图
 
+- [统一板级入口](../rtl/platform/tang_mega_138k_pro/README.md)：单PLL三时钟域/复位、外设接线、源清单、默认资源及构建/时序验收；第一阶段菜单已接，FFT PCM属于第二阶段。
+
 - [架构图](diagrams/README.md)：系统边界、配置流和双bank合成图；解释配合根目录架构导读。
 - [router](../rtl/router/README.md) / [压力适配](../rtl/router/PAD_ADAPTER.md)：存储、字段格式、作业/加载及适配器端口。
 - [通信](../rtl/comm/README.md) / [解析器](../rtl/drivers/analyzer/README.md) / [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md)：分层接口、Event32和唯一线上字节合同。

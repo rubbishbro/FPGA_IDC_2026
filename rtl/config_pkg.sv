@@ -120,7 +120,18 @@ package config_pkg;
         endcase
     endfunction
     function automatic logic cfg_value_valid(input integer index,input logic signed[31:0] value);
-        cfg_value_valid=(index>=0 && index<CFG_COUNT && value>=0 && value<=cfg_max(index));
+        // Same ranges as cfg_max; bound the high bits separately so narrow
+        // configuration values never require a cascaded signed 32-bit compare.
+        if(index<0 || index>=CFG_COUNT || value[31]) return 1'b0;
+        case(index)
+            0,6:return value[31:16]==0 && value[15:0]<=16'hfffe;
+            1,4:return value[31:10]==0 && value[9:0]<=10'd1000;
+            2,11,14,15:return value[31:2]==0 && value[1:0]<=2;
+            12:return value[31:5]==0 && value[4:0]<=5'd16;
+            13:return value[31:2]==0;
+            16,17,19:return value==0;
+            default:return value[31:1]==0;
+        endcase
     endfunction
     function automatic cfg_values_t cfg_defaults();
         cfg_values_t v;

@@ -6,6 +6,7 @@ module joystick_adapter #(
     parameter integer CALIB_LOG2 = 4,       // 上电/重校准平均 2**N 对样本
     parameter integer DEADZONE_ON = 1400,   // ADC counts，进入方向阈值
     parameter integer DEADZONE_OFF = 900,   // 退出阈值，形成迟滞
+    parameter bit FILTER_CENTER = 1'b0, // zero each inactive axis for board cursor navigation
     parameter integer REPEAT_DELAY_MS = 400,
     parameter integer REPEAT_PERIOD_MS = 100,
     parameter integer SAMPLE_TIMEOUT_MS = 100,
@@ -134,8 +135,8 @@ module joystick_adapter #(
                         cal_count <= cal_count + 1'b1;
                     end
                 end else begin
-                    dx <= delta_x;
-                    dy <= delta_y;
+                    dx <= FILTER_CENTER && classify_axis(delta_x,axis_x)==0 ? 15'sd0 : delta_x;
+                    dy <= FILTER_CENTER && classify_axis(delta_y,axis_y)==0 ? 15'sd0 : delta_y;
                     axis_x <= classify_axis(delta_x, axis_x);
                     axis_y <= classify_axis(delta_y, axis_y);
                     position_update <= 1'b1;

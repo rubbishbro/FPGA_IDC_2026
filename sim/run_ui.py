@@ -2,6 +2,7 @@
 """Sidebar functional regression and unchanged visualization regression (Icarus)."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -37,6 +38,12 @@ def main():
     for half in (7,11):
         results.append(run(f'system_{half}','tb_sidebar_system',BASE+['sim/unit/control/tb_sidebar_system.sv'],[('PIX_HALF',half)]))
     results.append(run('render','tb_sidebar_render',BASE+['sim/unit/control/tb_sidebar_render.sv'],args=[f'+image={OUT}/sidebar.ppm']))
+    for line in (ROOT/'sim/unit/control/sidebar_render.sha256').read_text().splitlines():
+        if not line or line.startswith('#'):continue
+        expected,name=line.split()
+        actual=hashlib.sha256((OUT/name).read_bytes()).hexdigest()
+        if actual!=expected:raise RuntimeError(f'{name} changed golden pixels: {actual}')
+    print('PASS sidebar golden pixels: both images unchanged')
     if args.legacy:
         packages=[s for s in BASE if s.endswith('pkg.sv')]
         src=packages+[str(path.relative_to(ROOT)) for path in sorted((ROOT/'FFT_spectrumshow/src').rglob('*'))

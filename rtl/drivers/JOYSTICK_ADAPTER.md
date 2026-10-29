@@ -1,6 +1,6 @@
 # 万向摇杆适配接口
 
-2026-10-27：独立 RTL、原始 X/Y 出口及 26 组回归已完成，默认参数有独立综合记录；适配器已在 sidebar_system 中接入交互。独立 LCD demo 无 ADC 引脚，HAS_JOYSTICK=0；真实板级方向/漂移/模拟前端仍待验收。采集 FSM 当前已有泄放、建立、完成锁存与超时，不再是早期盲读扫描。
+更新：2026-10-29。独立RTL、原始X/Y出口及26组回归已有；统一板级新增并启用逐轴死区过滤，默认参数有独立综合记录；适配器已在 sidebar_system 中接入交互。独立 LCD demo 无 ADC 引脚，HAS_JOYSTICK=0；真实板级方向/漂移/模拟前端仍待验收。采集 FSM 当前已有泄放、建立、完成锁存与超时，不再是早期盲读扫描。
 
 ## 接线与职责
 
@@ -44,7 +44,7 @@ sense4x4_joystick（ADC 采集）
 | `nav_valid / nav_ready` | 高电平握手，握手边沿取走一条事件；反压期间 valid 和载荷保持 |
 | `nav_dir / nav_repeat` | 方向及是否为持续推动产生的重复事件；回中也有方向变化事件 |
 
-`dx/dy` 保留中心附近的小偏移，没有做速度映射或全行程归一化。死区与迟滞作用于 `direction` 和导航事件；用连续偏移控制光标时，UI 应根据死区状态/阈值抑制漂移。连续输出只有在 `calibrated && !stale` 时有效。失联回中不产生 `position_update`，消费者还需观察 `stale`。
+默认FILTER_CENTER=0时，dx/dy保留中心附近的小偏移；方向/导航仍使用死区与迟滞。FILTER_CENTER=1时，每轴未进入有效方向就输出0，进入/退出沿用同一1400/900迟滞，另一轴不会因小噪声移动光标；没有额外速度映射或全行程归一化。连续输出只有在 `calibrated && !stale` 时有效。失联回中不产生 `position_update`，消费者还需观察 `stale`。
 
 导航是状态通知，允许合并：一个事件已经进入槽后，等待期间不得改载荷。期间发生的多个方向变化只保留最终状态；槽可用后补发该状态，不需要等待新的 ADC 样本。重复触发在忙时跳过，不累计成一串补发。因此 UI 长时间停顿后可能先收到一条已暂存的旧方向，再收到最新方向。需要实时光标状态时直接读连续输出，不把事件通道当无损轨迹记录。
 
@@ -57,6 +57,7 @@ sense4x4_joystick（ADC 采集）
 | `CLK_HZ` | 100000000 | 必须与输入采样时钟域一致；当前要求为 1000 的正整数倍 |
 | `CALIB_LOG2` | 4 | 上电或重新校准平均 16 对新样本，范围 0..16；0 为一对样本 |
 | `DEADZONE_ON / OFF` | 1400 / 900 | 每轴进入/退出方向阈值；满足 `0 <= OFF < ON <= 16383` |
+| `FILTER_CENTER` | 0 | 默认保持连续偏移兼容；1时逐轴按死区/迟滞屏蔽中心偏移，统一板级启用 |
 | `REPEAT_DELAY_MS` | 400 | 首次推动立即通知，持续推动约 400ms 后连发 |
 | `REPEAT_PERIOD_MS` | 100 | 后续连发周期 |
 | `SAMPLE_TIMEOUT_MS` | 100 | 采样中断后约 100ms 回中；应大于真实扫描周期 |
@@ -84,9 +85,11 @@ joystick_adapter #(.CLK_HZ(100_000_000)) u_joystick (
 );
 ```
 
-当前 sidebar_system 在 ctrl_clk 域内实例化适配器和菜单，LCD demo 控制时钟为 50MHz；坐标不直接送入 pix_clk。显示快照走整包 CDC。独立例化到其它控制域时，CLK_HZ 必须匹配；方向枚举与旧 ui_pkg 按键事件仍需显式映射。
+sidebar_system在ctrl_clk内实例化适配器和菜单，通过JOY_FILTER_CENTER参数传入过滤选项。独立LCD demo控制50MHz，统一板级100MHz并启用JOY_FILTER_CENTER=1；坐标不直接送入 pix_clk。显示快照走整包 CDC。独立例化到其它控制域时，CLK_HZ 必须匹配；方向枚举与旧 ui_pkg 按键事件仍需显式映射。
 
 ## 验证
+
+新增逐轴过滤用`python3 sim/run_board.py --test inputs`检查横推/对角进入、迟滞退出、回中及失联；当前板级实际接线和时序边界见[统一板级说明](../platform/tang_mega_138k_pro/README.md)。默认兼容行为仍由下列26组回归覆盖。
 
 ```bash
 python3 sim/run_joystick.py

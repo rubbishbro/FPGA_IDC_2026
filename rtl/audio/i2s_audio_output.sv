@@ -20,12 +20,19 @@ module i2s_audio_output #(
         $error("PCM_HEADROOM_BITS must be 0..53");
     localparam int SHIFT=9+PCM_HEADROOM_BITS;
     function automatic logic signed [15:0] pcm16(input logic signed [63:0] y);
-        logic signed [64:0] scaled;
+        logic signed [79:0] extended;
+        logic [15:0] integer_part;
+        logic fits;
         begin
-            // Widen before adding so an extreme positive 64-bit value cannot wrap.
-            scaled=($signed({y[63],y})+(65'sd1 << (SHIFT-1))) >>> SHIFT;
-            pcm16=scaled>65'sd32767 ? 16'sh7fff :
-                  scaled< -65'sd32768 ? 16'sh8000 : 16'(scaled);
+            // Exactly (y + 2**(SHIFT-1)) >>> SHIFT, followed by saturation.
+            // Check sign extension before rounding, so the carry chain is only
+            // 16 bits. Widening also handles every allowed headroom setting.
+            extended=$signed(y);
+            integer_part=extended[SHIFT +:16];
+            fits=extended[79:SHIFT+15]=={(65-SHIFT){extended[SHIFT+15]}};
+            if(!fits)pcm16=y[63]?16'sh8000:16'sh7fff;
+            else if(integer_part==16'h7fff && y[SHIFT-1])pcm16=16'sh7fff;
+            else pcm16=integer_part+16'(y[SHIFT-1]);
         end
     endfunction
     (* ASYNC_REG="TRUE" *) logic [1:0] arst_sync;
