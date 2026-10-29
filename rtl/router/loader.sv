@@ -34,7 +34,9 @@ module weight_loader #(
     localparam int DPW=(DIV4>1)?$clog2(DIV4):1;
     localparam int BWW=(BLANK_WAIT>1)?$clog2(BLANK_WAIT+1):1;
     localparam int TW=(TIMEOUT_CYCLES>1)?$clog2(TIMEOUT_CYCLES+1):1;
-    typedef enum logic [3:0] {W_IDLE,W_CHECK,W_HDR,W_DATA,W_WR,W_GAP,W_FILL,W_END} state_t;
+    localparam int QE_WAIT=(CLK_HZ/50>1)?CLK_HZ/50:1;   // 20ms status-register write cycle
+    localparam int QEW=(QE_WAIT>1)?$clog2(QE_WAIT+1):1;
+    typedef enum logic [4:0] {W_IDLE,W_QE,W_CHECK,W_HDR,W_DATA,W_WR,W_GAP,W_FILL,W_END} state_t;
     state_t st;
     logic [3:0] inst_r;
     logic [SLOTS*32-1:0] offsets_r;
@@ -52,6 +54,10 @@ module weight_loader #(
     logic [BWW-1:0] wait_cnt;
     logic [TW-1:0] timer;
     logic failed;
+    logic [1:0] qe_phase;   // 0=0x06, 3=CS gap, 1=0x01+SR1+SR2, 2=wait
+    logic [4:0] qe_bit;
+    logic [3:0] qe_gap;
+    logic [QEW-1:0] qe_wait;
     wire [32:0] inst_base=33'(inst_r)*33'(TBL_BYTES);
     wire [32:0] base_w=inst_base+{1'b0,offsets_r[slot_i*32 +: 32]};
     wire [32:0] check_offset={1'b0,offsets_r[check_i*32 +: 32]};
@@ -62,8 +68,19 @@ module weight_loader #(
     wire ph_last=dph==DPW'(DIV4-1);
     wire bad_ff=(ff_cnt+5'(rx_sh==32'hffffffff))>=16;
     wire bad_z=(z_cnt+5'(rx_sh==32'h00000000))>=16;
-    assign qspi_sck=(st==W_HDR || st==W_DATA) && (ph==1 || ph==2);
-    assign qspi_dq_oe=(st==W_HDR) && beat<32;
+    assign qspi_sck=((st==W_HDR || st==W_DATA) && (ph==1 || ph==2))
+                  || (st==W_QE && (qe_phase==0 || qe_phase==1) && (ph==1 || ph==2));
+    assign qspi_dq_oe=((st==W_HDR) && beat<32) || (st==W_QE && (qe_phase==0 || qe_phase==1));
+    function automatic logic [3:0] qe_bitval(input logic [1:0] p, input logic [4:0] b);
+        logic [7:0] v;
+        begin
+            if(p==0) v=8'h06;
+            else if(b<8) v=8'h01;
+            else if(b<16) v=8'h00;
+            else v=8'h02;
+            qe_bitval={3'b111,v[7-b[2:0]]};
+        end
+    endfunction
     function automatic logic [3:0] hdr(input logic [5:0] b);
         logic [7:0] cmd;
         begin
@@ -90,6 +107,7 @@ module weight_loader #(
             slot_i<=0;check_i<=0;mode_i<=0;fill_s<=0;fill_m<=0;fill_sel<=0;wr_sel<=0;
             ph<=0;dph<=0;beat<=0;nib_i<=0;word_i<=0;rx_sh<=0;
             ff_cnt<=0;z_cnt<=0;wait_cnt<=0;timer<=0;failed<=0;
+            qe_phase<=0;qe_bit<=0;qe_gap<=0;qe_wait<=0;
             busy<=0;done<=0;err<=0;error_code<=0;ld_we<=0;ld_addr<=0;ld_co<='0;ld_pm<='0;
             qspi_cs_n<=1;qspi_dq_o<=4'hf;
         end else begin
@@ -105,7 +123,30 @@ module weight_loader #(
                     for(integer i=0;i<SLOTS;i++) offsets_r[i*32 +: 32]<=
                         USE_OFFSETS?slot_offsets[i*32 +: 32]:32'(i*NOTE_BYTES);
                     busy<=1;err<=0;failed<=0;error_code<=0;timer<=0;check_i<=0;slot_i<=0;
-                    fill_s<=0;fill_m<=0;fill_sel<=0;st<=W_CHECK;
+                    fill_s<=0;fill_m<=0;fill_sel<=0;
+                    st<=W_QE;qe_phase<=0;qe_bit<=0;qe_gap<=0;qe_wait<=0;
+                    ph<=0;dph<=0;qspi_cs_n<=0;qspi_dq_o<=qe_bitval(2'd0,5'd0);
+                end
+                W_QE: begin
+                    if(qe_phase==2) begin
+                        if(qe_wait+1>=QEW'(QE_WAIT)) begin qspi_cs_n<=1;st<=W_CHECK;end
+                        else qe_wait<=qe_wait+1'b1;
+                    end else if(qe_phase==3) begin
+                        if(qe_gap==0) begin
+                            qspi_cs_n<=0;qe_phase<=1;qe_bit<=0;ph<=0;dph<=0;
+                            qspi_dq_o<=qe_bitval(2'd1,5'd0);
+                        end else qe_gap<=qe_gap-1'b1;
+                    end else if(ph_last) begin
+                        dph<=0;ph<=ph+1'b1;
+                        if(ph==2) qspi_dq_o<=qe_bitval(qe_phase,qe_bit+1'b1);
+                        else if(ph==3) begin
+                            if(qe_phase==0 && qe_bit==5'd7) begin
+                                qspi_cs_n<=1;qe_phase<=3;qe_gap<=4'd8;
+                            end else if(qe_phase==1 && qe_bit==5'd23) begin
+                                qspi_cs_n<=1;qe_phase<=2;qe_wait<=0;
+                            end else qe_bit<=qe_bit+1'b1;
+                        end
+                    end else dph<=dph+1'b1;
                 end
                 W_CHECK: begin
                     if(mask_r[check_i] && address_bad) begin
