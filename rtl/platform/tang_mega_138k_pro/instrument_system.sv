@@ -194,7 +194,83 @@ module instrument_system #(
         .clk(clk_core),.rst_n(core_n),.key_in(key0),.ev_valid(key0_valid),.ev(key0_event));
     key_ui_event #(.DEBOUNCE_CNT(KEY_DEBOUNCE),.LONG_CNT(KEY_LONG),.SHORT_EVENT(3),.LONG_EVENT(4)) u_key1(
         .clk(clk_core),.rst_n(core_n),.key_in(key1),.ev_valid(key1_valid),.ev(key1_event));
-    // Step 1: live UI, no synthetic FFT test source. Step 2 supplies these read ports.
+    // ---- FFT display chain (pix domain) ----
+    // One of 128 bars every 6 pixels, matching the FFT demo top.
+    reg [6:0] bar_idx_disp_r;
+    reg [2:0] xmod_d;
+    always_ff @(posedge clk_pix or negedge pix_n) begin
+        if (!pix_n) begin
+            xmod_d <= 3'd0;
+            bar_idx_disp_r <= 7'd0;
+        end else if (pix_x == 10'd0) begin
+            xmod_d <= 3'd0;
+            bar_idx_disp_r <= 7'd0;
+        end else if (xmod_d == 3'd5) begin
+            xmod_d <= 3'd0;
+            if (bar_idx_disp_r < 7'd127) bar_idx_disp_r <= bar_idx_disp_r + 7'd1;
+        end else begin
+            xmod_d <= xmod_d + 3'd1;
+        end
+    end
+    wire [6:0] bar_idx_disp = bar_idx_disp_r;
+    wire       rd_valid     = (pix_x < 10'd768);
+
+    // PCM tap: router result is in the 50 MHz core domain, FFT chain in pix.
+    function automatic logic signed [23:0] sat24(input logic signed [63:0] v);
+        begin
+            if (v > 64'sd8388607) sat24 = 24'sh7FFFFF;
+            else if (v < -64'sd8388608) sat24 = 24'sh800000;
+            else sat24 = v[23:0];
+        end
+    endfunction
+    logic [23:0] pcm24_core, pcm24_pix;
+    logic        pcm_toggle_core, pcm_toggle_s1, pcm_toggle_s2, pcm_valid_pix;
+    always_ff @(posedge clk_core or negedge core_n) begin
+        if (!core_n) begin
+            pcm_toggle_core <= 1'b0;
+            pcm24_core      <= 24'sd0;
+        end else if (sample_valid) begin
+            pcm24_core      <= sat24(sample_value >>> 2);
+            pcm_toggle_core <= ~pcm_toggle_core;
+        end
+    end
+    always_ff @(posedge clk_pix or negedge pix_n) begin
+        if (!pix_n) begin
+            pcm_toggle_s1 <= 1'b0;
+            pcm_toggle_s2 <= 1'b0;
+            pcm_valid_pix <= 1'b0;
+            pcm24_pix     <= 24'sd0;
+        end else begin
+            pcm_toggle_s1 <= pcm_toggle_core;
+            pcm_toggle_s2 <= pcm_toggle_s1;
+            pcm_valid_pix <= pcm_toggle_s1 ^ pcm_toggle_s2;
+            if (pcm_toggle_s1 ^ pcm_toggle_s2) pcm24_pix <= pcm24_core;
+        end
+    end
+
+    wire [9:0] q_y_fft, q_ov_fft;
+    wire [9:0] wave_rd_data_fft, wave_rd_addr_fft;
+    wire [39:0] curve_rd_data_fft;
+    wire [9:0] curve_rd_addr_fft;
+    real_audio_chain u_fft_chain (
+        .clk_core    (clk_pix),
+        .rst_core_n  (pix_n),
+        .clk_pix     (clk_pix),
+        .rst_pix_n   (pix_n),
+        .pcm_valid   (pcm_valid_pix),
+        .pcm_data    (pcm24_pix),
+        .frame_pulse (frame_pulse),
+        .rd_bar_idx  (bar_idx_disp),
+        .rd_valid    (rd_valid),
+        .rd_q_y      (q_y_fft),
+        .rd_q_ov     (q_ov_fft),
+        .wave_rd_addr(wave_rd_addr_fft),
+        .wave_rd_data(wave_rd_data_fft),
+        .curve_rd_addr(curve_rd_addr_fft),
+        .curve_rd_data(curve_rd_data_fft)
+    );
+
+    // Step 2: live FFT read ports feed the sidebar/draw chain.
     sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),.FONT_FILE(FONT_FILE),
                      .JOY_DEADZONE_ON(200),.JOY_DEADZONE_OFF(100)) u_ui(
         .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
@@ -206,7 +282,7 @@ module instrument_system #(
         .backend_rsp_ready(backend_rsp_ready),.backend_response(backend_response),
         .backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),
         .frame_pulse(frame_pulse),.lcd_valid(de),.pix_x(pix_x),.pix_y(pix_y),
-        .q_y(10'd0),.q_ov(10'd0),.wave_rd_data(10'd0),.wave_rd_addr(),.curve_rd_data(40'd0),.curve_rd_addr(),
+        .q_y(q_y_fft),.q_ov(q_ov_fft),.wave_rd_data(wave_rd_data_fft),.wave_rd_addr(wave_rd_addr_fft),.curve_rd_data(curve_rd_data_fft),.curve_rd_addr(curve_rd_addr_fft),
         .lcd_r(lcd_r),.lcd_g(lcd_g),.lcd_b(lcd_b),.lcd_valid_out(display_de),
         .active_values(values),.ui_scene(scene),.sidebar_width());
     assign lcd_en=display_de;

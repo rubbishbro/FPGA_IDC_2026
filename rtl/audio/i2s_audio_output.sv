@@ -58,13 +58,13 @@ module i2s_audio_output #(
     logic signed [15:0] result_pcm;
     logic wready,rvalid,rready;
     logic [15:0] token, rdata;
-    assign token=active ? (in_valid ? pcm16(in_data) : (pending ? result_pcm : 16'sd0)) : 16'sd0;
+    assign token=active ? (in_valid ? pcm16(in_data * 64'sd12) : (pending ? result_pcm : 16'sd0)) : 16'sd0;
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin pending<=0;warmup<=0;result_pcm<=0;deadline_miss<=0;overflow<=0;end
         else begin
             if(!active) begin pending<=0;warmup<=0;end
             else if(in_valid) begin
-                result_pcm<=pcm16(in_data);pending<=1;
+                result_pcm<=pcm16(in_data * 64'sd12);pending<=1;
                 if(pending && !sample_tick) overflow<=1; // unexpected duplicate result
             end
             if(sample_tick) begin

@@ -13,14 +13,14 @@ set_option -oreg_in_iob 1
 # PMOD0 and DBG_UART.RX share SSPI/CPU-function pins. No AE350/SSPI boot consumer.
 set_option -use_sspi_as_gpio 1
 set_option -use_cpu_as_gpio 1
-# On-board 128Mbit config NOR is read by the loader: free its MSPI pins as GPIO.
-set_option -use_mspi_as_gpio 1
 set fh [open "$board/sources.f" r]
 foreach path [split [read $fh] "\n"] {
     if {[string trim $path] ne ""} {add_file "$root/$path"}
 }
 close $fh
-file copy -force "$root/FFT_spectrumshow/board/sidebar_font.mem" "$out/instrument_board/sidebar_font.mem"
+foreach m [glob -nocomplain "$root/FFT_spectrumshow/board/*.mem"] {
+    file copy -force $m "$out/instrument_board/[file tail $m]"
+}
 add_file "$board/instrument_board.cst"
 add_file "$board/instrument_board.sdc"
 run syn
