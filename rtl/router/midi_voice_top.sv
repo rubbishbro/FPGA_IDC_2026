@@ -8,7 +8,7 @@ module midi_voice_top #(
     parameter logic [7:0] PAD_NOTE_ON_TH=8'd230, PAD_NOTE_OFF_TH=8'd26,
     // AUDIO_ENABLE requires audio_clk; actual Fs = audio_clk / (64*AUDIO_CLK_DIV).
     parameter bit AUDIO_ENABLE=1'b0,
-    parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=3,
+    parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=1,
     parameter bit NOTE_BANKS=1'b0, SINGLE_SOURCE=1'b1,
     // 开启后由backend事务独占配置；旧并行配置输入不再是第二个写入者。
     parameter bit CONFIG_BACKEND=1'b0,
