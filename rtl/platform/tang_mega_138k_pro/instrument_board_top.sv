@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 module instrument_board_top #(
-    parameter int BAUD=115200,KEY_DEBOUNCE=2_000_000,KEY_LONG=80_000_000,
+    parameter int BAUD=115200,KEY_DEBOUNCE=1_000_000,KEY_LONG=40_000_000,
     parameter bit NOTE_BANKS=0,BT_HAS_STATE=0,
     parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
     parameter logic [6:0] FIRST_MIDI=48

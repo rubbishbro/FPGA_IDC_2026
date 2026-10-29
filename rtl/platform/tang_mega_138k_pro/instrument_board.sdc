@@ -1,5 +1,5 @@
 create_clock -name clk50 -period 20.000 [get_ports {clk}]
-create_generated_clock -name clk_core -source [get_ports {clk}] -master_clock clk50 -multiply_by 2 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT0}]
+create_generated_clock -name clk_core -source [get_ports {clk}] -master_clock clk50 -divide_by 1 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT0}]
 create_generated_clock -name clk_audio -source [get_ports {clk}] -master_clock clk50 -divide_by 4 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT1}]
 create_generated_clock -name clk_pix -source [get_ports {clk}] -master_clock clk50 -multiply_by 2 -divide_by 3 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT2}]
 

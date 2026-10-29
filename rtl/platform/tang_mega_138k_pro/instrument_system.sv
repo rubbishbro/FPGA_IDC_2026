@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // One synth, one configuration owner; independent core/audio/pixel clocks.
 module instrument_system #(
-    parameter int CLK_HZ=100_000_000, BAUD=115200,
+    parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=0, BT_HAS_STATE=0,
     parameter logic [6:0] FIRST_MIDI=48,
@@ -195,7 +195,8 @@ module instrument_system #(
     key_ui_event #(.DEBOUNCE_CNT(KEY_DEBOUNCE),.LONG_CNT(KEY_LONG),.SHORT_EVENT(3),.LONG_EVENT(4)) u_key1(
         .clk(clk_core),.rst_n(core_n),.key_in(key1),.ev_valid(key1_valid),.ev(key1_event));
     // Step 1: live UI, no synthetic FFT test source. Step 2 supplies these read ports.
-    sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),.FONT_FILE(FONT_FILE)) u_ui(
+    sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),.FONT_FILE(FONT_FILE),
+                     .JOY_DEADZONE_ON(200),.JOY_DEADZONE_OFF(100)) u_ui(
         .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
         .key_valid(key0_valid || key1_valid),.key_event(key0_valid ? key0_event : key1_event),
         .ext_cfg_valid(ext_valid),.ext_cfg_ready(ext_ready),.ext_cfg_request(ext_request),
