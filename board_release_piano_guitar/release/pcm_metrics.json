@@ -1,0 +1,38 @@
+[
+  {
+    "actual_hz": 48828.125,
+    "clipped_samples": 0,
+    "rms_pcm": 1040.036132771695,
+    "samples": 4096,
+    "name": "piano",
+    "peak_pcm": 6677.0,
+    "wave_hz": 48828
+  },
+  {
+    "actual_hz": 48828.125,
+    "clipped_samples": 0,
+    "rms_pcm": 2378.6054950996727,
+    "samples": 4096,
+    "name": "guitar",
+    "peak_pcm": 6238.0,
+    "wave_hz": 48828
+  },
+  {
+    "actual_hz": 48828.125,
+    "clipped_samples": 0,
+    "rms_pcm": 3488.0366134821734,
+    "samples": 4096,
+    "name": "piano_all16",
+    "peak_pcm": 13688.0,
+    "wave_hz": 48828
+  },
+  {
+    "actual_hz": 48828.125,
+    "clipped_samples": 0,
+    "rms_pcm": 6281.440931702438,
+    "samples": 4096,
+    "name": "guitar_all16",
+    "peak_pcm": 20772.0,
+    "wave_hz": 48828
+  }
+]

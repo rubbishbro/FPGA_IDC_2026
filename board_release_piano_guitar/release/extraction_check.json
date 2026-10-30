@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-30",
+  "baseline": "User-validated piano/guitar board release with FLASH_BASE=0x800000",
+  "production_sources": 88,
+  "production_hashes_match": true,
+  "standalone_modelsim": "PASS tb_phase1 checks=16524 loaded=16384 samples=16921",
+  "modelsim_errors": 0,
+  "simulation_flash_base": 0,
+  "relocated_flash_simulation_covered": false,
+  "pcm_clipped_samples": 0,
+  "release_zip_sha256": "7ef889249db0616ed29bfdce82bcc8046ea42434bc19821dee02389c1bdd99eb",
+  "rtl_modified_during_extraction": false
+}

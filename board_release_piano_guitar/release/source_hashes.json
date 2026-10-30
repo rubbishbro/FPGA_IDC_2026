@@ -1,0 +1,354 @@
+[
+  {
+    "sha256": "b31381a932eb5e41e59116e6d14c3cf47acf5daebde3574fc7dcbf504d7e5562",
+    "file": "rtl/config_pkg.sv"
+  },
+  {
+    "sha256": "17c906d42d35ebe550c380a16a632962696c7cf77e04bf4cb36a30716f25b05d",
+    "file": "rtl/platform/tang_mega_138k_pro/phase1_resources_pkg.sv"
+  },
+  {
+    "sha256": "1ac8ceeefcc2d1f6a2760462287d1faac26c820bb8c58d23b69c00872619a2bf",
+    "file": "rtl/math/pkg/fxp_pkg.sv"
+  },
+  {
+    "sha256": "185fa63bf0659e9e593ae8e939ceee9d3dbf605dd5a7e61a4bc936f494b188ad",
+    "file": "rtl/drivers/pkg/clk_rst_pkg.sv"
+  },
+  {
+    "sha256": "b79765d20950d681a468d589cf41403e0d1c410d3332077781d71abaaee9e95b",
+    "file": "rtl/drivers/pkg/pad_driver_pkg.sv"
+  },
+  {
+    "sha256": "265097bbbfa9bb6fbf4a08e6d9df7ffe1084b908a60e625edbd4541d7ca72abe",
+    "file": "rtl/router/pkg/modal_step_pkg.sv"
+  },
+  {
+    "sha256": "bf03bddfbca8d96ecfd841c11d51c48ae3d9b049ea3ae274c97631a6193512cd",
+    "file": "rtl/router/pkg/router_pkg.sv"
+  },
+  {
+    "sha256": "4b193bf2082764d6e04c4e430cd328521f979b469a8b87271614bafa26266ea6",
+    "file": "rtl/router/pkg/sustain_profiles_pkg.sv"
+  },
+  {
+    "sha256": "a4f516aea95063f27e661f2241875e5e48f35949b87b65e10648909e10c35d8a",
+    "file": "rtl/router/parts/envelope.sv"
+  },
+  {
+    "sha256": "0e0d49fc987259d8da5259b46ae96991792418b8840b8caf9c9f595dfd317af4",
+    "file": "rtl/router/parts/excitation.sv"
+  },
+  {
+    "sha256": "7720a147dc9ba0ddce6123720ee3e3c19fc9eb262e0b8387596ff2d73f00daa4",
+    "file": "rtl/router/parts/modulation.sv"
+  },
+  {
+    "sha256": "dcfbf80fef93b87dedf38f8b9b6f3b700128a5530c49a6305779cb5f4c014bce",
+    "file": "rtl/router/parts/body_biquad.sv"
+  },
+  {
+    "sha256": "39bf1fa030991a1ebbe79321350d5e03d4dc96092f40ee6d55de3931dcf7e806",
+    "file": "rtl/router/parts/comb_reverb.sv"
+  },
+  {
+    "sha256": "420b53f95862753f3a52ebc50594151b021e7400c00167280a5dd5e1e9051453",
+    "file": "rtl/router/engines/eng0.sv"
+  },
+  {
+    "sha256": "1d7f7a20774adf846461f8ac84e2b8bcce150198583112b7996cfc6b68316a5c",
+    "file": "rtl/router/engines/eng1.sv"
+  },
+  {
+    "sha256": "edfed460fdf107e57d28fcb1eb77d5223d0666e10c82a116a68a1f8b2535c035",
+    "file": "rtl/router/routers/eng_router.sv"
+  },
+  {
+    "sha256": "39b8e0f0101d3849ee017030210d3b865b3626b7670f2768f9df982b1b3072c1",
+    "file": "rtl/router/routers/performance_input_mux.sv"
+  },
+  {
+    "sha256": "0034aea6b36b10dcee53bc068041c59f175164e14e59bfc611c4eed30061eb4f",
+    "file": "rtl/router/routers/env_router.sv"
+  },
+  {
+    "sha256": "b9c4152b85dcb00fee1e7e215d4424a1ffbed9c2c96238a922d7819c0026b070",
+    "file": "rtl/router/routers/exc_router.sv"
+  },
+  {
+    "sha256": "347b0160dca18f45393743dc1771b0dcd2c5d2cdac6df5800e9c4441cf9fea3e",
+    "file": "rtl/router/routers/mod_router.sv"
+  },
+  {
+    "sha256": "7614d32cc77dfa502b9c5192587908a9c0756e19e78774ea3dc1b4c244b14faf",
+    "file": "rtl/router/routers/body_router.sv"
+  },
+  {
+    "sha256": "664084cc534f05008d21f647925224a4b302032499588c9ba6bdaf59526b52dd",
+    "file": "rtl/router/routers/reverb_router.sv"
+  },
+  {
+    "sha256": "500f979b7c8c8b00911038af1839569f5361390f87c55d501654de71686e00ad",
+    "file": "rtl/router/loader.sv"
+  },
+  {
+    "sha256": "a2727f678ae183b229ab4042409eced54b1a6841707ea952bd8ce0b79e6ecbbd",
+    "file": "rtl/router/voice_router.sv"
+  },
+  {
+    "sha256": "8dd13f8c3806b097787510ec78be41c165ae0994e8098b5fb07ab5823652f68f",
+    "file": "rtl/audio/audio_async_fifo.sv"
+  },
+  {
+    "sha256": "eb2a31dd7dcbe3897bfbf23aca27be07cf6a5ea8de4ae7f9d4468e804d0a9aab",
+    "file": "rtl/audio/i2s_amp_tx.sv"
+  },
+  {
+    "sha256": "1134237a243647d02e27e412601134a00e5db84c917eb14218fe9b849da080ca",
+    "file": "rtl/audio/i2s_audio_output.sv"
+  },
+  {
+    "sha256": "2d67404ec42d3c63c833a6b187c1f3a8528b72ffb82009367c1e3f5e66d9b849",
+    "file": "rtl/math/math.sv"
+  },
+  {
+    "sha256": "8eb773b953ed88d518daa6e5bf24e38937fcee11de253bc3d7f14ed51a40769a",
+    "file": "rtl/drivers/pad_driver.sv"
+  },
+  {
+    "sha256": "3fb4120f0cd00bfd64e9a00526ceb5560baedc3392290b29f07f2913772d1e73",
+    "file": "rtl/drivers/gowin_adc/gowin_adc.v"
+  },
+  {
+    "sha256": "2776e733382506aa4b3f35b1ad024a8938c6858065609fe2144be04911f25e12",
+    "file": "rtl/midi/midi_note_state.sv"
+  },
+  {
+    "sha256": "d044289ebc19d44d564cdfaf575c1afed59a23361dc5c35320883c6ae610178e",
+    "file": "rtl/midi/midi_instrument_map.sv"
+  },
+  {
+    "sha256": "c87527d734798581fe3d8b9999dcb0c9549eba2744c7f3dbe456c2c66b3f1900",
+    "file": "rtl/router/midi_voice_top.sv"
+  },
+  {
+    "sha256": "458e8b2745893f76ad04d2617de6052fb5ecf16c08b26528442ebb9a050034df",
+    "file": "rtl/comm/comm_pkg.sv"
+  },
+  {
+    "sha256": "b72f1073ba01d59adf9312e8333c6cf85acbe9580bb8224232940554fd4b2be8",
+    "file": "rtl/drivers/common/comm_fifo.sv"
+  },
+  {
+    "sha256": "05b49aa76297a7be5a821519ee036ac3f5f7bb4ff1e73ed747da0725aaf1a024",
+    "file": "rtl/drivers/uart/comm_uart_rx.sv"
+  },
+  {
+    "sha256": "bb0896af4fe96e6932207970fa84396075e398d91d3ee2259a949a70eae23427",
+    "file": "rtl/drivers/uart/comm_uart_tx.sv"
+  },
+  {
+    "sha256": "615432097ba3f1ad79ba765e97fe635a217f19490e448e6c1b32e62cf5554e4f",
+    "file": "rtl/drivers/uart/uart_driver.sv"
+  },
+  {
+    "sha256": "197740fec94472c11adad228e1fb7b7f02928d7221fbf1edd4829ada37b28c44",
+    "file": "rtl/drivers/bluetooth_hc05/comm_hc05_status.sv"
+  },
+  {
+    "sha256": "5913358330d64644f24ca06e5d60de7c9147cfb90a4bfcf65a1c3a19f922ebbd",
+    "file": "rtl/drivers/bluetooth_hc05/hc05_driver.sv"
+  },
+  {
+    "sha256": "1dbf89622724340baa83e680090b3ae867b6324e720bcc9e1c94b6af0606cfdb",
+    "file": "rtl/comm/slip_frame_rx.sv"
+  },
+  {
+    "sha256": "13840b7c7098e550da639898617fc219ef91c915c2389f80a4297fa25dec64d7",
+    "file": "rtl/comm/slip_frame_tx.sv"
+  },
+  {
+    "sha256": "0b43ef54fa4dec9bdf757a148d1743af9b9ab86e9ddeed759550dabed83dbbef",
+    "file": "rtl/comm/transport_link.sv"
+  },
+  {
+    "sha256": "bbddfd5517d53cb92f6546c7da2662f2204e4c1ba0b0015ff15f0047008dc701",
+    "file": "rtl/comm/frame_arbiter.sv"
+  },
+  {
+    "sha256": "f56201a20b2ad60e07c55a2f454c7aad538156788246c774385ef5a8dedae684",
+    "file": "rtl/comm/session_ctrl.sv"
+  },
+  {
+    "sha256": "28a140842a40fc3bff1b84a10fe874cdf9a6998013927d65a002036cae3e34c8",
+    "file": "rtl/drivers/analyzer/midi_analyzer.sv"
+  },
+  {
+    "sha256": "3a0675e63369e4c4b712500c8a0353036dc989525e0f67d6274a5e76b2b35e63",
+    "file": "rtl/drivers/analyzer/config_analyzer.sv"
+  },
+  {
+    "sha256": "5526ce56128d76c9bc8bc6da06c50cb38cb6180ed77f438d5513f2e962d6e552",
+    "file": "rtl/drivers/analyzer/parser_dispatch.sv"
+  },
+  {
+    "sha256": "49ab31a7f01d654e73eae32720baefaef437e2047461aa103b8b216d675f4af2",
+    "file": "rtl/comm/comm_top.sv"
+  },
+  {
+    "sha256": "1717771f84604859ccd829098badd17177be1554ed2e658f38726f84a219edff",
+    "file": "rtl/drivers/pkg/joystick_pkg.sv"
+  },
+  {
+    "sha256": "718e371f6d16102a5689f1237f7f7c670a5bf954fa56c5cefed7371f780ebdfc",
+    "file": "FFT_spectrumshow/src/ui/ui_pkg.sv"
+  },
+  {
+    "sha256": "0f649c1d648cccabe92a9121218b94e34a176ae4ae50c38ef6d5ca93b4ab3ed9",
+    "file": "FFT_spectrumshow/src/ui/sidebar_font_pkg.sv"
+  },
+  {
+    "sha256": "4b1eca013d2a91a9fe27fff10db29ffa6d3f3de62618b607feb3d99c6c4f84ca",
+    "file": "rtl/control_loop.sv"
+  },
+  {
+    "sha256": "512ad01c70a1d1c2f4fa6ffe39207c18f2dc18f0b5d894be3c6d6b9d1ee331b3",
+    "file": "rtl/config_dispatch.sv"
+  },
+  {
+    "sha256": "19bafef38c944ba5e205e945dbc6e80023067a498d9c69800beed95008c4832e",
+    "file": "rtl/drivers/joystick_adapter.sv"
+  },
+  {
+    "sha256": "ac2c6f971f58b0d923e18cb5bde7ed4f5c07b8fdff9ba8b493aa9833878d54cf",
+    "file": "FFT_spectrumshow/src/ui/sidebar_mailbox.sv"
+  },
+  {
+    "sha256": "f3b1c716e3170953c4adc7989875f623d194a8ebc320e340ca7cb3100b7ad612",
+    "file": "FFT_spectrumshow/src/ui/sidebar_ctrl.sv"
+  },
+  {
+    "sha256": "7536bf8131463c6a6c6614f0a81b2370956ed26f6663e3e12fdedd01c0742e98",
+    "file": "FFT_spectrumshow/src/ui/sidebar_system.sv"
+  },
+  {
+    "sha256": "b262e18664755b84c9a5e339dec2e414802e6113b114485a1ca9abad9750417e",
+    "file": "FFT_spectrumshow/src/display/lcd_sidebar.sv"
+  },
+  {
+    "sha256": "af71639fa6b40cc17c6b6d4f3fc786e606288cec1e13c51efa02568f04b76082",
+    "file": "FFT_spectrumshow/src/display/lcd_draw.v"
+  },
+  {
+    "sha256": "f4bfd43efddb4231d7f96d4c40d1683c45a7d5a74fe96108fadb729f79fb53a9",
+    "file": "FFT_spectrumshow/src/display/lcd_ui.sv"
+  },
+  {
+    "sha256": "94dfc5166587b493ab709dc4987d576e18bcb1f4755510dc58b3c624a59c5e1f",
+    "file": "FFT_spectrumshow/src/display/lcd_fft.v"
+  },
+  {
+    "sha256": "82467a13d6e157359246cc761fd64f8f17aaa85376540b333e334c04172ad401",
+    "file": "FFT_spectrumshow/src/display/lcd_wave.v"
+  },
+  {
+    "sha256": "7260e1105731d557c24bec9c38ac52a13b124a284a6dd1a0e889a1b6bfd16b9f",
+    "file": "FFT_spectrumshow/src/display/lcd_curve_spectrum.sv"
+  },
+  {
+    "sha256": "427629d66645d65861039dc204210edc4dfb282d4712fa7b18d063dc3cc5b062",
+    "file": "FFT_spectrumshow/src/display/lcd_background.v"
+  },
+  {
+    "sha256": "fce0b8dd7cde327ab34ed80493e2fa1b6e47055d28987c375ef047c3df5a4034",
+    "file": "FFT_spectrumshow/src/ui/key_ui_event.sv"
+  },
+  {
+    "sha256": "47101cf91fd9714075100d472601ebbe5b3e38960b7df8f6e95311a8cffb9310",
+    "file": "FFT_spectrumshow/src/display/lcd_timing.v"
+  },
+  {
+    "sha256": "3f3662933904d3e46a1bfc3a60d59a8f1659124a70a9d3322792e3e896569c0d",
+    "file": "FFT_spectrumshow/src/display/cordic_polar.sv"
+  },
+  {
+    "sha256": "fb97df798544f5b37f3f810c07b5df5cc8ec693553f646038cba10263585aae0",
+    "file": "FFT_spectrumshow/src/display/lcd_polar_curve.sv"
+  },
+  {
+    "sha256": "573fe2d959e1c9c46c2ee5ce80e5ca1c25695f7a19b50552fb32bcdf0cf4246d",
+    "file": "FFT_spectrumshow/src/fft/fft1024_iter.sv"
+  },
+  {
+    "sha256": "8ed985c00b0a75ffeee5059987d93c32e5026647334af9cbf8954cd70d9fd018",
+    "file": "FFT_spectrumshow/src/fft/fft_ctrl.v"
+  },
+  {
+    "sha256": "9ab1d302aab9411f438ecd9179269e526a9fa1c10ccda2d4e396ce4c42bfb87b",
+    "file": "FFT_spectrumshow/src/spectrum/spectrum_map.v"
+  },
+  {
+    "sha256": "42f9e8f9d7e59c3b38701e22629aa91859487e7be9a9697f528dbb56d8b7a40a",
+    "file": "FFT_spectrumshow/src/audio/real_audio_chain.v"
+  },
+  {
+    "sha256": "e85f0b4b479a3f28b3a60cefe7fd7010380a9413a9b2e58c67355a30f74600d6",
+    "file": "FFT_spectrumshow/src/audio/time_pingpong.v"
+  },
+  {
+    "sha256": "8b6b75cf3b4468b55a2ddb0868bc5b258079b559e2e8cae16d85f01000c776d3",
+    "file": "FFT_spectrumshow/src/audio/wave_capture.sv"
+  },
+  {
+    "sha256": "22a9fd5232348aa090b141c15634c6678ddabb07a30ded4b74376338e3011859",
+    "file": "FFT_spectrumshow/src/display/display_frame_buffer.sv"
+  },
+  {
+    "sha256": "bb7bb65c4c364fe1c425da1c3e4fdfeee5f313fe756d69286c9e048c54a7407e",
+    "file": "FFT_spectrumshow/src/display/waterfall_store.sv"
+  },
+  {
+    "sha256": "9e05177f0dc9aea416c987118f83494ad5803e3b194b531eeffea15a002768c9",
+    "file": "FFT_spectrumshow/src/display/wave_frame_buffer.sv"
+  },
+  {
+    "sha256": "6471b272f810196b597097e030a101577af322b4c011b3c78749e442e6753d39",
+    "file": "FFT_spectrumshow/src/display/trail_calc.sv"
+  },
+  {
+    "sha256": "a8bdee60b00a1148005c5cfab0ec04cfcf4956ee3efeb3e69a1536fb22e6af45",
+    "file": "FFT_spectrumshow/src/display/trail_store.sv"
+  },
+  {
+    "sha256": "412eb02dccca11cde031578d288070af01d5ade993d2a7cb3e1c587970494f59",
+    "file": "FFT_spectrumshow/src/display/curve_calc.sv"
+  },
+  {
+    "sha256": "93cf2a5c481a39678a156cae5b43d236b32036472ffb33fdf0b1bfeba78a0513",
+    "file": "FFT_spectrumshow/src/display/curve_store.sv"
+  },
+  {
+    "sha256": "958037086e5f0053c598b994a3e61e38e41c0c5297f1aaff8a6016db52da7b92",
+    "file": "rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v"
+  },
+  {
+    "sha256": "3f08b9d7f7edea3aedb9f4ff5e58691813e2a5f74af4ed9f422a0293d8567458",
+    "file": "rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v"
+  },
+  {
+    "sha256": "491827287cb3fd397d3c08739b2c5d1094761a32272289d714496a0fb01b77ad",
+    "file": "rtl/platform/tang_mega_138k_pro/ip/pll_init.v"
+  },
+  {
+    "sha256": "ab2a235181c63ebe8404f8602f40b143f2d5bb96a7816eaf64d2cbad10e13262",
+    "file": "rtl/platform/tang_mega_138k_pro/board_clock_reset.sv"
+  },
+  {
+    "sha256": "3d35a8077249c7926d26879015a1ae46800ce9ba5bcba451d17e03b76de40f84",
+    "file": "rtl/platform/tang_mega_138k_pro/instrument_system.sv"
+  },
+  {
+    "sha256": "dd8766e0eaac8695320596248bd08b2a903ebea88aa5859940cd06501b7b6872",
+    "file": "rtl/platform/tang_mega_138k_pro/instrument_board_top.sv"
+  }
+]

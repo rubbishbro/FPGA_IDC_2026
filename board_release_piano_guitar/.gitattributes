@@ -1,0 +1,4 @@
+# Preserve the exact bytes of this hardware-tested snapshot and its SHA256 files.
+* -text
+*.bin binary
+*.zip binary

@@ -1,0 +1,52 @@
+{
+  "status": "passed",
+  "report": "D:\\FPGA_IDC_2026\\build\\main_src\\build\\instrument_board\\instrument_board\\impl\\pnr\\instrument_board_tr_content.html",
+  "checks": {
+    "Recovery_Slack_Table": {
+      "worst_slack_ns": 10.313,
+      "rows": 50
+    },
+    "Removal_Slack_Table": {
+      "worst_slack_ns": 0.284,
+      "rows": 25
+    },
+    "Setup_Slack_Table": {
+      "worst_slack_ns": 1.21,
+      "rows": 125
+    },
+    "MIN_PULSE_WIDTH_TABLE": {
+      "worst_slack_ns": 6.942,
+      "rows": 10
+    },
+    "Hold_Slack_Table": {
+      "worst_slack_ns": 0.139,
+      "rows": 25
+    },
+    "setup_violations": 0,
+    "hold_violations": 0
+  },
+  "clocks": {
+    "clk_core": {
+      "target_mhz": 50.0,
+      "fmax_mhz": 55.266
+    },
+    "clk_audio": {
+      "target_mhz": 12.5,
+      "fmax_mhz": 19.31
+    },
+    "clk50": {
+      "target_mhz": 50.0,
+      "fmax_mhz": 274.019
+    },
+    "clk_pix": {
+      "target_mhz": 33.333,
+      "fmax_mhz": 34.733
+    }
+  },
+  "simulation": "PASS tb_phase1 checks=16524 loaded=16384 samples=16921",
+  "simulation_scope": "Existing phase1 regression uses FLASH_BASE=0; it does not validate the relocated board address.",
+  "board_validation": "User reported programming validation passed after the Flash-base fix; not independently repeated by this script.",
+  "flash_start_address": 8388608,
+  "bitstream_source": "D:\\FPGA_IDC_2026\\build\\main_src\\build\\instrument_board\\instrument_board\\impl\\pnr\\instrument_board.fs",
+  "stability": "Guitar passed; marginal piano baseline poles recorded in stability.json"
+}

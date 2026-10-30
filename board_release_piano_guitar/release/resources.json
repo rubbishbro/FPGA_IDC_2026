@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "format": "ENG0_MATRIX_FIXED_Q",
+  "note_banks": false,
+  "resource_mask": 3,
+  "storage_modes": 64,
+  "record_bytes": 64,
+  "notes": [
+    40,
+    42,
+    44,
+    46,
+    48,
+    50,
+    52,
+    54,
+    56,
+    58,
+    60,
+    62,
+    64,
+    67,
+    71,
+    76
+  ],
+  "table_bytes": 65536,
+  "flash_start_address": 8388608,
+  "image_bytes": 131072,
+  "configuration_start_address": 0,
+  "simulation_flash_start_address": 0,
+  "resource_sample_hz": 48000,
+  "board_sample_hz": 48828.125,
+  "pcm_headroom_bits": 4,
+  "image_sha256": "2305d756eb0e84d3f84e7b5b24fd9c658c0971ebc5e021bdd4ed1ba04808b15a",
+  "instruments": [
+    {
+      "source_sha256": "30abd5eb2795267cd6739c70809b9fa872d11153c6347f4b5b2ae3214d1dc2a0",
+      "active_modes": 64,
+      "name": "piano",
+      "offset": 0,
+      "bytes": 65536,
+      "id": 0,
+      "flash_address": 8388608
+    },
+    {
+      "source_sha256": "a91de305f7be4cb12d040a724cb93b1bca7abac2515d685abc8ec4a4d7de8e21",
+      "active_modes": 20,
+      "name": "guitar",
+      "offset": 65536,
+      "bytes": 65536,
+      "id": 1,
+      "flash_address": 8454144
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+{
+  "piano_baseline_preserved": true,
+  "modulated_worst_radius": 0.9999865961957163,
+  "guitar_passed": true,
+  "guitar_modulated_modes": 4,
+  "guitar_pressure_levels_checked": 256,
+  "base_worst_radius": 1.000000028001929,
+  "base_unstable": [
+    {
+      "mode": 44,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000209466924
+    },
+    {
+      "mode": 45,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000039176051
+    },
+    {
+      "mode": 46,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.000000001132674
+    },
+    {
+      "mode": 47,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000018750146
+    },
+    {
+      "mode": 48,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.000000028001929
+    },
+    {
+      "mode": 52,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000126639481
+    },
+    {
+      "mode": 55,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.000000025840787
+    },
+    {
+      "mode": 57,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000114827425
+    },
+    {
+      "mode": 62,
+      "inst": 0,
+      "slot": 13,
+      "radius": 1.0000000005262641
+    },
+    {
+      "mode": 45,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000142708845
+    },
+    {
+      "mode": 47,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000218908742
+    },
+    {
+      "mode": 48,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.000000015171321
+    },
+    {
+      "mode": 50,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000197162218
+    },
+    {
+      "mode": 53,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000188868852
+    },
+    {
+      "mode": 55,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000129949878
+    },
+    {
+      "mode": 57,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000028082168
+    },
+    {
+      "mode": 61,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000002556202
+    },
+    {
+      "mode": 62,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000095122146
+    },
+    {
+      "mode": 63,
+      "inst": 0,
+      "slot": 14,
+      "radius": 1.0000000048734947
+    },
+    {
+      "mode": 44,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000147920287
+    },
+    {
+      "mode": 45,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000034086272
+    },
+    {
+      "mode": 46,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000044834412
+    },
+    {
+      "mode": 47,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000006067642
+    },
+    {
+      "mode": 48,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000039135248
+    },
+    {
+      "mode": 52,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000042554362
+    },
+    {
+      "mode": 54,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000003964657
+    },
+    {
+      "mode": 55,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.000000002384172
+    },
+    {
+      "mode": 56,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.000000016057777
+    },
+    {
+      "mode": 58,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000078608668
+    },
+    {
+      "mode": 61,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000115599854
+    },
+    {
+      "mode": 63,
+      "inst": 0,
+      "slot": 15,
+      "radius": 1.0000000257445447
+    }
+  ],
+  "modulated_unstable": []
+}
