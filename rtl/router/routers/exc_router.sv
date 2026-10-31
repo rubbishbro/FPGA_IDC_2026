@@ -38,35 +38,102 @@ module exc_router #(
     //   SHIFT 的物理含义：x = (strike_level << SHIFT) / 2^XF，现在 XF = QF = 24，
     //   所以 strike_level=250 / SHIFT=16 -> x = 0.977（和 Python SF 的 amplitude 同量纲）。
     always_comb begin
-        shift   = 6'd16;
-        rise_sh = 6'd5;          // 默认 32 采样上升（0.67 ms）
-        pw_len  = 16'd32;
-        gap_len = 16'd0;
-        n_pulse = 3'd0;
         case (inst)
-            router_pkg::INST_GUITAR: begin
-                // 幅度和钢琴对齐（SHIFT=16 -> fmap=250 时 x=0.977）
-                shift   = 6'd16;
-                rise_sh = 6'd1;      // 拨弦：2 个采样就升到峰值
-                pw_len  = 16'd2;
-                gap_len = 16'd0;
-                n_pulse = 3'd0;
-            end
             router_pkg::INST_PIANO: begin
-                // 钢琴击弦：对齐 sythsound/sim_piano.py::SF 的形状（方案 B）
-                //   Python: 0.5 ms 线性上升 + 1 ms 指数尾巴 + 10 ms 一个 + 0.7^k 递减，4 个
-                //   这里:   32 采样上升(0.67 ms) + tau≈48 采样(1 ms) + 周期 480(10 ms) + 0.6875^k
-                //   PW_LEN = 1<<RISE_SH = 32 -> 上升结束正好到峰值
-                //   GAP_LEN = 周期 - PW_LEN = 448（实测周期 = PW_LEN + GAP_LEN）
-                //   峰值幅度由 SHIFT 决定：xmap = strike_level<<SHIFT
-                //     250<<16 / 2^24 = 0.977（Python SF 默认 amplitude=1.4，demo 里是 1.0）
-                shift   = 6'd16;
+                // TODO: 核定击锤形状；暂保留 32 采样上升、四次击锤。
+                shift = 6'd16;
                 rise_sh = 6'd5;
-                pw_len  = 16'd32;
+                pw_len = 16'd32;
                 gap_len = 16'd448;
                 n_pulse = 3'd3;
             end
-            default: ;
+            router_pkg::INST_GUITAR: begin
+                // TODO: 核定拨弦形状；暂保留两采样上升、单次拨弦。
+                shift = 6'd16;
+                rise_sh = 6'd1;
+                pw_len = 16'd2;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_FLUTE: begin
+                // TODO: 核定持续激励；当前走周期单采样冲激，rise/pw/gap/n 不参与。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_TRUMPET: begin
+                // TODO: 核定持续激励；当前走周期单采样冲激，rise/pw/gap/n 不参与。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_CELLO: begin
+                // TODO: 核定持续激励；当前走周期单采样冲激，rise/pw/gap/n 不参与。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_VIOLIN: begin
+                // TODO: 核定持续激励；当前走周期单采样冲激，rise/pw/gap/n 不参与。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_OBOE: begin
+                // TODO: 核定独立激励；暂保留原默认参数。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_DRUMS: begin
+                // TODO: 核定独立激励；暂保留原默认参数。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_BANJO: begin
+                // TODO: 核定独立激励；暂保留原默认参数。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_MANDOLIN: begin
+                // TODO: 核定独立激励；暂保留原默认参数。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            router_pkg::INST_NONE: begin
+                // TODO: 核定独立激励；暂保留原默认参数。
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
+            default: begin
+                shift = 6'd16;
+                rise_sh = 6'd5;
+                pw_len = 16'd32;
+                gap_len = 16'd0;
+                n_pulse = 3'd0;
+            end
         endcase
     end
 

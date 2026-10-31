@@ -375,13 +375,20 @@ a21' = −a12'                     （a21 恒等于 −a12，不单独存斜率�
 **lambda 的映射**（Q30，只做非负方向）：
 
 ```
-LAM_OFF  = 242                        fmap <= 242 -> lambda = 0（不调制）
-LAM_STEP = 0.035·2^30/13 = 2,890,843  fmap = 255 -> lambda = 0.0349999
-LAM_MAX  = 13·LAM_STEP
-lam_q = (fmap−242 <= 0) ? 0 : ((fmap−242 >= 13) ? LAM_MAX : LAM_STEP·(fmap−242))
+TH       = PAD_NOTE_ON_TH              从 voice_router -> mod_router -> modulation0 传入
+LAM_MAX  = MAX_LAMBDA_Q30 = 37,580,959  暂保留旧上限，lambda≈0.035
+LAM_FULL = 230                        fmap >= 230 保持最大值
+LAM_STEP = round(LAM_MAX / (LAM_FULL-TH))
+lam = (fmap>=230) ? LAM_MAX : ((fmap<=TH) ? 0 : LAM_STEP*(fmap-TH))
+// start 被接受时锁存 lam；整次任务的所有模态/字段使用同一个值。
 ```
 
-常数乘法（综合成移位加法，不额外占乘法器）。**负方向禁用**：一阶线性化在
+默认 TH=102（步长293601）；板级覆盖 TH=64 时步长226391，阈值以下为零。
+230..255 全部饱和到同一上限；TH>=230 的兼容入口没有线性区间，在230处阶跃。
+目前只调吉他，MIDI velocity 不参与压力调音。50音分与静态/动态稳定性的分析见
+[吉他调制阈值与50音分分析](../../docs/吉他调制阈值与50音分分析_2026-10-31.md)。
+
+常数乘法。**负方向禁用**：一阶线性化在
 `lambda < 0` 一侧会把某些高模态的 `a12` 推大，使 `det = a11·a22 − a12·a21 > 1`
 → `|eig| > 1` 自激。
 

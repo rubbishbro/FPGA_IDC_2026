@@ -91,6 +91,114 @@ class SF(Source):
         return self.val
 
 
+class PianoADSR(Block):
+    """Per-note output envelope matching env_router's piano Q1.31 ADSR.
+
+    Score notation follows sim_guitar: x = onset, - = no new onset, | = separator.
+    hold_seconds is the actual key-down duration for every onset, independently
+    of the excitation burst. Release starts on key-up, including between repeats.
+    Only the envelope follows RTL; SF/string/body remain this floating-point model.
+    """
+
+    ENV_MAX = 0x7fffffff
+    A_STEP = 16_777_216
+    D_STEP = 1_048_576
+    S_LEVEL = 536_870_912
+
+    def __init__(self, pattern: str, hold_seconds: tuple[float, ...],
+                 bpm: float = 100.0, restart_from_zero: bool = True):
+        self.restart_from_zero = restart_from_zero
+        if any(c not in "Xx-|" for c in pattern) or bpm <= 0:
+            raise ValueError("invalid score or tempo")
+        self.pattern = pattern.replace("|", "")
+        self.holds = tuple(hold_seconds)
+        if len(self.holds) != sum(c in "Xx" for c in self.pattern):
+            raise ValueError("one key-down duration is required per onset")
+        if any(t <= 0 for t in self.holds):
+            raise ValueError("key-down durations must be positive")
+        self.bpm = bpm
+        super().__init__()
+
+    def reset(self, ctx) -> None:
+        super().reset(ctx)
+        step = ctx.sr * 60.0 / (4.0 * self.bpm)
+        starts = [round(i * step) for i, c in enumerate(self.pattern) if c in "Xx"]
+        self.events = dict(zip(starts, (round(t * ctx.sr) for t in self.holds)))
+        # Same integer round-to-nearest expression as env_router.PIANO_R_STEP.
+        self.r_step = (self.S_LEVEL * 1000 + ctx.sr * 200) // (ctx.sr * 400)
+        self.lvl = 0
+        self.state = "idle"
+        self.gate_end = -1
+
+    def process(self, x: float, ctx) -> float:
+        onset = ctx.index in self.events
+        old_lvl = self.lvl
+        if onset:
+            self.gate_end = ctx.index + self.events[ctx.index]
+            if self.restart_from_zero:
+                self.lvl = 0
+            self.state = "attack"
+        elif ctx.index >= self.gate_end:
+            self.lvl = max(0, self.lvl - self.r_step)
+            self.state = "release" if self.lvl else "idle"
+        elif self.state == "attack":
+            self.lvl = min(self.ENV_MAX, self.lvl + self.A_STEP)
+            if self.lvl == self.ENV_MAX:
+                self.state = "decay"
+        elif self.state == "decay":
+            self.lvl = max(self.S_LEVEL, self.lvl - self.D_STEP)
+            if self.lvl == self.S_LEVEL:
+                self.state = "sustain"
+        # Legacy piano exports the old level; explicit retrigger exports zero.
+        return float(x) * (0 if onset and self.restart_from_zero else old_lvl) / (1 << 31)
+
+
+class PianoTrack(Source):
+    """One pitch/slot, with selectable onset state clearing.
+
+    RTL-style mode clears both modal banks before processing the onset frame,
+    resets ADSR, and clears silent state when Release finishes. The shared body
+    filter is deliberately kept running. Continuous mode preserves modal state
+    and starts Attack at the current envelope level.
+    """
+
+    def __init__(self, midi, pattern, holds, bpm=100.0, rtl_restart=True):
+        self.exciter = SF(pattern, bpm=bpm, amplitude=1)
+        self.modal = piano_generator(midi)
+        self.envelope = PianoADSR(pattern, holds, bpm=bpm,
+                                  restart_from_zero=rtl_restart)
+        self.rtl_restart = rtl_restart
+        super().__init__()
+
+    def reset(self, ctx):
+        super().reset(ctx)
+        for block in (self.exciter, self.modal, self.envelope):
+            block.reset(ctx)
+        self.onset_checks = []
+
+    def clear_modes(self):
+        for bank in self.modal.blocks:
+            bank.q.fill(0)
+            bank.q_dot.fill(0)
+
+    def process(self, ctx):
+        onset = ctx.index in self.envelope.events
+        if onset:
+            before = max(float(np.max(np.abs(b.q))) for b in self.modal.blocks)
+            old_level = self.envelope.lvl
+            if self.rtl_restart:
+                self.clear_modes()
+            after = max(float(np.max(np.abs(b.q))) for b in self.modal.blocks)
+            self.onset_checks.append(dict(sample=ctx.index, q_peak_before=before,
+                                          q_peak_after=after, envelope_before=old_level))
+        force = self.exciter.eval(0.0, ctx)
+        vibration = self.modal.eval(force, ctx)
+        output = self.envelope.eval(vibration, ctx)
+        if self.rtl_restart and self.envelope.state == "idle":
+            self.clear_modes()
+        return output
+
+
 class StringSim(Block):
     """Modal string, method A from MATH.md, with the modal frequencies GIVEN.
 
@@ -270,23 +378,72 @@ PIANO_BODY_BIQUADS_3 = (
     (2.230436977, -3.679045601, 1.649319528, -1.904920411, 0.911984039),
 )
 
-if __name__ == "__main__":
-    SECONDS = 6
-    SR = 48000
+def render_twinkle_comparison(bpm=100.0, hold_seconds=0.55, long_hold_seconds=1.10, label=""):
+    """C4 C4 G4 G4 A4 A4 G4; no sustain pedal."""
+    import json
     from synthlab.ext.io import save_wav
-    
-    for midi in [40, 41, 42, 43, 44, 45, 47, 50] :
-        OUT = Path(__file__).resolve().parent / "out" / f"sim_piano_n32_{midi}.wav"
 
-        ch = Chain(SF("|x---|----", bpm=60.0, amplitude=1), piano_generator(midi))
+    sr, seconds = 48000, 8 * 60.0 / bpm + 0.8
+    suffix = f"_{label}" if label else ""
+    out_dir = Path(__file__).resolve().parent / "out"
+    # One character = a sixteenth note, just as in sim_guitar's tracks.
+    # Quarter notes last four slots; the final G lasts eight slots.
+    score = [
+        (60, "|x---x-----------|----------------|", (hold_seconds, hold_seconds)),  # C4 C4
+        (67, "|--------x---x---|--------x-------|", (hold_seconds, hold_seconds, long_hold_seconds)),  # G4 G4 G4
+        (69, "|----------------|x---x-----------|", (hold_seconds, hold_seconds)),  # A4 A4
+    ]
+    patches, onset_checks = {}, {}
+    for name, rtl_restart in (("continuous", False), ("rtl_restart", True)):
+        tracks = [PianoTrack(midi, pattern, holds, bpm, rtl_restart)
+                  for midi, pattern, holds in score]
+        patch = sum(render(track, seconds, sr=sr) for track in tracks)
+        patch = render(Chain(*(Biquad(*c) for c in PIANO_BODY_BIQUADS_3)),
+                       seconds, sr=sr, input_signal=patch)
+        if not np.isfinite(patch).all():
+            raise ValueError("non-finite audio")
+        patches[name] = patch
+        onset_checks[name] = [dict(midi=spec[0], onsets=track.onset_checks)
+                              for spec, track in zip(score, tracks)]
+    # One common gain for A/B: retain differences in level and transients.
+    native_peak = max(float(np.max(np.abs(p))) for p in patches.values())
+    gain = 10 ** (-2 / 20) / native_peak
+    lead_seconds = 0.15
+    outputs = {}
+    for name, patch in patches.items():
+        out = out_dir / f"sim_piano_twinkle_7{suffix}_{name}.wav"
+        audio = np.pad(patch * gain, (round(lead_seconds * sr), 0))
+        save_wav(out, audio, sr=sr, subtype="PCM_16")
+        outputs[name] = str(out)
+    events = []
+    for midi, pattern, holds in score:
+        starts = [i * 60 / (4 * bpm) for i, c in enumerate(pattern.replace("|", "")) if c in "Xx"]
+        events.extend(dict(midi=midi, on_s=t + lead_seconds,
+                           off_s=t + hold + lead_seconds, hold_s=hold)
+                      for t, hold in zip(starts, holds))
+    events.sort(key=lambda event: event["on_s"])
+    metadata = dict(sr=sr, bpm=bpm, duration_s=len(audio)/sr, pedal=False,
+                    a_step=PianoADSR.A_STEP, d_step=PianoADSR.D_STEP,
+                    s_level=PianoADSR.S_LEVEL,
+                    r_step=(PianoADSR.S_LEVEL * 1000 + sr * 200) // (sr * 400),
+                    gain=gain, native_peak=native_peak,
+                    peak=max(float(np.max(np.abs(p * gain))) for p in patches.values()),
+                    events=events, outputs=outputs, onset_checks=onset_checks,
+                    scope="RTL-style onset modal clear and ADSR restart versus continuous state; floating-point SF/string/body, not full bit-exact RTL")
+    (out_dir / f"sim_piano_twinkle_7{suffix}_comparison.json").write_text(
+        json.dumps(metadata, indent=2) + "\n")
+    for out in outputs.values():
+        print(f"wrote {out}")
+    print(json.dumps(metadata, indent=2))
+    return outputs
 
-        patch = render(ch, SECONDS)
-        patch = render(Chain(*(Biquad(b0, b1, b2, a1, a2) for b0, b1, b2, a1, a2 in PIANO_BODY_BIQUADS_3)),
-                       SECONDS, input_signal=patch)
-        
-        save_wav(OUT, patch)
-        print(f"wrote {OUT}")
-        print(f"{midi} max {patch.max()}, min {patch.min()}")
-    # w = render(SF("|x---|----", bpm=60.0, amplitude=1), SECONDS, SR)
-    # waveform(w, SR, SECONDS)
-    
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fast", action="store_true", help="240 BPM; retrigger during Release")
+    args = parser.parse_args()
+    if args.fast:
+        render_twinkle_comparison(240.0, 0.18, 0.36, label="fast")
+    else:
+        render_twinkle_comparison()

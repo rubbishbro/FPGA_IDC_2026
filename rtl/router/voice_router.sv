@@ -31,7 +31,7 @@ module voice_router #(
     parameter int   N_MODES    = 64,          // 唯一的模态数：系数表/状态/激励/参数表都按它开
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
-    parameter logic [7:0] PAD_NOTE_ON_TH=8'd230, PAD_NOTE_OFF_TH=8'd26,
+    parameter logic [7:0] PAD_NOTE_ON_TH=8'd102, PAD_NOTE_OFF_TH=8'd13,
     parameter logic DEBUG_PORT = 1'b1,
     parameter bit EXTERNAL_SAMPLE_TICK = 1'b0,
     parameter bit MIDI_ENABLE = 1'b0,
@@ -350,7 +350,8 @@ module voice_router #(
     logic signed [31:0]      mod_a11_r, mod_a12_r, mod_a22_r, mod_wo_r;
     logic signed [31:0]      mod_s11_r, mod_s12_r, mod_s22_r, mod_swo_r;
 
-    mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES)) u_modr (
+    mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(SR_HZ),
+                 .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_modr (
         .clk(clk), .rst_n(child_reset[2][1]), .start(mod_start),
         .fmap_i(fmap_q.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
         .inst(inst_lat), .busy(mod_busy), .done(mod_done),

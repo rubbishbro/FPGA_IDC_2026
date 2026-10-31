@@ -1,4 +1,4 @@
-// env_router -- 包络子路由：常数包络 / 两套 ADSR 参数 / 动态包络
+// env_router -- 包络子路由：按乐器选择 ADSR / 常数包络
 module env_router #(
     parameter int CLK_HZ = 100_000_000,
     parameter int SR_HZ  = 48_000,
@@ -8,7 +8,7 @@ module env_router #(
     input  logic                    rst_n,
     input  logic                    smp_tick,
     input logic [SLOTS*32-1:0] slot_a_step,slot_r_step,
-    input  logic [SLOTS*8-1:0]      envelope_level,
+    input  logic [SLOTS*8-1:0]      envelope_level, // 保留接口；当前无压力直通分支
     input  logic [SLOTS-1:0]        retrigger, slot_clear,
     input  logic                    midi_mode,
     input  logic [SLOTS-1:0]        note_on,
@@ -17,40 +17,119 @@ module env_router #(
     output logic signed [SLOTS-1:0][31:0] emap,
     output logic                    emap_valid,
     // 每个声部"确实空了"的标志，由包络模块自己产生（顶层拿它清引擎状态）。
-    // 常数包络永远不空，所以那一路恒 0。
+    // 常数包络：MIDI 松键报告空闲；压力垫模式保留自然衰减。
     output logic [SLOTS-1:0]        dead
 );
-    // 参数常量表：加乐器 = 加一行，不用再加硬件
+    // 从当前 25% Sustain 电平释放约 400 ms；按采样率换算并四舍五入。
+    // Release 为线性斜率：若从满幅松键，时间约为 1600 ms。
+    localparam logic [31:0] PIANO_R_STEP =
+        (64'd536_870_912 * 1000 + 64'(SR_HZ) * 200) / (64'(SR_HZ) * 400);
     logic [31:0] a_step, d_step, s_level, r_step;
-    logic        use_adsr, use_dyn;
+    logic use_adsr;
 
     always_comb begin
-        // 默认（无包络）：直接用 dyn0 的直通也行，这里用 ADSR 的值占位
-        a_step  = 32'd16_777_216;
-        d_step  = 32'd1_048_576;
-        s_level = 32'd536_870_912;
-        r_step  = 32'd1_048_576;      // 满量程约 2048 采样 = 43 ms
-        use_adsr = 1'b1;
-        use_dyn  = 1'b0;
         case (inst)
             router_pkg::INST_PIANO: begin
+                // TODO: 核听 400 ms Release，其余暂保留现值。
                 use_adsr = 1'b1;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = PIANO_R_STEP;
             end
-            // router_pkg::INST_GUITAR: begin
-            //     use_adsr = 1'b0;
-            //     use_dyn  = 1'b1;
-            // end
-            router_pkg::INST_FLUTE,router_pkg::INST_TRUMPET,
-            router_pkg::INST_CELLO,router_pkg::INST_VIOLIN:begin
-                use_adsr=1; s_level=32'h1fffffff;
+            router_pkg::INST_GUITAR: begin
+                // TODO: 确定吉他 ADSR；当前仍保留常数包络。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
             end
-            default: use_adsr = 1'b0;   // 常数包络（"无"）
+            router_pkg::INST_FLUTE: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b1;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'h1fff_ffff;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_TRUMPET: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b1;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'h1fff_ffff;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_CELLO: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b1;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'h1fff_ffff;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_VIOLIN: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b1;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'h1fff_ffff;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_OBOE: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_DRUMS: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_BANJO: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_MANDOLIN: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
+            router_pkg::INST_NONE: begin
+                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
+            default: begin
+                use_adsr = 1'b0;
+                a_step = 32'd16_777_216;
+                d_step = 32'd1_048_576;
+                s_level = 32'd536_870_912;
+                r_step = 32'd1_048_576;
+            end
         endcase
     end
 
-    logic signed [SLOTS-1:0][31:0] m_adsr, m_dyn;
-    logic               v_adsr, v_dyn;
-    logic [SLOTS-1:0]   d_adsr, d_dyn;
+    logic signed [SLOTS-1:0][31:0] m_adsr;
+    logic v_adsr;
+    logic [SLOTS-1:0] d_adsr;
 
     // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
     logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r,decay_limit_r;
@@ -79,21 +158,13 @@ module env_router #(
         .emap(m_adsr), .emap_valid(v_adsr), .dead(d_adsr)
     );
 
-    envelope_dyn0 #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS)) u_dyn (
-        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
-        .envelope_level(envelope_level), .slot_clear(slot_clear),
-        .note_on(note_on), .note_gate(note_gate),
-        .emap(m_dyn), .emap_valid(v_dyn), .dead(d_dyn)
-    );
-
     always_comb begin
         emap_valid = smp_tick;
-        dead       = use_dyn ? d_dyn : (use_adsr ? d_adsr :
-                     (midi_mode ? ~note_gate : '0));
+        dead       = use_adsr ? d_adsr : (midi_mode ? ~note_gate : '0);
         dead = dead | slot_clear;
         for (int i = 0; i < SLOTS; i++)
             emap[i] = slot_clear[i] ? 32'sd0 :
-                      (use_dyn ? m_dyn[i] : (use_adsr ? m_adsr[i] :
-                       ((midi_mode && !note_gate[i]) ? 32'sd0 : 32'sh7FFF_FFFF)));
+                      (use_adsr ? m_adsr[i] :
+                       ((midi_mode && !note_gate[i]) ? 32'sd0 : 32'sh7FFF_FFFF));
     end
 endmodule

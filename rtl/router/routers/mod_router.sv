@@ -2,7 +2,8 @@
 module mod_router #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 64,
-    parameter int FS      = 48000
+    parameter int FS      = 48000,
+    parameter logic [7:0] PAD_NOTE_ON_TH = 8'd102
 )(
     input  logic                        clk,
     input  logic                        rst_n,
@@ -38,13 +39,13 @@ module mod_router #(
     assign done = en ? mod_done_i : start_d1;
 
     always_comb case (inst)
-        // TODO: 揉弦的一阶线性版本还在调（会写出 >1 的 a11 导致自激），
-        // 先关掉出一版"无调制"的吉他音色；修好再打开。
+        // 吉他启用一阶调制；目前只更新前四个模态。
         router_pkg::INST_GUITAR: en = 1'b1;
         default:                 en = 1'b0;
     endcase
 
-    modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(FS)) u_mod0 (
+    modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(FS),
+                  .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_mod0 (
         .clk(clk), .rst_n(rst_n),
         .start(start && en), .n_modes(n_modes), .fmap_i(fmap_i),
         .busy(busy), .done(mod_done_i),

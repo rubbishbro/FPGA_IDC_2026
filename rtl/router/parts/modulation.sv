@@ -19,14 +19,16 @@
 //     4 × (S_LD -> S_MUL -> S_APPLY)   lambda * Sxx
 //     S_OUT  写回 a11/a12/a21/a22/wo（5 个字段）
 //
-// lambda 的映射（**临时**，等上层定下来再换）：lambda = (fmap - LAM_OFF) << LAM_SH，
-// 再限幅到 ±LAM_MAX(=0.03)。fmap 8 位，中心放在音符阈值附近 -> "正常按"≈0、
-// "加力"往上弯。
+// lambda 的映射：PAD_NOTE_ON_TH 对应 0，fmap>=230 对应 MAX_LAMBDA_Q30。
+// 阈值以下钳零；阈值以上按固定步长线性增加，只做向上音偏。
+// 当前仍保留旧上限 0.035；50 音分的实现/稳定性见 docs/吉他调制阈值与50音分分析_2026-10-31.md。
 // =============================================================================
 module modulation0 #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 64,
-    parameter int FS      = 48000
+    parameter int FS      = 48000,
+    parameter logic [7:0] PAD_NOTE_ON_TH = 8'd102,
+    parameter logic signed [31:0] MAX_LAMBDA_Q30 = 32'sd37_580_959
 )(
     input  logic                      clk,
     input  logic                      rst_n,
@@ -55,15 +57,23 @@ module modulation0 #(
 );
 
     // ---- lambda 的映射（Q30）----
-    //   要求：fmap = 255 时 lambda = 0.035，且只做非负方向。
-    //   中心 LAM_OFF=242（贴着 NOTE_ON_TH=230 之上），所以 fmap-242 只有 0..13 这 14 档，
-    //   每档步长 = 0.035*2^30/13 = 2,890,843（Q30）。用一张 14 项的查表实现：
-    //   精确、不用乘法器、组合路径也短（只有 4 位比较 + mux）。
-    localparam logic signed [31:0] LAM_MAX  = 32'sd37_580_959;   // 13 * 2_890_843 = 0.0349999
-    localparam logic signed [31:0] LAM_STEP = 32'sd2_890_843;    // 0.035/13
-    localparam logic signed [31:0] LAM_OFF  = 32'sd242;          // fmap 到这里为止 = 不调制
-    // 只调制最低 MOD_TOP 个模态（其余保持表里的基值，避免高模态被推出稳定域）
-    localparam int                 MOD_TOP  = 4;    // lambda 上限提到 0.035 后实测：N=4 全稳定(0.999987)，N=5 就 1.000005 了
+    // note_on 使用 fmap > PAD_NOTE_ON_TH；阈值本身是零音偏点。
+    // 固定步长四舍五入，230 起钳到精确上限。
+    // TH>=230 的兼容入口没有线性区间，直接在 230 阶跃到上限。
+    localparam logic [7:0] LAM_FULL_PRESSURE = 8'd230;
+    localparam int LAM_RANGE = (PAD_NOTE_ON_TH < LAM_FULL_PRESSURE) ?
+                              (int'(LAM_FULL_PRESSURE) - int'(PAD_NOTE_ON_TH)) : 1;
+    localparam logic signed [31:0] LAM_STEP =
+        (MAX_LAMBDA_Q30 + LAM_RANGE / 2) / LAM_RANGE;
+    // 保留原来的前四模态限制；不能以阈值映射替代极点稳定性检查。
+    localparam int MOD_TOP = 4;
+
+    // synthesis translate_off
+    initial begin
+        if (PAD_NOTE_ON_TH == 255 || MAX_LAMBDA_Q30 < 0)
+            $fatal(1, "invalid modulation pressure range");
+    end
+    // synthesis translate_on
 
     typedef enum logic [2:0] { S_IDLE, S_RD, S_W, S_LD, S_MUL, S_APPLY, S_OUT } mst_e;
     mst_e st;
@@ -79,18 +89,14 @@ module modulation0 #(
     logic signed [63:0] prod_q;
     logic signed [63:0] acc_q;                                  // lambda*S 的乘积寄存器
 
-    // lambda：只做**非负**方向（张力变大 = 音高往上弯）
-    //   * 有符号问题：`32'(fmap_i)` 是无符号，和 LAM_OFF（有符号）相减会整段按
-    //     无符号解释（fmap=240 本该 -2，变成 0xFFFFFFFE），所以用 $signed 包一层；
-    //   * 负方向禁用：一阶线性化在 lambda<0 那一侧会把某些高模态的 a12 推大，
-    //     使 det = a11*a22 - a12*a21 > 1 -> |eig| 1.02 > 1 自激。
-    //   * fmap <= LAM_OFF 就等于不调制；步长 2,890,843（Q30），fmap=255 -> 0.0349999
-    logic signed [31:0] lam_diff;
+    // 一次任务锁存同一份压力映射值，避免处理中途力度变化，
+    // 导致同一模态的不同字段、或不同模态用到不同 lambda。
+    logic signed [31:0] lam_diff, lam_target;
     always_comb begin
-        lam_diff = $signed({24'd0, fmap_i}) - LAM_OFF;
-        if (lam_diff <= 0)            lam_q = '0;
-        else if (lam_diff >= 32'sd13) lam_q = LAM_MAX;
-        else                          lam_q = LAM_STEP * lam_diff;   // 常数乘法，综合成移位加法
+        lam_diff = $signed({24'd0, fmap_i}) - $signed({24'd0, PAD_NOTE_ON_TH});
+        if (fmap_i >= LAM_FULL_PRESSURE) lam_target = MAX_LAMBDA_Q30;
+        else if (lam_diff <= 0) lam_target = '0;
+        else lam_target = LAM_STEP * lam_diff;
     end
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -106,6 +112,7 @@ module modulation0 #(
             co_we    <= 5'b0;
             co_mode  <= '0;
             co_wdata <= '0;
+            lam_q <= '0;
             a11_l <= '0; a12_l <= '0; a22_l <= '0; wo_l  <= '0;
             s11_l <= '0; s12_l <= '0; s22_l <= '0; swo_l <= '0;
             mul_a_q <= '0; mul_b_q <= '0;
@@ -119,6 +126,7 @@ module modulation0 #(
                     busy <= 1'b0;
                     p_re <= 1'b0;
                     if (start) begin
+                        lam_q <= lam_target;
                         busy     <= 1'b1;
                         mode     <= '0;
                         nmod_lat <= n_modes;
