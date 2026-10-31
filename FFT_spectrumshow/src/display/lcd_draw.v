@@ -1,4 +1,4 @@
-module lcd_draw #(parameter LEGACY_UI=1'b1) (
+module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
     // 33.333 MHz 像素时钟与低有效复位
     input               clk,
     input               rst_n,
@@ -53,7 +53,7 @@ module lcd_draw #(parameter LEGACY_UI=1'b1) (
         .grid_hit(bg_hit), .grid_r(bg_r), .grid_g(bg_g), .grid_b(bg_b)
     );
 
-    lcd_fft u_fft(
+    lcd_fft #(.REVERSE_SCAN(REVERSE_SCAN)) u_fft(
         .clk(clk), .rst_n(rst_n), .frame_pulse(frame_pulse),
         .dot_en(lcd_valid && (page_sel == 2'b00)),   // FFT only on page 00
         .peak_en(effects[1]), .theme(effects[2]), .smooth_en(effects[0]),
@@ -68,7 +68,7 @@ module lcd_draw #(parameter LEGACY_UI=1'b1) (
         .wave_hit(wave_hit), .wave_r(wave_r), .wave_g(wave_g), .wave_b(wave_b)
     );
 
-    lcd_polar_curve u_curve(
+    lcd_polar_curve #(.REVERSE_SCAN(REVERSE_SCAN)) u_curve(
         .clk(clk), .rst_n(rst_n), .frame_pulse(frame_pulse),
         .lcd_valid(lcd_valid), .pix_x(pix_x), .pix_y(pix_y),
         .curve_rd_addr(curve_rd_addr), .curve_rd_data(curve_rd_data),

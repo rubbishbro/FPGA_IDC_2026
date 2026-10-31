@@ -9,6 +9,7 @@ module lcd_timing (
 );
 
     parameter   H_Pixel_Valid   = 16'd800;
+    parameter   ROTATE_180      = 1'b0;
     parameter   H_FrontPorch    = 16'd210;
     parameter   H_BackPorch     = 16'd182;
     parameter   PixelForHS      = H_Pixel_Valid + H_FrontPorch + H_BackPorch;
@@ -43,7 +44,11 @@ module lcd_timing (
     assign frame_pulse = (V_PixelCount == PixelForVS-1) && (H_PixelCount == PixelForHS-1);
 
     // clean pixel coordinate in active area: pix_x 0..799, pix_y 0..479
-    assign pix_x = (H_PixelCount >= H_BackPorch) ? (H_PixelCount - H_BackPorch) : 10'd0;
-    assign pix_y = (V_PixelCount >= V_BackPorch) ? (V_PixelCount - V_BackPorch) : 10'd0;
+    wire [9:0] scan_x = (H_PixelCount >= H_BackPorch) ? (H_PixelCount - H_BackPorch) : 10'd0;
+    wire [9:0] scan_y = (V_PixelCount >= V_BackPorch) ? (V_PixelCount - V_BackPorch) : 10'd0;
+    // Rotate logical coordinates, leaving panel clocks, DE and frame cadence
+    // unchanged. Clamp blanking to avoid unsigned underflow in renderers.
+    assign pix_x = ROTATE_180 ? ((scan_x < H_Pixel_Valid) ? H_Pixel_Valid-1-scan_x : H_Pixel_Valid-1) : scan_x;
+    assign pix_y = ROTATE_180 ? ((scan_y < V_Pixel_Valid) ? V_Pixel_Valid-1-scan_y : V_Pixel_Valid-1) : scan_y;
 
 endmodule

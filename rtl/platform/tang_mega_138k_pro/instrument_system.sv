@@ -3,7 +3,9 @@
 module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
-    parameter bit NOTE_BANKS=0, BT_HAS_STATE=0,
+    parameter bit NOTE_BANKS=0, BT_HAS_STATE=0, BT_PROTOCOL_V2=0,
+    parameter int PCM_HEADROOM_BITS=1,
+    parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [6:0] FIRST_MIDI=48,
     parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
@@ -113,7 +115,7 @@ module instrument_system #(
     logic [7:0] cfg_cmd,cfg_result;
     logic [4:0] cfg_len;
     logic [127:0] cfg_shadow;
-    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BAUD),.BT_HAS_STATE(BT_HAS_STATE)) u_comm(
+    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BAUD),.BT_HAS_STATE(BT_HAS_STATE),.BT_PROTOCOL_V2(BT_PROTOCOL_V2)) u_comm(
         .clk(clk_core),.rst_n(core_n),.rx_i(uart_rx),.tx_o(uart_tx),.hc05_state_async(bt_state),
         .session_restart(session_restart),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),
         .midi_ops_idle(midi_idle),.source_quarantine(quarantine),.link_fault_pending(),.error_sticky(),.rx_error_count(),
@@ -156,6 +158,7 @@ module instrument_system #(
     wire [3:0] flash_out;
     assign flash_dq=flash_oe ? flash_out : 4'bzzzz;
     midi_voice_top #(.CLK_HZ(CLK_HZ),.AUDIO_ENABLE(1),.PT8211_ENABLE(1),.STEREO_ENABLE(STEREO_ENABLE),.CONFIG_BACKEND(1),.NOTE_BANKS(NOTE_BANKS),
+        .PCM_HEADROOM_BITS(PCM_HEADROOM_BITS),
         .FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.RESOURCE_MASK(RESOURCE_MASK),.PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48)) u_sound(
         .clk(clk_core),.audio_clk(clk_audio),.rst_n(core_n),.run(1'b1),.fmap(force_map),
         .pan_position(spatial_pan),.itd_enable(itd_enable),
@@ -222,7 +225,8 @@ module instrument_system #(
     wire [9:0] pix_x,pix_y;
     wire de,frame_pulse,display_de;
     assign lcd_clk=clk_pix;
-    lcd_timing u_timing(.lcd_clk(clk_pix),.rst_n(pix_n),.lcd_en(de),.frame_pulse(frame_pulse),.pix_x(pix_x),.pix_y(pix_y));
+    lcd_timing #(.ROTATE_180(LCD_ROTATE_180)) u_timing(
+        .lcd_clk(clk_pix),.rst_n(pix_n),.lcd_en(de),.frame_pulse(frame_pulse),.pix_x(pix_x),.pix_y(pix_y));
     wire key0_valid,key1_valid;
     wire [2:0] key0_event,key1_event;
     key_ui_event #(.DEBOUNCE_CNT(KEY_DEBOUNCE),.LONG_CNT(KEY_LONG),.SHORT_EVENT(1),.LONG_EVENT(2)) u_key0(
@@ -237,6 +241,16 @@ module instrument_system #(
         if (!pix_n) begin
             xmod_d <= 3'd0;
             bar_idx_disp_r <= 7'd0;
+        end else if (LCD_ROTATE_180) begin
+            // Logical X runs 799..0. The 32-pixel non-spectrum margin primes
+            // the last bar, then each six descending pixels selects one bar.
+            if (pix_x >= 10'd767) begin
+                xmod_d <= 3'd5;
+                bar_idx_disp_r <= 7'd127;
+            end else if (xmod_d == 3'd0) begin
+                xmod_d <= 3'd5;
+                if (bar_idx_disp_r != 0) bar_idx_disp_r <= bar_idx_disp_r - 1'b1;
+            end else xmod_d <= xmod_d - 1'b1;
         end else if (pix_x == 10'd0) begin
             xmod_d <= 3'd0;
             bar_idx_disp_r <= 7'd0;
@@ -295,7 +309,11 @@ module instrument_system #(
     );
 
     // Pixel FFT data and local guide/menu overlays share the existing sidebar path.
-    sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),.JOY_INVERT_X(0),.JOY_INVERT_Y(1),.FONT_FILE(FONT_FILE),
+    // Relative to the former X-normal/Y-inverted profile:
+    // old DOWN->LEFT, UP->RIGHT, LEFT->UP, RIGHT->DOWN.
+    sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),
+                     .JOY_SWAP_XY(1),.JOY_INVERT_X(1),.JOY_INVERT_Y(1),
+                     .REVERSE_SCAN(LCD_ROTATE_180),.FONT_FILE(FONT_FILE),
                      .JOY_DEADZONE_ON(200),.JOY_DEADZONE_OFF(100)) u_ui(
         .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
         .key_valid(key0_valid || key1_valid),.key_event(key0_valid ? key0_event : key1_event),

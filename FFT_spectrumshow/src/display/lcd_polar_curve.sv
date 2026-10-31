@@ -39,7 +39,8 @@
 module lcd_polar_curve #(
     parameter int CX  = 400,   // circle centre x (pixels)
     parameter int CY  = 240,   // circle centre y (pixels)
-    parameter int LAT = 17     // pipeline latency, must match the RTL
+    parameter int LAT = 17,    // pipeline latency, must match the RTL
+    parameter bit REVERSE_SCAN = 1'b0
 ) (
     input  logic        clk,            // 33.333 MHz pixel clock
     input  logic        rst_n,          // async active-low reset
@@ -134,7 +135,7 @@ module lcd_polar_curve #(
     // ------------------------------------------------------------------
     // The CORDIC output belongs to the pixel LAT clocks ago.  Advancing x by
     // LAT makes the result belong to the pixel being scanned now.
-    wire [10:0] x_disp = {1'b0, pix_x} + LAT[10:0];
+    wire [10:0] x_disp = REVERSE_SCAN ? ({1'b0, pix_x} - LAT[10:0]) : ({1'b0, pix_x} + LAT[10:0]);
     wire signed [10:0] dx = $signed(x_disp) - CX[10:0];
     wire signed [10:0] dy = CY[10:0] - $signed({1'b0, pix_y});
 
@@ -331,7 +332,11 @@ module lcd_polar_curve #(
     end
 
     // far layer
-    wire [7:0]  far_cell_x = x_disp[9:2];
+    // The sky has only one register of lookahead before RGB, unlike the
+    // 17-cycle CORDIC path. Keep its logical position stable in either scan
+    // direction instead of shifting the star field by the CORDIC latency.
+    wire [10:0] sky_x = REVERSE_SCAN ? ({1'b0,pix_x}-11'd1) : ({1'b0,pix_x}+11'd1);
+    wire [7:0]  far_cell_x = sky_x[9:2];
     wire [7:0]  far_cell_y = pix_y[9:2];
     wire [15:0] far_seed   = {8'b0, far_cell_x} * FAR_SEED_X
                            + {8'b0, far_cell_y} * FAR_SEED_Y;
@@ -339,12 +344,12 @@ module lcd_polar_curve #(
     wire [15:0] far_mix2   = far_mix1 * HASH_MIX;
     wire [7:0]  far_hash   = far_mix2[7:0] ^ {1'b0, far_mix2[15:9]};
     wire far_pixel = (far_hash < FAR_DENSITY)
-                  && (x_disp[1:0] == far_hash[1:0])
+                  && (sky_x[1:0] == far_hash[1:0])
                   && (pix_y[1:0]  == far_hash[3:2]);
     wire [5:0] far_level = far_pixel ? (FAR_LEVEL + {3'b0, far_mix2[12:10]}) : 6'd0;
 
     // near layer (different seeds so the two skies are independent)
-    wire [6:0]  near_cell_x = x_disp[9:3];
+    wire [6:0]  near_cell_x = sky_x[9:3];
     wire [6:0]  near_cell_y = pix_y[9:3];
     wire [15:0] near_seed   = {9'b0, near_cell_x} * NEAR_SEED_X
                             + {9'b0, near_cell_y} * NEAR_SEED_Y;
@@ -352,7 +357,7 @@ module lcd_polar_curve #(
     wire [15:0] near_mix2   = near_mix1 * HASH_MIX;
     wire [7:0]  near_hash   = near_mix2[7:0] ^ {1'b0, near_mix2[15:9]};
     wire near_pixel = (near_hash < NEAR_DENSITY)
-                   && (x_disp[2:1] == near_hash[1:0])
+                   && (sky_x[2:1] == near_hash[1:0])
                    && (pix_y[2:1]  == near_hash[3:2]);
     wire [5:0] near_base = NEAR_LEVEL + {2'b0, near_mix2[11:8]};
 
@@ -390,12 +395,12 @@ module lcd_polar_curve #(
     wire [9:0]  meteor_head_x = {2'b0, meteor_phase} * METEOR_STEP - METEOR_X0;
     wire [9:0]  meteor_y0     = METEOR_Y0 + {meteor_index[5:0], 2'b00};
     wire signed [11:0] meteor_delta = $signed({2'b0, pix_y})
-                                    - $signed({2'b0, x_disp[9:0]})
+                                    - $signed({2'b0, sky_x[9:0]})
                                     - $signed({2'b0, meteor_y0}) - 12'sd40;
     wire meteor_on_line = (meteor_delta > -METEOR_TOL) && (meteor_delta < METEOR_TOL);
-    wire [9:0] meteor_back = meteor_head_x - x_disp[9:0];
+    wire [9:0] meteor_back = meteor_head_x - sky_x[9:0];
     wire meteor_in_trail = meteor_active && meteor_on_line
-                        && (x_disp[9:0] <= meteor_head_x)
+                        && (sky_x[9:0] <= meteor_head_x)
                         && (meteor_back < METEOR_TRAIL);
     wire [5:0] meteor_level = meteor_in_trail
                             ? (METEOR_LEVEL - {2'b0, meteor_back[5:2]}) : 6'd0;

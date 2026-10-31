@@ -39,3 +39,5 @@
 @media (prefers-reduced-motion: reduce) {
   .sidebar-dock .sidebar-panel, .sidebar-handle .handle-arrow { transition: none; }
 }
+
+.session-readout{display:flex;flex-direction:column;gap:5px;margin:12px 0;padding:10px;border:1px solid var(--line);border-radius:4px;background:#171d23}.session-readout strong{color:#90c6b2;font-size:11px}.session-readout span{font:10px ui-monospace,monospace;color:var(--muted);overflow-wrap:anywhere}.stack-label{display:flex;flex-direction:column;gap:6px;margin:12px 0 8px;color:var(--muted);font-size:10px}.link-tests{margin-top:12px;color:var(--muted);font-size:10px}.link-tests summary{cursor:pointer;margin-bottom:8px}.link-tests button{margin:4px 0;font-size:10px}#v2-tools>button{font-size:10px}

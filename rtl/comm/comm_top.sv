@@ -15,7 +15,12 @@ module comm_top #(
     parameter int EQ_BANDS = 3,
     parameter int TIMEOUT_CYCLES = CLK_HZ,
     parameter bit BT_HAS_STATE = 1'b0,
-    parameter int STATE_DEBOUNCE_CYCLES = CLK_HZ / 50
+    parameter int STATE_DEBOUNCE_CYCLES = CLK_HZ / 50,
+    parameter bit BT_PROTOCOL_V2 = 1'b0,
+    parameter int BT_HEARTBEAT_CYCLES = 2 * CLK_HZ,
+    parameter int BT_PROGRESS_CYCLES = CLK_HZ / 4,
+    parameter int BT_ERROR_LIMIT = 8,
+    parameter int BT_ERROR_WINDOW_CYCLES = CLK_HZ
 ) (
     input logic clk, rst_n,
     input logic [1:0] rx_i,
@@ -67,6 +72,8 @@ module comm_top #(
     logic [15:0] reply_seq;
     logic [7:0] reply_command, reply_result;
     logic [1:0] reply_space, eligible;
+    logic v2_cleanup_request;
+    logic [1:0] midi_error_sources;
 
     uart_driver #(.CLK_HZ(CLK_HZ), .BAUD(WIRED_BAUD),
         .OVERSAMPLE(WIRED_OVERSAMPLE), .RX_DEPTH(RX_DEPTH)) u_wired (
@@ -84,7 +91,9 @@ module comm_top #(
         .DEBOUNCE_CYCLES(STATE_DEBOUNCE_CYCLES)) u_bluetooth (
         .clk(clk), .rst_n(rst_n), .rx_i(rx_i[1]), .tx_o(tx_o[1]),
         .state_async(hc05_state_async),
-        .capture_enable(!source_quarantine[1]), .flush_rx(flush_link[1]),
+        // v2 control RX must remain available while business is quarantined.
+        .capture_enable(BT_PROTOCOL_V2 || !source_quarantine[1]),
+        .flush_rx(!BT_PROTOCOL_V2 && flush_link[1]),
         .rx_valid(byte_rx_valid[1]), .rx_ready(byte_rx_ready[1]),
         .rx_data(byte_rx_data[15:8]), .rx_level(),
         .tx_valid(byte_tx_valid[1]), .tx_ready(byte_tx_ready[1]),
@@ -96,6 +105,28 @@ module comm_top #(
     );
     for (genvar g = 0; g < 2; g = g + 1) begin : g_link
         localparam bit SOURCE = (g == 1);
+        if (g == 1 && BT_PROTOCOL_V2) begin : g_v2
+        transport_v2_link #(.CLK_HZ(CLK_HZ), .FRAME_DEPTH(FRAME_DEPTH),
+            .TIMEOUT_CYCLES(TIMEOUT_CYCLES), .HEARTBEAT_CYCLES(BT_HEARTBEAT_CYCLES),
+            .PROGRESS_CYCLES(BT_PROGRESS_CYCLES), .ERROR_LIMIT(BT_ERROR_LIMIT),
+            .ERROR_WINDOW_CYCLES(BT_ERROR_WINDOW_CYCLES)) u_transport (
+            .clk(clk), .rst_n(rst_n), .flush(flush_link[g]), .pin(pin[g]),
+            .maintenance_done(cache_reset[g]),
+            .physical_fault(rx_frame_err[g] || rx_break[g] || rx_overflow[g] || session_restart[g]),
+            .disconnect_event(bt_disconnect), .midi_error(midi_error_sources[g]),
+            .cleanup_request(v2_cleanup_request),
+            .rx_valid(byte_rx_valid[g]), .rx_ready(byte_rx_ready[g]), .rx_data(byte_rx_data[g*8 +: 8]),
+            .tx_valid(byte_tx_valid[g]), .tx_ready(byte_tx_ready[g]), .tx_data(byte_tx_data[g*8 +: 8]),
+            .frame_valid(frame_valid[g]), .frame_ready(frame_ready[g]),
+            .frame_data(frame_data[g*8 +: 8]), .frame_type(frame_type[g*8 +: 8]),
+            .frame_seq(frame_seq[g*16 +: 16]), .frame_payload_len(frame_len[g*6 +: 6]),
+            .frame_first(frame_first[g]), .frame_last(frame_last[g]),
+            .frame_available(frame_available[g]), .protocol_errors(frame_errors[g*8 +: 8]),
+            .reply_valid(reply_valid && reply_source == SOURCE && !cancel_source[g]),
+            .reply_ready(reply_space[g]), .reply_seq(reply_seq),
+            .reply_command(reply_command), .reply_result(reply_result), .tx_busy()
+        );
+        end else begin : g_v1
         transport_link #(.FRAME_DEPTH(FRAME_DEPTH), .TIMEOUT_CYCLES(TIMEOUT_CYCLES)) u_transport (
             .clk(clk), .rst_n(rst_n), .flush(flush_link[g]), .pin(pin[g]),
             .rx_valid(byte_rx_valid[g]), .rx_ready(byte_rx_ready[g]),
@@ -111,21 +142,27 @@ module comm_top #(
             .reply_ready(reply_space[g]), .reply_seq(reply_seq),
             .reply_command(reply_command), .reply_result(reply_result), .tx_busy()
         );
+        end
         // 单个配置在途，且只有 analyzer 生产回复；准入检查隐含预留一个回复名额。
         assign eligible[g] = !cancel_source[g] &&
                              ((frame_type[g*8 +: 8] != 8'h02) || reply_space[g]);
     end
+    generate if (!BT_PROTOCOL_V2) begin : g_no_v2
+        assign v2_cleanup_request = 1'b0;
+    end endgenerate
 
     // 延迟一拍锁存语法错误来源，避免parse_error/flush形成组合环。
-    logic [1:0] midi_error_sources;
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) midi_error_sources<=0;
         else midi_error_sources<=midi_parse_error ? (2'b01 << dispatch_source) : 2'b00;
     end
-    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH),.ISOLATE_PROTOCOL_ERRORS(ISOLATE_PROTOCOL_ERRORS)) u_session (
-        .clk(clk), .rst_n(rst_n), .session_restart(session_restart),
-        .connect_event({bt_connect, 1'b0}), .disconnect_event({bt_disconnect, 1'b0}),
-        .framing_err(rx_frame_err), .break_detect(rx_break), .overflow(rx_overflow),
+    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH),.ISOLATE_PROTOCOL_ERRORS(ISOLATE_PROTOCOL_ERRORS),
+        .EXTERNAL_MANAGED_BT(BT_PROTOCOL_V2)) u_session (
+        .clk(clk), .rst_n(rst_n), .session_restart(session_restart | {v2_cleanup_request, 1'b0}),
+        .connect_event({bt_connect && !BT_PROTOCOL_V2, 1'b0}),
+        .disconnect_event({bt_disconnect && !BT_PROTOCOL_V2, 1'b0}),
+        .framing_err(rx_frame_err), .break_detect(rx_break),
+        .overflow(rx_overflow | {BT_PROTOCOL_V2 && frame_errors[13], 1'b0}),
         .protocol_errors(frame_errors), .midi_error(midi_error_sources),
         .source_cleanup_done(source_cleanup_done), .source_ops_idle(source_ops_idle),
         .arb_busy(arb_busy), .arb_source(arb_source),

@@ -1,0 +1,27 @@
+[
+  {
+    "test": "tb_board_inputs",
+    "passed": true,
+    "summary": "PASS tb_board_inputs board50 swapped XY inverted X/Y 200/100 four-screen-directions deadzone/hysteresis/center/stale\n/home/rubbishbro/Projects/FPGA_IDC_2026/sim/unit/board/tb_board_inputs.sv:52: $finish called at 22680000 (1ps)"
+  },
+  {
+    "test": "tb_board_lcd_timing",
+    "passed": true,
+    "summary": "PASS tb_board_lcd_timing exact800x480 frames=2\n/home/rubbishbro/Projects/FPGA_IDC_2026/sim/unit/board/tb_board_inputs.sv:69: $finish called at 12706740000 (1ps)"
+  },
+  {
+    "test": "tb_board_display_orientation",
+    "passed": true,
+    "summary": "PASS tb_board_display_orientation 384000 sidebar/font + FFT pixels exact180, unchanged DE/frame timing\n/home/rubbishbro/Projects/FPGA_IDC_2026/sim/unit/board/tb_board_display_orientation.sv:76: $finish called at 6357372000 (1ps)"
+  },
+  {
+    "test": "tb_pcm_equivalence",
+    "passed": true,
+    "summary": "PASS tb_pcm_equivalence vectors=     624324 headroom=0/1/3/53 gain_x4 saturation\n/home/rubbishbro/Projects/FPGA_IDC_2026/sim/unit/audio/tb_pcm_equivalence.sv:36: $finish called at 0 (1ps)"
+  },
+  {
+    "test": "tb_polar_reverse_scan",
+    "passed": true,
+    "summary": "PASS tb_polar_reverse_scan 4320 curve/history pixels mirrored, bounded addresses\n/home/rubbishbro/Projects/FPGA_IDC_2026/sim/unit/board/tb_polar_reverse_scan.sv:45: $finish called at 109806000 (1ps)"
+  }
+]

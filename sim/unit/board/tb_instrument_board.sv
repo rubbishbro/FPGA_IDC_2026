@@ -18,8 +18,10 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
         .clk(clk),.rst_n(rst_n),.key0(key0),.key1(key1),.uart_rx(rx),.uart_tx(tx),.bt_state(1'b0),
         .pad_row(pad_row),.pad_ch(pad_ch),.led_dat(led),.flash_cs_n(cs),.flash_sck(sck),.flash_dq(dq),
         .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.dac_bck(db),.dac_ws(dw),.dac_din(dd),.dac_pa_en(pa),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
-    initial if(dut.u_system.u_ui.u_joystick.INVERT_X!=0 || dut.u_system.u_ui.u_joystick.INVERT_Y!=1)
+    initial if(dut.u_system.u_ui.u_joystick.SWAP_XY!=1 || dut.u_system.u_ui.u_joystick.INVERT_X!=1 || dut.u_system.u_ui.u_joystick.INVERT_Y!=1)
         $fatal(1,"FAIL board joystick XY orientation not connected");
+    initial if(dut.u_system.u_sound.PCM_HEADROOM_BITS!=1 || dut.u_system.u_timing.ROTATE_180!=1)
+        $fatal(1,"FAIL board louder PCM/rotated LCD profile not connected");
     w25q64_read_model #(.N_MODES(64),.RESOURCE_BASE(32'h0080_0000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),.WRITE_NS(20_000_000),.MEM_FILE("piano_flash.mem"),.MEM_BYTES(65536)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dq),.dq_oe(dut.u_system.flash_oe),.blank(blank),.dq_i(flash_data));
     assign dq=(!cs && !dut.u_system.flash_oe) ? flash_data : 4'bzzzz;
@@ -47,7 +49,8 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
         else begin
             if(dut.u_system.sample_valid)begin
                 // Independent centered Q8 gain, then a SINGLE rounding to PCM16.
-                scaled=(100'($signed(dut.u_system.sample_value))*100'sd181+100'sd524288)>>>20;
+                scaled=(100'($signed(dut.u_system.sample_value))*100'sd181+
+                        (100'sd1<<(16+dut.PCM_HEADROOM_BITS)))>>>(17+dut.PCM_HEADROOM_BITS);
                 last_pcm<=scaled>32767 ? 16'h7fff : scaled< -32768 ? 16'h8000 : 16'(scaled);pcm_pending<=1;
             end
             if(sample_tick)pcm_pending<=0;

@@ -24,7 +24,7 @@
     <label class="tempo-control"><span>TEMPO</span><input id="tempo" type="number" min="4" max="1000" step="1" value="110" aria-label="速度 BPM"><small id="tempo-unit">BPM</small></label>
     <div class="meter"><strong>4<span>/</span>4</strong><small>拍号</small></div>
     <div class="transport-spacer"></div>
-    <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑参考试听</option><option value="uart">FPGA · 有线 UART</option></select></label>
+    <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑参考试听</option><option value="uart">FPGA · 串口</option></select></label>
     <button id="panic" class="panic" title="停止走带并向全部通道发送清音（Esc）">■ 紧急清音 <kbd>ESC</kbd></button>
   </nav>
   <main class="workspace">
@@ -59,25 +59,38 @@
         <div class="edit-actions"><button id="quantize">量化</button><button id="duplicate">复制</button><button id="delete-note" class="danger-text">删除</button></div>
       </div></section>
       <section class="inspector-section"><div class="section-label">片段与循环 <span class="quiet">4/4</span></div><div class="field-row"><label>起始拍<input id="loop-start" type="number" min="1" step=".25"></label><label>结束拍<input id="loop-end" type="number" min="1.25" step=".25"></label></div><label class="inline-field">工程长度 / 小节<input id="bars" type="number" min="1" max="10000"></label></section>
-      <section class="inspector-section hardware"><div class="section-label">有线连接 <span id="connection-badge" class="connection-badge">未连接</span></div>
+      <section class="inspector-section hardware"><div class="section-label">设备连接 <span id="connection-badge" class="connection-badge">未连接</span></div>
+        <label class="serial-select">通信协议<select id="protocol"><option value="v1">v1 · 板载有线 UART</option><option value="v2">v2 · 蓝牙 UART / 测试串口</option></select></label>
         <label class="serial-select">波特率<select id="baud"><option>115200</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
         <button id="connect" class="connect-button"><svg><use href="#i-plug"/></svg><span>连接串口</span></button>
         <p id="serial-support" class="hint">USB 转 UART · 8N1 · SLIP / CRC16</p>
+        <p id="protocol-hint" class="hint">板载 USB 串口选择 v1；v2 使用 HC-05 对应串口，或 USB-TTL 接蓝牙 RX/TX。</p>
+        <div id="v2-tools" hidden>
+          <div class="session-readout" role="status" aria-live="polite"><strong id="v2-phase">未握手</strong><span id="v2-context">等待连接</span></div>
+          <button id="v2-status" class="full subtle" disabled>查询会话状态</button>
+          <label class="stack-label">共享混响<select id="v2-reverb"><option value="0">关闭 · NONE</option><option value="1">大厅 · HALL</option><option value="2">浴室 · BATHROOM</option></select></label>
+          <button id="v2-configure" class="full subtle" disabled>设置混响并等待结果</button>
+          <p id="v2-result" class="hint">等待设备真实配置结果；会话就绪不代表音频后端已就绪。</p>
+          <details class="link-tests"><summary>链路测试</summary><p class="hint">坏 CRC 用于检查演奏连续性；暂停心跳会让设备撤销会话并清音。</p>
+            <button id="v2-bad-crc" class="full subtle" disabled>发送一帧坏 CRC</button>
+            <button id="v2-pause-heartbeat" class="full subtle" disabled>暂停心跳，测试断线清音</button>
+          </details>
+        </div>
         <details id="hardware-profile"><summary>板端已加载配置 <span>手动核对</span></summary>
           <label class="stack-label">当前接收通道 / 音色<select id="hw-channel"><option value="0">1 · 吉他</option><option value="1" selected>2 · 钢琴</option><option value="2">3 · 小号</option><option value="3">4 · 小提琴</option><option value="4">5 · 大提琴</option><option value="5">6 · 长笛</option></select></label>
           <label class="stack-label">当前已加载音高（MIDI 编号）<textarea id="hw-notes" rows="3" spellcheck="false">40,42,44,46,48,50,52,54,56,58,60,62,64,67,71,76</textarea></label>
           <button id="load-manifest" class="full subtle">从 Flash manifest 读取音组</button><input id="manifest-input" type="file" accept=".json" hidden>
           <label class="inline-field">清单音组<select id="manifest-bank"><option value="0">低组 / 0</option><option value="1">高组 / 1</option></select></label>
-          <button id="hardware-exercise" class="full subtle">生成当前音组测试片段</button><p class="hint">这里记录板端当前配置。音色、来源和音组需先在板端设置；v1 无远程切换或查询命令。</p>
+          <button id="hardware-exercise" class="full subtle">生成当前音组测试片段</button><p class="hint">这里记录板端当前配置。v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；音色、接收通道和音组仍需在板端设置。</p>
         </details>
       </section>
       <section class="inspector-section monitor"><div class="section-label">链路监视 <span class="quiet">HOST</span></div><div class="link-stats"><div><strong id="tx-frames">0</strong><small>TX 帧</small></div><div><strong id="tx-bytes">0</strong><small>TX 字节</small></div><div><strong id="rx-frames">0</strong><small>RX 帧</small></div></div><div id="link-log" class="link-log" aria-label="连接日志"></div></section>
     </aside>
     </div>
   </main>
-  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="transport-spacer"></span><span id="output-status">参考试听 · 三角波</span><span class="status-divider">|</span><span>UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
+  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="transport-spacer"></span><span id="output-status">参考试听 · 三角波</span><span class="status-divider">|</span><span id="protocol-status">UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
 </div>
 <div id="toast" class="toast" role="status" hidden></div>
-<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听使用三角波参考音源。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；板端先选择有线 MIDI、对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
+<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听使用三角波参考音源。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
 <script type="module" src="/src/app.mjs"></script>
 </body></html>

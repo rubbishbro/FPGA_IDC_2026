@@ -1,4 +1,4 @@
-module lcd_fft (
+module lcd_fft #(parameter REVERSE_SCAN=1'b0) (
     input               clk,
     input               rst_n,
     input               frame_pulse,   // one pulse per frame -> hue cycles
@@ -43,6 +43,15 @@ module lcd_fft (
             xmod_c    <= 3'd0;
             bar_idx_c <= 7'd0;
         end
+        else if (REVERSE_SCAN) begin
+            if (pix_x >= 10'd767) begin
+                xmod_c <= 3'd5;
+                bar_idx_c <= 7'd127;
+            end else if (xmod_c == 3'd0) begin
+                xmod_c <= 3'd5;
+                if (bar_idx_c != 0) bar_idx_c <= bar_idx_c - 1'b1;
+            end else xmod_c <= xmod_c - 1'b1;
+        end
         else if (pix_x == 10'd0) begin
             xmod_c    <= 3'd0;
             bar_idx_c <= 7'd0;
@@ -66,7 +75,7 @@ module lcd_fft (
     wire [9:0] bar_top  = BASE_Y - q_y_lim;
 
     // bar body: from bottom up to bar_top
-    wire in_bar = (q_y_lim > 10'd0) && (pxy >= bar_top) && (pxy <= BASE_Y);
+    wire in_bar = (pxx < 10'd768) && (q_y_lim > 10'd0) && (pxy >= bar_top) && (pxy <= BASE_Y);
 
 // ===== hue shift: color band ROTATES (circular), not ping-pong =====
     // band is 192 long, wraps 191->0. The whole window slides around the ring.

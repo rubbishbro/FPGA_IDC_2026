@@ -2,7 +2,9 @@
 // 来源会话协调。只依据显式状态/握手计数决定维护命令，不拥有帧/事件数据。
 module session_ctrl #(
     parameter int EVENT_DEPTH = 64,
-    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b1
+    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b1,
+    // v2 owns BT fault classification; retain raw diagnostics and cleanup barriers.
+    parameter bit EXTERNAL_MANAGED_BT = 1'b0
 ) (
     input logic clk, rst_n,
     input logic [1:0] session_restart, connect_event, disconnect_event,
@@ -28,7 +30,7 @@ module session_ctrl #(
     for (genvar g = 0; g < 2; g = g + 1) begin : g_source
         assign error_now[g*8 +: 8] = {overflow[g], break_detect[g], framing_err[g],
                                      (protocol_errors[g*8 +: 5] | (midi_error[g]?5'b10000:5'b0))};
-        assign fault_now[g] = !source_quarantine[g] &&
+        assign fault_now[g] = !(EXTERNAL_MANAGED_BT && g == 1) && !source_quarantine[g] &&
             (framing_err[g] || break_detect[g] || overflow[g] ||
              protocol_errors[g*8+4] || disconnect_event[g] ||
              (ISOLATE_PROTOCOL_ERRORS && ((|protocol_errors[g*8 +: 5]) || midi_error[g])));

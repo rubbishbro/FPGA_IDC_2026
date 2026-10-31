@@ -2,6 +2,8 @@
 // Independent wide reference proves the shortened carry chain keeps rounding,
 // negative ties, saturation and every allowed shift boundary unchanged.
 module tb_pcm_equivalence;
+    i2s_audio_output #(.PCM_HEADROOM_BITS(1)) h1(.clk(1'b0),.audio_clk(1'b0),.rst_n(1'b0),
+        .active(1'b0),.in_valid(1'b0),.in_data(64'sd0),.sample_tick(),.amp_bclk(),.amp_ws(),.amp_din(),.deadline_miss(),.overflow(),.underflow());
     i2s_audio_output #(.PCM_HEADROOM_BITS(0)) h0(.clk(1'b0),.audio_clk(1'b0),.rst_n(1'b0),
         .active(1'b0),.in_valid(1'b0),.in_data(64'sd0),.sample_tick(),.amp_bclk(),.amp_ws(),.amp_din(),.deadline_miss(),.overflow(),.underflow());
     i2s_audio_output #(.PCM_HEADROOM_BITS(3)) h3(.clk(1'b0),.audio_clk(1'b0),.rst_n(1'b0),
@@ -15,8 +17,10 @@ module tb_pcm_equivalence;
     endfunction
     integer count=0,seed=873212;
     task automatic check(input logic signed[63:0] value);
-        if(h0.pcm16(value)!==reference(value,9) || h3.pcm16(value)!==reference(value,12) || h53.pcm16(value)!==reference(value,62))
+        if(h0.pcm16(value)!==reference(value,9) || h1.pcm16(value)!==reference(value,10) || h3.pcm16(value)!==reference(value,12) || h53.pcm16(value)!==reference(value,62))
             $fatal(1,"FAIL PCM equivalence value=%h",value);
+        if(h1.spatial_pcm16(84'($signed(value))<<<18)!==reference(value,10))
+            $fatal(1,"FAIL louder stereo PCM equivalence value=%h",value);
         count++;
     endtask
     initial begin
@@ -26,6 +30,9 @@ module tb_pcm_equivalence;
             check((q<<<9));check((q<<<9)+255);check((q<<<9)+256);check((q<<<9)+511);
         end
         repeat(100000)check({$urandom(seed),$urandom(seed)});
-        $display("PASS tb_pcm_equivalence vectors=%d headroom=0/3/53",count);$finish;
+        if(h1.pcm16(64'sd409600)!=16'd400 || h3.pcm16(64'sd409600)!=16'd100 ||
+           h1.pcm16(64'sh7fffffffffffffff)!=16'h7fff || h1.pcm16(64'sh8000000000000000)!=16'h8000)
+            $fatal(1,"FAIL board gain x4 / saturation");
+        $display("PASS tb_pcm_equivalence vectors=%d headroom=0/1/3/53 gain_x4 saturation",count);$finish;
     end
 endmodule

@@ -4,6 +4,8 @@
 
 2026-10-30迁移origin/board50@6183395d后，LCD同时接真实菜单、4×4引导及合成PCM的FFT/波形/极坐标历史页。PCM抽头使用独立24bit异步FIFO进入像素域；FFT及全部显示后处理留在同一像素时钟域，不反压I2S/PT8211。首次完整频谱发布前输出零，不读取未初始化显示bank。
 
+2026-10-31 操作方向及音量更新：板级默认 `PCM_HEADROOM_BITS=1`（原3，未限幅信号振幅提高4倍，约+12dB，保留舍入/饱和），`LCD_ROTATE_180=1`；摇杆设置为交换XY并同时反转两轴，相对旧方向为下→左、上→右、左→上、右→下。频谱列索引和极坐标扫描补偿随旋转同步调整。5项专项测试、v2 整板综合/PnR 及 SRAM 下载均通过，用户确认当前音量/方向版本实测通过；下载记录见[编辑器插件与板级下载](../../../docs/history/2026-10-31/编辑器v2插件与板级下载_2026-10-31.md)，功能验证详见[本轮记录](../../../docs/history/2026-10-31/板级音量与方向调整_2026-10-31.md)。
+
 ## 时钟、复位及资源
 
 | 域 | 来源/频率 | 用途 |
@@ -42,6 +44,12 @@ LCD/按键沿用现行ui_demo.cst；压力/LED采用origin/boardtest的4abc8b19�
 | HC-05 RX←FPGA TX | PMOD0 | R17（uart_tx[1]） |
 | HC-05 STATE→FPGA | PMOD0，可选 | T24；默认BT_HAS_STATE=0，接并启用后才检测物理断连 |
 
+蓝牙会话 v2 试验入口：板级参数 `BT_PROTOCOL_V2=1`，手机按
+[v2 合同](../../../docs/蓝牙会话协议v2_实现约定.md) 握手后才能发送业务；默认仍为 v1。
+接好 STATE 后另设 `BT_HAS_STATE=1`；未接 STATE 时 v2 仍可依靠心跳撤销会话，
+HELLO 可在来源隔离期间到达，不依赖板级固定为 0 的 `session_restart`。
+本次协议仿真不构成该参数组合的整板时序或实物验收。
+
 三个PMOD的pin1/2为+3V3，pin3/4为GND，接线按板上Pin1标记核对。本版使用板载Flash，PMOD0改接蓝牙。Flash须装入匹配镜像；loader每次加载前发送06h及01h（SR1=00、SR2=02）开启QE，并等待20ms，再执行6Bh读表。该过程会写状态寄存器，不写系数区；必须确认镜像所在地址不会与FPGA配置数据重叠。
 
 PMOD0和板载UART RX含SSPI/CPU复用脚，build.tcl显式启用use_sspi_as_gpio/use_cpu_as_gpio/use_mspi_as_gpio；本设计不使用AE350或SSPI硬核。MSPI管脚在用户逻辑运行时用于读取板载Flash，下载与启动行为须按板卡流程验证；JTAG仍用于调试。SSPI复用选项见[Gowin Tcl官方手册](https://cdn.gowinsemi.com.cn/SUG1220E.pdf)。
@@ -50,7 +58,7 @@ PMOD0和板载UART RX含SSPI/CPU复用脚，build.tcl显式启用use_sspi_as_gpi
 
 pad_driver保留主线的泄放/建立/完成沿sticky/超时重试FSM，未用分支旧定时盲读替换。板级LED恢复“行=y/2、列=x/2”的2×2映射，64像素写入后留6000个400ns拍传输。原始ADC字节16约0.5V：板级将正压力乘4并饱和，on/off门限64/48对应原始16/12；负电压噪声按零处理。原始fmap/摇杆快照仍可检查；最终压力标定需实板测量。
 
-sidebar的摇杆启用逐轴死区输出：未进入方向的轴输出0，采用board50实板参数200进入/100退出的迟滞，板级当前采用JOY_INVERT_X=0、JOY_INVERT_Y=1（根据2026-10-30实板光标反馈调整），防止横推时另一轴噪声移动光标。默认joystick_adapter行为保留兼容。LCD扫描修正为严格800×480，菜单布局/字模分拍计算，RGB/DE统一延迟4个像素时钟后输出；数值及滑条位置在消隐期准备。两张完整画面的像素哈希与改动前基准一致。
+sidebar的摇杆启用逐轴死区输出：未进入方向的轴输出0，采用board50实板参数200进入/100退出的迟滞，板级当前采用JOY_SWAP_XY=1、JOY_INVERT_X=1、JOY_INVERT_Y=1（2026-10-31旋转屏幕后的新坐标系），防止横推时另一轴噪声移动光标。默认joystick_adapter行为保留兼容。LCD扫描为严格800×480，板级逻辑坐标旋转180°，菜单布局/字模分拍计算，RGB/DE统一延迟4个像素时钟后输出；数值及滑条位置在消隐期准备。通用未旋转sidebar的两张画面像素哈希保持不变，板级旋转另有逐像素验证。
 
 comm事件data/source直接接真实MIDI消费者，quarantine接source_cleanup_req；真实source_cleanup_done/source_ops_idle/midi_ops_idle反馈到session_ctrl。未选来源事件明确消费，按键菜单切换PAD/有线/蓝牙，不伪造音符。
 
@@ -89,9 +97,12 @@ QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=software QT_OPENGL=software \
 通过后的bitstream位于 `build/manual_pnr/instrument_board/impl/pnr/instrument_board.fs`，
 验收记录为 `build/manual_pnr/acceptance.json`；时序失败时脚本返回错误，并将bitstream标为 `.fs.UNVALIDATED`。
 两条构建命令不会覆盖 `build/eng1_pitch/board_pnr` 的已验收产物；重复运行会覆盖各自manual目录。
+蓝牙 v2 测试构建在命令前增加 `BOARD_BT_PROTOCOL_V2=1`，并选择独立输出目录。
+构建脚本在该目录生成顶层参数变体及 `build_profile.json`，有线 UART 仍使用 v1；
+不传此变量则保持源码默认的蓝牙 v1。编辑器连接方式见 [上位机说明](../../../web/midi-editor/README.md#v2-会话插件与无手机测试)。
 板级功能仿真入口为 `python3 sim/run_board.py`。
 
-sources.f为唯一完整板级源清单，构建产物默认在build/instrument_board，可用INSTRUMENT_BUILD_DIR指定隔离目录，未执行烧录。仿真只替换PLL、ADC和Flash外设，UART字节驱动、解析、实体按键、PAD扫描、菜单、UI后端、loader/引擎、I2S和LCD使用生产RTL。独立LCD单测检查两帧的800×480有效像素和1192×533时钟；摇杆单测检查横向/对角进入、迟滞退出、回中及失联。附加回归覆盖停钟/复位CDC、同步效果器清理、两引擎满16槽供样、PCM逐位等价、配置范围/比较等价及LED线端波形等价。`python3 sim/run_board_pll.py`独立使用厂商GW5A模型，不使用板级行为PLL。
+sources.f为唯一完整板级源清单，构建产物默认在build/instrument_board，可用INSTRUMENT_BUILD_DIR指定隔离目录；构建脚本本身不执行烧录，本轮 SRAM 下载结果见文首归档。仿真只替换PLL、ADC和Flash外设，UART字节驱动、解析、实体按键、PAD扫描、菜单、UI后端、loader/引擎、I2S和LCD使用生产RTL。独立LCD单测检查两帧的800×480有效像素和1192×533时钟；摇杆单测检查横向/对角进入、迟滞退出、回中及失联。附加回归覆盖停钟/复位CDC、同步效果器清理、两引擎满16槽供样、PCM逐位等价、配置范围/比较等价及LED线端波形等价。`python3 sim/run_board_pll.py`独立使用厂商GW5A模型，不使用板级行为PLL。
 
 完整日期化结果统一见[工程验证](../../../docs/工程评审与验证.md)，后续整机问题维护在[台账](../../../docs/bugs.md)。本阶段的构建/仿真不代表实物接线、模拟ADC、音高准确性或DAC听感通过。
 

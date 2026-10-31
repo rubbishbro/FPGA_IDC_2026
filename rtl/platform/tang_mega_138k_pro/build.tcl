@@ -16,9 +16,33 @@ set_option -use_sspi_as_gpio 1
 set_option -use_cpu_as_gpio 1
 # On-board 128Mbit config NOR is read by the loader: free its MSPI pins as GPIO.
 set_option -use_mspi_as_gpio 1
+# Keep the checked-in default v1 profile intact. Generate a reviewed top-level
+# parameter variant for an explicitly requested v2 build in its output folder.
+set bt_v2 0
+if {[info exists ::env(BOARD_BT_PROTOCOL_V2)]} {set bt_v2 $::env(BOARD_BT_PROTOCOL_V2)}
+if {$bt_v2 ne "0" && $bt_v2 ne "1"} {error "BOARD_BT_PROTOCOL_V2 must be 0 or 1"}
+set top_source_path "$board/instrument_board_top.sv"
+if {$bt_v2 eq "1"} {
+    set top_fh [open $top_source_path r]
+    set top_source [read $top_fh]
+    close $top_fh
+    if {[regsub -all {BT_PROTOCOL_V2=0} $top_source {BT_PROTOCOL_V2=1} top_source] != 1} {
+        error "Cannot select v2: expected exactly one BT_PROTOCOL_V2 default"
+    }
+    file mkdir "$out/profile"
+    set top_source_path "$out/profile/instrument_board_top.sv"
+    set top_fh [open $top_source_path w]
+    puts -nonewline $top_fh $top_source
+    close $top_fh
+}
+set profile_fh [open "$out/build_profile.json" w]
+puts $profile_fh "{\"BT_PROTOCOL_V2\": $bt_v2}"
+close $profile_fh
 set fh [open "$board/sources.f" r]
 foreach path [split [read $fh] "\n"] {
-    if {[string trim $path] ne ""} {add_file "$root/$path"}
+    if {$path eq "rtl/platform/tang_mega_138k_pro/instrument_board_top.sv"} {
+        add_file $top_source_path
+    } elseif {[string trim $path] ne ""} {add_file "$root/$path"}
 }
 close $fh
 foreach m [glob -nocomplain "$root/FFT_spectrumshow/board/*.mem"] {

@@ -1,0 +1,13 @@
+{
+  "bitstream": "/home/rubbishbro/Projects/FPGA_IDC_2026/build/editor_v2_board/implementation/instrument_board/impl/pnr/instrument_board.fs",
+  "sha256": "653ecaf182180b8f2496b5c5e0edc44e09d65d6d171bdf56b06a9a578af8da1d",
+  "inputs_unchanged": true,
+  "acceptance": "passed",
+  "operation": "SRAM Program",
+  "operation_index": 2,
+  "programmer_status": "Finished",
+  "user_code": "0x0000AAE6",
+  "device_status": "0x00026230",
+  "kernel_driver_restored": true,
+  "nonvolatile_flash_written": false
+}

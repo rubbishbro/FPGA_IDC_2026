@@ -2,6 +2,7 @@ import {History,demoProject,blankProject,newTrack,uid,clamp,noteName,validatePro
 import {parseMidi,writeMidi} from './midi-file.mjs';
 import {PianoRoll} from './piano-roll.mjs';
 import {SerialLink} from './serial.mjs';
+import {V2SerialLink} from './serial-v2.mjs';
 import {Playback,ReferenceSynth} from './playback.mjs';
 import {setupSidebars} from './sidebars.mjs';
 const $=id=>document.getElementById(id),DRAFT='fpga-midi-studio:v1';
@@ -10,7 +11,8 @@ let project=demoProject();
 try{const saved=localStorage.getItem(DRAFT);if(saved)project=validateProject(JSON.parse(saved));}catch{status('本机草稿不可用，已打开示例工程');}
 const history=new History(project,()=>{scheduleSave();render();});selectedTrack=project.tracks[0].id;
 const synth=new ReferenceSynth();
-const serial=new SerialLink(renderSerial,log);
+const serialV1=new SerialLink(renderSerial,log),serialV2=new V2SerialLink(renderSerial,log);
+let serial=serialV1,recoveryGeneration=-1,resumeAfterRecovery=false,connecting=false;
 const playback=new Playback({
   send:events=>output==='uart'?serial.send(events.map(e=>e.data)):synth.send(events),
   panic:()=>{synth.panic();if(output==='uart'&&serial.connected)serial.panic([Number($('hw-channel').value)]).catch(e=>log('清音失败',e.message));},
@@ -18,7 +20,23 @@ const playback=new Playback({
   onStop:()=>{worker?.postMessage('stop');renderTransport();},
   onError:e=>{if(!playback.playing)return;stopPlayback();toast(e.message,true);}
 });
-serial.onFault=e=>{stopPlayback();toast(`串口故障：${e.message}。请检查板端状态。`,true);};
+for(const link of [serialV1,serialV2])link.onFault=e=>{
+  if(link!==serial)return;
+  resumeAfterRecovery=false;stopPlayback();toast(`通信故障：${e.message}。请断开后重新连接。`,true);
+};
+serialV2.onRecovery=()=>{
+  if(serial!==serialV2)return;
+  const wasPlaying=playback.playing;
+  stopPlayback();resumeAfterRecovery=wasPlaying;recoveryGeneration=startGeneration;
+  status('设备正在恢复演奏状态，走带已暂停');
+};
+serialV2.onRecovered=()=>{
+  if(serial!==serialV2)return;
+  const resume=resumeAfterRecovery&&recoveryGeneration===startGeneration&&!document.hidden;
+  resumeAfterRecovery=false;
+  // Playback.start/seek chases the current pedal and held/sustained notes.
+  if(resume)play();else status('演奏会话已恢复，可重新播放');
+};
 const roll=new PianoRoll($('roll'),$('roll-overlay'),{
   getProject:()=>history.current,getTrack:()=>selectedTrack,
   onCommit:next=>{try{validateProject(next);history.commit(next);}catch(e){toast(e.message,true);roll.invalidate();}renderSelection();},beforeEdit:()=>stopPlayback(),onSelection:renderSelection,
@@ -60,7 +78,20 @@ function renderTracks(){
 function renderSelection(){const notes=roll.selected(),n=notes[0];$('selection-count').textContent=notes.length?`${notes.length} 个音符`:'未选择';$('selection-fields').hidden=!n;$('selection-empty').hidden=!!n;if(n){$('note-pitch').value=n.pitch;$('note-name').textContent=noteName(n.pitch);$('note-velocity').value=n.velocity;$('note-beat').value=Number((n.beat+1).toFixed(6));$('note-duration').value=Number(n.duration.toFixed(6));}}
 function renderPosition(){const b=Math.max(0,playback.position);$('position').textContent=`${String(Math.floor(b/4)+1).padStart(3,'0')} : ${Math.floor(b%4)+1} : ${String(Math.floor((b%1)*480)).padStart(3,'0')}`;}
 function renderTransport(){$('play').classList.toggle('playing',playback.playing);$('play').querySelector('span').textContent=playback.playing?'暂停':'播放';$('play').setAttribute('aria-label',playback.playing?'暂停':'播放');}
-function renderSerial(){$('connection-badge').textContent=serial.connected?'串口已连接':'未连接';$('connection-badge').classList.toggle('connected',serial.connected);$('connect').querySelector('span').textContent=serial.connected?'断开串口':'连接串口';$('baud').disabled=!!serial.port;$('tx-frames').textContent=serial.txFrames;$('tx-bytes').textContent=serial.txBytes;$('rx-frames').textContent=serial.rxFrames;}
+function renderSerial(){
+  const v2=serial===serialV2;
+  const phases={idle:'未握手',hello_sent:'正在请求会话',welcome:'设备清理完成',confirm_sent:'正在确认会话',active:'会话已就绪',resync:'正在恢复演奏',resume_sent:'等待恢复确认',fault:'会话已失效'};
+  const phase=v2?(phases[serial.phase]||serial.phase||'未握手'):(serial.connected?'串口已连接':'未连接');
+  $('connection-badge').textContent=phase;$('connection-badge').classList.toggle('connected',serial.connected);
+  $('connect').querySelector('span').textContent=serial.port?'断开串口':'连接串口';
+  $('baud').disabled=!!serial.port||connecting;$('protocol').disabled=!!serial.port||connecting;
+  $('tx-frames').textContent=serial.txFrames;$('tx-bytes').textContent=serial.txBytes;$('rx-frames').textContent=serial.rxFrames;
+  $('v2-tools').hidden=!v2;$('protocol-status').textContent=v2?'UART v2':'UART v1';
+  $('v2-phase').textContent=phase;
+  $('v2-context').textContent=v2&&serial.sessionId?`会话 ${serial.sessionId.toString(16).padStart(8,'0')} · 演奏代次 ${serial.playbackEpoch}`:'等待连接';
+  for(const id of ['v2-status','v2-configure','v2-bad-crc','v2-pause-heartbeat'])$(id).disabled=!v2||!serial.connected;
+  $('v2-configure').disabled ||= !!serial.configPending;
+}
 function hardwareProfile(){const notes=$('hw-notes').value.split(/[\s,，]+/).filter(Boolean).map(Number);if(notes.some(n=>!Number.isInteger(n)||n<0||n>127)||new Set(notes).size!==notes.length)throw Error('已加载音高清单必须是不重复的 0～127 整数');return {channel:Number($('hw-channel').value),notes};}
 function stopPlayback(){startGeneration++;playback.stop();worker?.postMessage('stop');renderTransport();}
 async function play(){
@@ -68,7 +99,7 @@ async function play(){
   try{
     if(!worker)throw Error('播放时钟不可用');validateProject(history.current);
     if(output==='uart') {
-      if(!serial.connected)throw Error('请先连接串口');const issues=hardwareIssues(history.current,hardwareProfile());if(issues.length)throw Error(issues.join('；'));await serial.panic([hardwareProfile().channel]);
+      if(!serial.connected)throw Error(serial===serialV2?'请先连接并等待 v2 会话就绪':'请先连接串口');const issues=hardwareIssues(history.current,hardwareProfile());if(issues.length)throw Error(issues.join('；'));await serial.panic([hardwareProfile().channel]);
       const aux=history.current.tracks.reduce((sum,t)=>sum+t.events.filter(e=>!((e.data[0]&0xf0)===0xb0&&[64,120,123].includes(e.data[1]))).length,0);if(aux)toast(`${aux} 个非踏板/清音控制事件保留在工程中，本轮 UART 播放跳过`);
     } else await synth.resume();
     if(generation!==startGeneration||document.hidden)return;
@@ -85,8 +116,20 @@ function safeName(){return history.current.name.replace(/[\\/:*?"<>|]/g,'_')||'u
 $('play').onclick=play;$('stop').onclick=()=>{stopPlayback();playback.position=history.current.loop.enabled?history.current.loop.start:0;roll.cursor=playback.position;renderPosition();roll.invalidate();};$('rewind').onclick=$('stop').onclick;
 $('panic').onclick=async()=>{stopPlayback();if(serial.connected){try{await serial.panic();toast('全通道清音请求已写入；板端静音状态需实机确认');}catch(e){toast(`清音写入失败：${e.message}`,true);}}else toast('已停止电脑试听；串口未连接');};
 $('loop-toggle').onclick=()=>edit(p=>p.loop.enabled=!p.loop.enabled);
-$('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 有线 UART':'参考试听 · 三角波';status(output==='uart'?'已选择 UART，播放前将核对硬件配置':'已选择电脑参考试听');};
-$('connect').onclick=async()=>{const b=$('connect');b.disabled=true;try{stopPlayback();if(serial.connected){await serial.panic();await serial.disconnect();}else{if(serial.port)await serial.disconnect();await serial.connect(Number($('baud').value));}}catch(e){if(e.name!=='NotFoundError')toast(e.message,true);}finally{b.disabled=false;renderSerial();}};
+$('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 串口':'参考试听 · 三角波';status(output==='uart'?'已选择串口，播放前将核对硬件配置':'已选择电脑参考试听');};
+$('protocol').onchange=()=>{stopPlayback();serial=$('protocol').value==='v2'?serialV2:serialV1;renderSerial();};
+$('connect').onclick=async()=>{const b=$('connect');b.disabled=true;connecting=true;renderSerial();try{stopPlayback();if(serial.port){if(serial.connected)await serial.panic();await serial.disconnect();}else await serial.connect(Number($('baud').value));}catch(e){if(e.name!=='NotFoundError')toast(e.message,true);}finally{connecting=false;b.disabled=false;renderSerial();}};
+$('v2-status').onclick=async()=>{try{const s=await serialV2.requestStatus();log('设备状态',JSON.stringify(s));toast('已收到设备会话状态；音色和通道仍以板端设置为准');}catch(e){toast(e.message,true);}renderSerial();};
+$('v2-configure').onclick=async()=>{
+  stopPlayback();$('v2-configure').disabled=true;$('v2-result').textContent='等待设备完成配置…';
+  try{const result=await serialV2.configure([2,Number($('v2-reverb').value)]);
+    const names=['已生效','不支持','长度错误','参数越界','忙','序号冲突','后端未就绪或无权限'];
+    $('v2-result').textContent=`混响配置：${names[result.result]||`错误 ${result.result}`}（请求 ${result.seq}）`;
+    toast($('v2-result').textContent,result.result!==0);
+  }catch(e){$('v2-result').textContent=e.message;toast(e.message,true);}finally{renderSerial();}
+};
+$('v2-bad-crc').onclick=async()=>{try{await serialV2.sendBadCrcForTest();log('链路测试','坏 CRC 测试帧已排入发送队列；检查演奏是否连续、会话是否仍就绪');}catch(e){toast(e.message,true);}};
+$('v2-pause-heartbeat').onclick=()=>{try{serialV2.pauseHeartbeatForTest();log('链路测试','已暂停心跳，等待设备撤销会话；之后需要重新连接');}catch(e){toast(e.message,true);}};
 $('project-name').onchange=()=>edit(p=>p.name=$('project-name').value.trim()||'未命名片段');
 $('tempo').onchange=()=>{const bpm=Number($('tempo').value);if(!Number.isFinite(bpm)||bpm<4||bpm>1000){render();return;}const variable=history.current.tempoMap.length>1;edit(p=>p.tempoMap=[{beat:0,bpm}]);if(variable)toast('已将变速图替换为固定速度；可撤销恢复');};
 $('snap').onchange=()=>roll.snap=Number($('snap').value);$('note-length').onchange=()=>roll.noteLength=Number($('note-length').value);$('zoom').oninput=()=>{roll.beatWidth=Number($('zoom').value);roll.invalidate();};$('fit').onclick=()=>roll.fit();
@@ -125,5 +168,5 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playback.playing){stopPlayback();status('页面进入后台，已停止走带并请求清音');}});
 window.addEventListener('pagehide',()=>{stopPlayback();try{localStorage.setItem(DRAFT,JSON.stringify(history.current));}catch{}});
 if(!navigator.serial)$('serial-support').textContent='当前浏览器无 Web Serial。连接硬件请用 Chrome / Edge 打开本地地址。';
-log('就绪','v1 协议 · 本地编辑 · 无板端状态查询');render();renderSerial();
+log('就绪','v1 有线演奏 / v2 会话插件 · 本地编辑');render();renderSerial();
 requestAnimationFrame(()=>requestAnimationFrame(()=>roll.fit()));

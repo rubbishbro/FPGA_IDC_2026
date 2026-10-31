@@ -45,6 +45,8 @@ rtl/drivers/bluetooth_hc05/hc05_driver.sv
 rtl/comm/slip_frame_rx.sv
 rtl/comm/slip_frame_tx.sv
 rtl/comm/transport_link.sv
+rtl/comm/comm_v2_codec.sv
+rtl/comm/transport_v2_link.sv
 rtl/comm/frame_arbiter.sv
 rtl/comm/session_ctrl.sv
 rtl/drivers/analyzer/midi_analyzer.sv

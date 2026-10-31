@@ -8,7 +8,9 @@ module sidebar_system #(
     parameter bit AUDIO_BACKEND=1'b0,
     parameter integer JOY_DEADZONE_ON=1400, JOY_DEADZONE_OFF=900,
     parameter bit JOY_FILTER_CENTER=1'b0,
+    parameter bit JOY_SWAP_XY=1'b0,
     parameter bit JOY_INVERT_X=1'b0, JOY_INVERT_Y=1'b0,
+    parameter bit REVERSE_SCAN=1'b0,
     parameter FONT_FILE="sidebar_font.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
@@ -63,7 +65,8 @@ module sidebar_system #(
     joystick_pkg::joy_dir_t direction,nav_dir;
     logic nav_valid,nav_ready,nav_repeat;
     joystick_adapter #(.CLK_HZ(CTRL_HZ),.CALIB_LOG2(CALIB_LOG2),
-        .DEADZONE_ON(JOY_DEADZONE_ON),.DEADZONE_OFF(JOY_DEADZONE_OFF),.FILTER_CENTER(JOY_FILTER_CENTER),.INVERT_X(JOY_INVERT_X),.INVERT_Y(JOY_INVERT_Y)) u_joystick(
+        .DEADZONE_ON(JOY_DEADZONE_ON),.DEADZONE_OFF(JOY_DEADZONE_OFF),.FILTER_CENTER(JOY_FILTER_CENTER),
+        .SWAP_XY(JOY_SWAP_XY),.INVERT_X(JOY_INVERT_X),.INVERT_Y(JOY_INVERT_Y)) u_joystick(
         .clk(ctrl_clk),.rst_n(ctrl_n),.recalibrate(joy_recalibrate),
         .sample_valid(joy_sample_valid),.raw_x(joy_raw_x),.raw_y(joy_raw_y),
         .calibrated(joy_calibrated),.stale(joy_stale),.center_x(),.center_y(),
@@ -175,7 +178,7 @@ module sidebar_system #(
     logic[2:0] de_q;
     wire overlay_hit,guide_hit;
     wire [5:0] guide_r,guide_g,guide_b;
-    lcd_draw #(.LEGACY_UI(1'b0)) u_spectrum(
+    lcd_draw #(.LEGACY_UI(1'b0),.REVERSE_SCAN(REVERSE_SCAN)) u_spectrum(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
         .pix_x(pix_x),.pix_y(pix_y),.page_sel(page),.ui_setting_sel(2'd0),.effects(effects),
         .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
