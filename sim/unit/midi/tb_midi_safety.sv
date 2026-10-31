@@ -21,7 +21,8 @@ module tb_midi_safety;
     integer checks=0,cancelled=0;
     midi_voice_top #(.SLOTS(16),.N_MODES(4),.CLK_HZ(10_000_000),.SR_HZ(10_000),
         .NOTE_BANKS(1),.CONTROL_SUPPORTED(5'b10000),.CONTROL_TIMEOUT_CYCLES(64),
-        .OP_TIMEOUT_CYCLES(5000),.CONFIG_TIMEOUT_CYCLES(100000)) dut (
+        // QE initialization alone is 200000 cycles with this CLK_HZ fixture.
+        .OP_TIMEOUT_CYCLES(5000),.CONFIG_TIMEOUT_CYCLES(500000)) dut (
         .clk(clk),.rst_n(rst_n),.run(run),.reload(reload),.midi_select(midi_select),
         .midi_source_id(midi_source_id),.panic(panic),.note_bank(note_bank),.first_midi_note(first_midi_note),
         .fmap(fmap),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
@@ -128,5 +129,5 @@ module tb_midi_safety;
         release dut.u_voice.smp_tick;source_cleanup_req=0;retry();run=1;
         $display("PASS tb_midi_safety checks=%0d unsupported=%0d timeouts=%0d dropped=%0d",checks,unsupported_count,control_timeout_count,dropped_count);$finish;
     end
-    initial begin #20000000;$fatal(1,"FAIL safety watchdog cfg=%0d voice=%0d op=%0d",dut.cfg_state,dut.u_voice.state,dut.op_valid);end
+    initial begin #80000000;$fatal(1,"FAIL safety watchdog cfg=%0d voice=%0d op=%0d",dut.cfg_state,dut.u_voice.state,dut.op_valid);end
 endmodule

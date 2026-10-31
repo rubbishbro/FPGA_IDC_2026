@@ -12,7 +12,7 @@ module polyphonic_audio_case #(parameter bit ALT=0)(input logic clk,aclk,rst_n,o
     logic[3:0] dqi,dqo;
     logic cs,sck,oe,run=1;
     wire[111:0] note_map=default_note_map();
-    midi_voice_top #(.SLOTS(16),.N_MODES(64),.AUDIO_ENABLE(1)) dut(
+    midi_voice_top #(.STEREO_ENABLE(0),.CLK_HZ(50_000_000),.SLOTS(16),.N_MODES(64),.AUDIO_ENABLE(1)) dut(
         .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap('0),.pad_instrument(INST_PIANO),
         .reverb_preset(REVERB_HALL),.reload(1'b0),.midi_select(1'b1),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(CHANNEL),.note_bank(1'b0),.first_midi_note(7'd0),.slot_note_map(note_map),
@@ -43,7 +43,7 @@ module polyphonic_audio_case #(parameter bit ALT=0)(input logic clk,aclk,rst_n,o
         if(!rst_n)begin last_part_tick=0;min_part_gap=2147483647;end
         else if(dut.u_voice.part_tick)begin
             if(last_part_tick!=0)begin
-                if(cycles-last_part_tick<2047)$fatal(1,"FAIL sample enable pulses too close: %d",cycles-last_part_tick);
+                if(cycles-last_part_tick<1023)$fatal(1,"FAIL sample enable pulses too close: %d",cycles-last_part_tick);
                 if(cycles-last_part_tick<min_part_gap)min_part_gap=cycles-last_part_tick;
             end
             last_part_tick=cycles;
@@ -62,7 +62,7 @@ module polyphonic_audio_case #(parameter bit ALT=0)(input logic clk,aclk,rst_n,o
             if(yv && active)begin
                 produced++;
                 if(cycles-last_tick>max_latency)max_latency=cycles-last_tick;
-                if(cycles-last_tick>=2048)$fatal(1,"FAIL sample exceeded I2S frame deadline");
+                if(cycles-last_tick>=1024)$fatal(1,"FAIL sample exceeded I2S frame deadline");
             end
         end
     end
@@ -99,11 +99,11 @@ module polyphonic_audio_case #(parameter bit ALT=0)(input logic clk,aclk,rst_n,o
 endmodule
 module tb_polyphonic_audio;
     logic clk=0,aclk=0,rst_n=0;
-    always #5 clk=~clk;
+    always #10 clk=~clk;
     initial begin #13;forever #40 aclk=~aclk;end
     wire a,b;
     polyphonic_audio_case #(.ALT(0)) piano(clk,aclk,rst_n,a);
     polyphonic_audio_case #(.ALT(1)) flute(clk,aclk,rst_n,b);
     initial begin repeat(5)@(negedge clk);rst_n=1;wait(a&&b);$display("PASS tb_polyphonic_audio both_engines");$finish;end
-    initial begin #60000000;$fatal(1,"FAIL polyphony timeout");end
+    initial begin #100000000;$fatal(1,"FAIL polyphony timeout");end
 endmodule

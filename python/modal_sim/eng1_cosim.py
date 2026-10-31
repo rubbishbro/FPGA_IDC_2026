@@ -46,7 +46,7 @@ def _golden_cases():
     return [
         # n, zero, x, G, a1, a2, y1, y2
         (3, 1, -(1 << 28), 1 << 24, 0, 0, [0] * N, [0] * N),
-        (3, 0, 0, 0, 1 << 20, 0, [10, 20, 30] + [0] * (N - 3), [0] * N),
+        (3, 0, 0, 0, 1 << 24, 0, [10, 20, 30] + [0] * (N - 3), [0] * N),
     ]
 
 
@@ -75,7 +75,7 @@ def build_cases(n_cases: int, seed: int):
         zero = int(rng.random() < 0.3)
         x = rng.randrange(-(1 << 31), 1 << 31)
         g = rng.randrange(-(1 << 25), 1 << 25)
-        a1 = rng.randrange(-(1 << 21), 1 << 21)
+        a1 = rng.randrange(-(1 << 25), 1 << 25)
         a2 = rng.randrange(0, 1 << 24)
         y1 = [rng.randrange(-(1 << 31), 1 << 31) for _ in range(N)]
         y2 = [rng.randrange(-(1 << 31), 1 << 31) for _ in range(N)]

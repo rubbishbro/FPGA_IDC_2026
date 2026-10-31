@@ -23,6 +23,8 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT / "FFT_spectrumshow/board/sidebar_font.mem", out / "sidebar_font.mem")
+    for memory in (ROOT / "FFT_spectrumshow/board").glob("*.mem"):
+        shutil.copyfile(memory, out / memory.name)
     (out / "results.json").unlink(missing_ok=True)
     ini = args.ini or Path(os.environ.get("QSIM_INI") or os.environ.get("MODELSIM") or
                            str(Path.home() / "gowin/simlib_questa/modelsim.ini"))
@@ -43,7 +45,7 @@ def main():
         command = [exe, *options]
         try:
             proc = subprocess.run(command, cwd=out, env=env, capture_output=True,
-                                  text=True, timeout=120)
+                                  text=True, timeout=600)
             output = proc.stdout + proc.stderr
             passed = (proc.returncode == 0 and
                       re.search(r"\*\* (?:Error|Fatal)|\b(?:FAIL|FATAL)\b", output) is None)
@@ -59,11 +61,11 @@ def main():
     # Same production DSP files/order as the existing music build.
     sources = re.findall(r"'(rtl/[^']+\.sv)'", (ROOT / "rtl/router/tools/run_all.ps1").read_text())
     sources = [s for s in sources if s != "rtl/router/tb/tb_music.sv"]
-    sources += ["rtl/midi/midi_note_state.sv", "rtl/midi/midi_instrument_map.sv",
+    sources += ["rtl/midi/midi_note_state.sv", "rtl/midi/midi_guide_state.sv", "rtl/midi/midi_instrument_map.sv",
                 "rtl/router/midi_voice_top.sv", "rtl/router/pad_voice_top.sv"]
     sources += [s for s in (ROOT / "sim/ui_sources.f").read_text().splitlines() if s not in sources]
-    tests = ["tb_midi_instrument_map", "tb_performance_input_mux", "tb_router_midi",
-             "tb_router_midi_eng1", "tb_router_pending_config", "tb_loader_offsets", "tb_loader_timeout", "tb_midi_safety", "tb_joint_config", "tb_config_joint_result", "tb_pad_load_failure"]
+    tests = ["tb_midi_guide_state", "tb_midi_guide", "tb_midi_instrument_map", "tb_performance_input_mux", "tb_router_midi",
+             "tb_router_midi_eng1", "tb_router_pending_config", "tb_loader_offsets", "tb_loader_timeout", "tb_loader_relocated", "tb_loader_flash_bounds", "tb_midi_safety", "tb_joint_config", "tb_config_joint_result", "tb_pad_load_failure", "tb_pad_load_relocated"]
     sources += ["sim/unit/midi/w25q64_read_model.sv"]
     sources += ["sim/unit/midi/" + t + ".sv" for t in tests if t not in ("tb_loader_timeout", "tb_pad_load_failure")]
     _, compile_command = run("compile", "vlog", ["-sv", "-work", work, *(str(ROOT / s) for s in sources)])

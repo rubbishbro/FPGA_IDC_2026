@@ -15,7 +15,7 @@ module tb_joint_config;
     cfg_response_t ext_response,backend_response;
     logic backend_valid,backend_ready,backend_source,backend_rsp_valid,backend_rsp_ready;
     cfg_request_t backend_request;
-    logic [19:0] backend_supported;
+    logic [config_pkg::CFG_COUNT-1:0] backend_supported;
     audio_config_t audio_state;
     logic audio_valid,audio_fault;
     cfg_values_t values;
@@ -49,7 +49,7 @@ module tb_joint_config;
         .active_values(values),.ui_scene(scene),.sidebar_width()
     );
     midi_voice_top #(.SLOTS(16),.N_MODES(64),.NOTE_BANKS(1),.CONFIG_BACKEND(1),
-        .RESOURCE_MASK(10'b0000000011),.CONFIG_TIMEOUT_CYCLES(1_000_000)) sound(
+        .RESOURCE_MASK(10'b0000000011),.CONFIG_TIMEOUT_CYCLES(5_000_000)) sound(
         .clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
         .pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),
@@ -159,5 +159,5 @@ module tb_joint_config;
         ck(accepted==completed,"one final result per accepted backend transaction");
         $display("PASS tb_joint_config checks=%0d accepted=%0d menu_results=%0d",checks,accepted,menu_completed);$finish;
     end
-    initial begin #200000000;$fatal(1,"FAIL joint config watchdog state=%0d cfg=%0d voice=%0d",ui.u_config.state,sound.cfg_state,sound.u_voice.state);end
+    initial begin #600000000;$fatal(1,"FAIL joint config watchdog state=%0d cfg=%0d voice=%0d",ui.u_config.state,sound.cfg_state,sound.u_voice.state);end
 endmodule

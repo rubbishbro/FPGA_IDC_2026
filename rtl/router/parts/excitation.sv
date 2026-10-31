@@ -15,7 +15,8 @@
 // 高频，听感"薄、不密集"）：
 //   Python: 0.5 ms 线性上升 + 1 ms 指数尾巴 + 10 ms 一个 + 0.7^k 递减，共 4 个
 //   这里:   PW_LEN=32(0.67 ms) + 指数尾巴 tau≈48 采样 + GAP_LEN=448 + 0.6875^k
-// 全用移位/加法，**没有乘法器**。
+// 全用移位/加法，**没有乘法器**。B类使用Q24小数相位：每采样累加rho，
+// 到period时减去period并发冲激；调制保持相位，起音/重触发才归零。
 //
 // 参数全部由上级 router（exc_router）按乐器填：
 //   SHIFT    峰值幅度（x = strike_level << SHIFT）
@@ -38,6 +39,7 @@ module excitation_gen #(
     input  logic                          clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     input logic sustain_mode,
     input logic [SLOTS*16-1:0] slot_period,
+    input logic [SLOTS*24-1:0] slot_pitch_delta='0, // signed Q24, rho-1; frame snapshot
     input  logic [5:0]                    SHIFT,      // 8 位力值 -> 32 位定点的左移量
     input  logic [5:0]                    RISE_SH,    // 上升步长 = target >> RISE_SH
     input  logic [15:0]                   PW_LEN,     // 上升段长度（采样数，>=1）
@@ -61,12 +63,16 @@ module excitation_gen #(
     logic [15:0]       cnt [0:SLOTS-1];     // 本状态已过的采样数
     logic [3:0]        num [0:SLOTS-1];     // 本串第几个脉冲（从 1 起）
     logic [SLOTS-1:0]  note_q;
+    logic [39:0] pitch_phase[0:SLOTS-1];
+    logic [40:0] pitch_sum[0:SLOTS-1]; // carry must survive at period=65535
     // clear 是上层给的一拍脉冲，状态机只在 clk_en 上跑 —— 不挂起会漏掉
     logic              clr_pend;
 
     // xmap 直接跟随累加器（组合），时序和原来一致（router 那边按 xmap_valid 采）
     for (genvar gi = 0; gi < SLOTS; gi++) begin : g_xmap
         assign xmap[gi] = acc[gi];
+        assign pitch_sum[gi]={1'b0,pitch_phase[gi]}+
+                            41'(32'sd16777216+32'($signed(slot_pitch_delta[gi*24 +:24])));
     end
     assign xmap_valid = clk_en;
 
@@ -106,6 +112,7 @@ module excitation_gen #(
                 tgt[i] <= '0;
                 cnt[i] <= '0;
                 num[i] <= '0;
+                pitch_phase[i] <= '0;
             end
         end else if (clk_en) begin
             for (int i = 0; i < SLOTS; i++) begin
@@ -116,16 +123,27 @@ module excitation_gen #(
                     tgt[i] <= '0;
                     cnt[i] <= '0;
                     num[i] <= '0;
+                    pitch_phase[i] <= '0;
                 end else if (SUSTAIN_ENABLE && sustain_mode) begin
                     // One-sample impulses with independent period. No taper/strike tail.
                     st[i] <= X_IDLE; num[i] <= '0;
                     if(!note_on[i] || slot_period[i*16 +:16]<2) begin
                         acc[i]<='0;cnt[i]<='0;tgt[i]<='0;
-                    end else if(retrigger[i] || !note_q[i] || cnt[i]==0) begin
+                        pitch_phase[i]<='0;
+                    end else if(retrigger[i] || !note_q[i]) begin
                         acc[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
                         tgt[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
                         cnt[i] <= slot_period[i*16 +:16]-1'b1;
-                    end else begin acc[i]<='0;cnt[i]<=cnt[i]-1'b1;end
+                        pitch_phase[i]<='0;
+                    end else if(pitch_sum[i] >= {1'b0,slot_period[i*16 +:16],24'd0})begin
+                        acc[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
+                        tgt[i] <= signed'(32'(strike_level[i*8 +:8]) <<< SHIFT);
+                        pitch_phase[i]<=40'(pitch_sum[i]-{1'b0,slot_period[i*16 +:16],24'd0});
+                        cnt[i]<=slot_period[i*16 +:16]-1'b1;
+                    end else begin
+                        acc[i]<='0;cnt[i]<=cnt[i]-1'b1;
+                        pitch_phase[i]<=pitch_sum[i][39:0];
+                    end
                 end else if (note_on[i] && (retrigger[i] || !note_q[i])) begin
                     // 按下那一下：第 1 个锤击，从 0 开始线性上升
                     st[i]  <= X_ATT;

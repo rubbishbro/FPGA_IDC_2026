@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// One 800MHz vendor PLL: /8 core100M, /64 audio12M5, /24 pixel33M333.
+// One 800MHz vendor PLL: /16 core50M, /64 audio12M5, /24 pixel33M333.
 // Functional domains and their CDC protocols remain separate.
 module board_clock_reset(
     input wire clk_50m,rst_n,

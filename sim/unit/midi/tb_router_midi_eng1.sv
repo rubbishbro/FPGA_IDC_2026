@@ -56,8 +56,9 @@ module tb_router_midi_eng1;
         repeat(5) @(negedge clk);rst_n=1;
         wait(dut.inst_prev==INST_FLUTE && dut.active_midi && done);
         @(negedge clk);
-        force dut.co_ra = {32'd16777216,32'hfff80000,32'd0,32'd0,32'd0,32'd0,32'd0};
-        force dut.co_rb = {32'd16777216,32'hfff80000,32'd0,32'd0,32'd0,32'd0,32'd0};
+        // G=1, a1=-0.5 in Q2.24; keep the original synthetic decay.
+        force dut.co_ra = {32'd16777216,32'hff800000,32'd0,32'd0,32'd0,32'd0,32'd0};
+        force dut.co_rb = {32'd16777216,32'hff800000,32'd0,32'd0,32'd0,32'd0,32'd0};
         midi_gate=4;midi_retrigger=4;midi_velocity[20:14]=1;
         operation();
         ck(dut.note_on==4 && dut.u_exc.u_gen.tgt[2]==(32'(2)<<16),"eng1 low velocity reaches default excitation");
@@ -70,5 +71,5 @@ module tb_router_midi_eng1;
         ck(dut.emap[2]==0,"constant envelope branch obeys MIDI gate");
         $display("PASS tb_router_midi_eng1 checks=%0d outputs=%0d mix_checks=%0d",checks,outputs,mix_checks);$finish;
     end
-    initial begin #2000000;$fatal(1,"FAIL eng1 timeout");end
+    initial begin #10000000;$fatal(1,"FAIL eng1 timeout");end
 endmodule

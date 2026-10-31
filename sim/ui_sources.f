@@ -9,9 +9,12 @@ FFT_spectrumshow/src/ui/sidebar_mailbox.sv
 FFT_spectrumshow/src/ui/sidebar_ctrl.sv
 FFT_spectrumshow/src/ui/sidebar_system.sv
 FFT_spectrumshow/src/display/lcd_sidebar.sv
+FFT_spectrumshow/src/display/lcd_pad_guide.sv
 FFT_spectrumshow/src/display/lcd_draw.v
 FFT_spectrumshow/src/display/lcd_ui.sv
 FFT_spectrumshow/src/display/lcd_fft.v
 FFT_spectrumshow/src/display/lcd_wave.v
 FFT_spectrumshow/src/display/lcd_curve_spectrum.sv
 FFT_spectrumshow/src/display/lcd_background.v
+FFT_spectrumshow/src/display/cordic_polar.sv
+FFT_spectrumshow/src/display/lcd_polar_curve.sv

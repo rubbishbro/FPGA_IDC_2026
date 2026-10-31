@@ -1,5 +1,6 @@
 `timescale 1ns/1ps
-module tb_instrument_board;
+module tb_instrument_board #(parameter bit GUIDE_TEST=0);
+    logic pad_enabled=1;
     import config_pkg::*;
     logic clk=0,rst_n=0,key0=1,key1=1;
     always #10 clk=~clk;
@@ -8,6 +9,7 @@ module tb_instrument_board;
     wire [3:0] pad_row;
     wire [2:0] pad_ch;
     wire led,cs,sck,bclk,ws,din,sd,lclk,de;
+    wire db,dw,dd,pa;
     wire [5:0] r,g,b;
     tri [3:0] dq;
     logic blank=0;
@@ -15,10 +17,18 @@ module tb_instrument_board;
     instrument_board_top #(.BAUD(1_562_500),.KEY_DEBOUNCE(2),.KEY_LONG(24)) dut(
         .clk(clk),.rst_n(rst_n),.key0(key0),.key1(key1),.uart_rx(rx),.uart_tx(tx),.bt_state(1'b0),
         .pad_row(pad_row),.pad_ch(pad_ch),.led_dat(led),.flash_cs_n(cs),.flash_sck(sck),.flash_dq(dq),
-        .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
-    w25q64_read_model #(.N_MODES(64),.MEM_FILE("piano_flash.mem"),.MEM_BYTES(65536)) flash(
+        .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.dac_bck(db),.dac_ws(dw),.dac_din(dd),.dac_pa_en(pa),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
+    initial if(dut.u_system.u_ui.u_joystick.INVERT_X!=0 || dut.u_system.u_ui.u_joystick.INVERT_Y!=1)
+        $fatal(1,"FAIL board joystick XY orientation not connected");
+    w25q64_read_model #(.N_MODES(64),.RESOURCE_BASE(32'h0080_0000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),.WRITE_NS(20_000_000),.MEM_FILE("piano_flash.mem"),.MEM_BYTES(65536)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dq),.dq_oe(dut.u_system.flash_oe),.blank(blank),.dq_i(flash_data));
     assign dq=(!cs && !dut.u_system.flash_oe) ? flash_data : 4'bzzzz;
+    integer pt_frames,pt_nonzero,pt_different;
+    pt8211_scoreboard pt_wire(dut.clk_audio,dut.u_system.u_sound.g_audio.u_audio.arst_n,
+        db,dw,dd,dut.u_system.u_sound.g_audio.u_audio.rready,
+        dut.u_system.u_sound.g_audio.u_audio.rvalid?dut.u_system.u_sound.g_audio.u_audio.rdata:32'd0,
+        pt_frames,pt_nonzero,pt_different);
+    always @(negedge dut.clk_core)if(pa!==sd)$fatal(1,"FAIL headphone enable/mute connection");
     integer replies[2],nb[2],cfg_commits=0,nonzero=0,samples=0,display_frames=0;
     longint unsigned sample_peak=0;
     logic [7:0] reply_bytes[2][40],last_result[2];
@@ -32,11 +42,12 @@ module tb_instrument_board;
     integer pcm_frames,pcm_nonzero,checked_pcm_frames,checked_pcm_nonzero;
     i2s_scoreboard wire_check(dut.clk_core,dut.u_system.core_n,bclk,ws,din,sample_tick,expected_pcm,pcm_frames,pcm_nonzero);
     always @(posedge dut.clk_core)begin
-        logic signed [64:0] scaled;
+        logic signed [99:0] scaled;
         if(!dut.u_system.core_n || !active)begin pcm_pending<=0;last_pcm<=0;end
         else begin
             if(dut.u_system.sample_valid)begin
-                scaled=($signed({dut.u_system.sample_value[63],dut.u_system.sample_value})+65'sd2048)>>>12;
+                // Independent centered Q8 gain, then a SINGLE rounding to PCM16.
+                scaled=(100'($signed(dut.u_system.sample_value))*100'sd181+100'sd524288)>>>20;
                 last_pcm<=scaled>32767 ? 16'h7fff : scaled< -32768 ? 16'h8000 : 16'(scaled);pcm_pending<=1;
             end
             if(sample_tick)pcm_pending<=0;
@@ -50,7 +61,7 @@ module tb_instrument_board;
         return c;
     endfunction
     for(genvar source=0;source<2;source++)begin:g_decode
-        comm_uart_rx #(.CLK_HZ(100_000_000),.BAUD(1_562_500),.OVERSAMPLE(16)) decoder(
+        comm_uart_rx #(.CLK_HZ(50_000_000),.BAUD(1_562_500),.OVERSAMPLE(16)) decoder(
             .clk(dut.clk_core),.rst_n(dut.u_system.core_n),.rx_i(tx[source]),.rx_stb(byte_valid[source]),
             .rx_data(byte_data[source*8 +:8]),.framing_err(),.break_detect(),.false_start());
         always @(posedge dut.clk_core)if(dut.u_system.core_n && byte_valid[source])begin
@@ -99,9 +110,9 @@ module tb_instrument_board;
         key0=1;key1=1;clocks(16);
     endtask
     task automatic uart_byte(input int source,input logic [7:0] val);
-        @(negedge dut.clk_core);rx[source]=0;clocks(64);
-        for(int j=0;j<8;j++)begin rx[source]=val[j];clocks(64);end
-        rx[source]=1;clocks(64);
+        @(negedge dut.clk_core);rx[source]=0;clocks(32);
+        for(int j=0;j<8;j++)begin rx[source]=val[j];clocks(32);end
+        rx[source]=1;clocks(32);
     endtask
     task automatic escape_byte(input int source,input logic [7:0] val);
         if(val==8'hc0)begin uart_byte(source,8'hdb);uart_byte(source,8'hdc);end
@@ -127,12 +138,12 @@ module tb_instrument_board;
         if(dut.u_system.scene.result!=CFG_OK)$fatal(1,"FAIL source menu commit");
     endtask
     integer before_cfg;
-    initial begin
+    initial if(!GUIDE_TEST)begin
         for(int s=0;s<2;s++)begin replies[s]=0;nb[s]=0;started[s]=0;escaped[s]=0;end
         #100;rst_n=1;
         wait(dut.u_system.audio_valid);wait(nonzero>600);clocks(10);
         $display("BOARD boot/PAD samples=%d t=%t",samples,$time);
-        if(!sd || dut.u_system.pad.fmap.flat_d[0].val!=32 || dut.u_system.force_map.flat_d[0].val!=128 ||
+        if(!sd || !pa || dut.u_system.pad.fmap.flat_d[0].val!=32 || dut.u_system.force_map.flat_d[0].val!=128 ||
            dut.u_system.u_sound.u_voice.note_on!=16'h0001)$fatal(1,"FAIL raw ADC/force/PAD connection");
         // A complete LED fill: exactly four pixels for pressure cell0.
         wait(dut.u_system.filling && dut.u_system.fill_idx==0);wait(!dut.u_system.filling);clocks(80);
@@ -177,18 +188,60 @@ module tb_instrument_board;
         wait(display_frames>=2);wait(dut.u_system.u_ui.pixel_view.values[11]==2);
          $display("BOARD PCM frames=%d nonzero=%d raw_peak=%d",pcm_frames,pcm_nonzero,sample_peak);
         if(pcm_nonzero<100)$fatal(1,"FAIL no I2S payload frames=%d raw_peak=%d",pcm_frames,sample_peak);
+        if(flash.min_read_address!=32'h0080_0000 || flash.qe_writes<1)
+            $fatal(1,"FAIL board Flash base/QE propagation");
+        $display("BOARD Flash resource reads min=%h max=%h",flash.min_read_address,flash.max_read_address);
         checked_pcm_frames=pcm_frames;checked_pcm_nonzero=pcm_nonzero;
+        if(pt_frames<100 || pt_nonzero<20)$fatal(1,"FAIL board PT8211 no nonzero audio");
+        $display("BOARD PT8211 frames=%0d nonzero=%0d",pt_frames,pt_nonzero);
+
         // Loss of the system PLL asynchronously mutes and resets all consumers.
         force dut.u_clocks.core_lock=0;#1;
-        if(sd || dut.u_system.core_reset!=0 || dut.u_system.audio_reset!=0 || dut.u_system.pix_reset!=0)
+        if(sd || pa || dut.u_system.core_reset!=0 || dut.u_system.audio_reset!=0 || dut.u_system.pix_reset!=0)
             $fatal(1,"FAIL lock-loss reset assertion");
         clocks(5);release dut.u_clocks.core_lock;
         wait(dut.u_system.audio_valid);clocks(10);
         if(dut.u_system.audio_state.source!=0 || dut.u_system.remote_permission!=3 || dut.u_system.quarantine!=0)
             $fatal(1,"FAIL reset/reload recovery");
-        rst_n=0;#1;if(sd)$fatal(1,"FAIL button reset mute");
+        rst_n=0;#1;if(sd || pa)$fatal(1,"FAIL button reset mute");
         $display("PASS tb_instrument_board samples=%d nonzero=%d I2S=%d/%d replies=%d/%d menu_uart_pad_audio_lcd_fault_reset",samples,nonzero,checked_pcm_frames,checked_pcm_nonzero,replies[0],replies[1]);$finish;
     end
-    initial begin #150000000;$fatal(1,"FAIL board watchdog menu=%d/%d/%d cfg=%d bridge=%d source=%d replies=%d/%d",dut.u_system.scene.layer,dut.u_system.scene.category,dut.u_system.scene.selection,dut.u_system.u_sound.cfg_state,dut.u_system.bridge_state,dut.u_system.audio_state.source,replies[0],replies[1]);end
-    initial begin #12000000;if(nonzero==0)$fatal(1,"FAIL ADC/PAD boot watchdog raw=%h normalized=%h",dut.u_system.pad.fmap.raw,dut.u_system.force_map.raw);end
+    // End-to-end guide variant: real UART framing, menu, ADC, Flash, synth and LCD CDC.
+    initial if(GUIDE_TEST)begin
+        pad_enabled=0;
+        for(int s=0;s<2;s++)begin replies[s]=0;nb[s]=0;started[s]=0;escaped[s]=0;end
+        #100;rst_n=1;wait(dut.u_system.audio_valid);
+        key(2);repeat(4)key(1);key(2);source_menu(1);
+        repeat(3)key(1);key(2);key(1);key(2);wait(!dut.u_system.scene.busy);
+        wait(dut.u_system.guide_display.enabled);
+        if(dut.u_system.values[20]!=1 || dut.u_system.u_sound.synth_midi)
+            $fatal(1,"FAIL board guide menu/synth route");
+        frame(0,1,20,3,128'h642891);wait(dut.u_system.guide_display.target[0]);
+        repeat(20)begin @(posedge sample_tick);clocks(5);end
+        if(nonzero!=0 || dut.u_system.u_sound.u_voice.note_on!=0 || dut.u_system.u_sound.gate!=0)
+            $fatal(1,"FAIL UART guide automatically played");
+        wait(dut.u_system.u_ui.pixel_guide.target[0]);
+        if(!dut.u_system.u_ui.pixel_guide.enabled || dut.u_system.u_ui.pixel_guide.note_map[6:0]!=40)
+            $fatal(1,"FAIL board guide snapshot wiring");
+        pad_enabled=1;wait(dut.u_system.guide_display.pressed[0]);wait(nonzero>20);
+        frame(0,1,21,3,128'h0078b1);clocks(2000);
+        if(dut.u_system.guide_display.target!=0 || !dut.u_system.u_sound.u_voice.note_on[0])
+            $fatal(1,"FAIL UART CC120 cleared user PAD");
+        pad_enabled=0;wait(!dut.u_system.guide_display.pressed[0]);
+        repeat(3)key(3);source_menu(2);
+        if(dut.u_system.values[20]!=0)$fatal(1,"FAIL board source change retained guide");
+        repeat(3)key(1);key(2);key(1);key(2);wait(!dut.u_system.scene.busy);
+        wait(dut.u_system.guide_display.enabled);
+        frame(0,1,22,3,128'h642a91);clocks(1000);
+        if(dut.u_system.guide_display.target!=0)$fatal(1,"FAIL UART lit Bluetooth guide");
+        frame(1,1,23,3,128'h642891);wait(dut.u_system.guide_display.target[0]);
+        pad_enabled=1;wait(dut.u_system.guide_display.pressed[0]);
+        frame(1,1,24,3,128'h002881,1);
+        wait(dut.u_system.quarantine[1]);wait(dut.u_system.cleanup_done[1]);
+        if(dut.u_system.guide_display.target!=0 || !dut.u_system.u_sound.u_voice.note_on[0] || dut.u_system.audio_fault)
+            $fatal(1,"FAIL Bluetooth quarantine interrupted manual guide performance");
+        $display("PASS tb_instrument_board GUIDE UART/BT/menu/ADC/LCD/engine samples=%0d nonzero=%0d",samples,nonzero);$finish;
+    end
+    initial begin #400000000;$fatal(1,"FAIL board watchdog menu=%d/%d/%d cfg=%d bridge=%d source=%d replies=%d/%d",dut.u_system.scene.layer,dut.u_system.scene.category,dut.u_system.scene.selection,dut.u_system.u_sound.cfg_state,dut.u_system.bridge_state,dut.u_system.audio_state.source,replies[0],replies[1]);end
+    initial begin #40000000;if(!GUIDE_TEST && nonzero==0)$fatal(1,"FAIL ADC/PAD boot watchdog raw=%h normalized=%h",dut.u_system.pad.fmap.raw,dut.u_system.force_map.raw);end
 endmodule

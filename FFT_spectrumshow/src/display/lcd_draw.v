@@ -68,10 +68,11 @@ module lcd_draw #(parameter LEGACY_UI=1'b1) (
         .wave_hit(wave_hit), .wave_r(wave_r), .wave_g(wave_g), .wave_b(wave_b)
     );
 
-    lcd_curve_spectrum u_curve(
-        .clk(clk), .rst_n(rst_n), .lcd_valid(lcd_valid),
-        .pix_x(pix_x), .pix_y(pix_y), .theme(effects[2]),
-        .curve_data(curve_rd_data), .curve_rd_addr(curve_rd_addr),
+    lcd_polar_curve u_curve(
+        .clk(clk), .rst_n(rst_n), .frame_pulse(frame_pulse),
+        .lcd_valid(lcd_valid), .pix_x(pix_x), .pix_y(pix_y),
+        .curve_rd_addr(curve_rd_addr), .curve_rd_data(curve_rd_data),
+        .theme(effects[2]),
         .hit(curve_hit), .r(curve_r), .g(curve_g), .b(curve_b)
     );
 
@@ -100,9 +101,11 @@ module lcd_draw #(parameter LEGACY_UI=1'b1) (
                       (page_sel == 2'b10) ? curve_b   : 6'h00;
 
     // ===== priority: UI > page content > grid > background =====
-    wire [5:0] base_r = page_hit ? page_r : bg_hit ? bg_r : 6'h00;
-    wire [5:0] base_g = page_hit ? page_g : bg_hit ? bg_g : 6'h00;
-    wire [5:0] base_b = page_hit ? page_b : bg_hit ? bg_b : 6'h00;
+    // The polar page owns the whole screen; hide the global grid there.
+    wire bg_hit_eff = (page_sel == 2'b10) ? 1'b0 : bg_hit;
+    wire [5:0] base_r = page_hit ? page_r : bg_hit_eff ? bg_r : 6'h00;
+    wire [5:0] base_g = page_hit ? page_g : bg_hit_eff ? bg_g : 6'h00;
+    wire [5:0] base_b = page_hit ? page_b : bg_hit_eff ? bg_b : 6'h00;
     wire [5:0] draw_r = (LEGACY_UI && ui_hit) ? ui_r : base_r;
     wire [5:0] draw_g = (LEGACY_UI && ui_hit) ? ui_g : base_g;
     wire [5:0] draw_b = (LEGACY_UI && ui_hit) ? ui_b : base_b;

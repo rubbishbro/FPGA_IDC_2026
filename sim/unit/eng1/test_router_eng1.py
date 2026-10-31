@@ -49,7 +49,7 @@ def test_eng1_feedback_matches_integer_formula():
     rng = np.random.default_rng(7)
     n = 5
     g = rng.integers(-(1 << 20), 1 << 20, n, dtype=np.int64)
-    a1 = rng.integers(-(1 << 18), 1 << 18, n, dtype=np.int64)
+    a1 = rng.integers(-(1 << 25), 1 << 25, n, dtype=np.int64)
     a2 = rng.integers(0, 1 << 20, n, dtype=np.int64)
     x = int(rng.integers(-(1 << 28), 1 << 28))
     y1 = rng.integers(-(1 << 24), 1 << 24, n, dtype=np.int64)
@@ -61,6 +61,15 @@ def test_eng1_feedback_matches_integer_formula():
     assert got == int(want.sum())
     np.testing.assert_array_equal(core.y1[0], want)
     np.testing.assert_array_equal(core.y2[0], y1)
+
+
+@pytest.mark.parametrize("a1", [-(1 << 25), -(1 << 24) + 1, -1,
+                                1, (1 << 24) + 15, (1 << 25) - 1])
+def test_eng1_q24_feedback_preserves_fractional_bits_and_sign(a1):
+    # y1=1.0: the output is exactly -a1. This catches both the old 22-bit
+    # interpretation and a Q24 table silently rounded down to Q20 precision.
+    _, y, _ = _core([0], [a1], [0], 0, [1 << 24], [0])
+    assert y == -a1
 
 
 def test_eng1_saturates_both_ends():
@@ -78,21 +87,21 @@ def test_eng1_saturates_both_ends():
 
 def test_eng1_st_zero_clears_every_mode():
     n = 3
-    _, y, yn = _core([0] * n, [1 << 20] * n, [0] * n, 0,
+    _, y, yn = _core([0] * n, [1 << 24] * n, [0] * n, 0,
                      [10, 20, 30], [1, 2, 3], zero=True)
     assert y == 0
     assert np.all(yn == 0)
 
 
 def test_f05_intended_vs_rtl_compat():
-    """docs/bugs.md F05: current RTL uses the previous mode's captured state."""
+    """Historical F05 mode preserves the old serial core for reproduction."""
     n = 3
-    _, y_int, yn_int = _core([0] * n, [1 << 20] * n, [0] * n, 0,
+    _, y_int, yn_int = _core([0] * n, [1 << 24] * n, [0] * n, 0,
                              [10, 20, 30], [0, 0, 0])
     assert y_int == -60
     np.testing.assert_array_equal(yn_int, [-10, -20, -30])
 
-    core, y_rtl, yn_rtl = _core([0] * n, [1 << 20] * n, [0] * n, 0,
+    core, y_rtl, yn_rtl = _core([0] * n, [1 << 24] * n, [0] * n, 0,
                                 [10, 20, 30], [0, 0, 0], rtl_compat=True)
     assert y_rtl == -30
     np.testing.assert_array_equal(yn_rtl, [0, -10, -20])
@@ -232,7 +241,8 @@ def test_a_table_load_and_formats():
     t = R.load_a_table("guitar", 57, "forte")
     assert t.n_modes == 20
     assert t.G.min() >= -(1 << 25) and t.G.max() <= (1 << 25) - 1
-    assert t.a1.min() >= -(1 << 21) and t.a1.max() <= (1 << 21) - 1
+    assert t.a1.min() >= -(1 << 25) and t.a1.max() <= (1 << 25) - 1
+    assert np.all((t.a1 & 15) == 0)  # explicit conversion from legacy Q2.20
     assert t.a2.min() >= 0 and t.a2.max() <= (1 << 24) - 1
     assert t.drive_period is None
 
@@ -244,8 +254,32 @@ def test_b_table_is_stable_and_calibrated():
     assert np.all(r < 1.0)
     # every mode must be a complex pair (|a1| < 2r), otherwise the "harmonic
     # partial" premise is broken
-    assert np.all(np.abs(t.a1.astype(float) / float(1 << 20)) <= 2.0 * r + 1e-9)
+    assert np.all(np.abs(t.a1.astype(float) / float(1 << R.A1_FRAC)) <= 2.0 * r + 1e-9)
     assert t.G.min() >= -(1 << 25) and t.G.max() <= (1 << 25) - 1
+
+
+@pytest.mark.parametrize("name", ["flute", "trumpet", "cello", "violin"])
+def test_q24_resource_exports_match_production_model(name):
+    import struct
+    import gen_sustain_q24 as Q24
+    import pitch_linear as P
+    sys.path.insert(0, str(ROOT / "rtl/router/tools"))
+    import sustain_resources as FLASH
+    table = R.build_b_table(name, 48)
+    row, data, gg, aa, bb = Q24._build_entry(name, 48, True)
+    production = FLASH.make_note(name, 48, True)
+    assert data == production["data"]
+    assert row["coeff_sha256"] == production["coeff_sha256"]
+    assert row["period"] == production["period"] == table.drive_period
+    for m in range(64):
+        words = struct.unpack_from(">16i", data, m * 64)
+        expected = (int(table.G[m]), int(table.a1[m]), int(table.a2[m])) if m < table.n_modes else (0, 0, 0)
+        assert words[:3] == expected
+        assert words[3:8] == (0,) * 5
+        assert words[8:] == tuple(P.modulation_words(table)[m])
+    np.testing.assert_array_equal(aa, table.a1)
+    assert np.any((aa & 15) != 0)
+    assert row["max_static_q24_c"] < row["max_static_q20_c"]
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +312,7 @@ def test_flute_render_smoke():
 
 
 def test_router_note_hysteresis():
-    r = R.RouterEng1(slots=1, body="none", reverb="NONE", envelope="dyn",
+    r = R.LegacyRouterEng1(slots=1, body="none", reverb="NONE", envelope="dyn",
                      excitation=R.ExcitationConfig.guitar())
     r.set_slot(0, R.Eng1Coeffs(G=[1 << 24], a1=[0], a2=[0], n_modes=1))
     assert int(r.gate_r[0]) == 0
@@ -309,7 +343,7 @@ def test_b_render_relative_partials_match_table():
     from sustain_engine import SustainPatch
 
     table = R.build_b_table("flute", 69, "forte")
-    r = R.RouterEng1(slots=1, n_modes=48, body="none", reverb="NONE",
+    r = R.LegacyRouterEng1(slots=1, n_modes=48, body="none", reverb="NONE",
                      envelope="const",
                      excitation=R.ExcitationConfig.sustained(table.drive_period))
     r.set_slot(0, table)

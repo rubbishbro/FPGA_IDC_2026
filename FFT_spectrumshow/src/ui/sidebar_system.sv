@@ -8,6 +8,7 @@ module sidebar_system #(
     parameter bit AUDIO_BACKEND=1'b0,
     parameter integer JOY_DEADZONE_ON=1400, JOY_DEADZONE_OFF=900,
     parameter bit JOY_FILTER_CENTER=1'b0,
+    parameter bit JOY_INVERT_X=1'b0, JOY_INVERT_Y=1'b0,
     parameter FONT_FILE="sidebar_font.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
@@ -21,7 +22,7 @@ module sidebar_system #(
     output logic ext_rsp_valid,
     input logic ext_rsp_ready,
     output config_pkg::cfg_response_t ext_cfg_response,
-    input logic[19:0] backend_supported,
+    input logic[config_pkg::CFG_COUNT-1:0] backend_supported,
     output logic backend_valid,
     input logic backend_ready,
     output config_pkg::cfg_request_t backend_request,
@@ -31,6 +32,7 @@ module sidebar_system #(
     input config_pkg::cfg_response_t backend_response,
     input logic backend_audio_valid,backend_audio_fault,
     input config_pkg::audio_config_t backend_audio_state,
+    input config_pkg::guide_display_t guide_display = '0,
     input logic frame_pulse,lcd_valid,
     input logic[9:0] pix_x,pix_y,q_y,q_ov,
     input logic[9:0] wave_rd_data,
@@ -61,7 +63,7 @@ module sidebar_system #(
     joystick_pkg::joy_dir_t direction,nav_dir;
     logic nav_valid,nav_ready,nav_repeat;
     joystick_adapter #(.CLK_HZ(CTRL_HZ),.CALIB_LOG2(CALIB_LOG2),
-        .DEADZONE_ON(JOY_DEADZONE_ON),.DEADZONE_OFF(JOY_DEADZONE_OFF),.FILTER_CENTER(JOY_FILTER_CENTER)) u_joystick(
+        .DEADZONE_ON(JOY_DEADZONE_ON),.DEADZONE_OFF(JOY_DEADZONE_OFF),.FILTER_CENTER(JOY_FILTER_CENTER),.INVERT_X(JOY_INVERT_X),.INVERT_Y(JOY_INVERT_Y)) u_joystick(
         .clk(ctrl_clk),.rst_n(ctrl_n),.recalibrate(joy_recalibrate),
         .sample_valid(joy_sample_valid),.raw_x(joy_raw_x),.raw_y(joy_raw_y),
         .calibrated(joy_calibrated),.stale(joy_stale),.center_x(),.center_y(),
@@ -71,8 +73,8 @@ module sidebar_system #(
     cfg_request_t ui_request,request;
     cfg_response_t response;
     logic req_valid,req_ready,req_source,rsp_valid,rsp_ready,rsp_source;
-    localparam logic[19:0] LOCAL_SUPPORTED=HAS_JOYSTICK?LOCAL_MASK:DISPLAY_MASK;
-    wire[19:0] supported=backend_supported|LOCAL_SUPPORTED;
+    localparam logic[config_pkg::CFG_COUNT-1:0] LOCAL_SUPPORTED=HAS_JOYSTICK?LOCAL_MASK:DISPLAY_MASK;
+    wire[config_pkg::CFG_COUNT-1:0] supported=backend_supported|LOCAL_SUPPORTED;
     sidebar_ctrl #(.HOT_DWELL_MS(HOT_DWELL_MS)) u_ui(
         .clk(ctrl_clk),.rst_n(ctrl_n),.tick_ms(tick_ms),
         .joy_calibrated(joy_calibrated),.joy_stale(joy_stale),.dx(dx),.dy(dy),.direction(direction),
@@ -138,6 +140,31 @@ module sidebar_system #(
         if(!pix_n)begin pixel_view<='0;pixel_view.display_cfg<=display_defaults();end
         else if(snapshot_valid&&frame_pulse)pixel_view<=wire_view;
     end
+    // Live guide traffic uses its own whole-packet mailbox; never blocks config or audio.
+    guide_display_t guide_sent,guide_wire,pixel_guide;
+    logic guide_sent_once,guide_cdc_ready,guide_cdc_valid;
+    localparam integer GUIDE_W=$bits(guide_display_t),GUIDE_WORDS=(GUIDE_W+31)/32;
+    logic [GUIDE_WORDS-1:0] guide_dirty;
+    wire [GUIDE_WORDS*32-1:0] guide_bits={{(GUIDE_WORDS*32-GUIDE_W){1'b0}},guide_display};
+    wire [GUIDE_WORDS*32-1:0] guide_prev_bits={{(GUIDE_WORDS*32-GUIDE_W){1'b0}},guide_sent};
+    always_ff @(posedge ctrl_clk or negedge ctrl_n)begin
+        if(!ctrl_n)begin guide_sent_once<=0;guide_sent<='0;guide_dirty<='1;end
+        else begin
+            for(integer i=0;i<GUIDE_WORDS;i++)guide_dirty[i]<=guide_bits[i*32 +:32]!=guide_prev_bits[i*32 +:32];
+            if((!guide_sent_once || (|guide_dirty)) && guide_cdc_ready)begin
+                guide_sent<=guide_display;guide_sent_once<=1;
+            end
+        end
+    end
+    sidebar_mailbox #(.WIDTH($bits(guide_display_t))) u_guide_cdc(
+        .rst_n(rst_n),.src_clk(ctrl_clk),.dst_clk(pix_clk),
+        .src_valid(ctrl_n && (!guide_sent_once || (|guide_dirty))),.src_ready(guide_cdc_ready),
+        .src_data(guide_display),.src_done(),.src_done_data(),
+        .dst_valid(guide_cdc_valid),.dst_ready(frame_pulse && pix_n),.dst_data(guide_wire));
+    always_ff @(posedge pix_clk or negedge pix_n)begin
+        if(!pix_n)pixel_guide<='0;
+        else if(guide_cdc_valid && frame_pulse)pixel_guide<=guide_wire;
+    end
     wire[1:0] page=(pixel_view.display_cfg.style_id==16'd0)?2'd0:
                     (pixel_view.display_cfg.style_id==16'd1)?2'd1:
                     (pixel_view.display_cfg.style_id==16'd2)?2'd2:2'd3;
@@ -146,16 +173,20 @@ module sidebar_system #(
     wire[5:0] base_r,base_g,base_b,overlay_r,overlay_g,overlay_b;
     logic[2:0][5:0] base_r_q,base_g_q,base_b_q;
     logic[2:0] de_q;
-    wire overlay_hit;
+    wire overlay_hit,guide_hit;
+    wire [5:0] guide_r,guide_g,guide_b;
     lcd_draw #(.LEGACY_UI(1'b0)) u_spectrum(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
         .pix_x(pix_x),.pix_y(pix_y),.page_sel(page),.ui_setting_sel(2'd0),.effects(effects),
         .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
         .curve_rd_data(curve_rd_data),.curve_rd_addr(curve_rd_addr),
         .lcd_r(base_r),.lcd_g(base_g),.lcd_b(base_b));
+    lcd_pad_guide #(.FONT_FILE(FONT_FILE)) u_guide_page(
+        .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
+        .pix_x(pix_x),.pix_y(pix_y),.view(pixel_guide),.hit(guide_hit),.r(guide_r),.g(guide_g),.b(guide_b));
     lcd_sidebar #(.FONT_FILE(FONT_FILE)) u_sidebar(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
-        .pix_x(pix_x),.pix_y(pix_y),.view(pixel_view),.hit(overlay_hit),
+        .pix_x(pix_x),.pix_y(pix_y),.view(pixel_view),.guide_view(pixel_guide),.hit(overlay_hit),
         .r(overlay_r),.g(overlay_g),.b(overlay_b),.visible_width(sidebar_width));
     always_ff @(posedge pix_clk or negedge pix_n)begin
         if(!pix_n)begin base_r_q<=0;base_g_q<=0;base_b_q<=0;de_q<=0;end
@@ -167,9 +198,9 @@ module sidebar_system #(
         if(!pix_n)begin lcd_valid_out<=0;lcd_r<=0;lcd_g<=0;lcd_b<=0;end
         else begin
             lcd_valid_out<=de_q[2];
-            lcd_r<=de_q[2]?(overlay_hit?overlay_r:base_r_q[2]):6'd0;
-            lcd_g<=de_q[2]?(overlay_hit?overlay_g:base_g_q[2]):6'd0;
-            lcd_b<=de_q[2]?(overlay_hit?overlay_b:base_b_q[2]):6'd0;
+            lcd_r<=de_q[2]?(overlay_hit?overlay_r:guide_hit?guide_r:base_r_q[2]):6'd0;
+            lcd_g<=de_q[2]?(overlay_hit?overlay_g:guide_hit?guide_g:base_g_q[2]):6'd0;
+            lcd_b<=de_q[2]?(overlay_hit?overlay_b:guide_hit?guide_b:base_b_q[2]):6'd0;
         end
     end
 endmodule

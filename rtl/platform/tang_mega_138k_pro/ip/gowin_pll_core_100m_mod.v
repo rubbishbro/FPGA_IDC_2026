@@ -87,10 +87,10 @@ PLL PLL_inst (
 
 defparam PLL_inst.FCLKIN = "50";
 defparam PLL_inst.IDIV_SEL = 1;
-defparam PLL_inst.FBDIV_SEL = 2;
-// CLKOUT0 feedback: Fpfd=50MHz, feedback=100MHz (FBDIV=2),
-// VCO=100*8=800MHz; MDIV=16 agrees with PLL_INIT calibration.
-defparam PLL_inst.ODIV0_SEL = 8;
+defparam PLL_inst.FBDIV_SEL = 1;
+// 50 MHz trial: Fpfd=50MHz, feedback=50MHz (FBDIV=1),
+// VCO=50*16=800MHz; MDIV=16 agrees with PLL_INIT calibration.
+defparam PLL_inst.ODIV0_SEL = 16;
 defparam PLL_inst.ODIV1_SEL = 64;
 defparam PLL_inst.ODIV2_SEL = 24;
 defparam PLL_inst.ODIV3_SEL = 8;

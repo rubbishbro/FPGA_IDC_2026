@@ -2,7 +2,7 @@
 // 配置端点：显示等待真实帧头确认，校准等待真实完成，其余交给显式后端。
 module config_dispatch #(
     parameter integer CAL_TIMEOUT_MS=2000,
-    parameter logic[19:0] LOCAL_SUPPORTED=config_pkg::LOCAL_MASK,
+    parameter logic[config_pkg::CFG_COUNT-1:0] LOCAL_SUPPORTED=config_pkg::LOCAL_MASK,
     parameter bit AUDIO_BACKEND=1'b0
 )(
     input logic clk,rst_n,tick_ms,
@@ -14,7 +14,7 @@ module config_dispatch #(
     input logic rsp_ready,
     output config_pkg::cfg_response_t response,
     output logic response_source,
-    input logic [19:0] backend_supported,
+    input logic [config_pkg::CFG_COUNT-1:0] backend_supported,
     output logic backend_valid,
     input logic backend_ready,
     output config_pkg::cfg_request_t backend_request,
@@ -46,7 +46,7 @@ module config_dispatch #(
         (!audio_parameter(pending.id) ||
          (audio_value(audio_q,pending.id)==backend_q.applied_value &&
           backend_q.applied_value==pending.value));
-    wire [19:0] supported=backend_supported|LOCAL_SUPPORTED;
+    wire [config_pkg::CFG_COUNT-1:0] supported=backend_supported|LOCAL_SUPPORTED;
     assign req_ready=(state==IDLE)&&!boot_pending&&rst_n;
     assign rsp_valid=(state==REPLY)&&rst_n;
     assign backend_valid=(state==BACKEND_SEND)&&rst_n;
@@ -75,7 +75,7 @@ module config_dispatch #(
                     audio_synced<=1;
                     active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
                     active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
-                    active_values[12]<=32'(audio_q.channel);
+                    active_values[12]<=32'(audio_q.channel);active_values[20]<=32'(audio_q.guide);
                 end
             end
             case(state)
@@ -137,7 +137,7 @@ module config_dispatch #(
                         audio_synced<=1;
                         active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
                         active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
-                        active_values[12]<=32'(audio_q.channel);
+                        active_values[12]<=32'(audio_q.channel);active_values[20]<=32'(audio_q.guide);
                     end
                     if(commit_scalar)active_values[index]<=backend_q.applied_value;
                     state<=REPLY;

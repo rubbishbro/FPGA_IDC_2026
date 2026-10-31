@@ -54,6 +54,9 @@ package router_pkg;
     endfunction
 
     // 调制参数记录（每个 槽×模态 一条，8 个字段 = flash 记录的 +32..+60）
+    // B类P1T1复用该存储：a11=lower, a12=a1_nom(Q24), a22=upper,
+    // s12=K(signed25 Q3.22), swo=P1T1标记；其它字段为0。
+    // 以下矩阵/斜率Q格式仅描述eng0吉他。
     //
     // 模型：揉弦主要调**弦张力**，一阶近似下所有模态频率同比例变 alpha = 1+lambda，
     // 于是每个系数都能写成"基值 + lambda * 斜率"：

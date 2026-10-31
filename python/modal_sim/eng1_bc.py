@@ -1,32 +1,7 @@
 #!/usr/bin/env python3
-"""B/C synthesis on the same ABC engine as A.
+"""Production Q24 BSynth and historical Q30 LegacyBSynth / C experiments.
 
-The current RTL has one recursion core for A/B/C::
-
-    y[n] = G*x[n] - a1*y[n-1] - a2*y[n-2]
-
-A/B/C differ only in how the voice is excited and when it is released:
-
-* **A** -- one finite pulse, ``G`` from the note table, ADSR/dyn envelope.
-* **B** -- a periodic impulse train at the note's f0, ``G`` from the sustain
-  table, AR/ADSR envelope; no NCO in the current router, the drive is
-  ``excitation_gen`` with ``PW_LEN=1, GAP_LEN=T-1, N_PULSE=7``.
-* **C** -- ``x = 0``; the state is loaded from a seed at note-on, a per-voice
-  timer/choke starts a fade, and the same recursion rings out.
-
-This module implements B and C as **configurations of one** ``Eng1Core``.  The
-old float ``sustain_engine.SustainSynth`` and additive ``drumkit`` are kept for
-the legacy demos/parameter extraction, but the new B/C path does not use a
-separate DSP engine.
-
-The C seed is a 64-bit ``{y2, y1}`` per mode, scaled by velocity exactly like
-the old ``c_engine_top.scale_seed`` (UQ1.15, round, saturate).  Seeds are
-derived from the extracted ``(f, gamma, a)`` of ``drums.npz`` so that the ABC
-recursion starts at the intended modal amplitude and phase.  Noise is *not* part
-of the RTL C core, so ``CSynth`` is seed-only; the old ``drumkit`` noise branch
-remains a legacy extension.
-
-    python python/modal_sim/eng1_bc_demo.py
+The current production router has no C seed/timer/choke front end.
 """
 
 from __future__ import annotations
@@ -74,7 +49,7 @@ def _seed_states(f: np.ndarray, g: np.ndarray, a: np.ndarray,
                  key: str) -> tuple[np.ndarray, np.ndarray]:
     """``{y2,y1}`` that makes the quantised recursion start at ``a*sin(phi)``."""
     rq = np.sqrt(a2q.astype(float) / float(1 << 24))
-    cq = np.clip(-(a1q.astype(float) / float(1 << 20)) /
+    cq = np.clip(-(a1q.astype(float) / float(1 << R.A1_FRAC)) /
                  np.maximum(2.0 * rq, 1e-12), -1.0, 1.0)
     thq = np.arccos(cq)
     rng = np.random.default_rng(zlib.crc32(str(key).encode("utf-8")))
@@ -109,7 +84,7 @@ class _BSlot:
     born: int = 0
 
 
-class BSynth:
+class LegacyBSynth:
     """Periodic-drive B class on ``Eng1Core``."""
 
     def __init__(self, instrument: str = "flute", *, slots: int = SLOTS,
@@ -238,6 +213,71 @@ class BSynth:
         return out
 
 
+class BSynth:
+    """Current Q24 B renderer; fixed loaded slots, no automatic note stealing.
+
+    Defaults to the 16-note MIDI64..79 bank. Other maps/resources are explicit.
+    render() returns raw Q24; render_pcm() applies the actual PCM gain/limits.
+    """
+    output_frac = 24
+
+    def __init__(self, instrument="flute", *, slots=16, n_modes=48, body="none",
+                 reverb="NONE", note_map=None, resources=None, stereo=True, headroom=3):
+        from eng1_rtl import Eng1Synth
+        if body not in ("none", instrument):
+            raise ValueError("production B body_router is passthrough")
+        if n_modes not in (48, 64):
+            raise ValueError("production B computes 48 of 64 stored modes")
+        note_map = tuple(range(64, 64+slots)) if note_map is None else tuple(note_map)
+        if len(note_map) != slots:
+            raise ValueError("note_map length must equal slots")
+        self.engine = Eng1Synth(instrument, note_map=note_map, resources=resources,
+                               reverb=reverb, stereo=stereo, headroom=headroom)
+        self.core = self.engine.core
+        self.last_frame = None
+
+    def note_on(self, midi, vel=0.8, dyn="forte", source=0):
+        if dyn != "forte":
+            raise ValueError("production resources use forte tables; use velocity for loudness")
+        if not 0 < float(vel) <= 1:
+            raise ValueError("velocity fraction must be in (0,1]")
+        return self.engine.note_on(midi, max(1, min(127, round(float(vel)*127))), source)
+
+    def note_off(self, slot):
+        if slot is not None:
+            self.engine.note_off(slot)
+
+    def control(self, kind, value, source=0):
+        self.engine.control(kind, value, source)
+
+    def step(self):
+        self.last_frame = self.engine.step()
+        return self.last_frame.out
+
+    def render(self, events, seconds=None, *, pcm=False):
+        events = list(events)
+        if seconds is None:
+            seconds = max((t+d for t, _m, d, *_rest in events), default=0)+0.5
+        n = max(1, int(round(float(seconds)*SR)))
+        out = np.zeros((n, 2), dtype=np.int16) if pcm else np.zeros(n, dtype=np.int64)
+        ons, offs = {}, {}
+        for ev in events:
+            t, midi, duration, velocity, dynamic = (list(ev)+["forte"])[:5]
+            ons.setdefault(max(0, round(float(t)*SR)), []).append((int(midi), float(velocity), str(dynamic)))
+            offs.setdefault(max(1, round((float(t)+float(duration))*SR)), []).append(int(midi))
+        for i in range(n):
+            for midi in offs.get(i, ()):
+                self.engine.note_off(self.engine.slot_for(midi))
+            for midi, velocity, dynamic in ons.get(i, ()):
+                self.note_on(midi, velocity, dynamic)
+            self.last_frame = self.engine.step()
+            out[i] = self.last_frame.pcm if pcm else self.last_frame.out
+        return out
+
+    def render_pcm(self, events, seconds=None):
+        return self.render(events, seconds, pcm=True)
+
+
 # ---------------------------------------------------------------------------
 # C
 # ---------------------------------------------------------------------------
@@ -277,8 +317,7 @@ def build_c_table(key: str, n_modes: int = R.N_MODES,
     f, g, a = f[order], g[order], a[order]
     theta = 2.0 * np.pi * f / SR
     r = np.exp(-g / SR)
-    a1q = np.clip(np.floor(-2.0 * r * np.cos(theta) * (1 << 20) + 0.5),
-                  -(1 << 21), (1 << 21) - 1).astype(np.int64)
+    a1q = R.quant(-2.0 * r * np.cos(theta), R.A1_FRAC, R.A1_BITS)
     a2q = np.clip(np.floor(r * r * (1 << 24) + 0.5),
                   0, (1 << 24) - 1).astype(np.int64)
     s1, s2 = _seed_states(f, g, a, a1q, a2q, key)
@@ -390,4 +429,4 @@ class CSynth:
         return out
 
 
-__all__ = ["BSynth", "CSynth", "CTable", "build_c_table", "scale_seed"]
+__all__ = ["BSynth", "LegacyBSynth", "CSynth", "CTable", "build_c_table", "scale_seed"]

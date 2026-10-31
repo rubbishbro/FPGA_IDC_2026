@@ -1,10 +1,9 @@
 // -----------------------------------------------------------------------------
-// i2s_amp_tx.sv -- 用于 MAX98357A D 类放大器的标准 I2S 发送器。
+// i2s_amp_tx.sv -- 标准双声道 I2S 发送器（历史名称保留）。
 //
-// 这是默认的外部播放通路。MAX98357A 是一个标准 I2S
-// 单声道 D 类放大器（不是麦克风，也不是 Japanese/LSBJ DAC）：它
-// 只需要 BCLK、LRC/WS 和 DIN；它不需要 MCLK。GAIN 和 SD 是
-// 配置引脚，绝不是音频数据。
+// 向标准 I2S 双声道 DAC 或旧 MAX98357A 接收器发送数据。DAC 的模拟输出、
+// MCLK、静音和供电要求由所选硬件决定；本模块只提供 BCLK、WS、DIN。
+// MAX98357A 是单声道喇叭功率放大器，其功率输出不可直接接有源音箱 AUX。
 //
 // 以 12.288 MHz 音频参考为例（实际帧率由输入时钟决定）：
 //   BCLK = clk/4   = 3.072 MHz
@@ -13,7 +12,7 @@
 //   MSB 在一个 BCLK 之后呈现（在下一个上升沿采样）
 //   WS 低 = 左，WS 高 = 右（标准 I2S）
 //   16 位有符号样本示例放在每个 32 位时隙的前导位，其余
-//   位为零；相同的单声道样本被复制到两个声道。
+//   位为零；输入为 {left[15:0], right[15:0]}，每帧原子锁存。
 //
 // 每帧从读侧弹出一个对；空的 FIFO 发送
 // 整个零帧并置位粘滞下溢标志。
@@ -30,10 +29,10 @@ module i2s_amp_tx #(
     input  logic        rst_n,
     input  logic        diag_clear,
 
-    // FIFO 读侧（audio_clk 域）；单声道样本复制到 L 和 R
+    // FIFO 读侧（audio_clk 域）；左右声道成对提交
     input  logic        in_valid,
     output logic        in_ready,
-    input  logic [31:0] in_data,            // 只使用低16位单声道，复制到左右声道
+    input  logic [31:0] in_data,            // {left[15:0], right[15:0]}
 
     // 串行输出
     output logic        amp_bclk,
@@ -54,7 +53,7 @@ module i2s_amp_tx #(
 
     logic [T_BITS-1:0] t;                   // 一个 BCLK 周期内的 clk 周期数
     logic [5:0]        bcnt;                // I2S 帧内的 0..63 个 BCLK
-    logic [15:0]       mono;                // 当前帧的单声道样本
+    logic [31:0]       stereo;              // 当前帧的左右样本对
     logic              ws_r, din_r;
     logic              under_p, under_s;
     logic              frame_p;
@@ -69,7 +68,7 @@ module i2s_amp_tx #(
     wire [3:0] pay_idx   = pay_idx5[3:0];
     wire       in_payload = ((nxt >= 6'd1) && (nxt <= 6'd16)) ||
                             ((nxt >= 6'd33) && (nxt <= 6'd48));
-    wire       bit_val    = in_payload ? mono[pay_idx] : 1'b0;
+    wire       bit_val    = in_payload ? (nxt[5] ? stereo[pay_idx] : stereo[16+pay_idx]) : 1'b0;
 
     assign amp_bclk = (t >= (DIV / 2));
     assign amp_ws   = ws_r;
@@ -84,7 +83,7 @@ module i2s_amp_tx #(
         if (!rst_n) begin
             t       <= {T_BITS{1'b0}};
             bcnt    <= 6'd0;
-            mono    <= 16'd0;
+            stereo  <= 32'd0;
             ws_r    <= 1'b0;
             din_r   <= 1'b0;
             under_p <= 1'b0;
@@ -99,8 +98,8 @@ module i2s_amp_tx #(
             if (fall) begin
                 bcnt <= nxt;
                 if (nxt == 6'd0) begin
-                    // 帧边界：弹出下一个单声道样本；此处 WS 为低
-                    mono    <= in_valid ? in_data[15:0] : 16'd0;
+                    // 帧边界：一次锁存左右样本，不能半帧换数据
+                    stereo  <= in_valid ? in_data : 32'd0;
                     ws_r    <= 1'b0;
                     din_r   <= 1'b0;                    // 1 位延迟 / 无关
                     frame_p <= 1'b1;

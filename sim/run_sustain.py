@@ -50,7 +50,7 @@ def main():
     run('vlib',[work],'vlib')
     src=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
     src=[ROOT/p for p in src if not p.endswith('/tb_music.sv') and not p.endswith('/w25q_dut.sv')]
-    src += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_instrument_map.sv','rtl/router/midi_voice_top.sv',
+    src += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_guide_state.sv','rtl/midi/midi_instrument_map.sv','rtl/router/midi_voice_top.sv',
         'rtl/router/pad_voice_top.sv','sim/unit/midi/w25q64_read_model.sv','sim/unit/audio/tb_i2s_audio_output.sv',
         'sim/unit/audio/tb_sustain_frontend.sv','sim/unit/audio/tb_sustain_config.sv']]
     if (ROOT/'sim/unit/audio/tb_sustain_system.sv').exists():src.append(ROOT/'sim/unit/audio/tb_sustain_system.sv')

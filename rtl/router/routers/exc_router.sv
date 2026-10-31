@@ -22,6 +22,7 @@ module exc_router #(
     input  logic                    rst_n,
     input  logic                    smp_tick,
     input logic [SLOTS*16-1:0] slot_period,
+    input logic [SLOTS*24-1:0] slot_pitch_delta='0,
     input  logic [SLOTS*8-1:0]      strike_level,
     input  logic [SLOTS-1:0]        retrigger, slot_clear,
     input  logic [SLOTS-1:0]        note_on,
@@ -103,7 +104,7 @@ module exc_router #(
 
     excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1)) u_gen (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
-        .sustain_mode(sustain_mode_r),.slot_period(slot_period),
+        .sustain_mode(sustain_mode_r),.slot_period(slot_period),.slot_pitch_delta(slot_pitch_delta),
         .SHIFT(shift_r), .RISE_SH(rise_sh_r),
         .PW_LEN(pw_len_r), .GAP_LEN(gap_len_r), .N_PULSE(n_pulse_r),
         .clear(clear), .strike_level(strike_level),

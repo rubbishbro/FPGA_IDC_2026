@@ -72,7 +72,7 @@ python3 sim/run_router_midi.py
 python3 sim/run_router_midi.py --ini /absolute/path/modelsim.ini --out /tmp/router_midi
 ```
 
-脚本使用本机vlib/vlog/vsim，将完整ini复制到输出目录并绑定私有work库；默认配置来自QSIM_INI、MODELSIM或本机`~/gowin/simlib_questa/modelsim.ini`。运行`tb_midi_instrument_map`、`tb_performance_input_mux`、`tb_router_midi`、`tb_router_midi_eng1`、`tb_router_pending_config`、`tb_loader_offsets`、`tb_loader_timeout`、`tb_midi_safety`及联合配置新增的`tb_joint_config`、`tb_config_joint_result`、`tb_pad_load_failure`，当前11项均通过。默认日志/results.json在`build/router_midi`；错误、超时、FAIL/FATAL或缺少PASS都返回失败，不保留上次results.json冒充新结果。
+脚本使用本机vlib/vlog/vsim，将完整ini复制到输出目录并绑定私有work库；默认配置来自QSIM_INI、MODELSIM或本机`~/gowin/simlib_questa/modelsim.ini`。运行`tb_midi_instrument_map`、`tb_performance_input_mux`、`tb_router_midi`、`tb_router_midi_eng1`、`tb_router_pending_config`、`tb_loader_offsets`、`tb_loader_timeout`、`tb_midi_safety`及联合配置新增的`tb_joint_config`、`tb_config_joint_result`、`tb_pad_load_failure`，以及引导模式的`tb_midi_guide_state`、`tb_midi_guide`，共13项。默认日志/results.json在`build/router_midi`；错误、超时、FAIL/FATAL或缺少PASS都返回失败，不保留上次results.json冒充新结果。
 
 真实router测试包含原激励/包络、eng0/eng1、状态RAM与后级；声学用例由测试force读返回总线提供合成系数；当前独立Flash模型实际加载系数RAM，另有16槽/32资源音高的loader与安全用例，不代表真Flash/正式音色资源通过。源清单直接编译；3.2阶段为0错误/6条端口kind默认值警告，当前完整UI清单仍有端口kind警告但0错误；没有7061抑制或临时兼容RTL。eng1增加43帧两bank混音比较，防止B结果有效拍后丢失。详细端口、六通道映射和证据范围见[3.2接入说明](../docs/MIDI演奏与通信接入.md#router-midi-step32)。
 
@@ -195,3 +195,38 @@ run_sustain可用--test frontend/config/system选择，--inst 2/3/4/5选音色�
 `python3 sim/run_board.py`运行真实UART→comm→MIDI、实体按键→UI→实际后端、PAD扫描/LED/I2S/LCD及失锁复位；仅PLL、ADC和Flash是模型。独立输入用例覆盖逐轴死区，LCD用例检查严格800×480。`--test inputs|lcd|system|clocks|polyphony|audio|pcm|numeric|led`可选择，`--out`指定私有库/日志。板级生产清单、引脚预检和Gowin构建见[整版入口](../rtl/platform/tang_mega_138k_pro/README.md)。本阶段不接FFT音频数据。
 
 当前时钟域回归新增：clocks检查mailbox八种复位相位/停钟及效果器同步清理；polyphony检查两引擎各16槽供样、释放清零及复用；pcm以624324个参考向量检查PCM舍入/饱和逐位等价；numeric检查配置范围与32bit无符号比较等价；led比较两帧随机GRAM在线端的完整波形。`python3 sim/run_board_pll.py`另用GW5A厂商库运行生产三输出PLL及PLL_INIT，测量100MHz/12.5MHz/33.333MHz与占空比。板级行为模型的PASS不能代替此项或物理时序验收。
+
+## 双声道空间处理
+
+`python3 sim/run_stereo.py`运行5组移位加法空间处理整数参考与8组异步I2S线端回归；`--test unit/bridge`可单选。结果在`build/stereo/results.json`。`python3 sim/run_audio.py --test stereo`运行eng0/eng1和MIDI/PAD四组真实合成动态声像对拍，已纳入该运行器默认矩阵。`python3 sim/run_board.py --test stereo_sweep`验证板级自动扫动实际接线，默认板级矩阵也包含它。Questa需已配置的本机运行环境；运行器不会把编译成功当作仿真成功。
+
+独立无DSP综合脚本为`sim/synth/stereo_build.tcl`，使用显式100MHz时钟约束，并检查实际网表中没有MULT/DSP/PADD原语。综合估算Fmax不等于PnR验收。方案、完整用法与本轮结果见[双声道空间定位方案](../docs/双声道空间定位方案.md)。
+
+## MIDI引导演奏（2026-10-29）
+
+```bash
+python3 sim/run_router_midi.py --out build/guide_router_full
+python3 sim/run_ui.py --legacy
+python3 sim/run_board.py --out build/guide_board_e2e --test guide
+# 隔离整板综合，不覆盖原物理报告：
+INSTRUMENT_BUILD_DIR=build/guide_synth QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=software QT_OPENGL=software ~/gowin/IDE/bin/gw_sh rtl/platform/tang_mega_138k_pro/build.tcl
+```
+
+引导状态覆盖16个非连续音高、和弦、80ms余辉、零力度On、重复音、范围、CC及来源清理；集成覆盖真实菜单0503、压力起音、MIDI不发声、串口／蓝牙准入、持键等待、音组切换、加载失败及恢复。`tb_config_joint_result`追加模式快照不一致／非法PAD+guide防护。`tb_guide_render`通过真实mailbox和最终LCD合成器检查全部16格与RGB/DE四拍对齐，截图为`build/sidebar/guide.ppm`、`guide.ppm.sidebar.ppm`。旧两张侧栏golden保持不变；`run_ui.py --legacy`共18项。
+
+板级guide使用同一个tb_instrument_board的GUIDE_TEST=1变体，通过真实UART引脚发送v1 MIDI帧，操作真实按键菜单；ADC模型允许切换cell0压力，Flash使用piano_flash.mem。板级旧system变体仍默认启用原cell0压力。仿真可确认接线／功能，实物键位方向、蓝牙无线延迟及板级PnR另行验收。
+
+## board50显示迁移（2026-10-30）
+
+`python3 sim/run_board.py --test polar --test visualizer`新增两项：四象限CORDIC角度/半径、生产板级PCM抽头的2050样本跨域顺序/饱和、真实FFT非零频谱、观测溢出诊断及复位清队列。独立夹具仅在观测抽头注入测试PCM，整板system/guide用例仍使用真实合成链。私有运行目录会复制board/*.mem，不依赖旧work库中的FFT ROM。
+
+极坐标页替代style2原平面历史绘制；原lcd_curve_spectrum单元保留可独立回归。默认菜单/引导叠加及两张侧栏golden保持，物理时序/听感需另验。完整结果见[迁移验证](../docs/工程评审与验证.md#board50-migration-2026-10-30)。
+
+## ENG1一阶音高调制
+
+使用具备numpy/scipy的Python环境运行`python sim/run_pitch.py`。
+`--test unit/phase/system`分别验证438组统一音高轨迹与原子提交、16槽70000采样小数相位、
+以及真实P1T1资源的MIDI/I2S整链；默认系统测试为50MHz、16槽12000采样，
+可用`--core-hz`和`--samples`选择配置。输出在`build/eng1_pitch/unit`或显式`--out`目录。
+`sim/check_pitch_resources.py`检查完整资源目录，`sim/check_pitch_dynamics.py`检查一秒受驱/自由衰减。
+生产实现与资源格式见[ENG1一阶音高调制](../docs/ENG1一阶音高调制.md)。

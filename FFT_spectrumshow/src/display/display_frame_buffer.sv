@@ -45,6 +45,7 @@ module display_frame_buffer (
     logic [1:0] ft_sync;
     logic [1:0] wb_sync;
     logic ft_seen;
+    logic frame_seen;
     logic [23:0] rd_data_r;
 
     always_ff @(posedge wr_clk or negedge wr_rst_n) begin
@@ -68,6 +69,7 @@ module display_frame_buffer (
             ft_sync   <= 2'b00;
             wb_sync   <= 2'b00;
             ft_seen   <= 1'b0;
+            frame_seen <= 1'b0;
             rd_bank   <= 1'b0;
             rd_data_r <= 24'd0;
         end
@@ -78,12 +80,17 @@ module display_frame_buffer (
             if (rd_frame_pulse && (ft_sync[1] != ft_seen)) begin
                 ft_seen <= ft_sync[1];
                 rd_bank <= ~wb_sync[1];   // bank just completed
+                frame_seen <= 1'b1;
             end
 
-            rd_data_r <= mem[{rd_bank, rd_addr}];
+            // The newly selected complete bank is readable on this edge.
+            if (rd_frame_pulse && (ft_sync[1] != ft_seen))
+                rd_data_r <= mem[{~wb_sync[1], rd_addr}];
+            else rd_data_r <= mem[{rd_bank, rd_addr}];
         end
     end
 
-    assign rd_data = rd_data_r;
+    // RAM is deliberately not reset; never expose an unwritten startup bank.
+    assign rd_data = frame_seen ? rd_data_r : 24'd0;
 
 endmodule

@@ -14,10 +14,10 @@ module tb_board_pll;
         previous_rise=$realtime;previous_edge=$realtime;
         for(integer i=0;i<256;i++)begin
             @(negedge core);half_period=$realtime-previous_edge;
-            if(half_period<4.99 || half_period>5.01)$fatal(1,"FAIL PLL high width %f",half_period);
+            if(half_period<9.99 || half_period>10.01)$fatal(1,"FAIL PLL high width %f",half_period);
             previous_edge=$realtime;
             @(posedge core);half_period=$realtime-previous_edge;period=$realtime-previous_rise;
-            if(period<9.99 || period>10.01 || half_period<4.99 || half_period>5.01 || !locked)
+            if(period<19.99 || period>20.01 || half_period<9.99 || half_period>10.01 || !locked)
                 $fatal(1,"FAIL PLL period/low/lock %f/%f/%b",period,half_period,locked);
             previous_rise=$realtime;previous_edge=$realtime;edges++;
         end
@@ -39,7 +39,7 @@ module tb_board_pll;
     end
     initial begin
         wait(core_done&&audio_done&&pixel_done);
-        $display("PASS tb_board_pll vendor_model core=100MHz audio=12.5MHz pixel=33.333MHz duty=50%%");$finish;
+        $display("PASS tb_board_pll vendor_model core=50MHz audio=12.5MHz pixel=33.333MHz duty=50%%");$finish;
     end
     initial begin #40000000;$fatal(1,"FAIL PLL lock/frequency timeout");end
 endmodule

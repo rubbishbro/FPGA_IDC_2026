@@ -6,7 +6,7 @@
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
 按乐器加载。
 
-- nominal采样率48kHz，目标主频100MHz；两个演奏顶层已恢复I2S接口，AUDIO_ENABLE=1时Fs由音频参考决定；旧 eng0 钢琴 64 模态记录为 **每采样约 735 拍**，不推广为 eng1 或当前整机保证。
+- nominal采样率48kHz，独立模块默认主频100MHz，整版board50入口传入50MHz；两个演奏顶层已恢复I2S接口，AUDIO_ENABLE=1时Fs由音频参考决定；旧 eng0 钢琴 64 模态记录为 **每采样约 735 拍**，不推广为 eng1 或当前整机保证。
 - 两套引擎：`eng0`（7 个并行乘法的直接型）和 `eng1`（ABC 递推）。
   **当前 `eng_sel()` 把 `INST_PIANO`/`INST_GUITAR` 派给 `eng0`（模态引擎），其余乐器
   （FLUTE/TRUMPET/…）先默认派给 `eng1`** —— 分配还是占位，见 `router_pkg.sv` 的注释。同一时刻只用一种，
@@ -14,7 +14,10 @@
 - 旧eng0测量的每采样拍数取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
   `n_modes=64` 约 **735 拍**（钢琴 64 模态；吉他 20 模态，帧更短，由 `n_modes_of()` 定）。
 
-> eng1的ABC系数格式独立：G Q2.24、a1 Q2.20、a2 UQ0.24。状态递推沿用输入激励的小数位，当前router激励XF=24；旧独立模型的Q30幅度不能直接套用当前router的PCM定标。
+> eng1的ABC系数格式独立：G/a1均为signed26 Q2.24、a2 UQ0.24。a1直接相乘，不再左移4位；旧Q2.20 B镜像须重新生成。状态递推沿用输入激励的小数位，当前router激励XF=24；旧独立模型的Q30幅度不能直接套用当前router的PCM定标。迁移边界见[ENG1模型](../../docs/ENG1_PY_MODEL.md)。
+
+> B类Pitch Bend/CC1现由内部消费者统一为一阶音高调制，使用一个共享乘法器、a1双缓冲与连续相位激励。
+> Flash参数半区须含P1T1标记和离线K斜率；握手/取消/来源清理与资源合同见[一阶音高调制](../../docs/ENG1一阶音高调制.md)。
 
 本文档按"结构 → 约定 → 取舍 → 现状 → 测试 → 待定"组织。想改代码先看 §4（约定）和
 §5（取舍），那里写了"为什么不能那样改"。
@@ -493,7 +496,7 @@ CS↓ → 指令 8 SCK（DQ0 单线）→ 地址 24 SCK（**DQ0 单线**，MSB �
 配 0x6B 的指令在真芯片上会读错地址 —— 基准模型一挂就露馅了。
   换句话说：**中途 reload 会丢掉约 250 个采样**，所以才有"等键全松再 reload"的策略问题（§8.2）。
 - **代价**：切换乐器时会断供样；旧记录约 5.3ms，整机须定义补静音/缓冲策略。要更快只能改 PHY（默认 4 拍/SCK；100MHz 输入对应 25MHz SCK）。
-- Quad 模式要求 flash 的 **QE 位**已置位（状态寄存器 2 bit1）——一次性配置，loader 不做
+- Quad 模式要求 flash 的 **QE 位**已置位（状态寄存器 2 bit1）；当前loader每次加载前执行06h/01h写入并等待20ms，SR1=00、SR2=02
   （否则每次加载都要写状态寄存器 + 等 tSR ~10 ms）。
 
 ---
@@ -627,7 +630,7 @@ Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术�
 
 现有midi_voice_top开启`NOTE_BANKS=1`时使用连续32音资源、16个工作槽，`note_bank`选择半区，`first_midi_note`必须匹配镜像清单；默认0兼容旧16音镜像。切组先清理实际声部与内部尾音，再整组装载，成功后提交active；加载失败保持静音并显式重试，不进行跨组动态分配。
 
-weight_loader接收并锁存16×32bit字节偏移、inst及mask，源地址为`inst*(FLASH_NOTES*N_MODES*64)+offset[slot]`，目的仍为`{sel,slot,mode}`。6Bh已改为8串行命令、24串行地址、8 dummy及quad数据，QE由板级初始化提供。范围/对齐/空表/abort/timeout失败将目标填零，done必须结合err判断。支持32音的piano_flash打包器保留默认16音产物不变；正式32音资源和范围尚待确认。
+weight_loader接收并锁存16×32bit字节偏移、inst及mask，源地址为`FLASH_BASE+inst*(FLASH_NOTES*N_MODES*64)+offset[slot]`，目的仍为`{sel,slot,mode}`。6Bh已改为8串行命令、24串行地址、8 dummy及quad数据，QE由loader先写入并等待20ms。范围/对齐/空表/abort/timeout失败将目标填零，done必须结合err判断。支持32音的piano_flash打包器保留默认16音产物不变；正式32音资源和范围尚待确认。
 
 完整接口、故障处理、测试及保留项见[MIDI当前修复](../../docs/MIDI演奏与通信接入.md#midi-bank-fixes)。本轮无新增生产模块，eng0/eng1源码不变；8项Questa和原PAD256点一致性通过不替代真实Flash、满规模吞吐或PCM/I2S验收。
 
@@ -650,3 +653,5 @@ midi_voice_top/pad_voice_top已恢复AUDIO_ENABLE、audio_clk和I2S实例/端口
 现有excitation_gen增加周期冲激分支，env_router为FLUTE/TRUMPET/CELLO/VIOLIN选择同实例ADSR的逐槽A/R；x/E按帧锁存。voice_router的S_CFG逐槽准备配置，锁存目标映射/偏移，加载成功后启用；无效配置有失败完成。voice_idle须等释放归零及实际清理帧退休。
 
 配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；正式RESOURCE_MASK仍只开放钢琴，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。持续前端实施未改eng0/eng1算术核；后续统一板级已有实际PnR，时序未通过，尚未烧录。
+
+2026-10-30：板级Flash资源已搬到0x800000；FLASH_BASE/物理FLASH_BYTES经演奏顶层、voice_router传到loader，独立模块仍默认基址0供旧回归。烧录步骤和打包命令以[板级分区说明](../platform/tang_mega_138k_pro/README.md#flash程序音色分区迁移2026-10-30)为准。

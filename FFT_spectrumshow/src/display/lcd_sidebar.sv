@@ -5,6 +5,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
     input logic clk,rst_n,frame_pulse,lcd_valid,
     input logic[9:0] pix_x,pix_y,
     input config_pkg::sidebar_snapshot_t view,
+    input config_pkg::guide_display_t guide_view = '0,
     output logic hit,
     output logic[5:0] r,g,b,
     output logic[8:0] visible_width
@@ -13,7 +14,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
     import sidebar_font_pkg::*;
     cfg_values_t values;
     assign values=view.values;
-    wire[19:0] supported=view.supported;
+    wire[config_pkg::CFG_COUNT-1:0] supported=view.supported;
     logic[3:0] progress;
     always_ff @(posedge clk or negedge rst_n)begin
         if(!rst_n)progress<=0;
@@ -42,6 +43,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
             14:value_label=value==0?68:(value==1?66:69);
             15:value_label=value==0?65:(value==1?66:67);
             18:value_label=value==0?62:63;
+            20:value_label=value==0?94:95;
             default:value_label=70;
         endcase
     endfunction
@@ -78,8 +80,8 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
             return {allowed,option_v==v,value_label(idx,option_v)};
         end
     endfunction
-    logic[19:0][7:0] value_labels;
-    logic[19:0][31:0] value_digits;
+    logic[config_pkg::CFG_COUNT-1:0][7:0] value_labels;
+    logic[config_pkg::CFG_COUNT-1:0][31:0] value_digits;
     logic[31:0] draft_digits;
     logic[5:0][9:0] options;
     logic[3:0][9:0] numeric_values;
@@ -108,7 +110,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
             prep_a<=prep_tick||!prepared;
             if(prep_tick||!prepared)begin
                 prepared<=1;
-                for(integer i=0;i<20;i++)value_labels[i]<=value_label(i,values[i]);
+                for(integer i=0;i<CFG_COUNT;i++)value_labels[i]<=value_label(i,values[i]);
                 for(integer i=0;i<6;i++)options[i]<=option_descriptor(view.scene.edit_index,view.scene.draft,i);
                 for(integer i=0;i<4;i++)begin
                     bcd_first[i]<=bcd_five(16'd0,5'(numeric_values[i]>>5));
@@ -155,7 +157,8 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
                 label_id=view.scene.layer==0?8'd1:8'(2+view.scene.category);text_y=24;
             end else if(y>=430)begin
                 text_y=442;
-                if(view.scene.busy)label_id=74;
+                if(guide_view.waiting_release)label_id=86;
+                else if(view.scene.busy)label_id=74;
                 else if(view.scene.has_result)begin
                     case(view.scene.result)
                         CFG_OK:label_id=75;CFG_UNSUPPORTED:label_id=76;default:label_id=77;
@@ -173,9 +176,9 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
                     label_id=8'(2+row);selected=(row==view.scene.selection);
                     if(x>=248)begin text_x=248;glyph=GLYPH_RIGHT;end
                 end else if(view.scene.layer==1)begin
-                    index=category_base(view.scene.category)+row;
+                    index=5'(category_item(view.scene.category,int'(row)));
                     if(row<category_count(view.scene.category))begin
-                        enabled=supported[index];selected=(row==view.scene.selection);
+                        enabled=supported[index] && !(index==20 && values[11]==0);selected=(row==view.scene.selection);
                         digits=value_digits[index];label_id=8'(20+index);
                         if(x>=184)begin
                             text_x=184;
@@ -190,7 +193,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
                     else if(index==1||index==4||index==12)begin
                         if(row==1)begin number_text=1;text_x=80;text_y=148;end
                         if(row==3)begin label_id=81;text_x=80;end
-                    end else if(index>=16 && index!=18)begin
+                    end else if(cfg_action(index))begin
                         if(row==1)label_id=70;
                         if(row==2 && index==16)label_id=86;
                     end else begin
@@ -216,7 +219,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
             if(x>=text_x && y>=text_y && y<text_y+16)begin
                 font_x=4'(x-text_x);font_y=4'(y-text_y);text_on=1;
             end
-        end else if(lcd_valid && y<48)begin
+        end else if(lcd_valid && y<48 && !guide_view.enabled)begin
             hit_now=1;text_x=24;text_y=16;
             label_id=8'(54+view.display_cfg.style_id);
             if(pix_x>=560)begin

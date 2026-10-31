@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // 16 destination slots, 32 source pitches, non-power-of-two mode stride.
-module tb_loader_offsets;
+module tb_loader_offsets #(parameter logic [31:0] FLASH_BASE=0, parameter int FLASH_BYTES=8_388_608, parameter bit RELOCATED=0);
     logic clk=0,rst_n=0,start=0,abort=0;
     always #5 clk=~clk;
     logic [3:0] inst=1;
@@ -16,12 +16,12 @@ module tb_loader_offsets;
     logic [15:0] expected_mask;
     logic expect_zero=0;
     weight_loader #(.SLOTS(16),.N_MODES(3),.FLASH_NOTES(32),.USE_OFFSETS(1),
-                    .SUPPORT_ABORT(1),.BLANK_WAIT(2),.TIMEOUT_CYCLES(100000)) dut(
+                    .FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.CLK_HZ(1_000_000),.SUPPORT_ABORT(1),.BLANK_WAIT(2),.TIMEOUT_CYCLES(100000)) dut(
         .clk(clk),.rst_n(rst_n),.inst(inst),.start(start),.slot_offsets(slot_offsets),
         .update_mask(update_mask),.abort(abort),.busy(busy),.done(done),.err(err),.error_code(error_code),
         .ld_we(ld_we),.ld_addr(ld_addr),.ld_co(ld_co),.ld_pm(ld_pm),
         .qspi_cs_n(cs),.qspi_sck(sck),.qspi_dq_o(dq_o),.qspi_dq_oe(oe),.qspi_dq_i(dq_i));
-    w25q64_read_model #(.N_MODES(3)) flash(.cs_n(cs),.sck(sck),.dq_o(dq_o),.dq_oe(oe),.blank(blank),.dq_i(dq_i));
+    w25q64_read_model #(.N_MODES(3),.RESOURCE_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.FORBID_PROGRAM_READ(FLASH_BASE!=0)) flash(.cs_n(cs),.sck(sck),.dq_o(dq_o),.dq_oe(oe),.blank(blank),.dq_i(dq_i));
     function automatic logic [31:0] expected(input integer slot,mode,word_number);
         expected=expect_zero?0:{8'h10,8'(expected_inst*32+expected_note[slot]),8'(mode),8'(word_number)};
     endfunction
@@ -70,14 +70,18 @@ module tb_loader_offsets;
         begin_load();finish_load(18,0);
         expected_mask=0;update_mask=0;before_reads=flash.transactions;
         begin_load();finish_load(0,0);
-        if(flash.transactions!=before_reads) $fatal(1,"FAIL zero mask started Flash");
+        if(flash.transactions!=before_reads) $fatal(1,"FAIL zero mask started Flash read");
         expected_mask=1;update_mask=1;slot_offsets[31:0]=32*192;expect_zero=1;
         before_reads=flash.transactions;begin_load();finish_load(6,1);
-        if(flash.transactions!=before_reads) $fatal(1,"FAIL invalid offset escaped on wire");
+        if(flash.transactions!=before_reads) $fatal(1,"FAIL invalid offset started Flash read");
         slot_offsets[31:0]=0;blank=1;begin_load();finish_load(6,2);blank=0;
         update_mask=3;expected_mask=3;slot_offsets[63:32]=192;
         begin_load();repeat(80) @(negedge clk);abort=1;finish_load(12,3);abort=0;
-        $display("PASS tb_loader_offsets checked_records=%0d",checks);$finish;
+        if(RELOCATED)begin
+            if(flash.min_read_address<FLASH_BASE)$fatal(1,"FAIL relocated load read program");
+            $display("PASS tb_loader_relocated checked_records=%0d base=%h",checks,FLASH_BASE);
+        end else $display("PASS tb_loader_offsets checked_records=%0d QE_writes=%0d",checks,flash.qe_writes);
+        if(flash.qe_writes!=6)$fatal(1,"FAIL QE initialization/repeated load/aborted write count");$finish;
     end
     initial begin #5000000;$fatal(1,"FAIL loader offset timeout");end
 endmodule

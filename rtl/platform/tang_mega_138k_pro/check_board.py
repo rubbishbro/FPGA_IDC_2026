@@ -53,7 +53,7 @@ def main():
                               reported_violations=sum(v<0 for v in slacks))
         clocks={name:dict(target_mhz=float(target),fmax_mhz=float(actual)) for name,target,actual in
                 re.findall(r'^\s*\d+\s+(\S+)\s+([\d.]+)\(MHz\)\s+([\d.]+)\(MHz\)',timing,re.M)}
-        expected_clocks={'clk50':50.0,'clk_core':100.0,'clk_audio':12.5,'clk_pix':33.333}
+        expected_clocks={'clk50':50.0,'clk_core':50.0,'clk_audio':12.5,'clk_pix':33.333}
         for name,target in expected_clocks.items():
             assert name in clocks and abs(clocks[name]['target_mhz']-target)<0.002, f'missing/changed target clock {name}'
         result['timing']=dict(report=str(args.timing),setup_violations=setup,hold_violations=hold,checks=checks,clocks=clocks)

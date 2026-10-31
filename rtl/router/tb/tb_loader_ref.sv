@@ -123,7 +123,7 @@ module tb_loader_ref;
         begin
             int guard;
             guard = 0;
-            while (!done && guard < 4_000_000) begin
+            while (!done && guard < 12_000_000) begin
                 @(posedge clk);
                 guard++;
             end

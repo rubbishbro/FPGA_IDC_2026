@@ -15,6 +15,10 @@ module pad_voice_top #(
     parameter int  SLOTS         = 16,
     parameter bit  AUDIO_ENABLE = 1'b0,
     parameter int  AUDIO_CLK_DIV = 4, PCM_HEADROOM_BITS = 3,
+    parameter bit STEREO_ENABLE=1'b1,
+    parameter int ITD_MAX_SAMPLES=4,
+    parameter logic [31:0] FLASH_BASE=32'h0000_0000,
+    parameter int FLASH_BYTES=8_388_608,
     parameter bit  USE_PAD_DRIVER = 1'b1
 ) (
     input  logic clk,
@@ -22,6 +26,9 @@ module pad_voice_top #(
     // Must match the selected resource manifest; legacy 16-note map by default.
     input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(),
     input  logic audio_clk,
+    // Same clk domain; one position owns both ILD and auxiliary ITD.
+    input logic [5:0] pan_position=6'd16,
+    input logic itd_enable=1'b1,
     output logic amp_bclk,amp_ws,amp_din,
     output logic audio_sample_tick,audio_deadline_miss,audio_overflow,audio_underflow,
 
@@ -145,7 +152,7 @@ module pad_voice_top #(
         .SLOTS(SLOTS),
         .N_MODES(N_MODES),
         .CLK_HZ(CLK_HZ),
-        .SR_HZ(SR_HZ)
+        .SR_HZ(SR_HZ),.FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES)
     ) u_voice (
         .clk(clk),
         .rst_n(rst_n),
@@ -179,9 +186,10 @@ module pad_voice_top #(
     );
 
     generate if(AUDIO_ENABLE) begin : g_audio
-        i2s_audio_output #(.CLK_DIV(AUDIO_CLK_DIV),.PCM_HEADROOM_BITS(PCM_HEADROOM_BITS)) u_audio(
+        i2s_audio_output #(.CLK_DIV(AUDIO_CLK_DIV),.PCM_HEADROOM_BITS(PCM_HEADROOM_BITS),
+            .STEREO_ENABLE(STEREO_ENABLE),.ITD_MAX_SAMPLES(ITD_MAX_SAMPLES)) u_audio(
             .clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),.active(run && table_valid && !load_err),
-            .in_valid(y_valid),.in_data(y_data),.sample_tick(audio_sample_tick),
+            .in_valid(y_valid),.in_data(y_data),.pan_position(pan_position),.itd_enable(itd_enable),.sample_tick(audio_sample_tick),
             .amp_bclk(amp_bclk),.amp_ws(amp_ws),.amp_din(amp_din),
             .deadline_miss(audio_deadline_miss),.overflow(audio_overflow),.underflow(audio_underflow)
         );

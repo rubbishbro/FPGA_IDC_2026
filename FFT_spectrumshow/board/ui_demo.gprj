@@ -16,6 +16,7 @@
         <File path="../src/ui/sidebar_ctrl.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/sidebar_system.sv" type="file.verilog" enable="1"/>
         <File path="../src/display/lcd_sidebar.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_pad_guide.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/key_ui_event.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/ui_ctrl.sv" type="file.verilog" enable="1"/>
         <File path="../src/fft/fft1024_iter.sv" type="file.verilog" enable="1"/>
@@ -37,6 +38,8 @@
         <File path="../src/display/curve_store.sv" type="file.verilog" enable="1"/>
         <File path="../src/display/curve_calc.sv" type="file.verilog" enable="1"/>
         <File path="../src/display/lcd_curve_spectrum.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/cordic_polar.sv" type="file.verilog" enable="1"/>
+        <File path="../src/display/lcd_polar_curve.sv" type="file.verilog" enable="1"/>
         <File path="../src/display/lcd_wave.v" type="file.verilog" enable="1"/>
         <File path="../src/display/lcd_ui.sv" type="file.verilog" enable="1"/>
         <File path="../src/input/key_debounce.v" type="file.verilog" enable="1"/>

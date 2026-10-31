@@ -48,5 +48,6 @@ module tb_sustain_config;
   if(completions!=4 || loads!=3)$fatal(1,"FAIL profile failure completion contract %d %d",completions,loads);
   $display("PASS tb_sustain_config load/profile atomicity, immutable map, bounded invalid completion and recovery");$finish;
  end
- initial begin #20000000;$fatal(1,"FAIL profile watchdog state=%d",dut.state);end
+ // Three Flash loads each include a 20ms QE write; one invalid profile does not load.
+ initial begin #120000000;$fatal(1,"FAIL profile watchdog state=%d",dut.state);end
 endmodule

@@ -1,5 +1,5 @@
 create_clock -name clk50 -period 20.000 [get_ports {clk}]
-create_generated_clock -name clk_core -source [get_ports {clk}] -master_clock clk50 -multiply_by 2 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT0}]
+create_generated_clock -name clk_core -source [get_ports {clk}] -master_clock clk50 -divide_by 1 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT0}]
 create_generated_clock -name clk_audio -source [get_ports {clk}] -master_clock clk50 -divide_by 4 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT1}]
 create_generated_clock -name clk_pix -source [get_ports {clk}] -master_clock clk50 -multiply_by 2 -divide_by 3 [get_pins {u_clocks/u_core/u_pll/PLL_inst/CLKOUT2}]
 
@@ -19,13 +19,13 @@ set_false_path -to [get_pins {u_system/u_sound/u_voice/child_reset*/CLEAR u_syst
 
 # Asynchronous board inputs terminate in explicit synchronizers.
 set_false_path -from [get_ports {key0 key1 uart_rx[0] uart_rx[1] bt_state}]
-# I2S C2O envelope for bring-up. Physical setup/hold still requires board validation.
-set_output_delay -clock clk_audio -max 40.000 [get_ports {amp_bclk amp_ws amp_din}]
-set_output_delay -clock clk_audio -min 0.000 [get_ports {amp_bclk amp_ws amp_din}]
+# I2S/PT8211 C2O envelope for bring-up. Physical setup/hold still requires board validation.
+set_output_delay -clock clk_audio -max 40.000 [get_ports {amp_bclk amp_ws amp_din dac_bck dac_ws dac_din}]
+set_output_delay -clock clk_audio -min 0.000 [get_ports {amp_bclk amp_ws amp_din dac_bck dac_ws dac_din}]
 # LCD engineering budget, not a substitute for the actual panel timing specification.
 set_output_delay -clock clk_pix -max 10.000 [get_ports {lcd_en lcd_r[*] lcd_g[*] lcd_b[*]}]
 set_output_delay -clock clk_pix -min 0.000 [get_ports {lcd_en lcd_r[*] lcd_g[*] lcd_b[*]}]
-set_max_delay -from [get_ports {rst_n}] -to [get_ports {amp_sd}] 100.000
+set_max_delay -from [get_ports {rst_n}] -to [get_ports {amp_sd dac_pa_en}] 100.000
 
 # Include per-domain paths even when many core endpoints dominate the global top.
 report_timing -setup -max_paths 100 -max_common_paths 1
@@ -37,3 +37,12 @@ report_timing -recovery -max_paths 50 -max_common_paths 1
 set_false_path -hold -from [get_clocks {clk_core}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/wgray_s1_*/D u_system/u_ui/u_view_cdc/req_meta*/D u_system/u_ui/pixel_view*/D}]
 set_false_path -hold -from [get_clocks {clk_audio}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/rgray_s1_*/D u_system/u_sound/g_audio.u_audio/frame_s1*/D}]
 set_false_path -hold -from [get_clocks {clk_pix}] -to [get_pins {u_system/u_ui/u_view_cdc/ack_meta*/D}]
+
+# Independent core -> pixel observation FIFO. Bound Gray captures only;
+# keep functional pixel processing and second synchronizer stages timed.
+set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_visualizer_fifo/wgray_s1_*/D}] 10.000
+set_max_delay -from [get_clocks {clk_pix}] -to [get_pins {u_system/u_visualizer_fifo/rgray_s1_*/D}] 10.000
+set_false_path -hold -from [get_clocks {clk_core}] -to [get_pins {u_system/u_visualizer_fifo/wgray_s1_*/D}]
+set_false_path -hold -from [get_clocks {clk_pix}] -to [get_pins {u_system/u_visualizer_fifo/rgray_s1_*/D}]
+# Gowin merges this FIFO's reset synchronizers into u_system/core_reset and
+# u_system/pix_reset. Their CLEAR pins are already covered above.

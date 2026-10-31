@@ -46,7 +46,7 @@ module tb_i2s_audio_output;
     initial begin #7;forever #40 aclk=~aclk;end
     logic signed [63:0] y=0;
     logic tick,bclk,ws,din,late,overflow,underflow;
-    i2s_audio_output #(.PCM_HEADROOM_BITS(0)) dut(
+    i2s_audio_output #(.STEREO_ENABLE(0),.PCM_HEADROOM_BITS(0)) dut(
         .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.active(active),.in_valid(yv),.in_data(y),
         .sample_tick(tick),.amp_bclk(bclk),.amp_ws(ws),.amp_din(din),
         .deadline_miss(late),.overflow(overflow),.underflow(underflow));

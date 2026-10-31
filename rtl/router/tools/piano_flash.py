@@ -40,6 +40,7 @@ _REPO = _HERE.parent.parent.parent          # rtl/router/tools -> 仓根
 sys.path.insert(0, str(_HERE))
 
 from flash_image import REC_BYTES, record, image   # noqa: E402
+from pack_board_flash import board_layout, check_layout
 
 # ---- 必须和 modal_step_pkg.sv 的 SH_* 一致 ----
 SH = dict(a11=28, a12=30, a21=23, a22=28, gq=32, gv=34, wo=29)
@@ -168,6 +169,7 @@ def main(argv=None) -> int:
     ap.add_argument("--manifest", type=Path, help="可选资源清单，绑定音域、步长、输入及镜像hash")
     ap.add_argument("--verify", action="store_true", help="只检查，不写文件")
     args = ap.parse_args(argv)
+    flash_base, flash_bytes = board_layout()
 
     if args.midi and args.first_midi is not None:
         ap.error("--midi和--first-midi只能选择一种")
@@ -201,13 +203,19 @@ def main(argv=None) -> int:
         return 0 if ok else 1
 
     img = image({args.inst: tbl})
+    try:
+        check_layout(flash_base, flash_bytes, len(img))
+    except ValueError as exc:
+        ap.error(str(exc))
     Path(args.out).write_bytes(img)
     if args.manifest:
         args.manifest.write_text(json.dumps({
             "schema": 1, "instrument": args.inst, "format": "ENG0_MATRIX_FIXED_Q",
             "notes": midi_list, "notes_per_instrument": args.notes, "slots_per_bank": SLOTS,
             "modes": args.modes, "record_bytes": REC_BYTES, "note_bytes": args.modes * REC_BYTES,
-            "table_bytes": len(tbl), "instrument_base": args.inst * len(tbl), "q_shifts": SH,
+            "table_bytes": len(tbl), "instrument_base": args.inst * len(tbl),
+            "flash_base": flash_base, "flash_bytes": flash_bytes,
+            "image_flash_address": flash_base, "instrument_flash_address": flash_base + args.inst * len(tbl), "q_shifts": SH,
             "source_sha256": hashlib.sha256(Path(args.coeff).read_bytes()).hexdigest(),
             "image_sha256": hashlib.sha256(img).hexdigest(),
         }, indent=2) + "\n", encoding="utf-8")
@@ -232,7 +240,7 @@ def main(argv=None) -> int:
     check(len(midi_list) - 1)
     print(f"[piano_flash] 镜像 {len(img)} 字节 -> {args.out}")
     print(f"[piano_flash] $readmemh 字节文件 -> {args.mem}")
-    print(f"[piano_flash] 烧写地址：0x{args.inst * len(tbl):06X}（= inst x TABLE_BYTES）")
+    print(f"[piano_flash] 整个BIN烧写地址：0x{flash_base:06X}；乐器实际地址：0x{flash_base + args.inst * len(tbl):06X}")
     return 0 if ok else 1
 
 

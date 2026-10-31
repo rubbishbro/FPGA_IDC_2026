@@ -1,13 +1,13 @@
 // -----------------------------------------------------------------------------
 // eng1：ABC 谐振器引擎（端口与 eng0 完全一致：一次 start = 递推一个采样）
 //
-// 递推核（队友 abc_lane_core 的算术契约，逐位一致）：
-//     acc  = G*x - (a1<<4)*y1 - a2*y2
+// 递推核（router Q2.24 系数合同；旧 abc_lane_core 仍用 Q2.20 a1）：
+//     acc  = G*x - a1*y1 - a2*y2
 //     ynew = clamp((acc + 2^23) >>> 24, -2^31, 2^31-1)
 //     y2'  = y1 ,  y1' = ynew
 //
 //   G   Q2.24 signed   （存在 co_data.a11，低 26 位有效）
-//   a1  Q2.20 signed   （存在 co_data.a12，<<4 后为 Q2.24）
+//   a1  Q2.24 signed 26（存在 co_data.a12，低 26 位有效）
 //   a2  UQ0.24 unsigned（存在 co_data.a21，零扩展到 Q2.24）
 //   x / y1 / y2 signed 32，沿用激励的二进制小数位（当前 router 为 Q24）
 //
@@ -111,7 +111,7 @@ module eng1 #(
             // M: returned RAM data, NOT a previous mode's state register.
             if (m_valid) begin
                 p_g <= mul64(x_ext, {{38{co_data.a11[25]}},co_data.a11[25:0]});
-                p_a1 <= mul64(y1_ext, {{38{co_data.a12[21]}},co_data.a12[21:0],4'b0});
+                p_a1 <= mul64(y1_ext, {{38{co_data.a12[25]}},co_data.a12[25:0]});
                 p_a2 <= mul64(y2_ext, {40'b0,co_data.a21[23:0]});
                 s_addr <= m_addr;
                 s_old_y1 <= y1_eff;

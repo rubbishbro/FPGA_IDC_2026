@@ -10,6 +10,7 @@ ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/'python/modal_sim'))
 sys.path.insert(0,str(ROOT/'python'))
 import router_eng1 as model
+import pitch_linear
 from sustain_engine import SustainPatch
 INST={'flute':2,'trumpet':3,'cello':4,'violin':5}
 FS=48000;DEPTH=64;ENV=(1<<31)-1
@@ -25,9 +26,10 @@ def make_note(name,midi,allow_retune):
     attack=max(float(t.attack_s or .02),.003);release=max(float(t.release_s or .05),.02)
     a=max(1,int(ENV/(attack*FS)));r=max(1,int(ENV/(release*FS)))
     words=[]
+    modulation=pitch_linear.modulation_words(t)
     for mode in range(DEPTH):
         g,a1,a2=(int(t.G[mode]),int(t.a1[mode]),int(t.a2[mode])) if mode<t.n_modes else (0,0,0)
-        words.extend([g,a1,a2,*([0]*13)])
+        words.extend([g,a1,a2,*([0]*5),*modulation[mode]])
     data=b''.join(struct.pack('>I',v&0xffffffff) for v in words)
     return dict(instrument=INST[name],name=name,midi=midi,source_midi=selected[0],source_dynamic=selected[1],
         retuned=selected[0]!=midi,modes=t.n_modes,period=t.drive_period,a_step=a,r_step=r,
@@ -60,6 +62,10 @@ def main():
         (args.out/'sustain_flash.bin').write_bytes(image)
         (args.out/'sustain_flash.mem').write_text(''.join(f'{v:02X}\n' for v in image))
     manifest=dict(resource_fs=FS,storage_modes=DEPTH,active_modes_limit=48,allow_retune=args.allow_retune,
+        a1_format='Q2.24',a1_frac=model.A1_FRAC,a1_bits=model.A1_BITS,
+        record_bytes=64,record_words=16,coeff_words=['G','a1','a2'],
+        pitch_format='P1T1',pitch_slope_frac=pitch_linear.SLOPE_FRAC,
+        pitch_words={'8':'lower','9':'a1_nominal','10':'upper','13':'K','15':'P1T1 tag'},
         first_midi=None if args.catalog else args.first_midi,notes=None if args.catalog else args.notes,
         sources={name:hashlib.sha256((ROOT/f'FFT_results/params/{name}_sustain.npz').read_bytes()).hexdigest() for name in INST},
         entries=[{k:v for k,v in row.items() if k!='data'} for row in entries])

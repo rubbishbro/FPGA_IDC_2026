@@ -36,7 +36,9 @@ module voice_router #(
     parameter bit EXTERNAL_SAMPLE_TICK = 1'b0,
     parameter bit MIDI_ENABLE = 1'b0,
     parameter bit LOAD_OFFSETS = 1'b0,
-    parameter int FLASH_NOTES = SLOTS
+    parameter int FLASH_NOTES = SLOTS,
+    parameter logic [31:0] FLASH_BASE=32'h0000_0000,
+    parameter int FLASH_BYTES=8_388_608
 ) (
     input  logic                                     clk,
     input  logic                                     rst_n,
@@ -47,6 +49,7 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
+    output wire [SLOTS-1:0] pad_keys_down, // actual pressure hysteresis used by the PAD path
     input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(), // resource identity; latched with each load
     input  logic                                     sample_tick, // clk domain; I2S frame master when enabled
     // 每个乐器用多少模态在内部按 inst 查 router_pkg::n_modes_of()，不再是端口
@@ -74,6 +77,11 @@ module voice_router #(
     output logic midi_ready, // 该操作帧真正退休
     input  logic [SLOTS-1:0] midi_gate, midi_retrigger, midi_hard_clear,
     input  logic [SLOTS*7-1:0] midi_velocity,
+    input logic pitch_control_valid=1'b0,pitch_control_cancel=1'b0,pitch_control_source=1'b0,
+    input logic [31:0] pitch_control_data='0,
+    input logic [SLOTS-1:0] pitch_slot_source='0,
+    input logic [1:0] pitch_cleanup='0,
+    output logic pitch_control_ready,pitch_control_rejected,
 
     // 维护和资源事务都留在router内；默认参数下旧PAD实例忽略这些输入。
     input logic maintenance_clear, map_reload,
@@ -135,6 +143,7 @@ module voice_router #(
     // 引擎读的 9 个阵列按声部拆成 A（声部 0..HS-1）/ B（HS..SLOTS-1）两个 bank
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11_a [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12_a [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] pitch_a12_a [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21_a [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22_a [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq_a  [0:HS*NMP-1];
@@ -145,6 +154,7 @@ module voice_router #(
 
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a11_b [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a12_b [0:HS*NMP-1];
+    (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] pitch_a12_b [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a21_b [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_a22_b [0:HS*NMP-1];
     (* syn_ramstyle = "block_ram" *) logic signed [CW-1:0] ca_gq_b  [0:HS*NMP-1];
@@ -209,6 +219,8 @@ module voice_router #(
     logic [SLOTS-1:0] part_clear,part_gate,part_trigger;
     logic [SLOTS*8-1:0] part_strike,part_envelope;
     logic part_tick,part_midi,part_commit;
+    logic [SLOTS*24-1:0] pitch_delta,part_pitch_delta;
+    logic pitch_sources_ready;
     logic [SLOTS-1:0] committed_gate;
     logic signed [SLOTS-1:0][31:0] emap_frame;
     logic [SLOTS-1:0] idle_confirmed,zero_mask_f,gate_f,dead_frame;
@@ -262,11 +274,12 @@ module voice_router #(
     end
 
     assign note_gate = note_on;
+    assign pad_keys_down = pad_note_on;
     performance_input_mux #(.SLOTS(SLOTS), .MIDI_ENABLE(MIDI_ENABLE)) u_input (
         .clk(clk), .rst_n(rst_n), .sample_commit(performance_commit), .frame_retire(frame_retire),
         .maintenance_clear(maintain_req), .maintenance_done(maintenance_done), .midi_inflight(midi_inflight),
         .pad_gate(pad_note_on), .pad_level(fmap_q.raw[SLOTS*8-1:0]),
-        .midi_select(midi_select), .midi_valid(midi_valid), .midi_ready(midi_ready),
+        .midi_select(midi_select), .midi_valid(midi_valid && (pitch_sources_ready || !(|midi_retrigger))), .midi_ready(midi_ready),
         .midi_gate(midi_gate), .midi_velocity(midi_velocity),
         .midi_retrigger(midi_retrigger), .midi_hard_clear(midi_hard_clear),
         .active_midi(active_midi), .gate(note_on), .trigger(perf_trigger),
@@ -288,7 +301,7 @@ module voice_router #(
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             part_clear<='0;part_gate<='0;part_trigger<='0;
-            part_strike<='0;part_envelope<='0;part_tick<=0;part_midi<=0;part_commit<=0;committed_gate<='0;
+            part_strike<='0;part_envelope<='0;part_tick<=0;part_midi<=0;part_commit<=0;committed_gate<='0;part_pitch_delta<='0;
         end else begin
             part_tick<=smp_tick;part_commit<=performance_commit;
             if(performance_commit)committed_gate<=note_on;
@@ -297,13 +310,14 @@ module voice_router #(
                 part_gate<=play_clear ? '0 : note_on;
                 part_trigger<=perf_trigger;part_strike<=strike_level;
                 part_envelope<=envelope_level;part_midi<=active_midi;
+                part_pitch_delta<=pitch_delta;
             end
         end
     end
 
     exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
         .clk(clk), .rst_n(child_reset[0][1]), .smp_tick(part_tick),
-        .slot_period(play_period),
+        .slot_period(play_period),.slot_pitch_delta(part_pitch_delta),
         .strike_level(part_strike), .retrigger(part_trigger), .slot_clear(part_clear),
         .note_on(part_gate), .inst(inst_lat),
         .xmap(xmap), .xmap_valid(xmap_valid)
@@ -346,6 +360,23 @@ module voice_router #(
         .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata)
     );
 
+    logic pitch_bank,pitch_busy,pitch_commit,pitch_p_re,pitch_co_we;
+    logic [CO_SLOT-1:0] pitch_p_addr,pitch_co_addr;
+    logic signed [31:0] pitch_a1;
+    wire [CO_SLOT-1:0] pm_read_addr;
+    wire pitch_commit_ok;
+    eng1_pitch #(.SLOTS(SLOTS),.N_MODES(N_MODES)) u_pitch(
+        .clk(clk),.rst_n(child_reset[2][1]),.clear(play_clear || !router_pkg::is_sustain(inst_lat)),
+        .sample_tick(smp_tick),.commit_ok(pitch_commit_ok),.cleanup(pitch_cleanup),.n_modes(nm_lat),
+        .slot_source(pitch_slot_source),.control_valid(pitch_control_valid),.control_cancel(pitch_control_cancel),
+        .control_source(pitch_control_source),.control_data(pitch_control_data),
+        .control_ready(pitch_control_ready),.control_rejected(pitch_control_rejected),
+        .active_bank(pitch_bank),.busy(pitch_busy),.commit_pulse(pitch_commit),.active_delta(pitch_delta),
+        .sources_ready(pitch_sources_ready),
+        .p_re(pitch_p_re),.p_addr(pitch_p_addr),.p_lower(mod_a11_r),.p_base(mod_a12_r),
+        .p_upper(mod_a22_r),.p_slope(mod_s12_r),.p_tag(mod_swo_r),
+        .co_we(pitch_co_we),.co_addr(pitch_co_addr),.co_a1(pitch_a1));
+
     // =========================================================================
     // 系数加载
     // =========================================================================
@@ -365,7 +396,7 @@ module voice_router #(
     assign ld_pm_we  = ld_we &  ld_sel_pm;
 
     weight_loader #(.SLOTS(SLOTS), .N_MODES(N_MODES), .CLK_HZ(CLK_HZ),
-                    .FLASH_NOTES(FLASH_NOTES), .USE_OFFSETS(LOAD_OFFSETS), .SUPPORT_ABORT(1)) u_ld (
+                    .FLASH_NOTES(FLASH_NOTES), .FLASH_BASE(FLASH_BASE), .FLASH_BYTES(FLASH_BYTES), .USE_OFFSETS(LOAD_OFFSETS), .SUPPORT_ABORT(1)) u_ld (
         .clk(clk), .rst_n(rst_n), .inst(4'(inst_lat)),
         .slot_offsets(pending_offsets), .update_mask({SLOTS{1'b1}}),
         .abort(maintain_req && !maintenance_completed), .error_code(),
@@ -491,6 +522,7 @@ module voice_router #(
                 if (ld_bank_b) begin
                     ca_a11_b[ld_bank_addr] <= ld_co_data.a11;
                     ca_a12_b[ld_bank_addr] <= ld_co_data.a12;
+                    pitch_a12_b[ld_bank_addr] <= ld_co_data.a12;
                     ca_a21_b[ld_bank_addr] <= ld_co_data.a21;
                     ca_a22_b[ld_bank_addr] <= ld_co_data.a22;
                     ca_gq_b [ld_bank_addr] <= ld_co_data.gq;
@@ -499,6 +531,7 @@ module voice_router #(
                 end else begin
                     ca_a11_a[ld_bank_addr] <= ld_co_data.a11;
                     ca_a12_a[ld_bank_addr] <= ld_co_data.a12;
+                    pitch_a12_a[ld_bank_addr] <= ld_co_data.a12;
                     ca_a21_a[ld_bank_addr] <= ld_co_data.a21;
                     ca_a22_a[ld_bank_addr] <= ld_co_data.a22;
                     ca_gq_a [ld_bank_addr] <= ld_co_data.gq;
@@ -508,6 +541,14 @@ module voice_router #(
             // 加载期间调制器的写一律丢弃：loader 的优先级只保证“同一拍”；
             // 已经起跑的调制如果在 loader 写完之后才写同一个地址，会把新表改坏。
             // 新表本来就会覆盖全部系数，丢掉这几笔没有副作用。
+            end else if(pitch_co_we && !play_clear && router_pkg::is_sustain(inst_lat))begin
+                if(pitch_co_addr[CO_SLOT-1])begin
+                    if(pitch_bank)ca_a12_b[pitch_co_addr[BA-1:0]]<=pitch_a1;
+                    else pitch_a12_b[pitch_co_addr[BA-1:0]]<=pitch_a1;
+                end else begin
+                    if(pitch_bank)ca_a12_a[pitch_co_addr[BA-1:0]]<=pitch_a1;
+                    else pitch_a12_a[pitch_co_addr[BA-1:0]]<=pitch_a1;
+                end
             end else if ((|mod_co_we) && !ld_busy && !ld_start) begin
                 if (mod_bank_b) begin
                     if (mod_co_we[0]) ca_a11_b[mod_bank_addr] <= mod_co_wdata.a11;
@@ -535,21 +576,21 @@ module voice_router #(
                 pm_s22[ld_idx] <= ld_pm_data.s22;
                 pm_swo[ld_idx] <= ld_pm_data.swo;
             end
-            if (mod_p_re) begin
-                mod_a11_r <= pm_a11[pm_idx];
-                mod_a12_r <= pm_a12[pm_idx];
-                mod_a22_r <= pm_a22[pm_idx];
-                mod_wo_r  <= pm_wo [pm_idx];
-                mod_s11_r <= pm_s11[pm_idx];
-                mod_s12_r <= pm_s12[pm_idx];
-                mod_s22_r <= pm_s22[pm_idx];
-                mod_swo_r <= pm_swo[pm_idx];
+            if (mod_p_re || pitch_p_re) begin
+                mod_a11_r <= pm_a11[pm_read_addr];
+                mod_a12_r <= pm_a12[pm_read_addr];
+                mod_a22_r <= pm_a22[pm_read_addr];
+                mod_wo_r  <= pm_wo [pm_read_addr];
+                mod_s11_r <= pm_s11[pm_read_addr];
+                mod_s12_r <= pm_s12[pm_read_addr];
+                mod_s22_r <= pm_s22[pm_read_addr];
+                mod_swo_r <= pm_swo[pm_read_addr];
             end
 
             // ---- 系数读：A/B 两个 bank 各一个同步读口 ----
             if (era_co_re) begin
                 co_a11_ra <= ca_a11_a[{g[HVW-1:0], era_co_addr}];
-                co_a12_ra <= ca_a12_a[{g[HVW-1:0], era_co_addr}];
+                co_a12_ra <= pitch_bank ? pitch_a12_a[{g[HVW-1:0], era_co_addr}] : ca_a12_a[{g[HVW-1:0], era_co_addr}];
                 co_a21_ra <= ca_a21_a[{g[HVW-1:0], era_co_addr}];
                 co_a22_ra <= ca_a22_a[{g[HVW-1:0], era_co_addr}];
                 co_gq_ra  <= ca_gq_a [{g[HVW-1:0], era_co_addr}];
@@ -558,7 +599,7 @@ module voice_router #(
             end
             if (erb_co_re) begin
                 co_a11_rb <= ca_a11_b[{g[HVW-1:0], erb_co_addr}];
-                co_a12_rb <= ca_a12_b[{g[HVW-1:0], erb_co_addr}];
+                co_a12_rb <= pitch_bank ? pitch_a12_b[{g[HVW-1:0], erb_co_addr}] : ca_a12_b[{g[HVW-1:0], erb_co_addr}];
                 co_a21_rb <= ca_a21_b[{g[HVW-1:0], erb_co_addr}];
                 co_a22_rb <= ca_a22_b[{g[HVW-1:0], erb_co_addr}];
                 co_gq_rb  <= ca_gq_b [{g[HVW-1:0], erb_co_addr}];
@@ -772,6 +813,9 @@ module voice_router #(
     // 到**作业头**（S_RUN_X 那一拍）一次性交给 note_f，note_f 只在这一次作业里有效：
     // 不跨帧粘住，也不会跨加载残留。
 
+    assign pm_read_addr=pitch_p_re ? pitch_p_addr : pm_idx;
+    assign pitch_commit_ok=(state==S_DONE || (state==S_RUN_X && wait_xmap)) &&
+                           !smp_tick && !part_tick && table_valid && !load_now;
     assign performance_commit = (state == S_RUN_X) && wait_xmap && smp_tick;
     assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid && part_commit;
 
@@ -826,6 +870,19 @@ module voice_router #(
         end
     end
 
+    // Local index control: configuration/error comparisons must not drive g.CE.
+    // g is already zero on entry to DONE/LOAD (reset or final S_ADV retirement).
+    // Keep it zero there, and initialize again before starting each engine job.
+    // Only the second-bank S_ADV completion advances to the next voice pair.
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) g <= '0;
+        else if (state == S_DONE || state == S_LOAD || state == S_XS) g <= '0;
+        else if (state == S_ADV && pick_b) begin
+            if (g + 1'b1 < VWID'(HS)) g <= g + 1'b1;
+            else if (!mix_v) g <= '0;
+        end
+    end
+
     // 清零信号在引擎实例那边按 bank 各自给（era_zero / erb_zero），这里不用了
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -836,7 +893,7 @@ module voice_router #(
             state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
-            g          <= '0;
+
             pick_b     <= 1'b0;
             nm_lat     <= '0;
             table_valid<= 1'b0;
@@ -888,7 +945,7 @@ module voice_router #(
                       // 仍允许真实维护帧清状态；显式reload或另一个inst才重新加载。
                       if((ld_err || cfg_error) && !reload_pend && inst==inst_lat)begin
                         if((maintain_req && !maintenance_completed) || (MIDI_ENABLE && midi_valid))begin
-                            g<='0;pick_b<=0;wait_xmap<=1;state<=S_RUN_X;
+                            pick_b<=0;wait_xmap<=1;state<=S_RUN_X;
                         end
                       end else begin
                         // 每帧扣一次保护计数；加载后的首帧已遍历并清理全部工作槽
@@ -897,7 +954,7 @@ module voice_router #(
                         //   （n_modes_of 不知道 N_MODES，所以夹在这里）
                         nm_lat   <= (n_modes_of(run_inst) > N_MODES) ? (IW+1)'(N_MODES)
                                                                  : (IW+1)'(n_modes_of(run_inst));
-                        g        <= '0;
+
                         pick_b   <= 1'b0;
                         if (change_pend) begin
                             if (ready) begin
@@ -949,7 +1006,7 @@ module voice_router #(
                             for(int p=0;p<SLOTS;p++) active_play[p]<=pending_play[p];
                             zero_frames <= (IW+1)'(1);
                             inst_prev <= inst_lat;
-                            g         <= '0;
+
                             wait_xmap <= 1'b1;
                             state     <= S_RUN_X;
                         end
@@ -971,7 +1028,7 @@ module voice_router #(
                 // 引擎第一拍就要读 x，抄和读挤同一拍会读到上一笔
                 S_XS: begin
                     xw_run    <= 1'b0;
-                    g         <= '0;
+
                     pick_b    <= 1'b0;
                     eng_start <= 1'b1;              // 第 0 组的两个声部**同时**起
                     state     <= S_RUN_V;
@@ -1024,12 +1081,12 @@ module voice_router #(
                         if (!mix_v) begin
                             mix_q <= y_acc;
                             mix_v <= 1'b1;
-                            g     <= '0;
+
                             pick_b<= 1'b0;
                             state <= S_WAIT;      // 先排空，排空完才回 S_DONE（done 才变 1）
                         end
                     end else begin
-                        g         <= g + 1'b1;
+
                         pick_b    <= 1'b0;
                         eng_start <= 1'b1;
                         state     <= S_RUN_V;

@@ -1,7 +1,9 @@
 `timescale 1ns/1ps
 module tb_i2s_synthesis;
     import router_pkg::*;
-    parameter bit ENG1=0,EXACT_48K=0,PAD_TOP=0;
+    parameter bit ENG1=0,EXACT_48K=0,PAD_TOP=0,STEREO=0;
+    logic [5:0] pan=16;
+    logic itd=1;
     localparam real AUDIO_HALF=EXACT_48K ? 40.6901041666667 : 40.0;
     logic clk=0,aclk=0,rst_n=0,run=1,reload=0,panic=0,blank=0;
     always #5 clk=~clk;
@@ -15,8 +17,8 @@ module tb_i2s_synthesis;
     logic [15:0] midi_gates;
     logic [6:0] actual_modes;
     generate if(!PAD_TOP) begin : g_midi
-    midi_voice_top #(.AUDIO_ENABLE(1),.NOTE_BANKS(1)) dut(
-        .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),
+    midi_voice_top #(.STEREO_ENABLE(STEREO),.AUDIO_ENABLE(1),.NOTE_BANKS(1)) dut(
+        .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pan_position(pan),.itd_enable(itd),
         .pad_instrument(ENG1 ? INST_FLUTE : INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(reload),.midi_select(midi_mode),.midi_source_id(1'b0),.panic(panic),
         .backend_ready(),.backend_rsp_valid(),.backend_response(),.backend_supported(),
@@ -35,8 +37,8 @@ module tb_i2s_synthesis;
     assign midi_gates=dut.gate;
     end else begin : g_pad
         logic valid,err;
-        pad_voice_top #(.USE_PAD_DRIVER(0),.AUDIO_ENABLE(1)) dut(
-            .clk(clk),.rst_n(rst_n),.audio_clk(aclk),.run(run),.reload(reload),
+        pad_voice_top #(.STEREO_ENABLE(STEREO),.USE_PAD_DRIVER(0),.AUDIO_ENABLE(1)) dut(
+            .clk(clk),.rst_n(rst_n),.audio_clk(aclk),.run(run),.reload(reload),.pan_position(pan),.itd_enable(itd),
             .inst(ENG1 ? INST_FLUTE : INST_PIANO),.reverb_preset(REVERB_NONE),.src_sel(1'b1),.fmap_ext(fmap),
             .pad_row_s(),.pad_ch_s(),.pad_fmap(),.pad_pos(),.led_dat(),.joy_sample_valid(),.joy_raw_x(),.joy_raw_y(),
             .ready(),.busy(),.done(),.load_err(err),.table_valid(valid),.y_valid(yv),.y_data(y),
@@ -58,7 +60,30 @@ module tb_i2s_synthesis;
     assign exp_pcm=active && pending ? last_pcm : 16'd0;
     integer frames,nz,ticks=0,outputs=0,steady=0,max_latency=0,job_cycle=0;
     integer cycles=0,last_tick=0,min_interval=1000000,max_interval=0;
-    i2s_scoreboard checkwire(clk,rst_n,bclk,ws,din,tick,exp_pcm,frames,nz);
+    generate if(STEREO)begin:g_stereo_check
+        logic signed [63:0] last_y;
+        logic ev;
+        logic [31:0] pair;
+        integer different;
+        always @(posedge clk)begin
+            if(!rst_n)last_y<=0;
+            else if(yv && active)last_y<=y;
+        end
+        stereo_reference oracle(.clk(clk),.rst_n(rst_n),.sample_valid(tick),.clear(!active),
+            .x(yv?y:pending?last_y:64'sd0),.pan(pan),.itd(itd),.expected_valid(ev),.expected_pair(pair));
+        i2s_stereo_scoreboard checkwire(clk,rst_n,bclk,ws,din,ev,pair,frames,nz,different);
+        initial begin
+            wait(rst_n);
+            repeat(20)@(negedge tick);pan=0;
+            repeat(400)@(negedge tick);pan=32;
+            repeat(600)@(negedge tick);pan=8;itd=0;
+            repeat(300)@(negedge tick);itd=1;
+            repeat(500)@(negedge tick);pan=16;
+        end
+        final if(different<100)$error("FAIL synthesis stereo channel differences not exercised");
+    end else begin:g_mono_check
+        i2s_scoreboard checkwire(clk,rst_n,bclk,ws,din,tick,exp_pcm,frames,nz);
+    end endgenerate
     always @(posedge clk) if(rst_n) begin
         cycles++;
         if(!active)pending<=0;
@@ -124,8 +149,9 @@ module tb_i2s_synthesis;
         run=1;repeat(8)begin @(posedge tick);@(negedge clk);end
         if(EXACT_48K ? (min_interval<2083 || max_interval>2084) : (min_interval!=2048 || max_interval!=2048))
             $fatal(1,"FAIL I2S master interval %d..%d",min_interval,max_interval);
-        $display("PASS tb_i2s_synthesis eng=%0d exact48=%0d pad=%0d steady=%0d frames=%0d nonzero=%0d interval=%0d..%0d max_core_latency=%0d",ENG1,EXACT_48K,PAD_TOP,steady,frames,nz,min_interval,max_interval,max_latency);
+        $display("PASS tb_i2s_synthesis eng=%0d exact48=%0d pad=%0d stereo=%0d steady=%0d frames=%0d nonzero=%0d interval=%0d..%0d max_core_latency=%0d",ENG1,EXACT_48K,PAD_TOP,STEREO,steady,frames,nz,min_interval,max_interval,max_latency);
         $finish;
     end
-    initial begin #100000000;$fatal(1,"FAIL I2S synthesis timeout");end
+    // Source switches and reload/recovery each include the loader's 20ms QE wait.
+    initial begin #300000000;$fatal(1,"FAIL I2S synthesis timeout");end
 endmodule

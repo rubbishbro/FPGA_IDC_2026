@@ -44,6 +44,7 @@ def main():
         actual=hashlib.sha256((OUT/name).read_bytes()).hexdigest()
         if actual!=expected:raise RuntimeError(f'{name} changed golden pixels: {actual}')
     print('PASS sidebar golden pixels: both images unchanged')
+    results.append(run('guide_render','tb_guide_render',BASE+['sim/unit/control/tb_guide_render.sv'],args=[f'+image={OUT}/guide.ppm']))
     if args.legacy:
         packages=[s for s in BASE if s.endswith('pkg.sv')]
         src=packages+[str(path.relative_to(ROOT)) for path in sorted((ROOT/'FFT_spectrumshow/src').rglob('*'))

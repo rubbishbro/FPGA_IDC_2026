@@ -13,7 +13,7 @@ module tb_sustain_system;
     logic cs,sck,oe;
     logic [3:0] dqo,dqi;
     pad_driver_pkg::mat4x4 fmap='0;
-    midi_voice_top #(.AUDIO_ENABLE(1),.NOTE_BANKS(1),.SINGLE_SOURCE(0),.RESOURCE_MASK(10'b0000111111)) dut(
+    midi_voice_top #(.STEREO_ENABLE(0),.AUDIO_ENABLE(1),.NOTE_BANKS(1),.SINGLE_SOURCE(0),.RESOURCE_MASK(10'b0000111111)) dut(
         .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(reload),.midi_select(1'b1),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'(config_pkg::instrument_channel(16'(INST))-1)),.note_bank(bank),.first_midi_note(7'd48),.slot_note_map('0),
@@ -59,11 +59,13 @@ module tb_sustain_system;
                 if(ni<0 || ni>=32)$fatal(1,"FAIL resource note map");
                 expect_x[s]=0;
                 if(dut.u_voice.part_clear[s] || !dut.u_voice.part_gate[s])phase[s]=0;
-                else if(dut.u_voice.perf_trigger[s] || !prev_gate[s] || phase[s]==0)begin
-                    expect_x[s]=int'(dut.u_voice.strike_level[s*8 +:8])<<16;phase[s]=periods[ni]-1;
+                // Use the same frame snapshot as excitation/envelope. The
+                // live performance trigger has already been consumed here.
+                else if(dut.u_voice.part_trigger[s] || !prev_gate[s] || phase[s]==0)begin
+                    expect_x[s]=int'(dut.u_voice.part_strike[s*8 +:8])<<16;phase[s]=periods[ni]-1;
                 end else phase[s]--;
                 if(dut.u_voice.part_clear[s])begin lvl[s]=0;estate[s]=0;end
-                else if(dut.u_voice.perf_trigger[s] || (dut.u_voice.part_gate[s] && !prev_gate[s]))begin lvl[s]=0;estate[s]=1;end
+                else if(dut.u_voice.part_trigger[s] || (dut.u_voice.part_gate[s] && !prev_gate[s]))begin lvl[s]=0;estate[s]=1;end
                 else if(!dut.u_voice.part_gate[s])begin
                     if(lvl[s]<=release_step[ni])begin lvl[s]=0;estate[s]=0;end
                     else begin lvl[s]-=release_step[ni];estate[s]=4;end
@@ -88,7 +90,7 @@ module tb_sustain_system;
                 sum_voice=0;
                 for(int m=0;m<48;m++)begin
                     if(zero)begin q[s][m]=0;v[s][m]=0;end
-                    coefficient1=longint'(aa[ni][m])<<<4;coefficient2=longint'(bb[ni][m]);
+                    coefficient1=longint'(aa[ni][m]);coefficient2=longint'(bb[ni][m]);
                     acc=longint'(gg[ni][m])*longint'(expect_x[s])-coefficient1*longint'(q[s][m])-coefficient2*longint'(v[s][m]);
                     shifted=(acc+64'sd8388608)>>>24;
                     if(shifted>64'sd2147483647)shifted=64'sd2147483647;

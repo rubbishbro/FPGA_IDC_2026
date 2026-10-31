@@ -45,6 +45,11 @@ module tb_router_midi;
         checks++;
         if(ok!==1'b1) $fatal(1,"FAIL %s",msg);
     endtask
+    // Registered instrument must equal the previous combinational contract
+    // on every settled cycle, including mode/channel commit and fault paths.
+    always @(negedge clk)if(rst_n && dut.inst_use !==
+        (dut.mode_q && dut.channel_mapped ? dut.mapped_inst : dut.pad_q))
+        $fatal(1,"FAIL instrument commit changed timing or identity");
     always @(posedge clk) if(rst_n) begin
         if(dut.u_voice.frame_start) frames++;
         if(y_valid) begin

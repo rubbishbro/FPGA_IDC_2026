@@ -6,7 +6,7 @@
 |---|---|
 | [router/](router/README.md) | voice_router：双 bank、多槽音高表、eng0/eng1、激励/包络/腔体/混响；默认 16×64，输出 signed64，待完整音频集成 |
 | [router/PAD_ADAPTER.md](router/PAD_ADAPTER.md) | pad_voice_top：压力/外部 fmap 选择、运行启动、QSPI 与摇杆原始出口；默认N_MODES=64，透出load_err/table_valid |
-| [audio/](audio/README.md) | PCM16/FIFO/I2S与帧主时基，两个演奏顶层及统一板级均已接入 |
+| [audio/](audio/README.md) | 移位加法 ILD/辅助 ITD、双声道 PCM16/FIFO/I2S与帧主时基，两个演奏顶层及统一板级均已接入 |
 | [platform/tang_mega_138k_pro/](platform/tang_mega_138k_pro/README.md) | 统一板级入口、单PLL三时钟域/复位、通信/PAD/UI/I2S、CST/SDC与时序验收；FFT PCM待第二阶段 |
 | `midi/`、`router/midi_voice_top.sv` | 音符归属/踏板/来源清理、两组16音、UI联合配置与实际结果 |
 | [drivers/](drivers/README.md) | 压力/摇杆/LED、UART/HC-05、共享 FIFO 与 MIDI/Config parser |

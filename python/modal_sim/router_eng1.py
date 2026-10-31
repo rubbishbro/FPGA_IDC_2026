@@ -1,81 +1,11 @@
-"""Bit-exact sample-level model of the router's ``eng1`` audio path.
+"""Shared current ENG1 arithmetic and explicitly retained Q30 experiments.
 
-Why this file exists
---------------------
-``rtl/router/engines/eng1.sv`` is the ABC recursion used by the current
-``voice_router``::
-
-    acc  = G*x - (a1 << 4)*y1 - a2*y2
-    ynew = clamp((acc + 2**23) >>> 24, -2**31, 2**31-1)
-    y2'  = y1,  y1' = ynew
-
-The old Python side did **not** model this path.  ``fixed_point.FixedModalSynth``
-is an A-class polyphonic voice pool (its own allocator, pitch table, kill logic)
-and ``sustain_engine.SustainSynth`` is a float periodic-drive synth with vibrato,
-noise and note stealing -- neither is the router.  This module is the missing
-sample-level model: same integer arithmetic, same 16 slots, same excitation
-state machine, same Q1.31 envelope, same Q4.27 body cascade and same comb
-reverb.
-
-What is modelled
-----------------
-``Eng1Core``       ``rtl/router/engines/eng1.sv`` (intended arithmetic)
-``ExcitationGen``  ``rtl/router/parts/excitation.sv``
-``AdsrEnvelope``   ``rtl/router/parts/envelope.sv`` (intended F08 clamp)
-``Envelope('dyn'/'const')``     the other two ``env_router`` modes
-``BodyFilter``     ``rtl/router/parts/body_biquad.sv`` + ``body_router`` LUT
-``CombReverb``/``ReverbRouter``  ``parts/comb_reverb.sv`` + ``reverb_router``
-``RouterEng1``     the per-sample chain: fmap -> hysteresis -> x -> eng1 ->
-                   envelope -> sum -> body -> reverb
-
-What is *not* modelled
-----------------------
-* Cycle timing.  A sample is a sample; the model cannot prove the F07 real-time
-  budget.  Use ``tb_throughput`` for that.
-* The flash loader and the 64-bit memory addresses.  A slot can be given any
-  coefficient triple, which is the data-path contract the loader would have to
-  produce (the current loader still fills all slots with the same table, I01).
-* The modulation pass.  ``mod_router`` rewrites a1/a2 at note-on; the model
-  keeps coefficients static for a note.  (Vibrato is a separate experiment in
-  ``vibrato_demo.py``.)
-* Voice stealing.  The router has 16 physical slots and no allocator; the
-  score renderer refuses to allocate more than ``SLOTS`` simultaneous notes
-  unless the caller explicitly asks for a steal.
-
-Known RTL bugs and the two modes
---------------------------------
-``rtl_compat=False`` (default) models the *intended* behaviour, including the
-fixes described in ``docs/bugs.md``:
-
-* F05 -- the multiplier uses the current mode's state, and ``st_zero`` clears
-  every mode.  The RTL currently multiplies with the previous mode's captured
-  state and only masks the first captured state.
-* F08 -- the attack clamps at ``0x7fffffff`` instead of wrapping negative.
-* F09 -- body/reverb products keep the full 96/100-bit result before shifting.
-
-``rtl_compat=True`` reproduces the current RTL where it is inexpensive to do so
-(the eng1 state pipeline, F05).  It is a **co-simulation aid**, not the model to
-listen to; see ``eng1_cosim.py``.
-
-Formats
--------
-==============  ==========================================================
-signal          contract
-==============  ==========================================================
-``x``           signed 32, Q2.30 (1.0 = ``1 << 30``)
-``G``           signed 26, Q2.24
-``a1``          signed 22, Q2.20; shifted left 4 in the product
-``a2``          unsigned 24, UQ0.24
-``y1``/``y2``   signed 32, Q2.30
-``y``           signed 64, sum of the per-mode ``ynew``
-envelope        signed 32, Q1.31 (1.0 = ``0x7fffffff``)
-body coefficient signed 32, Q4.27
-reverb gain     signed 32, Q4.27
-==============  ==========================================================
-
-The model uses Python integers for anything wider than 64 bits (the body
-accumulator is 104 bits and the envelope product is 96 bits); ``numpy.int64``
-is only used where the RTL word is <= 64 bits and cannot overflow.
+Production entry: RouterEng1(...) constructs eng1_rtl.Eng1Synth, the current
+Q24 / 64-storage / 48-active B-class model. LegacyRouterEng1 and ScoreRenderer
+retain the old Q30 excitation/score experiments for historical A/C demos.
+Eng1Core is shared: current Q2.24 coefficients, signed32 states; callers choose
+the input scale and active-mode count. rtl_compat=True is the historical F05
+serial bug, never the production pipeline.
 """
 
 from __future__ import annotations
@@ -105,7 +35,7 @@ SR = 48_000
 SLOTS = 16
 N_MODES = 48
 
-#: eng1 state / excitation scale.  ``y1``/``y2``/``x`` are Q2.30.
+#: Scale for the retained legacy demos. Production eng1_rtl.STATE_FRAC is 24.
 Y_FRAC = 30
 Y_ONE = 1 << Y_FRAC
 Y_MIN = -(1 << 31)
@@ -113,7 +43,9 @@ Y_MAX = (1 << 31) - 1
 
 #: coefficient scale: the products share 2**(24+30), then shift by 24.
 C_FRAC = 24
-A1_SHIFT = 4
+A1_FRAC = 24
+A1_BITS = 26
+A1_SHIFT = C_FRAC - A1_FRAC
 ENG1_ROUND = 1 << (C_FRAC - 1)
 
 #: envelope Q1.31
@@ -181,7 +113,7 @@ class Eng1Coeffs:
     """One slot's per-mode coefficients, already in the RTL formats."""
 
     G: np.ndarray                 # signed Q2.24, 26 bit
-    a1: np.ndarray                # signed Q2.20, 22 bit
+    a1: np.ndarray                # signed Q2.24, 26 bit
     a2: np.ndarray                # unsigned UQ0.24, 24 bit
     n_modes: int
     label: str = ""
@@ -207,7 +139,7 @@ class Eng1Coeffs:
             raise ValueError(f"n_modes={self.n_modes} outside 0..{size}")
         for name, arr, lo, hi in (
             ("G", self.G, -(1 << 25), (1 << 25) - 1),
-            ("a1", self.a1, -(1 << 21), (1 << 21) - 1),
+            ("a1", self.a1, -(1 << (A1_BITS - 1)), (1 << (A1_BITS - 1)) - 1),
             ("a2", self.a2, 0, (1 << 24) - 1),
         ):
             if arr.size and (arr.min() < lo or arr.max() > hi):
@@ -270,6 +202,8 @@ def load_a_table(instrument: str, midi: int, dynamic: str = "forte") -> Eng1Coef
 
     The files are the ones written by ``gen_coeff_table.py``:
     ``FFT_results/params/<inst>_coeff.mem`` + ``<inst>_coeffindex.json``.
+    Convert the legacy Q2.20 a1 to the current Q2.24 interface explicitly;
+    this preserves the old table's precision and does not regenerate it.
     """
     key = (str(instrument), int(midi), str(dynamic))
     if key in _A_TABLE_CACHE:
@@ -297,7 +231,7 @@ def load_a_table(instrument: str, midi: int, dynamic: str = "forte") -> Eng1Coef
                       for w in words[offset:offset + n_modes]))
     table = Eng1Coeffs(
         G=np.asarray(G, dtype=np.int64),
-        a1=np.asarray(A1, dtype=np.int64),
+        a1=np.asarray(A1, dtype=np.int64) << (A1_FRAC - 20),
         a2=np.asarray(A2, dtype=np.int64),
         n_modes=n_modes,
         label=f"{instrument}:{midi}:{dynamic}",
@@ -355,11 +289,11 @@ def build_b_table(instrument: str, midi: int, dynamic: str = "forte",
 
     a1f = -2.0 * r * np.cos(theta)
     a2f = r * r
-    a1q = quant(a1f, 20, 22, signed=True)
+    a1q = quant(a1f, A1_FRAC, A1_BITS, signed=True)
     a2q = quant(a2f, 24, 24, signed=False)
 
     rq = np.sqrt(a2q.astype(float) / float(1 << 24))
-    cq = np.clip(-(a1q.astype(float) / float(1 << 20)) /
+    cq = np.clip(-(a1q.astype(float) / float(1 << A1_FRAC)) /
                  np.maximum(2.0 * rq, 1e-12), -1.0, 1.0)
     thq = np.arccos(cq)
     Gq = np.empty(kk.size, dtype=np.int64)
@@ -432,10 +366,10 @@ class Eng1Core:
         self._rtl_y2[slot] = 0
 
     # ------------------------------------------------------------------
-    def step(self, x, st_zero=None):
+    def step(self, x, st_zero=None, *, active_modes=None):
         """Run one sample for all slots.  Returns ``(y_slots, ynew)``.
 
-        ``x``       : signed Q2.30 per slot (32-bit range)
+        ``x``       : signed32 per slot; production Q24, legacy experiments Q30
         ``st_zero`` : bool per slot; in the intended model it clears the whole
                       slot *before* the recursion, in ``rtl_compat`` it only
                       masks the first captured state (F05).
@@ -450,16 +384,20 @@ class Eng1Core:
         if self.rtl_compat:
             return self._step_rtl(x, st_zero)
 
+        count = self.n_modes if active_modes is None else max(0, min(int(active_modes), self.n_modes))
         if st_zero.any():
-            self.y1[st_zero] = 0
-            self.y2[st_zero] = 0
-        acc = (self.G * x[:, None]
-               - (self.a1 << A1_SHIFT) * self.y1
-               - self.a2 * self.y2)
+            self.y1[st_zero, :count] = 0
+            self.y2[st_zero, :count] = 0
+        # Production SV consumes only the low 26/26/24 coefficient bits.
+        g = ((self.G[:, :count] & 0x3ffffff) ^ 0x2000000) - 0x2000000
+        a1 = ((self.a1[:, :count] & 0x3ffffff) ^ 0x2000000) - 0x2000000
+        a2 = self.a2[:, :count] & 0xffffff
+        x = ((x & 0xffffffff) ^ 0x80000000) - 0x80000000
+        acc = (g * x[:, None] - a1 * self.y1[:, :count] - a2 * self.y2[:, :count])
         yn = (acc + ENG1_ROUND) >> C_FRAC
         yn = np.clip(yn, Y_MIN, Y_MAX)
-        self.y2[:] = self.y1
-        self.y1[:] = yn
+        self.y2[:, :count] = self.y1[:, :count]
+        self.y1[:, :count] = yn
         y = yn.sum(axis=1, dtype=np.int64)
         return y, yn
 
@@ -475,7 +413,7 @@ class Eng1Core:
         return max(0, min(n, self.n_modes))
 
     def _step_rtl(self, x: np.ndarray, st_zero: np.ndarray):
-        """Current RTL pipeline, including the F05 previous-mode multiplier."""
+        """Historical F05 state schedule, with current Q2.24 input coefficients."""
         y_out = np.zeros(self.slots, dtype=np.int64)
         ynew = np.zeros_like(self.y1)
         for s in range(self.slots):
@@ -509,7 +447,7 @@ class Eng1Core:
 # ---------------------------------------------------------------------------
 @dataclass
 class ExcitationConfig:
-    """The four parameters ``exc_router`` passes to ``excitation_gen``."""
+    """Historical rectangular excitation settings, for LegacyRouterEng1 only."""
 
     shift: int = 20
     pw_len: int = 1
@@ -531,7 +469,7 @@ class ExcitationConfig:
 
 
 class ExcitationGen:
-    """``rtl/router/parts/excitation.sv`` as a per-sample function."""
+    """Historical rectangular generator; production B uses eng1_rtl.Excitation."""
 
     X_IDLE, X_HIGH, X_GAP = 0, 1, 2
 
@@ -937,7 +875,7 @@ class Frame:
     body_sat: int = 0
 
 
-class RouterEng1:
+class LegacyRouterEng1:
     """The per-sample chained model.  No score logic, no allocation."""
 
     def __init__(self, *, slots: int = SLOTS, n_modes: int = N_MODES,
@@ -1075,7 +1013,7 @@ class ScoreRenderer:
         self.table_fn = table_fn
         self.slots = int(slots)
         self.tail_s = float(tail_s)
-        self.router = RouterEng1(
+        self.router = LegacyRouterEng1(
             slots=slots, n_modes=n_modes, body=body, reverb=reverb,
             envelope=envelope, envelope_params=envelope_params,
             rtl_compat=rtl_compat)
@@ -1204,12 +1142,18 @@ class BTable:
         return build_b_table(self.instrument, midi, dynamic, self.gamma_scale)
 
 
+def RouterEng1(instrument="flute", **kwargs):
+    """Construct the current production model (Q24); old API is LegacyRouterEng1."""
+    from eng1_rtl import Eng1Synth
+    return Eng1Synth(instrument=instrument, **kwargs)
+
+
 __all__ = [
     "SR", "SLOTS", "N_MODES", "Y_FRAC", "Y_ONE", "ENV_ONE",
     "Eng1Coeffs", "Eng1Core", "ExcitationConfig", "ExcitationGen",
     "AdsrEnvelope", "Envelope", "BodyFilter", "body_coeffs",
     "CombReverb", "ReverbRouter", "REVERB_PRESETS",
-    "RouterEng1", "Frame", "NoteEvent", "ScoreRenderer", "RenderMeta",
+    "RouterEng1", "LegacyRouterEng1", "Frame", "NoteEvent", "ScoreRenderer", "RenderMeta",
     "load_a_table", "build_b_table", "ATable", "BTable",
     "unpack_core_word", "quant", "wrap_signed", "sat_signed",
 ]

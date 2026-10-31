@@ -24,7 +24,7 @@ module tb_sidebar_system #(parameter integer PIX_HALF=7);
     logic ext_cfg_valid=0,ext_cfg_ready,ext_rsp_valid,ext_rsp_ready=0;
     cfg_request_t ext_cfg_request;
     cfg_response_t ext_cfg_response;
-    logic[19:0] backend_supported=20'h00003;
+    logic[config_pkg::CFG_COUNT-1:0] backend_supported=20'h00003;
     logic backend_valid,backend_ready=0,backend_source,backend_rsp_valid=0,backend_rsp_ready;
     cfg_request_t backend_request;
     cfg_response_t backend_response;

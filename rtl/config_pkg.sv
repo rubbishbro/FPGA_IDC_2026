@@ -14,9 +14,10 @@ package config_pkg;
         logic [7:0] result;
         logic signed [31:0] applied_value;
     } cfg_response_t;
-    localparam integer CFG_COUNT=20;
-    localparam logic [19:0] DISPLAY_MASK=20'h007c0;
-    localparam logic [19:0] LOCAL_MASK=DISPLAY_MASK | 20'h10000;
+    localparam integer CFG_COUNT=21;
+    typedef logic [CFG_COUNT-1:0] cfg_supported_t;
+    localparam cfg_supported_t DISPLAY_MASK=20'h007c0;
+    localparam cfg_supported_t LOCAL_MASK=DISPLAY_MASK | 20'h10000;
     // 一个统一值数组；字段只在 cfg_id/cfg_index 中定义，UI 不拥有音频寄存器。
     typedef logic [CFG_COUNT-1:0][31:0] cfg_values_t;
     // 音频后端的已提交快照；channel使用UI的1-based编号，source沿用0/1/2。
@@ -27,6 +28,7 @@ package config_pkg;
         logic [1:0] source;
         logic bank;
         logic [1:0] reverb;
+        logic guide;
     } audio_config_t;
     function automatic logic [15:0] midi_instrument(input logic [4:0] channel);
         case(channel)
@@ -43,13 +45,13 @@ package config_pkg;
         endcase
     endfunction
     function automatic logic audio_config_valid(input audio_config_t a);
-        return a.source<=2 && a.reverb<=2 && a.instrument<=9 &&
+        return !(a.source==0 && a.guide) && a.source<=2 && a.reverb<=2 && a.instrument<=9 &&
                a.channel>=1 && a.channel<=6 &&
                (a.source==0 || midi_instrument(a.channel)==a.instrument);
     endfunction
     function automatic logic audio_parameter(input logic [15:0] id);
         return id==16'h0100 || id==16'h0200 || id==16'h0300 ||
-               id==16'h0500 || id==16'h0501;
+               id==16'h0500 || id==16'h0501 || id==16'h0503;
     endfunction
     function automatic logic signed [31:0] audio_value(input audio_config_t a,
                                                       input logic [15:0] id);
@@ -59,6 +61,7 @@ package config_pkg;
             16'h0300:return 32'(a.bank);
             16'h0500:return 32'(a.source);
             16'h0501:return 32'(a.channel);
+            16'h0503:return 32'(a.guide);
             default:return 0;
         endcase
     endfunction
@@ -82,7 +85,7 @@ package config_pkg;
         display_config_t display_cfg;
         sidebar_scene_t scene;
         cfg_values_t values;
-        logic [19:0] supported;
+        cfg_supported_t supported;
     } sidebar_snapshot_t;
 
     function automatic logic [15:0] cfg_id(input integer index);
@@ -93,7 +96,7 @@ package config_pkg;
             9:cfg_id=16'h0403;10:cfg_id=16'h0404;11:cfg_id=16'h0500;
            12:cfg_id=16'h0501;13:cfg_id=16'h0502;14:cfg_id=16'h0600;
            15:cfg_id=16'h0601;16:cfg_id=16'h8000;17:cfg_id=16'h8001;
-           18:cfg_id=16'h8002;19:cfg_id=16'h8003;default:cfg_id=16'hffff;
+           18:cfg_id=16'h8002;19:cfg_id=16'h8003;20:cfg_id=16'h0503;default:cfg_id=16'hffff;
         endcase
     endfunction
     function automatic integer cfg_index(input logic [15:0] id);
@@ -109,9 +112,30 @@ package config_pkg;
     function automatic integer category_count(input integer category);
         case(category)
             0:category_count=2;1:category_count=3;2:category_count=1;
-            3:category_count=5;4:category_count=3;default:category_count=6;
+            3:category_count=5;4:category_count=4;default:category_count=6;
         endcase
     endfunction
+    // Stable parameter indices; the input menu appends mode without moving system IDs.
+    function automatic integer category_item(input integer category,input integer row_index);
+        if(category==4 && row_index==3)return 20;
+        return category_base(category)+row_index;
+    endfunction
+    function automatic logic cfg_action(input integer index);
+        return index>=16 && index<=19 && index!=18;
+    endfunction
+    // Screen orientation is explicit. Default matches slot/row order; verify on hardware.
+    function automatic logic[3:0] guide_cell_slot(input logic[3:0] cell_index);
+        return cell_index;
+    endfunction
+    typedef struct packed {
+        logic enabled, waiting_release, fault, link_fault, banked;
+        logic [15:0] revision;
+        audio_config_t audio;
+        logic [16*7-1:0] note_map;
+        logic [15:0] target, glow, pressed;
+        logic [31:0] outside_count;
+        logic [6:0] last_outside;
+    } guide_display_t;
     function automatic integer cfg_max(input integer index);
         case(index)
             0,6:cfg_max=65534;1,4:cfg_max=1000;2,11,14,15:cfg_max=2;

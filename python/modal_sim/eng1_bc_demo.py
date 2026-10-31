@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
-"""B/C audio through the shared ABC engine (``eng1_bc``).
+"""Production B phrase with actual Q24->stereo PCM gain, no peak normalization.
 
-* **B / flute phrase** -- periodic impulse train + ADSR, on ``Eng1Core``.
-* **C / drum groove** -- seed + timer + choke, on the same ``Eng1Core``;
-  ``x = 0`` and the modal state is loaded from the hit's seed.
-
-Audio only; peak/RMS is printed, no figures/JSON.
-
-    python python/modal_sim/eng1_bc_demo.py
-    python python/modal_sim/eng1_bc_demo.py --no-write --seconds 2
+The historical C experiment is available only with --legacy-c; it has no
+production router counterpart and retains its separate normalized demo output.
+Use --no-write to validate rendering without generating audio files.
 """
 
 from __future__ import annotations
@@ -33,17 +28,17 @@ import router_eng1 as R                         # noqa: E402
 # B: a short flute phrase, 8 s
 # ---------------------------------------------------------------------------
 B_EVENTS = [
-    (0.00, 69, 0.55, 0.75, "piano"),
-    (0.60, 72, 0.55, 0.78, "piano"),
+    (0.00, 69, 0.55, 0.75, "forte"),
+    (0.60, 72, 0.55, 0.78, "forte"),
     (1.20, 74, 0.85, 0.82, "forte"),
-    (2.15, 72, 0.55, 0.76, "piano"),
-    (2.75, 69, 0.55, 0.72, "piano"),
-    (3.35, 67, 0.85, 0.70, "piano"),
-    (4.30, 69, 0.55, 0.78, "piano"),
+    (2.15, 72, 0.55, 0.76, "forte"),
+    (2.75, 69, 0.55, 0.72, "forte"),
+    (3.35, 67, 0.85, 0.70, "forte"),
+    (4.30, 69, 0.55, 0.78, "forte"),
     (4.90, 72, 0.55, 0.80, "forte"),
     (5.50, 76, 0.85, 0.84, "forte"),
     (6.45, 74, 0.55, 0.80, "forte"),
-    (7.05, 72, 1.20, 0.78, "piano"),
+    (7.05, 72, 1.20, 0.78, "forte"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -82,7 +77,7 @@ def normalize(y: np.ndarray, peak: float = 0.85) -> np.ndarray:
 
 def write_wav(path: str, y: np.ndarray, sr: int = R.SR) -> None:
     import soundfile as sf
-    sf.write(path, normalize(y), sr, subtype="PCM_16")
+    sf.write(path, y if y.dtype == np.int16 else normalize(y), sr, subtype="PCM_16")
 
 
 def main(argv=None) -> int:
@@ -91,29 +86,32 @@ def main(argv=None) -> int:
                     help="truncate both renders (default: full phrase/groove)")
     ap.add_argument("--no-write", action="store_true",
                     help="render and print metrics only (write no WAV)")
+    ap.add_argument("--legacy-c", action="store_true", help="also render the historical C experiment (not production RTL)")
     args = ap.parse_args(argv)
 
     out_dir = paths.SIM_ENG1
     if not args.no_write:
         os.makedirs(out_dir, exist_ok=True)
 
-    jobs = (
+    jobs = [
         ("B/flute", "eng1_b_phrase.wav",
          lambda: BC.BSynth("flute", body="none", reverb="HALL"),
-         lambda s: s.render(B_EVENTS, args.seconds or 9.0)),
-        ("C/drums", "eng1_c_groove.wav",
+         lambda s: s.render_pcm(B_EVENTS, args.seconds or 9.0)),
+    ]
+    if args.legacy_c:
+        jobs.append(("C/drums", "eng1_c_groove.wav",
          lambda: BC.CSynth(body="none", reverb="NONE"),
-         lambda s: s.render(c_events(), args.seconds or 11.7)),
-    )
+         lambda s: s.render(c_events(), args.seconds or 11.7)))
     for name, filename, make, render in jobs:
         t0 = time.time()
         synth = make()
         y = render(synth)
         dt = time.time() - t0
-        peak = float(np.max(np.abs(y))) / R.Y_ONE if y.size else 0.0
-        rms = float(np.sqrt(np.mean(y.astype(np.float64) ** 2))) / R.Y_ONE if y.size else 0.0
-        print(f"[{name:8s}] {y.size / R.SR:5.2f} s audio in {dt:5.1f} s  "
-              f"raw peak {peak:8.4f}  rms {rms:8.4f}  engine=Eng1Core")
+        scale = 32768.0 if y.dtype == np.int16 else R.Y_ONE
+        peak = float(np.max(np.abs(y.astype(float)))) / scale if y.size else 0.0
+        rms = float(np.sqrt(np.mean(y.astype(np.float64) ** 2))) / scale if y.size else 0.0
+        print(f"[{name:8s}] {len(y) / R.SR:5.2f} s audio in {dt:5.1f} s  "
+              f"raw peak {peak:8.4f}  rms {rms:8.4f}  engine={'production Q24/PCM' if y.dtype == np.int16 else 'legacy C'}")
         if not args.no_write:
             write_wav(os.path.join(out_dir, filename), y)
             print(f"wrote {out_dir}/{filename}")

@@ -76,3 +76,15 @@ SECSI.TXT
 SFDP.TXT
 SREG.TXT
 
+# eng1 音色诊断/拟合实验的中间产物（npz/npy/wav/csv，可由 python/modal_sim 重新生成）
+# 累计数百 MB，不入库；结论与脚本已跟踪。
+/FFT_results/sim/eng1/a_source_audit/
+/FFT_results/sim/eng1/guitar_diagnosis/
+/FFT_results/sim/eng1/guitar_refit/
+/FFT_results/sim/eng1/mystery_of_love/
+/FFT_results/sim/eng1/piano_body_release/
+/FFT_results/sim/eng1/piano_diagnosis/
+/FFT_results/sim/eng1/piano_short_release/
+/FFT_results/sim/eng1/trumpet_diagnosis/
+/FFT_results/sim/vibrato_coeff/
+

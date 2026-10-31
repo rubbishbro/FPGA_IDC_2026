@@ -12,7 +12,7 @@ module sidebar_ctrl #(
     input logic key_valid,
     input logic[2:0] key_event,              // demo 兼容：1下、2进入、3上、4返回
     input config_pkg::cfg_values_t active_values,
-    input logic[19:0] supported,
+    input logic[config_pkg::CFG_COUNT-1:0] supported,
     output logic cfg_valid,
     input logic cfg_ready,
     output config_pkg::cfg_request_t cfg_request,
@@ -60,7 +60,7 @@ module sidebar_ctrl #(
             action_repeat=0;action_valid=1;
             case(key_event)1:action=DOWN;2:action=RIGHT;3:action=UP;4:action=LEFT;default:action_valid=0;endcase
         end
-        item=category_base(scene.category)+int'(scene.selection);
+        item=category_item(scene.category,int'(scene.selection));
         count=category_count(scene.category);
         limit=cfg_max(scene.edit_index);
         if(scene.edit_index==0)limit=9; // 当前 router_pkg 的音色目录 0..9，保持唯一 ID
@@ -110,7 +110,7 @@ module sidebar_ctrl #(
                     if(action==DOWN && int'(scene.selection)<count-1)scene.selection<=scene.selection+1'b1;
                     if(action==RIGHT&&!action_repeat)begin
                         armed<=0;
-                        if(!supported[item])begin scene.has_result<=1;scene.result<=CFG_UNSUPPORTED;end
+                        if(!supported[item] || (item==20 && active_values[11]==0))begin scene.has_result<=1;scene.result<=CFG_UNSUPPORTED;end
                         else begin scene.edit_index<=5'(item);scene.draft<=active_values[item];scene.layer<=2;end
                     end
                 end else if(scene.layer==2)begin
@@ -126,7 +126,7 @@ module sidebar_ctrl #(
                     end
                     if(action==RIGHT&&!action_repeat&&!scene.busy)begin
                         cfg_request.tag<=tag;cfg_request.id<=cfg_id(scene.edit_index);
-                        cfg_request.value<=scene.edit_index>=16&&scene.edit_index!=18?32'd0:scene.draft;
+                        cfg_request.value<=cfg_action(scene.edit_index)?32'd0:scene.draft;
                         tag<=tag+1'b1;cfg_valid<=1;scene.busy<=1;scene.has_result<=0;
                         scene.layer<=1;armed<=0;
                     end
