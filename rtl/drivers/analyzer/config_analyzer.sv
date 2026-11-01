@@ -231,6 +231,10 @@ module config_analyzer #(
                     end
                 end
 
+                8'h12,8'h13: begin
+                    if(ctx_declared_len==6'd5)begin sem_result=RESULT_OK;sem_ok=1'b1;end
+                    else sem_result=RESULT_BAD_LENGTH;
+                end
                 default: begin
                     sem_result = RESULT_UNSUPPORTED;
                 end

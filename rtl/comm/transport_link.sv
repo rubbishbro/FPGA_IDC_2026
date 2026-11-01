@@ -23,7 +23,11 @@ module transport_link #(
     output logic reply_ready,
     input logic [15:0] reply_seq,
     input logic [7:0] reply_command, reply_result,
-    output logic tx_busy
+    output logic tx_busy,
+    input logic perf_valid=1'b0,
+    output logic perf_ready,
+    input logic [15:0] perf_seq=16'd0,
+    input logic [191:0] perf_payload=192'd0
 );
     logic queued_valid, queued_ready;
     logic [31:0] queued_data;
@@ -44,10 +48,23 @@ module transport_link #(
         .m_valid(queued_valid), .m_ready(queued_ready), .m_data(queued_data),
         .level(reply_level)
     );
+    logic reply_busy,perf_busy,reply_byte_valid,perf_byte_valid,reply_desc_ready;
+    logic [7:0] reply_byte,perf_byte;
+    wire allow_perf=!queued_valid && !reply_busy;
+    assign queued_ready=reply_desc_ready && !perf_busy;
+    assign tx_valid=perf_busy?perf_byte_valid:reply_byte_valid;
+    assign tx_data=perf_busy?perf_byte:reply_byte;
+    assign tx_busy=reply_busy||perf_busy;
+    wire perf_encoder_ready;
+    performance_frame_tx u_perf(
+        .clk(clk),.rst_n(rst_n),.flush(flush),
+        .s_valid(perf_valid && allow_perf),.s_ready(perf_encoder_ready),.s_seq(perf_seq),.s_payload(perf_payload),
+        .m_valid(perf_byte_valid),.m_ready(tx_ready && perf_busy),.m_data(perf_byte),.m_last(),.busy(perf_busy));
+    assign perf_ready=perf_encoder_ready && allow_perf && !flush;
     slip_frame_tx u_encoder (
         .clk(clk), .rst_n(rst_n), .flush(flush),
-        .s_valid(queued_valid), .s_ready(queued_ready), .s_seq(queued_data[31:16]),
+        .s_valid(queued_valid && !perf_busy), .s_ready(reply_desc_ready), .s_seq(queued_data[31:16]),
         .s_command(queued_data[15:8]), .s_result(queued_data[7:0]),
-        .m_valid(tx_valid), .m_ready(tx_ready), .m_data(tx_data), .busy(tx_busy)
+        .m_valid(reply_byte_valid), .m_ready(tx_ready && !perf_busy), .m_data(reply_byte), .busy(reply_busy)
     );
 endmodule

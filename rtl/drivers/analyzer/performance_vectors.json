@@ -1,0 +1,47 @@
+{
+  "protocol": "v1-performance",
+  "vectors": [
+    {
+      "name": "start_request",
+      "type": 2,
+      "seq": 10,
+      "payload_hex": "12 db c0 db c0",
+      "wire_hex": "c0 01 02 0a 00 05 00 12 db dd db dc db dd db dc 50 84 c0"
+    },
+    {
+      "name": "stop_request",
+      "type": 2,
+      "seq": 11,
+      "payload_hex": "13 db c0 db c0",
+      "wire_hex": "c0 01 02 0b 00 05 00 13 db dd db dc db dd db dc 22 c5 c0"
+    },
+    {
+      "name": "started",
+      "type": 130,
+      "seq": 0,
+      "payload_hex": "00 00 01 00 db c0 db c0 00 00 00 00 00 00 00 00 20 bc be 00 00 01 00 00",
+      "wire_hex": "c0 01 82 00 00 18 00 00 00 01 00 db dd db dc db dd db dc 00 00 00 00 00 00 00 00 20 bc be 00 00 01 00 00 35 6b c0"
+    },
+    {
+      "name": "note_on",
+      "type": 130,
+      "seq": 1,
+      "payload_hex": "01 00 01 00 db c0 db c0 01 00 00 00 bc be 00 00 3c 5a 00 00 00 00 00 00",
+      "wire_hex": "c0 01 82 01 00 18 00 01 00 01 00 db dd db dc db dd db dc 01 00 00 00 bc be 00 00 3c 5a 00 00 00 00 00 00 c6 c9 c0"
+    },
+    {
+      "name": "note_off",
+      "type": 130,
+      "seq": 2,
+      "payload_hex": "02 00 01 00 db c0 db c0 02 00 00 00 78 7d 01 00 3c 01 00 00 00 00 00 00",
+      "wire_hex": "c0 01 82 02 00 18 00 02 00 01 00 db dd db dc db dd db dc 02 00 00 00 78 7d 01 00 3c 01 00 00 00 00 00 00 7f 14 c0"
+    },
+    {
+      "name": "end",
+      "type": 130,
+      "seq": 3,
+      "payload_hex": "03 00 01 00 db c0 db c0 03 00 00 00 a0 86 01 00 00 00 00 00 02 00 00 00",
+      "wire_hex": "c0 01 82 03 00 18 00 03 00 01 00 db dd db dc db dd db dc 03 00 00 00 a0 86 01 00 00 00 00 00 02 00 00 00 fb 1e c0"
+    }
+  ]
+}

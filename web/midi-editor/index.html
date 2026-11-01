@@ -24,6 +24,7 @@
     <label class="tempo-control"><span>TEMPO</span><input id="tempo" type="number" min="4" max="1000" step="1" value="110" aria-label="速度 BPM"><small id="tempo-unit">BPM</small></label>
     <div class="meter"><strong>4<span>/</span>4</strong><small>拍号</small></div>
     <div class="transport-spacer"></div>
+    <div class="record-controls"><button id="record-performance" class="record-button" aria-label="录制演奏" aria-pressed="false" disabled>● 录制演奏</button><small id="record-status">PAD → MIDI</small></div>
     <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑参考试听</option><option value="uart">FPGA · 串口</option></select></label>
     <button id="panic" class="panic" title="停止走带并向全部通道发送清音（Esc）">■ 紧急清音 <kbd>ESC</kbd></button>
   </nav>

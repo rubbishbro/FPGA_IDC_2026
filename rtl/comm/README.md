@@ -93,6 +93,14 @@ python3 sim/check_comm_vectors.py
 GOWIN_SH=/home/rubbishbro/gowin/IDE/bin/gw_sh python3 sim/check_comm_timing.py
 ```
 
-13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。没有新增 AT 初始化、TX 字节 FIFO 或线上命令；MIDI真实消费者已由midi_voice_top实现，事件/来源清理/退休接线见[MIDI接入](../../docs/MIDI演奏与通信接入.md)；它不在comm_top内部。统一板级已在instrument_system中实现REVERB_SET→0200的真实结果桥及物理来源权限；EQ返回NOT_READY。该桥在comm_top外，不改变v1帧格式。CC/EQ/Bend DSP和实物链路仍待验收，见[板级说明](../platform/tang_mega_138k_pro/README.md)。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
+13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。2026-10-27驱动分层未新增AT初始化、TX字节FIFO或线上命令；2026-10-31的录制协议扩展见文末。MIDI真实消费者已由midi_voice_top实现，事件/来源清理/退休接线见[MIDI接入](../../docs/MIDI演奏与通信接入.md)；它不在comm_top内部。统一板级已在instrument_system中实现REVERB_SET→0200的真实结果桥及物理来源权限；EQ返回NOT_READY。该桥在comm_top外，不改变v1帧格式。CC/EQ/Bend DSP和实物链路仍待验收，见[板级说明](../platform/tang_mega_138k_pro/README.md)。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
 
 统一板级配置桥保留source_id/SEQ/command/len/shadow至退休，经侧栏外部槽提交并匹配tag/id结果。sidebar外部来源槽仍不能单独区分两条物理链路，权限检查留在桥及本地0502策略端；帧去重、隔离和会话恢复仍归comm原有模块。
+
+## 有线演奏录制上行（2026-10-31）
+
+有线v1新增可选PERFORMANCE描述符入口`perf_valid/perf_ready/perf_seq/perf_payload[191:0]`，未连接的旧实例默认关闭。`performance_frame_tx`编码TYPE82/LEN24，`transport_link`在完整帧边界仲裁REPLY与PERFORMANCE，回复优先但不能中断已开始的演奏帧。蓝牙v2的TYPE81仍为CONTROL_REPLY，未接录制上行。
+
+`performance_capture`观察板级实际PAD快照，按audio_sample_tick计时，不反压合成；128项同步RAM队列满则结束并标记不完整。配置解析新增12/13的LEN5校验，起停、权限、资源条件、边界与结果归instrument_system的真实桥，未给旧的未接消费者伪造ACK。字段以[PROTOCOL_V1 §10](../drivers/analyzer/PROTOCOL_V1.md)为准。
+
+验证：`python3 sim/run_comm.py --test tb_performance_record --test tb_performance_limits`；整板录制`python3 sim/run_board.py --test record`。主机成轨与测试操作见[上位机说明](../../web/midi-editor/README.md)。

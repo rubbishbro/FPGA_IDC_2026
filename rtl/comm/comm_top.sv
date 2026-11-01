@@ -46,7 +46,9 @@ module comm_top #(
     output logic [127:0] cfg_shadow,
     input logic cfg_done_valid,
     output logic cfg_done_ready,
-    input logic [7:0] cfg_result
+    input logic [7:0] cfg_result,
+    input logic perf_valid=1'b0,output logic perf_ready,
+    input logic [15:0] perf_seq=16'd0,input logic [191:0] perf_payload=192'd0
 );
     localparam int ECW = $clog2(EVENT_DEPTH + 1);
     logic [1:0] byte_rx_valid, byte_rx_ready, byte_tx_valid, byte_tx_ready;
@@ -127,6 +129,8 @@ module comm_top #(
             .reply_command(reply_command), .reply_result(reply_result), .tx_busy()
         );
         end else begin : g_v1
+        wire perf_space;
+        if(g==0)assign perf_ready=perf_space;
         transport_link #(.FRAME_DEPTH(FRAME_DEPTH), .TIMEOUT_CYCLES(TIMEOUT_CYCLES)) u_transport (
             .clk(clk), .rst_n(rst_n), .flush(flush_link[g]), .pin(pin[g]),
             .rx_valid(byte_rx_valid[g]), .rx_ready(byte_rx_ready[g]),
@@ -140,7 +144,9 @@ module comm_top #(
             .frame_available(frame_available[g]), .protocol_errors(frame_errors[g*8 +: 8]),
             .reply_valid(reply_valid && reply_source == SOURCE && !cancel_source[g]),
             .reply_ready(reply_space[g]), .reply_seq(reply_seq),
-            .reply_command(reply_command), .reply_result(reply_result), .tx_busy()
+            .reply_command(reply_command), .reply_result(reply_result), .tx_busy(),
+            .perf_valid(!SOURCE && perf_valid),.perf_ready(perf_space),
+            .perf_seq(perf_seq),.perf_payload(perf_payload)
         );
         end
         // 单个配置在途，且只有 analyzer 生产回复；准入检查隐含预留一个回复名额。

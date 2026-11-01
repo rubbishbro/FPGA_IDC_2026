@@ -49,6 +49,10 @@ module voice_router #(
     input  router_pkg::reverb_preset                  reverb_preset,  // 混响预设（NONE/HALL/BATHROOM）
     input  logic                                     reload,      // 强制重灌当前乐器（内部取上升沿）
     input  logic                                     start,
+    output logic record_snapshot_valid,
+    output logic [SLOTS-1:0] record_snapshot_gate,
+    output logic [SLOTS*8-1:0] record_snapshot_level,
+    output logic [SLOTS*7-1:0] record_snapshot_notes,
     output wire [SLOTS-1:0] pad_keys_down, // actual pressure hysteresis used by the PAD path
     input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(), // resource identity; latched with each load
     input  logic                                     sample_tick, // clk domain; I2S frame master when enabled
@@ -297,6 +301,18 @@ module voice_router #(
         else if (smp_tick) gate_r <= pad_note_on;
     end
 
+    // Read-only observer: sample exactly the gate/strike used at the performance boundary.
+    always_ff @(posedge clk or negedge rst_n)begin
+        if(!rst_n)begin record_snapshot_valid<=0;record_snapshot_gate<=0;record_snapshot_level<=0;record_snapshot_notes<=0;end
+        else begin
+            record_snapshot_valid<=performance_commit && !active_midi && !maintain_req && table_valid;
+            if(performance_commit)begin
+                record_snapshot_gate<=play_clear?'0:note_on;
+                record_snapshot_level<=strike_level;
+                record_snapshot_notes<=pending_notes;
+            end
+        end
+    end
     // One coherent performance snapshot before the high-fanout DSP controls.
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin

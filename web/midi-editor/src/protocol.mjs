@@ -5,8 +5,8 @@ export function crc16(bytes) {
   return crc;
 }
 export function encodeFrame(type,seq,payload) {
-  const limit={1:32,2:16,128:3}[type];
-  if(!limit || !payload.length || payload.length>limit || (type===128 && payload.length!==3)) throw Error('非法协议 payload 长度/类型');
+  const limit={1:32,2:16,128:3,130:24}[type];
+  if(!limit || !payload.length || payload.length>limit || ((type===128 && payload.length!==3)||(type===130 && payload.length!==24))) throw Error('非法协议 payload 长度/类型');
   if(!Number.isInteger(seq)||seq<0||seq>65535 || [...payload].some(b=>!Number.isInteger(b)||b<0||b>255)) throw Error('非法协议字段');
   const body=[1,type,seq&255,seq>>8,payload.length,0,...payload];
   const crc=crc16(body); body.push(crc&255,crc>>8);
@@ -17,7 +17,7 @@ export function encodeFrame(type,seq,payload) {
 export function decodeBody(body) {
   if(body.length<9||body.length>40) throw Error('帧长错误');
   const type=body[1],len=body[4]|body[5]<<8;
-  if(body[0]!==1 || !({1:32,2:16,128:3}[type]) || len<1 || len>({1:32,2:16,128:3}[type]) || body.length!==len+8 || (type===128 && len!==3)) throw Error('帧头错误');
+  if(body[0]!==1 || !({1:32,2:16,128:3,130:24}[type]) || len<1 || len>({1:32,2:16,128:3,130:24}[type]) || body.length!==len+8 || ((type===128 && len!==3)||(type===130 && len!==24))) throw Error('帧头错误');
   if(crc16(body.slice(0,-2))!==(body.at(-2)|(body.at(-1)<<8))) throw Error('CRC 错误');
   return {type,seq:body[2]|body[3]<<8,payload:Uint8Array.from(body.slice(6,-2))};
 }
