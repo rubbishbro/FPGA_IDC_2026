@@ -31,14 +31,23 @@ module sidebar_mailbox #(parameter integer WIDTH=32)(
     assign src_ready=src_reset[1]&&!busy;
     assign dst_valid=dst_reset[1]&&(req_sync!=ack_toggle);
     assign dst_data=held_data;
+    // Entire payload is captured before request_toggle changes. Consumers must
+    // qualify dst_data/src_done_data with dst_valid/src_done respectively.
+    // Keep data stable while busy; a shared reset cancels the handshake only.
+    always_ff @(posedge src_clk)begin
+        if(src_n)begin
+            if(busy && ack_sync==request_toggle)src_done_data<=held_data;
+            else if(src_valid&&src_ready)held_data<=src_data;
+        end
+    end
     always_ff @(posedge src_clk or negedge src_n)begin
-        if(!src_n)begin request_toggle<=0;busy<=0;held_data<=0;src_done<=0;src_done_data<=0;end
+        if(!src_n)begin request_toggle<=0;busy<=0;src_done<=0;end
         else begin
             src_done<=0;
             if(busy && ack_sync==request_toggle)begin
-                busy<=0;src_done<=1;src_done_data<=held_data;
+                busy<=0;src_done<=1;
             end else if(src_valid&&src_ready)begin
-                held_data<=src_data;request_toggle<=!request_toggle;busy<=1;
+                request_toggle<=!request_toggle;busy<=1;
             end
         end
     end

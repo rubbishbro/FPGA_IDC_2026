@@ -111,6 +111,20 @@ module comb_reverb #(
 
     // wd 在 C 级计算、D 级写 RAM，保持原有四拍流水延迟。
 
+    // Wet-output-only payload: v1/v2 are reset/clear-flushed, so every valid
+    // consumer sees a freshly written predecessor. A discarded transaction may
+    // still update these registers on a clear edge, but cannot publish output.
+    // Feedback samples/products, pointers and RAM write control retain reset.
+    always_ff @(posedge clk) begin
+        if (v1) begin
+            t1 <= scaled_product(s1_r, w1c);
+            t2 <= scaled_product(s2_r, w2c);
+            t3 <= scaled_product(s3_r, w3c);
+            t4 <= scaled_product(s4_r, w4c);
+        end
+        if (v2) sum_q <= sum_sat;
+    end
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             clr_run <= 1'b1;      // 上电先当"清空中"；上层复位时也会给 clr
@@ -122,8 +136,6 @@ module comb_reverb #(
             s1 <= '0;  s2 <= '0;  s3 <= '0;  s4 <= '0;
             din_a <= '0; din_b <= '0;
             fb1 <= '0; fb2 <= '0; fb3 <= '0; fb4 <= '0;
-            t1 <= '0;  t2 <= '0;  t3 <= '0;  t4 <= '0;
-            sum_q <= '0;
             wet   <= '0;
             v1 <= 1'b0; v2 <= 1'b0; v3 <= 1'b0;
             out_valid <= 1'b0;
@@ -137,8 +149,6 @@ module comb_reverb #(
             s1 <= '0;  s2 <= '0;  s3 <= '0;  s4 <= '0;
             din_a <= '0; din_b <= '0;
             fb1 <= '0; fb2 <= '0; fb3 <= '0; fb4 <= '0;
-            t1 <= '0;  t2 <= '0;  t3 <= '0;  t4 <= '0;
-            sum_q <= '0;
             wet   <= '0;
             v1 <= 1'b0; v2 <= 1'b0; v3 <= 1'b0;
             out_valid <= 1'b0;
@@ -182,10 +192,6 @@ module comb_reverb #(
                 fb2 <= scaled_product(s2_r, g2);
                 fb3 <= scaled_product(s3_r, g3);
                 fb4 <= scaled_product(s4_r, g4);
-                t1  <= scaled_product(s1_r, w1c);
-                t2  <= scaled_product(s2_r, w2c);
-                t3  <= scaled_product(s3_r, w3c);
-                t4  <= scaled_product(s4_r, w4c);
             end
 
             // C：加 + 饱和（只打进寄存器）
@@ -198,7 +204,6 @@ module comb_reverb #(
                        (sm3[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
                 wd4 <= (sm4[ADD_W-1:63] == {(ADD_W-63){sm4[63]}}) ? sm4[63:0] :
                        (sm4[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-                sum_q <= sum_sat;
             end
 
             // D：写 RAM（数据已经是寄存器了）+ 输出

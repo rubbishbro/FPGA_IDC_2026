@@ -195,9 +195,13 @@ module sidebar_system #(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
         .pix_x(pix_x),.pix_y(pix_y),.view(pixel_view),.guide_view(pixel_guide),.hit(overlay_hit),
         .r(overlay_r),.g(overlay_g),.b(overlay_b),.visible_width(sidebar_width));
+    // de_q masks all unfilled RGB stages after reset; color data needs no reset.
+    always_ff @(posedge pix_clk)begin
+        base_r_q<={base_r_q[1:0],base_r};base_g_q<={base_g_q[1:0],base_g};base_b_q<={base_b_q[1:0],base_b};
+    end
     always_ff @(posedge pix_clk or negedge pix_n)begin
-        if(!pix_n)begin base_r_q<=0;base_g_q<=0;base_b_q<=0;de_q<=0;end
-        else begin base_r_q<={base_r_q[1:0],base_r};base_g_q<={base_g_q[1:0],base_g};base_b_q<={base_b_q[1:0],base_b};de_q<={de_q[1:0],lcd_valid};end
+        if(!pix_n)de_q<=0;
+        else de_q<={de_q[1:0],lcd_valid};
     end
     // Final color/DE register: the synchronous font ROM no longer drives pads
     // through glyph-bit selection and the full overlay compositor in one path.

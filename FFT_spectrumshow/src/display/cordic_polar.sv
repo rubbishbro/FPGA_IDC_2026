@@ -64,50 +64,42 @@ module cordic_polar #(
     wire signed [W-1:0] x_fx  = x_ext <<< FRAC;
     wire signed [W-1:0] y_fx  = y_ext <<< FRAC;
 
-    // stage 0: move into the right half plane so vectoring converges
+    // Only validity needs reset. Each valid vector overwrites every data stage
+    // before out_valid permits its consumption, including after a warm reset.
     always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            px[0] <= '0;
-            py[0] <= '0;
-            pa[0] <= '0;
-            pv[0] <= 1'b0;
+        if (!rst_n) pv[0] <= 1'b0;
+        else pv[0] <= in_valid;
+    end
+    // stage 0: move into the right half plane so vectoring converges
+    always_ff @(posedge clk) begin
+        if (x_in < 0) begin
+            px[0] <= -x_fx;
+            py[0] <= -y_fx;
+            pa[0] <= PI_BAM;
         end
         else begin
-            pv[0] <= in_valid;
-            if (x_in < 0) begin
-                px[0] <= -x_fx;
-                py[0] <= -y_fx;
-                pa[0] <= PI_BAM;
-            end
-            else begin
-                px[0] <= x_fx;
-                py[0] <= y_fx;
-                pa[0] <= 16'd0;
-            end
+            px[0] <= x_fx;
+            py[0] <= y_fx;
+            pa[0] <= 16'd0;
         end
     end
 
     generate
         for (genvar gi = 0; gi < N; gi = gi + 1) begin : g_stage
             always_ff @(posedge clk or negedge rst_n) begin
-                if (!rst_n) begin
-                    px[gi+1] <= '0;
-                    py[gi+1] <= '0;
-                    pa[gi+1] <= '0;
-                    pv[gi+1] <= 1'b0;
+                if (!rst_n) pv[gi+1] <= 1'b0;
+                else pv[gi+1] <= pv[gi];
+            end
+            always_ff @(posedge clk) begin
+                if (py[gi] < 0) begin
+                    px[gi+1] <= px[gi] - (py[gi] >>> gi);
+                    py[gi+1] <= py[gi] + (px[gi] >>> gi);
+                    pa[gi+1] <= pa[gi] - atan_bam(gi);
                 end
                 else begin
-                    pv[gi+1] <= pv[gi];
-                    if (py[gi] < 0) begin
-                        px[gi+1] <= px[gi] - (py[gi] >>> gi);
-                        py[gi+1] <= py[gi] + (px[gi] >>> gi);
-                        pa[gi+1] <= pa[gi] - atan_bam(gi);
-                    end
-                    else begin
-                        px[gi+1] <= px[gi] + (py[gi] >>> gi);
-                        py[gi+1] <= py[gi] - (px[gi] >>> gi);
-                        pa[gi+1] <= pa[gi] + atan_bam(gi);
-                    end
+                    px[gi+1] <= px[gi] + (py[gi] >>> gi);
+                    py[gi+1] <= py[gi] - (px[gi] >>> gi);
+                    pa[gi+1] <= pa[gi] + atan_bam(gi);
                 end
             end
         end

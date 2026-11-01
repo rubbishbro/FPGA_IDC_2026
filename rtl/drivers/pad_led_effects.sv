@@ -80,17 +80,23 @@ module pad_led_effects #(
     typedef enum logic [2:0] {E_IDLE,E_OFFSET_WAIT,E_OFFSET,E_PALETTE_WAIT,E_COMMIT} event_state_t;
     event_state_t event_state;
     wire take_pending=event_state==E_IDLE && pending_found;
+    // Event payload is published together with pending. The resettable pending
+    // bitmap prevents any consumer from using a slot before a complete write.
+    always_ff @(posedge cr.clk) begin
+        for(int i=0;i<16;i++) if(down[i] && !pressed[i]) begin
+            pending_phase[i]<=phase_for_hit;
+            pending_age[i]<=age_clock; pending_travel[i]<=travel_acc;
+        end
+    end
     always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         if(!cr.rst_n) begin
             pressed<=0; pending<=0;
-            for(int i=0;i<16;i++) begin pending_phase[i]<=0; pending_age[i]<=0; pending_travel[i]<=0; end
         end else begin
             pressed<=down;
             if(take_pending) pending[pending_id]<=0;
             for(int i=0;i<16;i++) if(down[i] && !pressed[i]) begin
                 // New strike wins if its mailbox is consumed on this edge.
-                pending[i]<=1; pending_phase[i]<=phase_for_hit;
-                pending_age[i]<=age_clock; pending_travel[i]<=travel_acc;
+                pending[i]<=1;
             end
         end
     end
@@ -110,13 +116,20 @@ module pad_led_effects #(
         hit_offset_q<=phase_rom[hit_pixel];
         palette_q<=palette_rom[event_colour_phase[15:8]];
     end
+    // E_COMMIT writes a complete record on the edge publishing wave_valid.
+    // Invalid records may feed combinational expressions, but cannot be used
+    // as valid render snapshots. Birth timestamps are data, not live counters.
+    always_ff @(posedge cr.clk) begin
+        if(event_state==E_COMMIT) begin
+            wave_pad[next_slot]<=event_pad;
+            wave_colour[next_slot]<=palette_q; wave_birth_age[next_slot]<=event_age;
+            wave_birth_travel[next_slot]<=event_travel;
+        end
+    end
     always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         if(!cr.rst_n) begin
             event_state<=E_IDLE; next_slot<=0; wave_valid<=0;
             event_pad<=0; event_phase<=0; event_age<=0; event_travel<=0; event_colour_phase<=0;
-            for(int i=0;i<16;i++) begin
-                wave_pad[i]<=0; wave_colour[i]<=0; wave_birth_age[i]<=0; wave_birth_travel[i]<=0;
-            end
         end else begin
             // Retire records permanently, so age-clock wrap cannot revive them.
             for(int i=0;i<16;i++)
@@ -132,9 +145,7 @@ module pad_led_effects #(
             E_PALETTE_WAIT: event_state<=E_COMMIT;
             E_COMMIT: begin
                 // FIFO allocation: a full pool replaces its oldest record.
-                wave_valid[next_slot]<=1; wave_pad[next_slot]<=event_pad;
-                wave_colour[next_slot]<=palette_q; wave_birth_age[next_slot]<=event_age;
-                wave_birth_travel[next_slot]<=event_travel;
+                wave_valid[next_slot]<=1;
                 next_slot<=next_slot+1'b1; event_state<=E_IDLE;
             end
             default: event_state<=E_IDLE;
@@ -188,6 +199,18 @@ module pad_led_effects #(
         R_COLOUR_ADDR,R_COLOUR,R_READY,R_FILL
     } render_state_t;
     render_state_t state;
+    // Capture every payload slot together with snap_valid before rendering.
+    // R_WAVE_ADDR skips invalid slots before their payload affects the image.
+    // Keep snap_valid, renderer FSM, addresses and scan counters resettable.
+    always_ff @(posedge cr.clk) begin
+        if(state==R_IDLE && frame_tick) begin
+            for(int i=0;i<16;i++) begin
+                snap_pad[i]<=wave_pad[i]; snap_colour[i]<=wave_colour[i];
+                snap_age[i]<=6'(age_clock-wave_birth_age[i]);
+                snap_radius[i]<=travel_acc-wave_birth_travel[i];
+            end
+        end
+    end
     always_comb begin
         leds='0; leds.x=fill_idx[2:0]; leds.y=fill_idx[5:3];
         leds.wr=state==R_BOOT_FILL || state==R_FILL;
@@ -199,7 +222,6 @@ module pad_led_effects #(
             tx_phase<=0; frame_phase<=0; pixel_phase<=0; background<=0;
             best_amplitude<=0; best_colour<=0; snap_valid<=0;
             shape_addr<=0; age_addr<=0; radial_addr<=0; combine_addr<=0;
-            for(int i=0;i<16;i++) begin snap_pad[i]<=0; snap_colour[i]<=0; snap_age[i]<=0; snap_radius[i]<=0; end
         end else case(state)
             // wr stays high until a full black image has been written.
             R_BOOT_FILL: if(cr.clk_en) begin
@@ -210,9 +232,6 @@ module pad_led_effects #(
                 frame_phase<=phase_acc[31:16]; pixel_idx<=0;
                 for(int i=0;i<16;i++) begin
                     snap_valid[i]<=wave_valid[i] && 16'(age_clock-wave_birth_age[i])<16'd64;
-                    snap_pad[i]<=wave_pad[i]; snap_colour[i]<=wave_colour[i];
-                    snap_age[i]<=6'(age_clock-wave_birth_age[i]);
-                    snap_radius[i]<=travel_acc-wave_birth_travel[i];
                 end
                 state<=R_PIXEL_ADDR;
             end

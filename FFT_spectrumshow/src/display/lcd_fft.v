@@ -347,31 +347,44 @@ default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
 
     reg  [9:0]  dot_ram[0:127];
     reg  [9:0]  fall_ram[0:127];   // per-bar fall timer (so bars don't interfere)
-    integer pi;
+    reg [6:0] peak_init_addr;
+    reg peak_init_done;
+    // Reset only this small controller. Both tables are cleared through their
+    // normal write ports in 128 clocks, independently of page/peak selection.
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            for (pi = 0; pi < 128; pi = pi + 1) begin
-                dot_ram[pi]  <= 10'd0;
-                fall_ram[pi] <= 10'd0;
-            end
+            peak_init_addr <= 7'd0;
+            peak_init_done <= 1'b0;
         end
-        else if (dot_en && peak_en && (xm == 3'd1)) begin
-            // physical bounce: bash up when bar rises past the dot -> overshoot,
-            // then gravity pulls it down to rest on the bar top.
-            if (q_y_lim > dot_ram[bar_idx]) begin
-                dot_ram[bar_idx] <= q_ov_lim;
-                fall_ram[bar_idx] <= 10'd0;
+        else if (!peak_init_done) begin
+            if (peak_init_addr == 7'd127) peak_init_done <= 1'b1;
+            else peak_init_addr <= peak_init_addr + 1'b1;
+        end
+    end
+    always @(posedge clk) begin
+        if (rst_n) begin
+            if (!peak_init_done) begin
+                dot_ram[peak_init_addr] <= 10'd0;
+                fall_ram[peak_init_addr] <= 10'd0;
             end
-            else if (dot_ram[bar_idx] > q_y_lim) begin
-                if (fall_ram[bar_idx] >= FALL_PERIOD - 10'd1) begin
+            else if (dot_en && peak_en && (xm == 3'd1)) begin
+                // physical bounce: bash up when bar rises past the dot -> overshoot,
+                // then gravity pulls it down to rest on the bar top.
+                if (q_y_lim > dot_ram[bar_idx]) begin
+                    dot_ram[bar_idx] <= q_ov_lim;
                     fall_ram[bar_idx] <= 10'd0;
-                    if (dot_ram[bar_idx] - PEAK_FALL > q_y_lim)
-                        dot_ram[bar_idx] <= dot_ram[bar_idx] - PEAK_FALL;
-                    else
-                        dot_ram[bar_idx] <= q_y_lim;
                 end
-                else
-                    fall_ram[bar_idx] <= fall_ram[bar_idx] + 10'd1;
+                else if (dot_ram[bar_idx] > q_y_lim) begin
+                    if (fall_ram[bar_idx] >= FALL_PERIOD - 10'd1) begin
+                        fall_ram[bar_idx] <= 10'd0;
+                        if (dot_ram[bar_idx] - PEAK_FALL > q_y_lim)
+                            dot_ram[bar_idx] <= dot_ram[bar_idx] - PEAK_FALL;
+                        else
+                            dot_ram[bar_idx] <= q_y_lim;
+                    end
+                    else
+                        fall_ram[bar_idx] <= fall_ram[bar_idx] + 10'd1;
+                end
             end
         end
     end
@@ -383,7 +396,7 @@ default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
     wire [9:0] peak_h = (dot_ram[bar_idx] > MAX_H) ? MAX_H : dot_ram[bar_idx];
     wire [9:0] peak_top = BASE_Y - peak_h;
     wire in_bar_col  = (pxx >= {3'b0, bar_idx} * 10'd6) && (pxx < {3'b0, bar_idx} * 10'd6 + 10'd6);
-    wire is_peak_dot = peak_en && (peak_h > 10'd0) && in_bar_col &&
+    wire is_peak_dot = rst_n && peak_init_done && peak_en && (peak_h > 10'd0) && in_bar_col &&
                        (xm >= 3'd1) && (xm <= 3'd4) &&
                        (pxy >= peak_top) && (pxy <= peak_top + 10'd2);
 

@@ -117,6 +117,15 @@ module stereo_spatializer #(
     assign delay_sum_l=delay_acc_l+(frac_l[0]?diff_l:OW'(0));
     assign delay_sum_r=delay_acc_r+(frac_r[0]?diff_r:OW'(0));
 
+    // TAPS writes all operands before BLEND can consume them. Reset returns the
+    // FSM to IDLE and suppresses out_valid; the next job traverses TAPS again.
+    // Iterative accumulators, persistent slew state and control retain reset.
+    always_ff @(posedge clk) begin
+        if (state == TAPS) begin
+            held_l<=tap_l;held_next_l<=next_l;held_r<=tap_r;held_next_r<=next_r;
+        end
+    end
+
     always_ff @(posedge clk or negedge rst_n)begin
         if(!rst_n)begin
             state<=IDLE;out_valid<=0;out_left<=0;out_right<=0;
@@ -126,7 +135,6 @@ module stereo_spatializer #(
             interp_l<=0;interp_r<=0;delta_l<=0;delta_r<=0;interp_frac_l<=0;interp_frac_r<=0;
             bit_count<=0;coeff_l<=0;coeff_r<=0;multiplicand<=0;acc_l<=0;acc_r<=0;
             frac_l<=0;frac_r<=0;delay_acc_l<=0;delay_acc_r<=0;diff_l<=0;diff_r<=0;
-            held_l<=0;held_next_l<=0;held_r<=0;held_next_r<=0;
         end else begin
             out_valid<=0;
             case(state)
@@ -177,7 +185,6 @@ module stereo_spatializer #(
                     end else bit_count<=bit_count+1'b1;
                 end
                 TAPS:begin
-                    held_l<=tap_l;held_next_l<=next_l;held_r<=tap_r;held_next_r<=next_r;
                     frac_l<=delay_left_q6[5:0];frac_r<=delay_right_q6[5:0];
                     state<=BLEND;
                 end

@@ -17,9 +17,9 @@
 | 上位机 | 多轨编辑/导出/Web Serial；有线事件录制生成可编辑轨道 | 真实UART录制回放；PCM/WAV回传尚未实施 |
 | Python | 当前Q24整数模型、前端/路由对拍及音色实验 | 实验专用唇振/气流不等同已接入RTL |
 
-参数只维护在[音频设计](docs/音频设计.md)；源码、板上固件、历史测试及未关闭问题见[调试记录](docs/调试记录.md)和[问题表](docs/bugs.md)。默认固定16音，音频时钟12.5MHz对应48.828125kHz，48kHz资源有约+29.6音分速度偏差。
+源码、板上固件、测试结果及未关闭问题见[调试记录](docs/调试记录.md)和[问题表](docs/bugs.md)。默认固定16音，音频时钟12.5MHz对应48.828125kHz，48kHz资源有约+29.6音分速度偏差。
 
-**阅读入口：**[文档](docs/README.md) · [代码架构](CODE_ARCHITECTURE.md) · [上板测试](docs/上板测试.md) · [赛题验收](docs/赛题验收.md)。
+**阅读入口：**[文档](docs/README.md) · [上板测试](docs/上板测试.md) · [赛题要求](reference_agent_readfirst/competition_requements_most_important.md)。
 
 ## 数据流与目录
 
@@ -43,14 +43,14 @@
 | `rtl/config_pkg.sv`、`config_dispatch.sv`、`control_loop.sv` | 统一配置类型、真实结果提交与轮询 |
 | `sim/` | 各模块与系统回归入口 |
 | `FFT_spectrumshow/` | 独立FFT/LCD/侧栏demo，50MHz控制、约33.333MHz像素域 |
-| `python/`、`FFT_results/` | 提取、模型、参数/图/试听；数学说明见python/MATH.md |
+| `python/`、`FFT_results/` | 提取、模型、参数/图/试听 |
 | `sythsound/` | 独立Python实验库及router钢琴/吉他资源生成 |
 | `web/midi-editor/` | 本地MIDI编辑与UART上位机 |
-| `docs/`、`reference_agent_readfirst/` | 专题设计/验收/问题，以及赛题/平台依据 |
+| `docs/`、`reference_agent_readfirst/` | 问题与调试记录，以及赛题/平台依据 |
 | `history/` | 历史工程与归档 CORE；验证证据不能混用 |
 | `build/` | 本地日志/构建产物，Git忽略 |
 
-串口／蓝牙现可在“输入→演奏方式”选择[引导演奏](docs/MIDI接入.md#midi-guide)：LCD显示4×4目标键，外部MIDI只提示，实体压力键负责发声。菜单／状态／合成／整版协议仿真及板级综合已通过，未烧录；物理时序边界仍按现有I04处理。
+串口／蓝牙现可在“输入→演奏方式”选择引导演奏：LCD显示4×4目标键，外部MIDI只提示，实体压力键负责发声。菜单／状态／合成／整版协议仿真及板级综合已通过，未烧录；物理时序边界仍按现有I04处理。
 
 ## 本地 MIDI 上位机
 
@@ -60,7 +60,7 @@ Node.js 20+，无需安装依赖：
 npm --prefix web/midi-editor run dev
 ```
 
-在Chrome/Edge打开 `http://127.0.0.1:5173`。电脑参考试听使用三角波；UART按v1 SLIP/CRC发送当前音乐时间的演奏事件，播放前校验板端通道与已加载16音清单。板端音色/来源/音组仍需本地设置，操作与边界见[上位机说明](web/midi-editor/README.md)。
+在Chrome/Edge打开 `http://127.0.0.1:5173`。电脑参考试听使用三角波；UART按v1 SLIP/CRC发送当前音乐时间的演奏事件，播放前校验板端通道与已加载16音清单。板端音色/来源/音组仍需本地设置，操作与边界见 `web/midi-editor/` 源码。
 
 ## Python 与验证入口
 
@@ -92,12 +92,12 @@ python3 sim/run_board.py
 npm --prefix web/midi-editor test
 ```
 
-持续前端、完整音频、vendor Flash模型及板级回归均已有正式入口。旧eng1_cosim.py仍使用历史接口，不作为当前流水核通过依据。命令/工具条件见[sim说明](sim/README.md)，板级构建、接线及自动时序验收只在[板级说明](rtl/platform/tang_mega_138k_pro/README.md)维护。本次不重跑长测/PnR或烧录；功能复测与既有报告复核分别记录。
+持续前端、完整音频、vendor Flash模型及板级回归均已有正式入口。旧eng1_cosim.py仍使用历史接口，不作为当前流水核通过依据。仿真命令见 `sim/`，板级构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/板级引脚.md)。本次不重跑长测/PnR或烧录；功能复测与既有报告复核分别记录。
 
 ## 文档约定
 
-根目录保留本README与架构导读；除名为 `docs` 的目录及其子目录外，每个目录最多两份说明文档。专题按职责组织，重复方案合并，交叉内容引用唯一合同。依赖清单、系数数据、许可证、第三方元数据和生成报告按原用途保留。
+根目录只保留本README；说明文档集中在 `docs/`，赛题资料在 `reference_agent_readfirst/`，其余旧文档已删除。依赖清单、系数数据、许可证、第三方元数据和生成报告按原用途保留。
 
-当前板级配置已对齐 `origin/board50@d47b14df`（50MHz核心、板载Flash QE初始化、实板键盘/蓝牙/I2S管脚）；本地双声道与引导演奏功能保留。构建与接线以[板级说明](rtl/platform/tang_mega_138k_pro/README.md)为准，历史100MHz PnR报告不代表当前50MHz版本验收。
+当前板级配置已对齐 `origin/board50@d47b14df`（50MHz核心、板载Flash QE初始化、实板键盘/蓝牙/I2S管脚）；本地双声道与引导演奏功能保留。构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/板级引脚.md)，历史100MHz PnR报告不代表当前50MHz版本验收。
 
-2026-10-30已选择性迁入board50的真实FFT/波形和极坐标历史页，经独立异步FIFO连接主合成PCM；保留本地双声道、PT8211和MIDI引导。新版U5仍为DIN=B21、GAIN=A20外接3V3，未采用远端冲突引脚或硬编码12倍音量。详见[迁移范围与验证](docs/工程验证.md#board50-migration-2026-10-30)。
+2026-10-30已选择性迁入board50的真实FFT/波形和极坐标历史页，经独立异步FIFO连接主合成PCM；保留本地双声道、PT8211和MIDI引导。新版U5仍为DIN=B21、GAIN=A20外接3V3，未采用远端冲突引脚或硬编码12倍音量。详见[调试记录](docs/调试记录.md)。

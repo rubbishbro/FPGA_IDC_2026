@@ -87,11 +87,12 @@ wire [23:0] serial_pixel;
 for(genvar bit_index=0;bit_index<24;bit_index++) begin:g_wire_order
     assign serial_pixel[bit_index]=pixel_grb[23-bit_index];
 end
-always_ff @(posedge cr.clk or negedge cr.rst_n) begin
-    if(!cr.rst_n) begin
-        gram.raw <= '0;
-    end
-    else if(wr && (state != S_TX) && cr.clk_en) begin
+// Board contract: pad_led_effects holds wr high in R_BOOT_FILL and writes all
+// 64 black pixels before releasing wr. S_PREPARE cannot transmit before then.
+// gram needs no reset; any other producer must provide the same full-frame
+// initialization after reset. Protocol state, index and dat still reset below.
+always_ff @(posedge cr.clk) begin
+    if(wr && (state != S_TX) && cr.clk_en) begin
         logic [2:0] y_;
         y_ = (x[0] == 0) ? y : ~y;
 

@@ -474,16 +474,20 @@ module lcd_polar_curve #(
     logic [5:0] r_out_q, g_out_q, b_out_q;
     logic       hit_q;
 
+    // Payload is consumed only with valid_p2. Keep the validity/output reset,
+    // but let fresh CORDIC results overwrite these intermediate data registers.
+    always_ff @(posedge clk) begin
+        radius_p1 <= cord_r;
+        radius_p2 <= radius_p1;
+        angle_p1  <= cord_a;
+        angle_p2  <= angle_p1;
+        r_cur_q   <= r_cur_raw;
+        r_old_q   <= r_old_raw;
+        r_mid_q   <= r_mid_raw;
+        r_rec_q   <= r_rec_raw;
+    end
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            radius_p1 <= '0;
-            radius_p2 <= '0;
-            angle_p1  <= '0;
-            angle_p2  <= '0;
-            r_cur_q   <= '0;
-            r_old_q   <= '0;
-            r_mid_q   <= '0;
-            r_rec_q   <= '0;
             valid_p1  <= 1'b0;
             valid_p2  <= 1'b0;
             r_out_q   <= 6'd0;
@@ -492,14 +496,6 @@ module lcd_polar_curve #(
             hit_q     <= 1'b0;
         end
         else begin
-            radius_p1 <= cord_r;
-            radius_p2 <= radius_p1;
-            angle_p1  <= cord_a;
-            angle_p2  <= angle_p1;
-            r_cur_q   <= r_cur_raw;
-            r_old_q   <= r_old_raw;
-            r_mid_q   <= r_mid_raw;
-            r_rec_q   <= r_rec_raw;
             valid_p1  <= cord_v;
             valid_p2  <= valid_p1;
 

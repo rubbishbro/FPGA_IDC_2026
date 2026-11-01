@@ -192,7 +192,9 @@ module instrument_system #(
     logic ext_valid,ext_ready,ext_rsp_valid;
     cfg_request_t ext_request;
     cfg_response_t ext_response;
-    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN} bridge_t;
+    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN,B_REC_START,B_REC_STOP} bridge_t;
+    // Finish within the 500ms host deadline, reserving 100ms for the reply.
+    localparam int REC_WAIT_CYCLES=(CLK_HZ/5)*2;
     bridge_t bridge_state;
     logic ctx_source;
     logic [15:0] ctx_seq;
@@ -220,9 +222,12 @@ module instrument_system #(
         if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;end
         else begin
         rec_start<=0;rec_stop<=0;rec_abort<=0;
+        // A local permission change also cancels a take between CONFIG requests.
+        if(!remote_permission[0] && (rec_active || rec_draining))rec_abort<=1;
         if(bridge_state!=B_SEND)remote_admit_age<=0;
         else if(remote_admit_age<CLK_HZ/50)remote_admit_age<=remote_admit_age+1'b1;
-        rec_wait_timer<=0;
+        if(bridge_state==B_REC_START || bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
+        else rec_wait_timer<=0;
         case(bridge_state)
             B_IDLE:if(cfg_valid)begin
                 ctx_source<=cfg_source;ctx_seq<=cfg_seq;ctx_cmd<=cfg_cmd;ctx_len<=cfg_len;ctx_shadow<=cfg_shadow;bridge_state<=B_CHECK;
@@ -230,6 +235,22 @@ module instrument_system #(
             B_CHECK:begin
                 cfg_result<=6;
                 if(quarantine[ctx_source] || !remote_permission[ctx_source])bridge_state<=B_DONE;
+                else if((ctx_cmd==8'h12 || ctx_cmd==8'h13) && ctx_len==5)begin
+                    // Recording return traffic is wired-only; ID is little endian.
+                    if(ctx_source)begin cfg_result<=1;bridge_state<=B_DONE;end
+                    else if(ctx_cmd==8'h12)begin
+                        if(rec_active || rec_draining)begin cfg_result<=4;bridge_state<=B_DONE;end
+                        else if(!rec_eligible)begin cfg_result<=6;bridge_state<=B_DONE;end
+                        else begin
+                            rec_request_id<=ctx_shadow[39:8];rec_current_id<=ctx_shadow[39:8];
+                            rec_start<=1;bridge_state<=B_REC_START;
+                        end
+                    end else if(ctx_shadow[39:8]!=rec_current_id ||
+                                !(rec_active || rec_draining || rec_completed))begin
+                        cfg_result<=3;bridge_state<=B_DONE;
+                    end else if(rec_completed)begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
+                    else begin rec_stop<=1;bridge_state<=B_REC_STOP;end
+                end
                 else if(ctx_cmd==2 && ctx_len==2 && ctx_shadow[15:8]<=2)bridge_state<=B_SEND;
                 else if(ctx_cmd==8'h20 && ctx_len==33)begin
                     // Protocol supports the atomic table descriptor, but this backend
@@ -251,6 +272,22 @@ module instrument_system #(
                 if(!key_note_supported)begin cfg_result<=3;bridge_state<=B_DONE;end
                 else if(key_scan_slot==15)begin cfg_result<=6;bridge_state<=B_DONE;end
                 else key_scan_slot<=key_scan_slot+1'b1;
+            end
+            B_REC_START:begin
+                if(quarantine[0] || !remote_permission[0] || !rec_eligible)begin
+                    rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;
+                end else if(rec_active)begin cfg_result<=0;bridge_state<=B_DONE;end
+                else if(rec_wait_timer>=REC_WAIT_CYCLES-1)begin
+                    rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;
+                end
+            end
+            B_REC_STOP:begin
+                if(quarantine[0] || !remote_permission[0])begin
+                    rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;
+                end else if(rec_completed)begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
+                else if(rec_wait_timer>=REC_WAIT_CYCLES-1)begin
+                    rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;
+                end
             end
             B_DONE:if(cfg_done_ready)bridge_state<=B_IDLE;
             default:bridge_state<=B_IDLE;

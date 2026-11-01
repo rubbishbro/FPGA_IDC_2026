@@ -12,19 +12,54 @@ module curve_calc (
     output logic        frame_done
 );
 
-    localparam logic [2:0] S_IDLE      = 3'd0;
-    localparam logic [2:0] S_LOAD      = 3'd1;
-    localparam logic [2:0] S_LOAD_WAIT = 3'd2;
-    localparam logic [2:0] S_EDGE      = 3'd3;
-    localparam logic [2:0] S_GEN       = 3'd4;
-    localparam logic [2:0] S_TAIL      = 3'd5;
+    localparam logic [3:0] S_IDLE        = 4'd0;
+    localparam logic [3:0] S_LOAD        = 4'd1;
+    localparam logic [3:0] S_LOAD_WAIT   = 4'd2;
+    localparam logic [3:0] S_EDGE        = 4'd3;
+    localparam logic [3:0] S_GEN         = 4'd4;
+    localparam logic [3:0] S_TAIL        = 4'd5;
+    localparam logic [3:0] S_PRIME_READ  = 4'd6;
+    localparam logic [3:0] S_PRIME_LATCH = 4'd7;
+    localparam logic [3:0] S_SLIDE_READ  = 4'd8;
+    localparam logic [3:0] S_SLIDE_LATCH = 4'd9;
 
-    logic [2:0]  state;
+    logic [3:0]  state;
     logic [6:0]  bar;
     logic [2:0]  xm;
-    logic [39:0] bars [0:127];
+    (* syn_ramstyle = "block_ram" *) logic [39:0] bars [0:127];
+    logic [6:0] read_addr;
+    logic [1:0] prime_index;
+    logic [39:0] bars_q;
+    logic [39:0] p0,p1,p2,p3;
 
     assign scan_addr = bar;
+
+    // One write port and one synchronous read port; no RAM/output reset mux.
+    // All 128 entries are loaded before priming or generating any output.
+    always_ff @(posedge clk) begin
+        if (state == S_LOAD_WAIT) bars[bar] <= scan_data;
+        if (state == S_PRIME_READ || state == S_SLIDE_READ)
+            bars_q <= bars[read_addr];
+    end
+
+    // Payload has no reset: the FSM primes the whole window before S_EDGE/GEN.
+    // READ captures RAM data, LATCH consumes it on the following clock.
+    always_ff @(posedge clk) begin
+        if (state == S_PRIME_LATCH) begin
+            case (prime_index)
+                2'd0: begin p0 <= bars_q; p1 <= bars_q; end
+                2'd1: p2 <= bars_q;
+                2'd2: p3 <= bars_q;
+                default: ;
+            endcase
+        end
+        if (state == S_GEN && xm == 3'd5 && bar != 7'd126) begin
+            p0 <= p1;
+            p1 <= p2;
+            p2 <= p3;
+        end
+        if (state == S_SLIDE_LATCH) p3 <= bars_q;
+    end
 
     function automatic signed [9:0] w0(input [2:0] f);
         case (f)
@@ -87,16 +122,13 @@ module curve_calc (
         end
     endfunction
 
-    wire [39:0] p0 = bars[(bar == 7'd0) ? 7'd0 : (bar - 7'd1)];
-    wire [39:0] p1 = bars[bar];
-    wire [39:0] p2 = bars[(bar == 7'd127) ? 7'd127 : (bar + 7'd1)];
-    wire [39:0] p3 = bars[(bar >= 7'd126) ? 7'd127 : (bar + 7'd2)];
-
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state      <= S_IDLE;
             bar        <= 7'd0;
             xm         <= 3'd0;
+            read_addr  <= 7'd0;
+            prime_index <= 2'd0;
             wr_en      <= 1'b0;
             wr_addr    <= 10'd0;
             wr_data    <= 40'd0;
@@ -120,11 +152,12 @@ module curve_calc (
                 end
 
                 S_LOAD_WAIT: begin
-                    bars[bar] <= scan_data;
                     if (bar == 7'd127) begin
                         bar   <= 7'd0;
                         xm    <= 3'd0;
-                        state <= S_EDGE;
+                        read_addr <= 7'd0;
+                        prime_index <= 2'd0;
+                        state <= S_PRIME_READ;
                     end
                     else begin
                         bar   <= bar + 7'd1;
@@ -132,10 +165,22 @@ module curve_calc (
                     end
                 end
 
+                S_PRIME_READ: state <= S_PRIME_LATCH;
+
+                S_PRIME_LATCH: begin
+                    // Initial window is [bars[0], bars[0], bars[1], bars[2]].
+                    if (prime_index == 2'd2) state <= S_EDGE;
+                    else begin
+                        prime_index <= prime_index + 2'd1;
+                        read_addr <= read_addr + 7'd1;
+                        state <= S_PRIME_READ;
+                    end
+                end
+
                 S_EDGE: begin
                     wr_en   <= 1'b1;
                     wr_addr <= {7'b0, xm};
-                    wr_data <= bars[0];
+                    wr_data <= p1;
 
                     if (xm == 3'd2) begin
                         xm    <= 3'd0;
@@ -163,8 +208,12 @@ module curve_calc (
                             state <= S_TAIL;
                         end
                         else begin
+                            // Next interval reuses three points; fetch only
+                            // min(old_bar+3,127), repeating the right endpoint.
+                            read_addr <= (bar >= 7'd124) ? 7'd127 : bar + 7'd3;
                             bar <= bar + 7'd1;
                             xm  <= 3'd0;
+                            state <= S_SLIDE_READ;
                         end
                     end
                     else begin
@@ -172,10 +221,15 @@ module curve_calc (
                     end
                 end
 
+                S_SLIDE_READ: state <= S_SLIDE_LATCH;
+
+                S_SLIDE_LATCH: state <= S_GEN;
+
                 S_TAIL: begin
                     wr_en   <= 1'b1;
                     wr_addr <= 10'd765 + {7'b0, xm};
-                    wr_data <= bars[127];
+                    // At interval 126, p2/p3 both hold bars[127].
+                    wr_data <= p2;
 
                     if (xm == 3'd2) begin
                         frame_done <= 1'b1;

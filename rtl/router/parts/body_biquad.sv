@@ -236,6 +236,22 @@ module body_biquad #(
     // ------------------------------------------------------------------
     // 序列器
     // ------------------------------------------------------------------
+    // Per-operation payload only: each state fully writes operands/results
+    // before the following state consumes them. Reset aborts to S_IDLE and
+    // starts history clearing. Keep acc/address/FSM/valid reset and the existing
+    // history-clear protocol (the history RAM already has no reset).
+    always_ff @(posedge clk) begin
+        case (state)
+            S_OP: begin
+                op_c_r <= coef_q[tap_idx];
+                op_s_r <= op_s;
+            end
+            S_MUL: prod_r <= op_c_r * op_s_r;
+            S_RNDA: rounded_r <= rounded_c;
+            default: ;
+        endcase
+    end
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state     <= S_IDLE;
@@ -248,12 +264,8 @@ module body_biquad #(
             tap       <= 3'd0;
             tap_idx   <= '0;
             sec_x     <= '0;
-            op_s_r    <= '0;
-            op_c_r    <= 32'sd0;
             op_sub_r  <= 1'b0;
-            prod_r    <= '0;
             acc       <= '0;
-            rounded_r <= '0;
             y_state_r <= '0;
             sat68_r   <= 1'b0;
             cur_x1    <= '0;
@@ -298,15 +310,12 @@ module body_biquad #(
 
                 // ------------------------------------------------
                 S_OP: begin
-                    op_c_r   <= coef_q[tap_idx];
-                    op_s_r   <= op_s;
                     op_sub_r <= op_sub;
                     state    <= S_MUL;
                 end
 
                 // ------------------------------------------------
                 S_MUL: begin
-                    prod_r <= op_c_r * op_s_r;
                     state  <= S_ACC;
                 end
 
@@ -325,7 +334,6 @@ module body_biquad #(
 
                 // ------------------------------------------------
                 S_RNDA: begin
-                    rounded_r <= rounded_c;
                     state     <= S_RNDB;
                 end
 

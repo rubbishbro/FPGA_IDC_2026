@@ -204,6 +204,10 @@ module config_analyzer #(
                     end
                 end
 
+                8'h12,8'h13:begin
+                    if(ctx_declared_len!=7'd5)sem_result=RESULT_BAD_LENGTH;
+                    else begin sem_result=RESULT_OK;sem_ok=1;end
+                end
                 8'h20:begin
                     if(ctx_declared_len!=33)sem_result=RESULT_BAD_LENGTH;
                     else if(!map_valid)sem_result=RESULT_OUT_OF_RANGE;
@@ -255,7 +259,6 @@ module config_analyzer #(
             ctx_seq           <= 17'd0;
             ctx_declared_len  <= 7'd0;
             ctx_count         <= 7'd0;
-            ctx_payload       <= 512'd0;
             ctx_saw_first     <= 1'b0;
             ctx_bad_frame     <= 1'b0;
             ctx_overflow      <= 1'b0;
@@ -283,7 +286,6 @@ module config_analyzer #(
                         ctx_seq           <= s_seq;
                         ctx_declared_len  <= s_payload_len;
                         ctx_count         <= 7'd1;
-                        ctx_payload       <= {{504{1'b0}}, s_data};
                         ctx_saw_first     <= s_first;
                         ctx_bad_frame     <= ~s_first;
                         ctx_overflow      <= 1'b0;
@@ -302,9 +304,7 @@ module config_analyzer #(
                     if (s_valid && s_ready) begin
                         if (s_first)
                             ctx_bad_frame <= 1'b1;
-                        if (ctx_count < MAX_CONFIG_PAYLOAD)
-                            ctx_payload[{ctx_count[5:0], 3'b000} +: 8] <= s_data;
-                        else
+                        if (ctx_count >= MAX_CONFIG_PAYLOAD)
                             ctx_overflow <= 1'b1;
                         if (ctx_count < 7'd127)
                             ctx_count <= ctx_count + 7'd1;
@@ -407,14 +407,32 @@ module config_analyzer #(
     // ---------------------------------------------------------------------
     // 每来源最近结果缓存
     // ---------------------------------------------------------------------
+    // Data has no reset. The first accepted byte overwrites the whole context,
+    // including padding used by the full-width retry comparison. Only later
+    // FSM states can publish cfg_valid/reply_valid or inspect a complete frame.
+    always_ff @(posedge clk) begin
+        if (state == S_IDLE && s_valid && s_ready)
+            ctx_payload <= {{504{1'b0}}, s_data};
+        else if (state == S_RECV && s_valid && s_ready &&
+                 ctx_count < MAX_CONFIG_PAYLOAD)
+            ctx_payload[{ctx_count[5:0], 3'b000} +: 8] <= s_data;
+    end
+
+    // Publish all cache fields together; cache_valid alone carries reset and
+    // session invalidation. An invalid entry may be compared but cannot hit.
+    always_ff @(posedge clk) begin
+        if (cache_we) begin
+            cache_seq[ctx_source]     <= ctx_seq;
+            cache_len[ctx_source]     <= ctx_declared_len;
+            cache_payload[ctx_source] <= ctx_payload;
+            cache_result[ctx_source]  <= ctx_result;
+        end
+    end
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             for (i = 0; i < 2; i = i + 1) begin
                 cache_valid[i]   <= 1'b0;
-                cache_seq[i]     <= 17'd0;
-                cache_len[i]     <= 7'd0;
-                cache_payload[i] <= 512'd0;
-                cache_result[i]  <= 8'd0;
             end
         end else begin
             // 失效优先于同一拍的缓存发布。
@@ -425,10 +443,6 @@ module config_analyzer #(
 
             if (cache_we) begin
                 cache_valid[ctx_source]   <= 1'b1;
-                cache_seq[ctx_source]     <= ctx_seq;
-                cache_len[ctx_source]     <= ctx_declared_len;
-                cache_payload[ctx_source] <= ctx_payload;
-                cache_result[ctx_source]  <= ctx_result;
             end
         end
     end

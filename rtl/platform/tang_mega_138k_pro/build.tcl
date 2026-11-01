@@ -16,6 +16,21 @@ set_option -top_module instrument_board_top
 set_option -opt_goal timing
 set_option -map_option 1
 set_option -replicate_resources 1
+# Congested whole-board design: prioritize routability over routing speed.
+# SUG1220: placement 1 prioritizes routability; routing 1 attempts better routes,
+# while routing 2 prioritizes speed. Keep isolated strategy comparisons possible.
+set board_place_option 1
+set board_route_option 1
+if {[info exists ::env(BOARD_PLACE_OPTION)]} {
+    if {$::env(BOARD_PLACE_OPTION) ni {0 1 2 3 4}} {error "BOARD_PLACE_OPTION must be 0, 1, 2, 3 or 4"}
+    set board_place_option $::env(BOARD_PLACE_OPTION)
+}
+if {[info exists ::env(BOARD_ROUTE_OPTION)]} {
+    if {$::env(BOARD_ROUTE_OPTION) ni {1 2}} {error "BOARD_ROUTE_OPTION must be 1 or 2"}
+    set board_route_option $::env(BOARD_ROUTE_OPTION)
+}
+set_option -place_option $board_place_option
+set_option -route_option $board_route_option
 set_option -oreg_in_iob 1
 # PMOD0 and DBG_UART.RX share SSPI/CPU-function pins. No AE350/SSPI boot consumer.
 set_option -use_sspi_as_gpio 1
@@ -24,7 +39,7 @@ set_option -use_cpu_as_gpio 1
 set_option -use_mspi_as_gpio 1
 set top_source_path "$board/instrument_board_top.sv"
 set profile_fh [open "$out/build_profile.json" w]
-puts $profile_fh "{\"communication_protocol\": \"unversioned\"}"
+puts $profile_fh "{\"communication_protocol\": \"unversioned\", \"place_option\": $board_place_option, \"route_option\": $board_route_option}"
 close $profile_fh
 set fh [open "$board/sources.f" r]
 foreach path [split [read $fh] "\n"] {
@@ -43,11 +58,6 @@ foreach m [glob "$root/rtl/drivers/pad_led_tables/*.mem"] {
 }
 add_file "$board/instrument_board.cst"
 add_file "$board/instrument_board.sdc"
-# Optional documented router strategy for isolated implementation retries.
-if {[info exists ::env(BOARD_ROUTE_OPTION)]} {
-    if {$::env(BOARD_ROUTE_OPTION) ni {1 2}} {error "BOARD_ROUTE_OPTION must be 1 or 2"}
-    set_option -route_option $::env(BOARD_ROUTE_OPTION)
-}
 run syn
 puts "INSTRUMENT_BOARD_SYN_DONE"
 if {[info exists ::env(BOARD_PNR)] && $::env(BOARD_PNR)=="1"} {

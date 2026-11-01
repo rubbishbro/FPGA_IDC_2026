@@ -189,16 +189,18 @@ module voice_router #(
     // =========================================================================
     // 统一采样节拍：所有 part 共用，避免各自分频漂移
     // =========================================================================
-    logic smp_tick;
+    wire smp_tick;
     generate if (EXTERNAL_SAMPLE_TICK) begin : g_frame_master
         assign smp_tick = sample_tick;
     end else begin : g_legacy_tick
+        logic legacy_tick;
         logic [$clog2(CLK_HZ/SR_HZ+1)-1:0] tick_cnt;
+        assign smp_tick = legacy_tick;
         always_ff @(posedge clk or negedge rst_n) begin
-            if (!rst_n) begin tick_cnt<='0; smp_tick<=0; end
+            if (!rst_n) begin tick_cnt<='0; legacy_tick<=0; end
             else begin
-                smp_tick<=0;
-                if (tick_cnt+1 >= CLK_HZ/SR_HZ) begin tick_cnt<='0; smp_tick<=1; end
+                legacy_tick<=0;
+                if (tick_cnt+1 >= CLK_HZ/SR_HZ) begin tick_cnt<='0; legacy_tick<=1; end
                 else tick_cnt<=tick_cnt+1'b1;
             end
         end
@@ -316,15 +318,19 @@ module voice_router #(
     end
 
     // Read-only observer: sample exactly the gate/strike used at the performance boundary.
+    // The recorder only captures payload when record_snapshot_valid is high.
+    // All fields are overwritten on the same edge publishing that valid pulse.
+    always_ff @(posedge clk)begin
+        if(performance_commit)begin
+            record_snapshot_gate<=play_clear?'0:note_on;
+            record_snapshot_level<=strike_level;
+            record_snapshot_notes<=pending_notes;
+        end
+    end
     always_ff @(posedge clk or negedge rst_n)begin
-        if(!rst_n)begin record_snapshot_valid<=0;record_snapshot_gate<=0;record_snapshot_level<=0;record_snapshot_notes<=0;end
+        if(!rst_n)begin record_snapshot_valid<=0;end
         else begin
             record_snapshot_valid<=performance_commit && !active_midi && !maintain_req && table_valid;
-            if(performance_commit)begin
-                record_snapshot_gate<=play_clear?'0:note_on;
-                record_snapshot_level<=strike_level;
-                record_snapshot_notes<=pending_notes;
-            end
         end
     end
     // One coherent performance snapshot before the high-fanout DSP controls.
@@ -950,10 +956,22 @@ module voice_router #(
 
     // 清零信号在引擎实例那边按 bank 各自给（era_zero / erb_zero），这里不用了
 
+    // Parameter data is initialized by the load transaction, not async reset.
+    // S_CFG overwrites every pending slot before any commit. Until successful
+    // full commit, table_valid/play_clear and the registered part_clear/gate
+    // isolate both excitation and envelope consumers (slot_clear has priority).
+    always_ff @(posedge clk) begin
+        if (state == S_CFG)
+            for (int p=0;p<SLOTS;p++) pending_play[p] <= '0;
+        else if (state == S_LOAD && ld_cfg_we)
+            pending_play[ld_cfg_slot] <= ld_cfg_data;
+        if (state == S_LOAD && ld_done && !ld_err && !cfg_error)
+            for (int p=0;p<SLOTS;p++) active_play[p] <= pending_play[p];
+    end
+
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             pending_notes<='0;pending_offsets<='0;cfg_error<=0;cfg_fail_pulse<=0;
-            for(int p=0;p<SLOTS;p++)begin pending_play[p]<='0;active_play[p]<='0;end
             state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
@@ -1044,12 +1062,10 @@ module voice_router #(
 
                 S_CFG: begin
                     cfg_error<=0;
-                    for(int p=0;p<SLOTS;p++)pending_play[p]<='0;
                     ld_start<=1;state<=S_LOAD;
                 end
                 S_LOAD: begin
                     if(ld_cfg_we)begin
-                        pending_play[ld_cfg_slot]<=ld_cfg_data;
                         if(is_sustain(inst_lat) && (!ld_cfg_data.valid || ld_cfg_data.period<2 ||
                            ld_cfg_data.a_step==0 || ld_cfg_data.r_step==0))cfg_error<=1;
                     end
@@ -1058,7 +1074,6 @@ module voice_router #(
                         if(ld_err || cfg_error)begin
                             state<=S_DONE;
                         end else begin
-                            for(int p=0;p<SLOTS;p++)begin active_play[p]<=pending_play[p];end
                             zero_frames <= (IW+1)'(1);
                             inst_prev <= inst_lat;
 
