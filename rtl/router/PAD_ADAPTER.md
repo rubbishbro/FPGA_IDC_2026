@@ -15,7 +15,7 @@ fmap_ext ───────────────────────�
 pad_driver → joy_sample_valid / joy_raw_x / joy_raw_y → 外部 sidebar_system
 ```
 
-16 个压力单元直接对应 16 个 slot；门控/起音、激励、包络、合成、混音和效果由 voice_router 持有。本适配器不解释MIDI；真实MIDI已由midi_voice_top连接状态/激励/引擎，不能把解析字节直接当fmap。当前门控起音要求fmap>230、保持到fmap<26才释放；旧>2/<1说明已过期。MIDI原始velocity仅0..127，直接复制无法起音；适配策略见 [MIDI接入](../../docs/MIDI演奏与通信接入.md#midi-consumer)。
+16 个压力单元直接对应 16 个 slot；门控/起音、激励、包络、合成、混音和效果由 voice_router 持有。本适配器不解释MIDI；真实MIDI已由midi_voice_top连接状态/激励/引擎，不能把解析字节直接当fmap。当前门控起音要求fmap>230、保持到fmap<26才释放；旧>2/<1说明已过期。MIDI原始velocity仅0..127，直接复制无法起音；适配策略见 [MIDI接入](../../docs/MIDI接入.md#midi-consumer)。
 
 ## 参数与接口
 
@@ -52,4 +52,4 @@ PAD_DIV=`CLK_HZ/2_500_000`，计数器目前 8 bit；非默认频率必须核对
 
 `python3 sim/run_joystick.py` 本轮 26 组通过，其中两组使用真实采集 FSM/坐标转换和 ADC 行为模型，检查 X/Y 成对出口、dummy、超时重试。没有例化整套 pad_voice_top、真实 ADC 或 LED，不证明 16 键位置/独立发声。
 
-持续音色已接逐槽周期冲激、ADSR和释放后清零退休，详见[ENG1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)。待验：正式32音资源、上板逐键校准、真Flash、四路可闻复音、板级音频时钟/引脚及DAC。源切换清理与UI联合后端已有于midi_voice_top；本PAD包装器不提供其完整事务。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制与侧栏设计.md#integration)。
+持续音色已接逐槽周期冲激、ADSR和释放后清零退休，详见[ENG1前端](../../docs/ENG1前端.md#11-2026-10-29-实施状态)。待验：正式32音资源、上板逐键校准、真Flash、四路可闻复音、板级音频时钟/引脚及DAC。源切换清理与UI联合后端已有于midi_voice_top；本PAD包装器不提供其完整事务。问题与关闭条件见 [bugs](../../docs/bugs.md)，侧栏入口见 [实施与接线](../../docs/控制设计.md#integration)。

@@ -103,7 +103,7 @@ synth: 16 slots, `G/a1/a2` in the frozen 26/22/24-bit formats, the Q1.31
 envelope, the Q4.27 5-section body and the 4-comb reverb, all integer and
 sample-by-sample.  `eng1_demo.py` drives it with real tables (A-class guitar +
 B-class flute) and `eng1_cosim.py` checks the core against `eng1.sv` with
-iverilog.  See [`docs/ENG1_PY_MODEL.md`](../../../docs/ENG1_PY_MODEL.md) for the
+iverilog.  See [`docs/ENG1模型.md`](../../../docs/ENG1模型.md) for the
 formats, the intended-vs-current-RTL modes and the limits (no cycle timing, no
 loader, no modulation).
 

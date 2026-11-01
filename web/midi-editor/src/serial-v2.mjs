@@ -1,6 +1,6 @@
 // Web Serial transport for Bluetooth session protocol v2.
 //
-// Fixed contract: docs/蓝牙会话协议v2_实现约定.md and protocol-v2.mjs.
+// Fixed contract: docs/蓝牙协议.md and protocol-v2.mjs.
 // This module owns the browser/WebSerial side only: a single serialized write
 // queue, ACTIVE-gated MIDI, stop-and-wait CONFIG, heartbeat scheduling and
 // playback recovery. It does not claim that the FPGA applied a frame merely

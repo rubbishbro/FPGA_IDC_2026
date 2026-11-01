@@ -31,7 +31,7 @@ python python/modal_sim/eng1_bc_demo.py   # B/C 共用 Eng1Core 的短句与鼓�
 ```
 
 模型/格式/与 RTL 的对拍说明见
-[`docs/ENG1_PY_MODEL.md`](../../docs/ENG1_PY_MODEL.md)。
+[`docs/ENG1模型.md`](../../docs/ENG1模型.md)。
 
 ## 旧合成产物已归档
 

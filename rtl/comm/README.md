@@ -5,7 +5,7 @@
 v2 增加会话号、独立控制通路、握手、心跳进度和演奏代次恢复，单帧协议错误只丢帧计数。
 v2 的 RX 在来源清理期间继续接收控制；`session_ctrl` 保留真实清理/退休屏障及诊断，
 错误分级交由 v2 链路控制。协议、限制和测试入口见
-[v2 实现约定](../../docs/蓝牙会话协议v2_实现约定.md)。启用 v2 的整板时序验收及 SRAM 下载已通过；当前串口演奏获用户确认通过，HC-05 专用故障场景仍按仿真验证记录。
+[v2 实现约定](../../docs/蓝牙协议.md)。启用 v2 的整板时序验收及 SRAM 下载已通过；当前串口演奏获用户确认通过，HC-05 专用故障场景仍按仿真验证记录。
 
 驱动分层日期：2026-10-26；2026-10-27 文档核对并重跑 13 项回归通过。入口为 [comm_top.sv](comm_top.sv)，对外端口、参数默认值和线上 v1 协议保持兼容。源码统一列在 [sim/comm_sources.f](../../sim/comm_sources.f)，仿真、Gowin 综合和时序源码哈希均读取该清单。
 
@@ -93,7 +93,7 @@ python3 sim/check_comm_vectors.py
 GOWIN_SH=/home/rubbishbro/gowin/IDE/bin/gw_sh python3 sim/check_comm_timing.py
 ```
 
-13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。2026-10-27驱动分层未新增AT初始化、TX字节FIFO或线上命令；2026-10-31的录制协议扩展见文末。MIDI真实消费者已由midi_voice_top实现，事件/来源清理/退休接线见[MIDI接入](../../docs/MIDI演奏与通信接入.md)；它不在comm_top内部。统一板级已在instrument_system中实现REVERB_SET→0200的真实结果桥及物理来源权限；EQ返回NOT_READY。该桥在comm_top外，不改变v1帧格式。CC/EQ/Bend DSP和实物链路仍待验收，见[板级说明](../platform/tang_mega_138k_pro/README.md)。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
+13 项仿真、8 个故障种子和重构后的独立探针 PnR 结果见 [验证汇报](VERIFICATION.md)。2026-10-27驱动分层未新增AT初始化、TX字节FIFO或线上命令；2026-10-31的录制协议扩展见文末。MIDI真实消费者已由midi_voice_top实现，事件/来源清理/退休接线见[MIDI接入](../../docs/MIDI接入.md)；它不在comm_top内部。统一板级已在instrument_system中实现REVERB_SET→0200的真实结果桥及物理来源权限；EQ返回NOT_READY。该桥在comm_top外，不改变v1帧格式。CC/EQ/Bend DSP和实物链路仍待验收，见[板级说明](../platform/tang_mega_138k_pro/README.md)。线上字段和结果码见 [协议 v1](../drivers/analyzer/PROTOCOL_V1.md)，MIDI Event32 与 Config 子模块握手见 [解析说明](../drivers/analyzer/README.md)。
 
 统一板级配置桥保留source_id/SEQ/command/len/shadow至退休，经侧栏外部槽提交并匹配tag/id结果。sidebar外部来源槽仍不能单独区分两条物理链路，权限检查留在桥及本地0502策略端；帧去重、隔离和会话恢复仍归comm原有模块。
 

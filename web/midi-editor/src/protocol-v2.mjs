@@ -1,7 +1,7 @@
 /**
  * Bluetooth session protocol v2 — mobile-facing JavaScript reference.
  *
- * Fixed contract: docs/蓝牙会话协议v2_实现约定.md (2026-10-31). This file is a
+ * Fixed contract: docs/蓝牙协议.md (2026-10-31). This file is a
  * host/mobile-side codec and a small reference session client only. It makes
  * no claim about RTL or real-board behaviour.
  *

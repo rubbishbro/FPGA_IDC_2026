@@ -1,6 +1,6 @@
 # Router —— 物理模型合成器的数字后端
 
-更新：2026-10-29，核对d93778af及统一板级工作区。当前合同按下文维护；历史周期/PnR和兼容副本结果保留日期，不能升级为当前整机证明。最新复核、板级时序失败及验证边界见[验证记录](../../docs/工程评审与验证.md#doc-refresh-board-2026-10-29)和[问题台账](../../docs/bugs.md)。
+更新：2026-10-29，核对d93778af及统一板级工作区。当前合同按下文维护；历史周期/PnR和兼容副本结果保留日期，不能升级为当前整机证明。最新复核、板级时序失败及验证边界见[验证记录](../../docs/工程验证.md#doc-refresh-board-2026-10-29)和[问题台账](../../docs/bugs.md)。
 
 一块 FPGA 上的 16 声部模态（modal）合成器：**16 个声部 × N_MODES 个模态**，每个模态一个
 二阶谐振器，逐采样递推；后级接腔体（body）滤波和 4 路梳状混响；系数从 W25Q64 flash
@@ -14,10 +14,10 @@
 - 旧eng0测量的每采样拍数取决于 `n_modes`：8 组 × (n_modes + 14) + 收尾。`n_modes=80` 实测 **865 拍**，
   `n_modes=64` 约 **735 拍**（钢琴 64 模态；吉他 20 模态，帧更短，由 `n_modes_of()` 定）。
 
-> eng1的ABC系数格式独立：G/a1均为signed26 Q2.24、a2 UQ0.24。a1直接相乘，不再左移4位；旧Q2.20 B镜像须重新生成。状态递推沿用输入激励的小数位，当前router激励XF=24；旧独立模型的Q30幅度不能直接套用当前router的PCM定标。迁移边界见[ENG1模型](../../docs/ENG1_PY_MODEL.md)。
+> eng1的ABC系数格式独立：G/a1均为signed26 Q2.24、a2 UQ0.24。a1直接相乘，不再左移4位；旧Q2.20 B镜像须重新生成。状态递推沿用输入激励的小数位，当前router激励XF=24；旧独立模型的Q30幅度不能直接套用当前router的PCM定标。迁移边界见[ENG1模型](../../docs/ENG1模型.md)。
 
 > B类Pitch Bend/CC1现由内部消费者统一为一阶音高调制，使用一个共享乘法器、a1双缓冲与连续相位激励。
-> Flash参数半区须含P1T1标记和离线K斜率；握手/取消/来源清理与资源合同见[一阶音高调制](../../docs/ENG1一阶音高调制.md)。
+> Flash参数半区须含P1T1标记和离线K斜率；握手/取消/来源清理与资源合同见[一阶音高调制](../../docs/ENG1音高.md)。
 
 本文档按"结构 → 约定 → 取舍 → 现状 → 测试 → 待定"组织。想改代码先看 §4（约定）和
 §5（取舍），那里写了"为什么不能那样改"。
@@ -28,7 +28,7 @@
 
 2026-10-28已增加 [midi_voice_top.sv](midi_voice_top.sv) 连接MIDI状态层与真实voice_router；router内 [performance_input_mux.sv](routers/performance_input_mux.sv) 选择压力垫或MIDI的门控/激励力度，MIDI不伪装成fmap。原实例默认MIDI_ENABLE=0。激励模块新增明确的力度、重触发和逐槽清除输入；3.2阶段未改计算核心，后续工作区eng1已改流水，四种持续音色已补逐槽冲激串/ADSR及释放清理退休。
 
-当前仓库源文件已前移必要声明，能够直接通过Questa编译；前文兼容副本限制仍描述早先补测。新增正式入口`python3 sim/run_router_midi.py`，3.2阶段五项、后续联合配置扩展至11项曾通过，本次实现后重跑11项通过，新的真实B表/音频矩阵单列于验证记录；pending音色模态数和eng1 B结果锁存问题已在router修复。原压力垫256采样修改前后逐点一致。端口、切源/通道语义和验证限制统一见[MIDI接入3.2](../../docs/MIDI演奏与通信接入.md#router-midi-step32)，新入口不使用兼容副本或7061抑制，不替代真实Flash、音色资源、48k吞吐或上板验收。
+当前仓库源文件已前移必要声明，能够直接通过Questa编译；前文兼容副本限制仍描述早先补测。新增正式入口`python3 sim/run_router_midi.py`，3.2阶段五项、后续联合配置扩展至11项曾通过，本次实现后重跑11项通过，新的真实B表/音频矩阵单列于验证记录；pending音色模态数和eng1 B结果锁存问题已在router修复。原压力垫256采样修改前后逐点一致。端口、切源/通道语义和验证限制统一见[MIDI接入3.2](../../docs/MIDI接入.md#router-midi-step32)，新入口不使用兼容副本或7061抑制，不替代真实Flash、音色资源、48k吞吐或上板验收。
 
 ## 1. 概览
 
@@ -333,9 +333,9 @@ y  = wo*q
 | sythsound/guitar_coeff_gen.py → guitar_coeff_scaled.txt | 已逐MIDI调用，40个不同音高、每音20条；矩阵平衡、负a21，gq/wo定标，gv=0 |
 | sythsound/guitar_param_gen.py → guitar_param.txt | 调制基值a11/a12/a22/wo及S11/S12/S22/Swo，不是旧七系数原型；一阶近似范围需独立验证 |
 | tools/guitar_flash.py | 直接量化系数/参数，默认16音、每槽64记录，前20有效其余补零；区域起点0x010000 |
-| tools/*_flash.bin/.mem | 29日内存重打包均与当前输入逐字节一致，所有量化字段零饱和；hash见[本次记录](../../docs/工程评审与验证.md#global-docs-2026-10-29) |
+| tools/*_flash.bin/.mem | 29日内存重打包均与当前输入逐字节一致，所有量化字段零饱和；hash见[本次记录](../../docs/工程验证.md#global-docs-2026-10-29) |
 
-当前字段小数位a11/a12/a21/a22=28/30/23/28，gq/gv/wo=32/34/29；eng0状态/激励/输出均Q24。eng1的G/a1/a2另有合同，见[模型说明](../../docs/ENG1_PY_MODEL.md)。旧piano_coeff.txt/guitar_coeff.txt不再是默认资源输入，不能把旧物理域表直接喂给只量化的新工具。
+当前字段小数位a11/a12/a21/a22=28/30/23/28，gq/gv/wo=32/34/29；eng0状态/激励/输出均Q24。eng1的G/a1/a2另有合同，见[模型说明](../../docs/ENG1模型.md)。旧piano_coeff.txt/guitar_coeff.txt不再是默认资源输入，不能把旧物理域表直接喂给只量化的新工具。
 
 候选资源应另存输出，避免覆盖测试输入：
 
@@ -386,7 +386,7 @@ lam = (fmap>=230) ? LAM_MAX : ((fmap<=TH) ? 0 : LAM_STEP*(fmap-TH))
 默认 TH=102（步长293601）；板级覆盖 TH=64 时步长226391，阈值以下为零。
 230..255 全部饱和到同一上限；TH>=230 的兼容入口没有线性区间，在230处阶跃。
 目前只调吉他，MIDI velocity 不参与压力调音。50音分与静态/动态稳定性的分析见
-[吉他调制阈值与50音分分析](../../docs/吉他调制阈值与50音分分析_2026-10-31.md)。
+[吉他调制阈值与50音分分析](../../docs/吉他.md)。
 
 常数乘法。**负方向禁用**：一阶线性化在
 `lambda < 0` 一侧会把某些高模态的 `a12` 推大，使 `det = a11·a22 − a12·a21 > 1`
@@ -471,12 +471,8 @@ S12 = a12 + k·d(a12_phys)/d(alpha)
   跑满 N=2048 个采样后自动落。既不空转 2048 拍，也不会把 BSRAM 上电随机值放出来。
   `clr` 由 `reverb_router` 在**切预设时**给（外部控制），所以 NONE→HALL 不会读到
   没写过的区域。
-- **饱和**一共有三处：① 4 路求和 `sum4`（71 位判断溢出）；② 每路写回 RAM 的 `wd`
-  （65 位加 + 饱和）；③ 干湿相加 `y_sum`。**湿声加权** `t1..t4` 保留 69 位，而反馈
-  `fb1..fb4` 是 64 位（乘积后截断再移位）。
-- **流水**：写 RAM 的数据必须先进寄存器（`wd`），**不能**让"65 位加 + 饱和 mux"直接怼
-  RAM 的 D 口（实测那条路 13.8 ns，72 MHz）。
-- **边界**：延迟 6 拍；反馈仍以 64 位目标计算，中间乘积并非一律保留完整 96 位。求和/写回/干湿饱和不能代替乘法范围检查，见 F09。
+- **位宽**：64×32先保留signed96乘积，移位27后反馈/抽头均保留69位；输入与反馈用70位宽和，4路加权用71位和，干湿声用70位和，最后按宽和符号饱和到signed64。
+- **流水**：RAM写回数据先寄存，混响路由仍为6拍延迟；完整位宽修改后的新边界验收尚待执行。复现、修复状态及证据统一见[调试记录](../../docs/调试记录.md#混响位宽核查)。
 
 ### 5.6 包络/激励的采样节拍用 `clk_en`
 
@@ -538,7 +534,7 @@ CS↓ → 指令 8 SCK（DQ0 单线）→ 地址 24 SCK（**DQ0 单线**，MSB �
 
 ### 7.1 音乐集成 TB
 
-当前音乐TB为tb/tb_music.sv，已连接w25q_dut和vendor W25Q128模型，通过实际weight_loader写RAM，并统计16槽×两个半区写口覆盖。TB与运行器已补齐模型源、MEM准备和参数覆盖。原直灌RAM和常量输出仍被判PASS的发现保留在[28日补测](../../docs/工程评审与验证.md#questa-2026-10-28)，不能混成当前加载方式。
+当前音乐TB为tb/tb_music.sv，已连接w25q_dut和vendor W25Q128模型，通过实际weight_loader写RAM，并统计16槽×两个半区写口覆盖。TB与运行器已补齐模型源、MEM准备和参数覆盖。原直灌RAM和常量输出仍被判PASS的发现保留在[28日补测](../../docs/工程验证.md#questa-2026-10-28)，不能混成当前加载方式。
 
 ```text
 系数镜像 → MEM.TXT → W25Q128模型 ↔ QSPI/weight_loader → RAM
@@ -566,7 +562,7 @@ Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术�
 
 ### 7.4 历史：删掉的模块级 TB 各自覆盖过什么
 
-留着供追溯（这些文件已从仓库删除）。2026-10-28从 `b75efa42^` 提取7份模块TB至隔离目录，对当前模块补跑；通过、过期TB与模型局限见[补测记录](../../docs/工程评审与验证.md#questa-2026-10-28)，不等于正式回归入口已经恢复：
+留着供追溯（这些文件已从仓库删除）。2026-10-28从 `b75efa42^` 提取7份模块TB至隔离目录，对当前模块补跑；通过、过期TB与模型局限见[补测记录](../../docs/工程验证.md#questa-2026-10-28)，不等于正式回归入口已经恢复：
 
 | 原 TB | 覆盖 |
 |---|---|
@@ -631,7 +627,7 @@ Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术�
 - [当前问题与验证缺口](../../docs/bugs.md)：F01–F11 当前状态、新发现和验收边界。
 - `rtl/simsynth/ROUTER.md`（已删）：旧版路由器的结构/时序分析，在 git 历史里。
 
-以下为27/28日早期记录：当时未运行音乐xsim/PnR，Questa旧eng1 intended有3个零模态失败、模型33项通过。后续流水已修空作业，当前256组对拍通过；旧结果不代表当前未修。详细日期化结果见[验证记录](../../docs/工程评审与验证.md#verification)及[Questa补测](../../docs/工程评审与验证.md#questa-2026-10-28)。
+以下为27/28日早期记录：当时未运行音乐xsim/PnR，Questa旧eng1 intended有3个零模态失败、模型33项通过。后续流水已修空作业，当前256组对拍通过；旧结果不代表当前未修。详细日期化结果见[验证记录](../../docs/工程验证.md#verification)及[Questa补测](../../docs/工程验证.md#questa-2026-10-28)。
 
 ## 当前MIDI分组装载合同（2026-10-28）
 
@@ -639,11 +635,11 @@ Linux正式接口/配置回归为python3 sim/run_router_midi.py；流水算术�
 
 weight_loader接收并锁存16×32bit字节偏移、inst及mask，源地址为`FLASH_BASE+inst*(FLASH_NOTES*N_MODES*64)+offset[slot]`，目的仍为`{sel,slot,mode}`。6Bh已改为8串行命令、24串行地址、8 dummy及quad数据，QE由loader先写入并等待20ms。范围/对齐/空表/abort/timeout失败将目标填零，done必须结合err判断。支持32音的piano_flash打包器保留默认16音产物不变；正式32音资源和范围尚待确认。
 
-完整接口、故障处理、测试及保留项见[MIDI当前修复](../../docs/MIDI演奏与通信接入.md#midi-bank-fixes)。本轮无新增生产模块，eng0/eng1源码不变；8项Questa和原PAD256点一致性通过不替代真实Flash、满规模吞吐或PCM/I2S验收。
+完整接口、故障处理、测试及保留项见[MIDI当前修复](../../docs/MIDI接入.md#midi-bank-fixes)。本轮无新增生产模块，eng0/eng1源码不变；8项Questa和原PAD256点一致性通过不替代真实Flash、满规模吞吐或PCM/I2S验收。
 
 ## 联合配置后端（2026-10-28）
 
-midi_voice_top设CONFIG_BACKEND=1后，既有清理/加载状态机接sidebar_system的backend请求/结果，使用实际audio_config_t快照同步音色/通道/来源/音区/混响。sidebar_system同时设AUDIO_BACKEND=1；普通并行配置口不再作为第二个写入者。默认RESOURCE_MASK只开钢琴，音量和调制深度能力保持关闭。完整接线、字段编号、故障和资源限制见[MIDI联合配置实施](../../docs/MIDI演奏与通信接入.md#joint-config-backend)。
+midi_voice_top设CONFIG_BACKEND=1后，既有清理/加载状态机接sidebar_system的backend请求/结果，使用实际audio_config_t快照同步音色/通道/来源/音区/混响。sidebar_system同时设AUDIO_BACKEND=1；普通并行配置口不再作为第二个写入者。默认RESOURCE_MASK只开钢琴，音量和调制深度能力保持关闭。完整接线、字段编号、故障和资源限制见[MIDI联合配置实施](../../docs/MIDI接入.md#joint-config-backend)。
 
 voice_router新增table_valid，失败不提交inst_prev、不出音频、不自动重试同一目标；维护及清理操作仍允许真实退休，成功换表首帧重清状态。pad_voice_top引出load_err/table_valid，默认N_MODES统一64。不要再用done表示成功。当前源码已移除忙时panic挂起/抢占逻辑，原取消装载结论仅属于先前快照，须按台账M14复验。新增正式回归见sim说明；核心算法未改。
 
@@ -653,12 +649,12 @@ eng1已改为R/M/S/N/W五级跨模态流水，II=1，保持原位宽/符号/舍�
 
 midi_voice_top/pad_voice_top已恢复AUDIO_ENABLE、audio_clk和I2S实例/端口。启用后I2S帧作为激励/包络/合成统一时基，使用Q24转PCM16、计划静音和独立诊断；panic音频队列flush仍暂缓。详见[音频说明](../audio/README.md)。
 
-早期接线回归见[历史记录](../../docs/工程评审与验证.md#i2s-pipeline-test)，恢复后的8项矩阵见[持续前端实施](../../docs/工程评审与验证.md#sustain-implementation-2026-10-29)。统一instrument_board_top已接通信/PAD/UI/I2S，PnR完成但时序失败，尚未烧录，详见[板级说明](../platform/tang_mega_138k_pro/README.md)。
+早期接线回归见[历史记录](../../docs/工程验证.md#i2s-pipeline-test)，恢复后的8项矩阵见[持续前端实施](../../docs/工程验证.md#sustain-implementation-2026-10-29)。统一instrument_board_top已接通信/PAD/UI/I2S，六音色3ED7固件已通过PnR并烧录，但main合并后的新源码尚未编译，详见[板级说明](../platform/tang_mega_138k_pro/README.md)。
 
 ## 四种持续音色前端（2026-10-29）
 
 现有excitation_gen增加周期冲激分支，env_router为FLUTE/TRUMPET/CELLO/VIOLIN选择同实例ADSR的逐槽A/R；x/E按帧锁存。voice_router的S_CFG逐槽准备配置，锁存目标映射/偏移，加载成功后启用；无效配置有失败完成。voice_idle须等释放归零及实际清理帧退休。
 
-配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；正式RESOURCE_MASK仍只开放钢琴，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1演奏前端设计.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。持续前端实施未改eng0/eng1算术核；后续统一板级已有实际PnR，时序未通过，尚未烧录。
+配置目录由tools/sustain_resources.py从与ABC相同的模型结果生成，不改64byte Flash记录。当前入库目录包含显式重定音来源；当前六音色RESOURCE_MASK=0xC2B，部署必须使用配套镜像和manifest。说明与命令见[eng1前端](../../docs/ENG1前端.md#11-2026-10-29-实施状态)和[sim](../../sim/README.md)。持续前端实施未改eng0/eng1算术核；既有六音色固件已通过PnR并烧录，新合并源码尚未验收。
 
-2026-10-30：板级Flash资源已搬到0x800000；FLASH_BASE/物理FLASH_BYTES经演奏顶层、voice_router传到loader，独立模块仍默认基址0供旧回归。烧录步骤和打包命令以[板级分区说明](../platform/tang_mega_138k_pro/README.md#flash程序音色分区迁移2026-10-30)为准。
+2026-10-30：板级Flash资源已搬到0x800000；FLASH_BASE/物理FLASH_BYTES经演奏顶层、voice_router传到loader，独立模块仍默认基址0供旧回归。烧录步骤和打包命令以[板级分区说明](../platform/tang_mega_138k_pro/README.md#输出与flash)为准。

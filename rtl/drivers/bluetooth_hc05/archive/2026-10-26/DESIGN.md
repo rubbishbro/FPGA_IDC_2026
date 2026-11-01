@@ -4,7 +4,7 @@
 > 状态：**设计基线，供评审。没有 RTL、没有上板、没有 Android App 代码。**  
 > 范围：HC-05 透明串口物理层、双链路分帧／仲裁、回复通路，以及它与共享 MIDI／Config 解析器的接口。  
 > 不包含：MIDI 语义解析、fmap 映射、演奏／指导业务、音色与 DSP 参数、Android UI。  
-> 相关文档：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧测试向量](../../../analyzer/frame_vectors.json)、[上位机可行性分析](../../../../../docs/上位机可行性分析.md)。
+> 相关文档：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧测试向量](../../../analyzer/frame_vectors.json)、[上位机可行性分析](../../../../../docs/上位机.md)。
 
 本文把 HC-05 当成一根**可靠的、无消息边界的透明字节管道**，而不是“蓝牙协议栈”。真正要设计的是：
 
@@ -1558,7 +1558,7 @@ link_pkg
 - [CRC RevEng — CRC-16/IBM-3740 (CCITT-FALSE)](https://reveng.sourceforge.io/crc-catalogue/16.htm#crc.cat.crc-16-ibm-3740)
 - [MIDI Association — Summary of MIDI 1.0 Messages](https://midi.org/summary-of-midi-1-0-messages)
 - [Android Bluetooth 概览](https://developer.android.com/develop/connectivity/bluetooth) 与 [BluetoothSocket API](https://developer.android.com/reference/android/bluetooth/BluetoothSocket)
-- 本仓库：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧向量](../../../analyzer/frame_vectors.json)、[MIDI/UART 协议草案](../../../../../docs/MIDI演奏与通信接入.md)、[上位机可行性分析](../../../../../docs/上位机可行性分析.md)
+- 本仓库：[协议 v1](../../../analyzer/PROTOCOL_V1.md)、[MIDI 解析合同](../../../analyzer/README.md#midi)、[帧向量](../../../analyzer/frame_vectors.json)、[MIDI/UART 协议草案](../../../../../docs/MIDI接入.md)、[上位机可行性分析](../../../../../docs/上位机.md)
 - HC-05 的 AT 指令集/引脚定义以具体模块厂商手册为准；不同固件/克隆模块存在差异。本文不复制厂商手册，只给出集成约束。
 
 ---

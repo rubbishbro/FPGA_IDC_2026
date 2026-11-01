@@ -14,7 +14,7 @@ excitation, envelope, zero masks, all voice sums, mixed output and retired idle;
 40,000 pitch core clocks including cancellation and metadata rejection; and
 37,800 postprocessing samples including reverb truncation, stereo and PCM.
 The waveform replay boundary is the accepted performance/pitch snapshot, not
-raw MIDI bytes or FIFO timing. See [current model contract](../../../docs/ENG1_PY_MODEL.md).
+raw MIDI bytes or FIFO timing. See [current model contract](../../../docs/ENG1模型.md).
 
 The older tests below retain historical arithmetic/demo coverage. They are not
 the current production waveform acceptance test.
@@ -33,7 +33,7 @@ Runtime first-order pitch uses `pitch_linear.py` and `sim/run_pitch.py`:
 real P1T1 Flash, both MIDI sources, all 16 slots and I2S at 50 MHz by default.
 Use a Python environment with numpy/scipy. `sim/check_pitch_resources.py` audits
 the full catalog, and `sim/check_pitch_dynamics.py` checks one-second driven/free
-responses at the production Q24 scale. See the [pitch contract](../../../docs/ENG1一阶音高调制.md).
+responses at the production Q24 scale. See the [pitch contract](../../../docs/ENG1音高.md).
 
 The current regression entry points are `sim/run_audio.py` (272 integer jobs,
 including the new low four coefficient bits, sign extension and unused high bits),
@@ -53,7 +53,7 @@ PATH=$HOME/micromamba/envs/torch312/bin:$PATH \
   python python/modal_sim/eng1_cosim.py --mode intended
 ```
 
-The commands above describe the older co-simulation entry point. For the current pipeline run `python3 sim/run_audio.py --test eng1 --test bridge`; on 2026-10-29 the 256-job integer oracle and PCM/I2S bridge passed. The full integration matrix currently fails to elaborate because performance tops lack AUDIO_ENABLE. See the [current audit](../../../docs/工程评审与验证.md#global-docs-2026-10-29).
+The commands above describe the older co-simulation entry point. For the current pipeline run `python3 sim/run_audio.py --test eng1 --test bridge`; on 2026-10-29 the 256-job integer oracle and PCM/I2S bridge passed. The full integration matrix currently fails to elaborate because performance tops lack AUDIO_ENABLE. See the [current audit](../../../docs/工程验证.md#global-docs-2026-10-29).
 
 For historical reproduction use `--mode intended` explicitly: the script default still reproduces the old F05
 pipeline, while the current RTL uses the current mode's state and clears all modes.
@@ -67,10 +67,10 @@ passed its feedback, clear and full-64-mode checks; a separate current-module
 probe measured 321 cycles for 64 modes and one unintended state write for zero
 modes. These module runs use unmodified eng1 RTL. Router integration runs require
 a temporary declaration-order compatibility copy and have separate limits; see
-the [Questa supplement](../../../docs/工程评审与验证.md#questa-2026-10-28).
+the [Questa supplement](../../../docs/工程验证.md#questa-2026-10-28).
 The CLI above still invokes Icarus; the isolated Questa scripts and logs are in
 the supplement's evidence package, not a restored repository regression entry.
 
 The audio demo lives in `python/modal_sim/eng1_demo.py`; its output is under
 `FFT_results/sim/eng1/`.  Contract and divergence notes:
-[`docs/ENG1_PY_MODEL.md`](../../../docs/ENG1_PY_MODEL.md).
+[`docs/ENG1模型.md`](../../../docs/ENG1模型.md).

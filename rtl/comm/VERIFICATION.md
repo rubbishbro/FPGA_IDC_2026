@@ -90,4 +90,4 @@ build/comm_timing/comm_probe/impl/pnr/comm_probe.rpt.txt
 
 ## 2026-10-28 MIDI错误恢复增量
 
-当前默认`ISOLATE_PROTOCOL_ERRORS=1`，所有低5位协议错误及MIDI语法错误均按源隔离；每源sticky bit4合并半帧超时/MIDI语法。`python3 sim/run_comm.py --out build/midi_fixes/comm_final`的13项通过，新增截断Off来源隔离、另一来源继续工作和真实恢复屏障检查；坏CRC/长度后的用例明确请求重建后才继续。这里更新的是默认错误恢复行为，未重跑上文8种子或PnR，历史时序数字不作为修改后证明。真实声部消费者的额外回归见[MIDI当前修复](../../docs/MIDI演奏与通信接入.md#midi-bank-fixes)。
+当前默认`ISOLATE_PROTOCOL_ERRORS=1`，所有低5位协议错误及MIDI语法错误均按源隔离；每源sticky bit4合并半帧超时/MIDI语法。`python3 sim/run_comm.py --out build/midi_fixes/comm_final`的13项通过，新增截断Off来源隔离、另一来源继续工作和真实恢复屏障检查；坏CRC/长度后的用例明确请求重建后才继续。这里更新的是默认错误恢复行为，未重跑上文8种子或PnR，历史时序数字不作为修改后证明。真实声部消费者的额外回归见[MIDI当前修复](../../docs/MIDI接入.md#midi-bank-fixes)。

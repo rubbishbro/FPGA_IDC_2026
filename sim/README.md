@@ -15,7 +15,7 @@
 | python3 sim/run_flash_ref.py | 公开vendor模型的loader/音乐5项已有通过记录；Windows入口另验 |
 | npm --prefix web/midi-editor test / run check | 本次17项Node测试及语法检查通过，新增sidebars.mjs另过node --check；不含本次浏览器或物理串口验收 |
 
-本次输出在/tmp/fpga-doc-refresh-20261029，详细[文档核对记录](../docs/工程评审与验证.md#doc-refresh-board-2026-10-29)。既有持续前端35项和板级43项功能汇总属于各阶段范围，有重叠项，不能相加成独立用例总数；实际整板时序仍失败，未烧录。下文旧失败均标其执行阶段。
+本次输出在/tmp/fpga-doc-refresh-20261029，详细[文档核对记录](../docs/工程验证.md#doc-refresh-board-2026-10-29)。既有持续前端35项和板级43项功能汇总属于各阶段范围，有重叠项，不能相加成独立用例总数；实际整板时序仍失败，未烧录。下文旧失败均标其执行阶段。
 
 ## 2026-10-27 复测结果
 
@@ -38,7 +38,7 @@
 
 兼容副本的默认24000点钢琴、4096点ALL16和64次bank独立性检查通过；当前未改模块的腔体1536点逐位一致，包络／调制／eng1及原范围混响测试通过。loader仅在原行为模型内通过，旧激励TB因缺RISE_SH接线及旧波形判据失败，当前激励合同夹具28次检查通过。intended对拍仍有3个零模态失败。
 
-同时复现：eng1输出间隔4166拍（预算2083）、pending切音色提前改变模态数、7个声部帧混合系数版本。常量输出1的变异仍被音乐TB判PASS，所以音乐冒烟不等于音频正确性验收。完整结果及证据包只维护在[Questa补测记录](../docs/工程评审与验证.md#questa-2026-10-28)。
+同时复现：eng1输出间隔4166拍（预算2083）、pending切音色提前改变模态数、7个声部帧混合系数版本。常量输出1的变异仍被音乐TB判PASS，所以音乐冒烟不等于音频正确性验收。完整结果及证据包只维护在[Questa补测记录](../docs/工程验证.md#questa-2026-10-28)。
 
 以下命令依赖本机已经建立的**隔离库与夹具**，不是干净clone的一键入口：
 
@@ -62,7 +62,7 @@ python3 sim/run_midi.py
 
 两组自检：`tb_midi_note_state`检查归属、力度、踏板、清理和有序操作握手；`tb_midi_note_pipeline`连接真实MIDI parser和延迟模拟消费者，检查同帧快速On/Off不会丢失。日志与results.json默认写入build/midi，可用`--out`指定目录；脚本检查退出码、PASS以及FAIL/FATAL，编译/运行失败返回非零。
 
-本轮Icarus两组通过（状态层663次断言、管线2项操作）；Questa 2025.2隔离库复核同两组通过，编译0错误/0警告，日志在`/tmp/fpga-midi-step31-20261028/`。脚本本身使用Icarus，Questa复核不依赖修改源码或屏蔽警告。另有4项既有通信回归通过。范围与待接部分见[MIDI状态层](../docs/MIDI演奏与通信接入.md#note-state-step31)；尚未连接真实主引擎，不能据此判断声音、压力映射或硬清音通过。
+本轮Icarus两组通过（状态层663次断言、管线2项操作）；Questa 2025.2隔离库复核同两组通过，编译0错误/0警告，日志在`/tmp/fpga-midi-step31-20261028/`。脚本本身使用Icarus，Questa复核不依赖修改源码或屏蔽警告。另有4项既有通信回归通过。范围与待接部分见[MIDI状态层](../docs/MIDI接入.md#note-state-step31)；尚未连接真实主引擎，不能据此判断声音、压力映射或硬清音通过。
 
 ## MIDI接入真实router（3.2，2026-10-28）
 
@@ -74,7 +74,7 @@ python3 sim/run_router_midi.py --ini /absolute/path/modelsim.ini --out /tmp/rout
 
 脚本使用本机vlib/vlog/vsim，将完整ini复制到输出目录并绑定私有work库；默认配置来自QSIM_INI、MODELSIM或本机`~/gowin/simlib_questa/modelsim.ini`。运行`tb_midi_instrument_map`、`tb_performance_input_mux`、`tb_router_midi`、`tb_router_midi_eng1`、`tb_router_pending_config`、`tb_loader_offsets`、`tb_loader_timeout`、`tb_midi_safety`及联合配置新增的`tb_joint_config`、`tb_config_joint_result`、`tb_pad_load_failure`，以及引导模式的`tb_midi_guide_state`、`tb_midi_guide`，共13项。默认日志/results.json在`build/router_midi`；错误、超时、FAIL/FATAL或缺少PASS都返回失败，不保留上次results.json冒充新结果。
 
-真实router测试包含原激励/包络、eng0/eng1、状态RAM与后级；声学用例由测试force读返回总线提供合成系数；当前独立Flash模型实际加载系数RAM，另有16槽/32资源音高的loader与安全用例，不代表真Flash/正式音色资源通过。源清单直接编译；3.2阶段为0错误/6条端口kind默认值警告，当前完整UI清单仍有端口kind警告但0错误；没有7061抑制或临时兼容RTL。eng1增加43帧两bank混音比较，防止B结果有效拍后丢失。详细端口、六通道映射和证据范围见[3.2接入说明](../docs/MIDI演奏与通信接入.md#router-midi-step32)。
+真实router测试包含原激励/包络、eng0/eng1、状态RAM与后级；声学用例由测试force读返回总线提供合成系数；当前独立Flash模型实际加载系数RAM，另有16槽/32资源音高的loader与安全用例，不代表真Flash/正式音色资源通过。源清单直接编译；3.2阶段为0错误/6条端口kind默认值警告，当前完整UI清单仍有端口kind警告但0错误；没有7061抑制或临时兼容RTL。eng1增加43帧两bank混音比较，防止B结果有效拍后丢失。详细端口、六通道映射和证据范围见[3.2接入说明](../docs/MIDI接入.md#router-midi-step32)。
 
 压力垫历史音乐TB最终版本与修改前各256点逐点一致；此项单独使用旧TB所需的7061选项，不与正式回归的严格编译混计。没有本轮PnR、48k满规模或I2S结论。
 
@@ -86,7 +86,7 @@ python3 sim/run_router_midi.py --ini /absolute/path/modelsim.ini --out /tmp/rout
 
 摇杆测试覆盖校准、八方向、死区/迟滞、换轴/反向、连发、背压、超时和 X/Y 成对出口。侧栏已接适配器，独立 LCD demo 仍是 HAS_JOYSTICK=0，真实 ADC/矩阵逐键位置和板级方向仍待验证。
 
-接口见 [loop](../docs/控制与侧栏设计.md#control-loop)、[摇杆](../rtl/drivers/JOYSTICK_ADAPTER.md)、[侧栏接线](../docs/控制与侧栏设计.md#integration)。
+接口见 [loop](../docs/控制设计.md#control-loop)、[摇杆](../rtl/drivers/JOYSTICK_ADAPTER.md)、[侧栏接线](../docs/控制设计.md#integration)。
 
 ## router 和整数模型
 
@@ -106,7 +106,7 @@ python -m pytest -q sim/unit/eng1/test_router_eng1.py
 python python/modal_sim/eng1_cosim.py --mode intended
 ```
 
-`eng1_cosim.py` 默认仍是复刻旧 F05 的 rtl 模式，帮助文字也未同步。当前eng1已为五级流水，空作业修复由新oracle复测通过；旧TB依赖串行核内部接口，仅传intended不足以把它变为当前回归。历史向量模式比较仍应显式intended。对拍输出 `build/eng1_cosim/cases.txt` 与可执行文件，不能将 `$finish`/进程退出 0 当成功，应查看 `RESULT`。契约和模型/RTL 差异见 [ENG1 模型](../docs/ENG1_PY_MODEL.md)。
+`eng1_cosim.py` 默认仍是复刻旧 F05 的 rtl 模式，帮助文字也未同步。当前eng1已为五级流水，空作业修复由新oracle复测通过；旧TB依赖串行核内部接口，仅传intended不足以把它变为当前回归。历史向量模式比较仍应显式intended。对拍输出 `build/eng1_cosim/cases.txt` 与可执行文件，不能将 `$finish`/进程退出 0 当成功，应查看 `RESULT`。契约和模型/RTL 差异见 [ENG1 模型](../docs/ENG1模型.md)。
 
 ## 保留 core 回归
 
@@ -127,7 +127,7 @@ IVERILOG="$HOME/micromamba/envs/torch312/bin/iverilog" VVP="$HOME/micromamba/env
 - 摇杆：`sim/synth/joystick_build.tcl` 为独立适配器综合，不包含采集整链和 PnR。
 - core：`sim/synth/gowin_build.tcl` 为保留共享 RAM 探针；router 的 `syn_only.tcl/synth_pnr_router.tcl` 是另一目标。旧 Fmax/资源数均需对照源码/清单/约束及报告日期。
 
-27日既有回归见[验证记录](../docs/工程评审与验证.md#verification)；28日Questa补测及隔离新增夹具见[补测记录](../docs/工程评审与验证.md#questa-2026-10-28)。早先文档更新仅记录结果；后续3.2已修改router选源/接线并新增正式回归入口，范围见上节；没有新增PnR／上板结论。
+27日既有回归见[验证记录](../docs/工程验证.md#verification)；28日Questa补测及隔离新增夹具见[补测记录](../docs/工程验证.md#questa-2026-10-28)。早先文档更新仅记录结果；后续3.2已修改router选源/接线并新增正式回归入口，范围见上节；没有新增PnR／上板结论。
 
 ### 两组16音与MIDI安全回归（2026-10-28）
 
@@ -135,7 +135,7 @@ IVERILOG="$HOME/micromamba/envs/torch312/bin/iverilog" VVP="$HOME/micromamba/env
 
 `tb_midi_safety`使用真实16槽、32音资源，覆盖控制排空/取消/超时、run=0清理、来源/通道过滤、保持隔离下重载、持音切组、失败不提交active、显式重试和无法推进的清理故障。两组切换有装载停顿，离开当前组的On拒绝，不是32音跨组并发。
 
-镜像打包器默认16音bin/mem与原产物逐字节一致，32音131072B生成/回读通过；测试音域40..71不是正式音域。命令和参数见[当前合同](../docs/MIDI演奏与通信接入.md#midi-bank-fixes)。实施前快照、候选镜像和完整性记录在`/tmp/fpga-midi-fixes-20261028/`，回归日志在`build/midi_fixes/comm_final`、`build/midi_fixes/state`、`build/router_midi`。没有本轮PnR、真片或PCM/I2S验收。
+镜像打包器默认16音bin/mem与原产物逐字节一致，32音131072B生成/回读通过；测试音域40..71不是正式音域。命令和参数见[当前合同](../docs/MIDI接入.md#midi-bank-fixes)。实施前快照、候选镜像和完整性记录在`/tmp/fpga-midi-fixes-20261028/`，回归日志在`build/midi_fixes/comm_final`、`build/midi_fixes/state`、`build/router_midi`。没有本轮PnR、真片或PCM/I2S验收。
 
 ### 联合配置与加载失败回归（2026-10-28）
 
@@ -200,7 +200,7 @@ run_sustain可用--test frontend/config/system选择，--inst 2/3/4/5选音色�
 
 `python3 sim/run_stereo.py`运行5组移位加法空间处理整数参考与8组异步I2S线端回归；`--test unit/bridge`可单选。结果在`build/stereo/results.json`。`python3 sim/run_audio.py --test stereo`运行eng0/eng1和MIDI/PAD四组真实合成动态声像对拍，已纳入该运行器默认矩阵。`python3 sim/run_board.py --test stereo_sweep`验证板级自动扫动实际接线，默认板级矩阵也包含它。Questa需已配置的本机运行环境；运行器不会把编译成功当作仿真成功。
 
-独立无DSP综合脚本为`sim/synth/stereo_build.tcl`，使用显式100MHz时钟约束，并检查实际网表中没有MULT/DSP/PADD原语。综合估算Fmax不等于PnR验收。方案、完整用法与本轮结果见[双声道空间定位方案](../docs/双声道空间定位方案.md)。
+独立无DSP综合脚本为`sim/synth/stereo_build.tcl`，使用显式100MHz时钟约束，并检查实际网表中没有MULT/DSP/PADD原语。综合估算Fmax不等于PnR验收。方案、完整用法与本轮结果见[双声道空间定位方案](../docs/音频设计.md)。
 
 ## MIDI引导演奏（2026-10-29）
 
@@ -220,7 +220,7 @@ INSTRUMENT_BUILD_DIR=build/guide_synth QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=
 
 `python3 sim/run_board.py --test polar --test visualizer`新增两项：四象限CORDIC角度/半径、生产板级PCM抽头的2050样本跨域顺序/饱和、真实FFT非零频谱、观测溢出诊断及复位清队列。独立夹具仅在观测抽头注入测试PCM，整板system/guide用例仍使用真实合成链。私有运行目录会复制board/*.mem，不依赖旧work库中的FFT ROM。
 
-极坐标页替代style2原平面历史绘制；原lcd_curve_spectrum单元保留可独立回归。默认菜单/引导叠加及两张侧栏golden保持，物理时序/听感需另验。完整结果见[迁移验证](../docs/工程评审与验证.md#board50-migration-2026-10-30)。
+极坐标页替代style2原平面历史绘制；原lcd_curve_spectrum单元保留可独立回归。默认菜单/引导叠加及两张侧栏golden保持，物理时序/听感需另验。完整结果见[迁移验证](../docs/工程验证.md#board50-migration-2026-10-30)。
 
 ## ENG1一阶音高调制
 
@@ -229,4 +229,4 @@ INSTRUMENT_BUILD_DIR=build/guide_synth QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=
 以及真实P1T1资源的MIDI/I2S整链；默认系统测试为50MHz、16槽12000采样，
 可用`--core-hz`和`--samples`选择配置。输出在`build/eng1_pitch/unit`或显式`--out`目录。
 `sim/check_pitch_resources.py`检查完整资源目录，`sim/check_pitch_dynamics.py`检查一秒受驱/自由衰减。
-生产实现与资源格式见[ENG1一阶音高调制](../docs/ENG1一阶音高调制.md)。
+生产实现与资源格式见[ENG1一阶音高调制](../docs/ENG1音高.md)。

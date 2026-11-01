@@ -1,8 +1,8 @@
-# MIDI 演奏与通信接入
+# MIDI接入
 
-更新：2026-10-29。第3.1/3.2及9/10节保留各实施阶段范围；当前代码差异和日期化结果分别以[问题台账](bugs.md)与[最新核对](工程评审与验证.md#global-docs-2026-10-29)为准。演奏状态、两组16音、加载失败保护和UI联合配置已有；当前忙时panic逻辑不再等同于原测试快照，音频顶层接线已恢复，逐槽持续激励/ADSR已实施，本轮结果见[实施验证](工程评审与验证.md#sustain-implementation-2026-10-29)。持续音色前端统一见[设计与基线](ENG1演奏前端设计.md)。
+更新：2026-10-29。第3.1/3.2及9/10节保留各实施阶段范围；当前代码差异和日期化结果分别以[问题台账](bugs.md)与[最新核对](工程验证.md#global-docs-2026-10-29)为准。演奏状态、两组16音、加载失败保护和UI联合配置已有；当前忙时panic逻辑不再等同于原测试快照，音频顶层接线已恢复，逐槽持续激励/ADSR已实施，本轮结果见[实施验证](工程验证.md#sustain-implementation-2026-10-29)。持续音色前端统一见[设计与基线](ENG1前端.md)。
 
-本页只维护MIDI功能范围、演奏状态/音高适配、线上配置到内部请求的转换和恢复语义。通信位/帧/解析已有实现；演奏状态层和router内MIDI选源已连接真实eng0/eng1仿真，统一板级已有REVERB_SET真实结果桥，其它CC/EQ/Bend DSP仍待接。线上字段/编码只在 [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md) 维护；本地配置字典/提交/CDC见 [控制与侧栏](控制与侧栏设计.md)，日期化结果见 [工程评审与验证](工程评审与验证.md)。
+本页只维护MIDI功能范围、演奏状态/音高适配、线上配置到内部请求的转换和恢复语义。通信位/帧/解析已有实现；演奏状态层和router内MIDI选源已连接真实eng0/eng1仿真，统一板级已有REVERB_SET真实结果桥，其它CC/EQ/Bend DSP仍待接。线上字段/编码只在 [PROTOCOL_V1](../rtl/drivers/analyzer/PROTOCOL_V1.md) 维护；本地配置字典/提交/CDC见 [控制与侧栏](控制设计.md)，日期化结果见 [工程评审与验证](工程验证.md)。
 
 **统一板级远程桥见[第11节](#board-config-bridge)**；当前联合配置与接线见[第10节](#joint-config-backend)，两组16音基础见[第9节](#midi-bank-fixes)：32音资源按两组16音切换，保留16个发声槽，不引入动态单槽装载或新增生产模块。第8节保存总体合同，未实现的DSP能力和整机验证不计入已完成。
 
@@ -193,7 +193,7 @@ Program/Bend/CC1/7/11通过`control_valid/control_ready/control_data/control_sou
 ### Pitch Bend 的DSP边界（方案）
 
 2026-10-30：四种B类音色现已接入内部Pitch Bend/CC1消费者，统一一阶a1调制、
-后台影子系数与连续相位激励，详见[实现合同](ENG1一阶音高调制.md)。Bend固定±2半音，
+后台影子系数与连续相位激励，详见[实现合同](ENG1音高.md)。Bend固定±2半音，
 CC1为0..20 cents颤音深度；确认与帧间提交同拍。缺少P1T1参数的旧Q2.24资源拒绝调制。
 下文列举的其它DSP路线保留为方案背景，eng0仍按自己的矩阵合同处理。
 
@@ -571,7 +571,7 @@ RESOURCE_MASK按router音色ID给出真实资源存在位，默认只开钢琴�
 
 来源清理/操作退休已接真实MIDI消费者。加载故障保留屏障，本地8001清音/重载或整板复位恢复后再接受远程配置。有线会话隔离后依当前板级流程整板复位；HC-05启用STATE才可依重新连接提出restart，菜单8002尚未开放。忙时硬panic和音频队列flush仍按既有边界保留。
 
-接线/时钟/默认资源只维护在[板级说明](../rtl/platform/tang_mega_138k_pro/README.md)，功能及物理时序证据见[第一阶段验证](工程评审与验证.md#board-integration-2026-10-29)。功能仿真通过不等于真实UART/Flash/DAC或目标频率通过。
+接线/时钟/默认资源只维护在[板级说明](../rtl/platform/tang_mega_138k_pro/README.md)，功能及物理时序证据见[第一阶段验证](工程验证.md#board-integration-2026-10-29)。功能仿真通过不等于真实UART/Flash/DAC或目标频率通过。
 
 <a id="midi-guide"></a>
 ## 12. 串口／蓝牙引导演奏（2026-10-29实现）
@@ -634,4 +634,4 @@ RTL修改集中在midi_voice_top的配置/事件准入及实际合成选择接�
 
 实施验证分四层：提示状态单测（和弦、零力度On、重复On、短音、来源/通道、范围、CC和清理）；路由/配置集成（自动与引导互斥、持键切换、错误结果及加载失败）；显示CDC/截图（16个键逐个、和弦、80ms余辉、边界快照、侧栏及RGB/DE）；整版回归及实物联调。核心验收为“无用户按键，输入MIDI不产生新合成音；按正确或其它实体键仍按实际键位和压力发声；自动模式回归正常”。无新音断言检查起音/门控及清理后的干声，不能把已有尾音误判成MIDI偷发声。资源与目标频率是否满足须以综合/PnR及实测另行确认。
 
-验证入口：`python3 sim/run_router_midi.py`含新增`tb_midi_guide_state`（90次检查）及`tb_midi_guide`（36次检查，真实菜单／CDC／loader／16槽合成，合成Flash系数）；`python3 sim/run_ui.py --legacy`含`tb_guide_render`逐格颜色和四拍RGB/DE检查，输出`build/sidebar/guide.ppm`及侧栏覆盖图。整版真实协议／ADC模型变体为`python3 sim/run_board.py --test guide`。来源选择默认普通自动演奏，UI路径为“输入→演奏来源→有线／蓝牙MIDI”，再“输入→演奏方式→引导演奏”；当前页面不受0400显示样式控制。日期化执行结果见[引导模式验证](工程评审与验证.md#midi-guide-2026-10-29)。
+验证入口：`python3 sim/run_router_midi.py`含新增`tb_midi_guide_state`（90次检查）及`tb_midi_guide`（36次检查，真实菜单／CDC／loader／16槽合成，合成Flash系数）；`python3 sim/run_ui.py --legacy`含`tb_guide_render`逐格颜色和四拍RGB/DE检查，输出`build/sidebar/guide.ppm`及侧栏覆盖图。整版真实协议／ADC模型变体为`python3 sim/run_board.py --test guide`。来源选择默认普通自动演奏，UI路径为“输入→演奏来源→有线／蓝牙MIDI”，再“输入→演奏方式→引导演奏”；当前页面不受0400显示样式控制。日期化执行结果见[引导模式验证](工程验证.md#midi-guide-2026-10-29)。

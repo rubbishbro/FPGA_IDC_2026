@@ -129,7 +129,7 @@ end
 
 **参考模型：** `python/modal_sim/router_eng1.py` 的 `rtl_compat=True` 已按本行为复刻；
 `python/modal_sim/eng1_cosim.py` 用 iverilog 跑 66 个作业逐位对拍当前 RTL 并 PASS。
-修完本项后改用默认（intended）模式，见 `docs/ENG1_PY_MODEL.md`。
+修完本项后改用默认（intended）模式，见 `docs/ENG1模型.md`。
 
 ## F06：调制器重复启动
 
