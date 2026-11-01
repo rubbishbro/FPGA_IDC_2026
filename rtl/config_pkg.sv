@@ -34,6 +34,7 @@ package config_pkg;
         case(channel)
             1:midi_instrument=1; 2:midi_instrument=0; 3:midi_instrument=3;
             4:midi_instrument=5; 5:midi_instrument=4; 6:midi_instrument=2;
+            7:midi_instrument=10;8:midi_instrument=11;
             default:midi_instrument=16'hffff;
         endcase
     endfunction
@@ -41,12 +42,20 @@ package config_pkg;
         case(instrument)
             0:instrument_channel=2; 1:instrument_channel=1; 2:instrument_channel=6;
             3:instrument_channel=3; 4:instrument_channel=5; 5:instrument_channel=4;
+            10:instrument_channel=7;11:instrument_channel=8;
             default:instrument_channel=0;
         endcase
     endfunction
+    function automatic logic[7:0] instrument_label(input logic[15:0] instrument);
+        case(instrument)
+            10:return 8'd124;
+            11:return 8'd125;
+            default:return instrument<=9 ? 8'(100+instrument) : 8'd72;
+        endcase
+    endfunction
     function automatic logic audio_config_valid(input audio_config_t a);
-        return !(a.source==0 && a.guide) && a.source<=2 && a.reverb<=2 && a.instrument<=9 &&
-               a.channel>=1 && a.channel<=6 &&
+        return !(a.source==0 && a.guide) && a.source<=2 && a.reverb<=2 && a.instrument<=11 &&
+               a.channel>=1 && a.channel<=8 &&
                (a.source==0 || midi_instrument(a.channel)==a.instrument);
     endfunction
     function automatic logic audio_parameter(input logic [15:0] id);

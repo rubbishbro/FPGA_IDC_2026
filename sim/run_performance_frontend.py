@@ -26,21 +26,21 @@ def main():
     m=json.loads((ROOT/'rtl/router/tools/performance/resources.json').read_text())
     samples=0
     with (out/'frontend_expected.txt').open('w') as f:
-        for name,ident in [('piano',0),('guitar',1),('trumpet',3),('violin',5)]:
+        for name,ident in [('piano',0),('guitar',1),('trumpet',3),('violin',5),('piano_abc',10),('guitar_abc',11)]:
             cfg=m['frontends'][name];row=next(e for e in m['entries'] if e['name']==name)
             if name=='trumpet':aa,rr=row['a_step'],row['r_step'];sustain,decay=0x1fffffff,1048576
             else:aa,rr=cfg['a_step'],cfg['r_step'];sustain,decay=cfg['s_level'],cfg['d_step']
             env=E.Envelope([aa],[rr],sustain_level=sustain,decay_step=decay)
-            if name in ('piano','guitar'):
-                exc=A.Strike(name,1);exc.rise=cfg['rise_sh'];exc.width=cfg['pw_len'];exc.gap=cfg['gap_len'];exc.pulses=cfg['n_pulse']
+            if name in ('piano','guitar','piano_abc','guitar_abc'):
+                exc=A.Strike('piano' if 'piano' in name else 'guitar',1);exc.rise=cfg['rise_sh'];exc.width=cfg['pw_len'];exc.gap=cfg['gap_len'];exc.pulses=cfg['n_pulse']
             else:exc=E.Excitation([row['period']])
             period=row.get('period',2)
             for n in range(38000):
                 gate=np.array([n<4000 or 37000<=n<37500]);trig=np.array([n==2000]);clear=np.array([n==2500])
                 level=np.array([255 if n<1000 else 129]);zero=np.zeros(1,dtype=np.int64)
                 old=env.level.copy();e=env.step(gate,trig,clear)
-                if name in ('piano','guitar'):e=np.where(trig|clear,0,old)
-                x=exc.step(level,gate,trig,clear) if name in ('piano','guitar') else exc.step(gate,level,trig,clear,zero)
+                if name in ('piano','guitar','piano_abc','guitar_abc'):e=np.where(trig|clear,0,old)
+                x=exc.step(level,gate,trig,clear) if name in ('piano','guitar','piano_abc','guitar_abc') else exc.step(gate,level,trig,clear,zero)
                 f.write(f'{ident} {int(gate[0])} {level[0]} {int(trig[0])} {int(clear[0])} {period} {aa} {rr} {x[0]} {e[0]} {int(env.dead[0])}\n')
                 samples+=1
     files=[ROOT/p for p in ['rtl/router/pkg/router_pkg.sv','rtl/router/parts/envelope.sv',

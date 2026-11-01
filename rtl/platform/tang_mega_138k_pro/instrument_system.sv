@@ -4,10 +4,10 @@ module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=0, BT_HAS_STATE=0, BT_PROTOCOL_V2=0,
-    parameter int PCM_HEADROOM_BITS=4,
+    parameter int PCM_HEADROOM_BITS=3,
     parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [6:0] FIRST_MIDI=48,
-    parameter logic [9:0] RESOURCE_MASK=10'b0000101011,
+    parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,
@@ -294,10 +294,10 @@ module instrument_system #(
     );
 
     // Pixel FFT data and local guide/menu overlays share the existing sidebar path.
-    // Relative to the former X-normal/Y-inverted profile:
-    // old DOWN->LEFT, UP->RIGHT, LEFT->UP, RIGHT->DOWN.
+    // Keep the swapped axes and horizontal orientation; flip only final UP/DOWN
+    // relative to the 2026-10-31 profile (previously JOY_INVERT_Y=1).
     sidebar_system #(.CTRL_HZ(CLK_HZ),.AUDIO_BACKEND(1),.JOY_FILTER_CENTER(1),
-                     .JOY_SWAP_XY(1),.JOY_INVERT_X(1),.JOY_INVERT_Y(1),
+                     .JOY_SWAP_XY(1),.JOY_INVERT_X(1),.JOY_INVERT_Y(0),
                      .REVERSE_SCAN(LCD_ROTATE_180),.FONT_FILE(FONT_FILE),
                      .JOY_DEADZONE_ON(200),.JOY_DEADZONE_OFF(100)) u_ui(
         .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),

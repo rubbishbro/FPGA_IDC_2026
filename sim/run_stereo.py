@@ -6,7 +6,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 def generate(path,max_itd):
     rng=random.Random(20261029)
-    knots=[round(256*(32-i)/math.hypot(32-i,i)) for i in range(33)]
+    knots=[round(256*(32-i)/max(32-i,i)) for i in range(33)]
     def gain(pos):
         i,f=divmod(pos,16)
         return knots[i]*16 if i==32 else knots[i]*(16-f)+knots[i+1]*f
@@ -51,16 +51,41 @@ def generate(path,max_itd):
         if k and other:max_ild=max(max_ild,abs(20*math.log10((k/other)/((32-i)/i))))
     assert knots==sorted(knots,reverse=True)
     assert all(gain(p)>=gain(p+1) for p in range(512))
-    assert gain(0)==4096 and gain(256)==2896 and gain(512)==0
-    return dict(rows=len(rows),max_itd=max_itd,knots=knots,max_knot_power_error_db=max_power,max_knot_ild_error_db=max_ild)
+    assert gain(0)==4096 and gain(256)==4096 and gain(512)==0
+    assert all(max(gain(p),gain(512-p))==4096 for p in range(513))
+    return dict(rows=len(rows),max_itd=max_itd,knots=knots,max_total_power_increase_db=max_power,max_knot_ild_error_db=max_ild)
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',type=Path,default=ROOT/'build/stereo')
     ap.add_argument('--test',action='append',choices=['unit','bridge'])
+    ap.add_argument('--verilator',help='Use Verilator instead of Questa')
     args=ap.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     (out/'results.json').unlink(missing_ok=True)
     metrics=[generate(out/f'vectors_{m}.txt',m) for m in (0,1,2,4,8)]
+    if args.verilator:
+        sources=['rtl/audio/audio_async_fifo.sv','rtl/audio/i2s_amp_tx.sv','rtl/audio/stereo_spatializer.sv',
+                 'rtl/audio/i2s_audio_output.sv','sim/unit/audio/tb_stereo_spatializer.sv','sim/unit/audio/tb_i2s_stereo.sv']
+        cases=[];tests=args.test or ['unit','bridge']
+        if 'unit' in tests:cases += [('tb_stereo_spatializer',dict(MAX_ITD=m)) for m in (0,1,2,4,8)]
+        if 'bridge' in tests:
+            cases += [('tb_i2s_stereo',dict(HEADROOM=h,MAX_ITD=4,EXACT_48K=e)) for h in (0,3,53) for e in (0,1)]
+            cases += [('tb_i2s_stereo',dict(HEADROOM=3,MAX_ITD=m,EXACT_48K=0)) for m in (0,8)]
+        results=[]
+        for top,params in cases:
+            name=top+''.join(f'_{k}{v}' for k,v in params.items());obj=out/name
+            cmd=[args.verilator,'--binary','--timing','--timescale','1ns/1ps','-Wno-fatal',
+                 '--top-module',top,'-j','4','--Mdir',str(obj),'-MAKEFLAGS','CFG_CXXFLAGS_PCH_I=-include',
+                 *[f'-G{k}={v}' for k,v in params.items()],*[str(ROOT/s) for s in sources]]
+            with (out/(name+'_compile.log')).open('w') as log:
+                subprocess.run(cmd,cwd=out,stdout=log,stderr=subprocess.STDOUT,check=True)
+            p=subprocess.run([str(obj/('V'+top)),f'+VECTORS={out}/vectors_{params["MAX_ITD"]}.txt'],cwd=out,capture_output=True,text=True,timeout=180)
+            (out/(name+'.log')).write_text(p.stdout+p.stderr)
+            if p.returncode or 'PASS '+top not in p.stdout:raise RuntimeError(p.stdout+p.stderr)
+            summary=[line for line in p.stdout.splitlines() if 'PASS '+top in line]
+            print('\n'.join(summary),flush=True);results.append(dict(test=top,parameters=params,passed=True,summary=summary))
+        (out/'results.json').write_text(json.dumps(dict(metrics=metrics,tests=results),indent=2)+'\n')
+        return
     ini=Path(os.environ.get('QSIM_INI') or str(Path.home()/'gowin/simlib_questa/modelsim.ini'))
     work=out/'work';s=re.sub(r'^work\s*=.*$','work = '+str(work),ini.read_text(),flags=re.M)
     (out/'modelsim.ini').write_text(s);env=os.environ.copy();env['QSIM_INI']=str(out/'modelsim.ini');env['MODELSIM']=env['QSIM_INI']

@@ -29,7 +29,7 @@ module env_router #(
 
     always_comb begin
         case (inst)
-            router_pkg::INST_PIANO: begin
+            router_pkg::INST_PIANO,router_pkg::INST_PIANO_ABC: begin
                 // TODO: 核听 400 ms Release，其余暂保留现值。
                 use_adsr = 1'b1;
                 a_step = 32'd16_777_216;
@@ -38,7 +38,7 @@ module env_router #(
                 // 本地调音：release 比 400 ms 的 PIANO_R_STEP 更短
                 r_step = 32'd21_845;
             end
-            router_pkg::INST_GUITAR: begin
+            router_pkg::INST_GUITAR,router_pkg::INST_GUITAR_ABC: begin
                 // 本地调音：满幅 sustain、无 decay，release 走 74_566/2^31 每采样
                 use_adsr = 1'b1;
                 a_step = 32'd89_478_486;

@@ -24,7 +24,7 @@ module eng1_pitch #(
     import pitch_tables_pkg::*;
     localparam int IW=$clog2(N_MODES),SW=$clog2(SLOTS),TW=$clog2(INTERVAL+1);
     typedef enum logic [4:0] {IDLE,SETUP,VIB_MUL,VIB_APPLY,RATIO_LD,RATIO_MUL,RATIO_APPLY,
-        RD,WAIT_RD,CO_LD,CO_MUL,CO_APPLY,CO_OUT,COMMIT,ACK} state_t;
+        RD,WAIT_RD,CO_LD,CO_MUL,CO_APPLY,CO_OUT,COMMIT,ACK,VIB_ROUND} state_t;
     state_t st;
     logic [13:0] bend[2],candidate_bend[2];
     logic [6:0] wheel[2],candidate_wheel[2];
@@ -46,6 +46,7 @@ module eng1_pitch #(
     logic signed [23:0] mul_a;
     logic signed [24:0] mul_b;
     logic signed [48:0] product;
+    logic signed [31:0] vibration_q;
     logic signed [31:0] vibration,target,slewed,offset,bend_center;
     logic signed [63:0] adjusted;
     wire cancelled=control_job && control_cancel;
@@ -63,7 +64,7 @@ module eng1_pitch #(
     assign co_addr={slot,mode};
     assign co_we=st==CO_OUT && !clear && !cancelled && !(|cleanup);
     always_comb begin
-        vibration=32'((product+49'sd16384)>>>15);
+        vibration=vibration_q;
         bend_center=32'($signed({1'b0,candidate_bend[source]}))-8192;
         target=(((bend_center<<<4)+(bend_center<<<3)+bend_center)>>>2)+vibration;
         if(target>56320)target=56320;
@@ -87,6 +88,7 @@ module eng1_pitch #(
             source<=0;sources_job<=0;active_sources<=0;nm<=0;slot<=0;mode<=0;
             ratio_base<=0;ratio_index<=0;ratio_fraction<=0;lower_q<=0;base_q<=0;upper_q<=0;
             mul_a<=0;mul_b<=0;
+            vibration_q<=0;
             for(int s=0;s<2;s++)begin
                 bend[s]<=8192;candidate_bend[s]<=8192;wheel[s]<=0;candidate_wheel[s]<=0;
                 cents[s]<=0;next_cents[s]<=0;next_delta[s]<=0;current_delta[s]<=0;
@@ -129,7 +131,12 @@ module eng1_pitch #(
                     mul_b<=25'({1'b0,pitch_depth({2'b0,candidate_wheel[source]})});
                     st<=VIB_MUL;
                 end
-                VIB_MUL:st<=VIB_APPLY;
+                VIB_MUL:st<=VIB_ROUND;
+                // Isolate rounding from target clamp/slew and ratio indexing.
+                // One extra preparation clock per source; commit stays atomic.
+                VIB_ROUND:begin
+                    vibration_q<=32'((product+49'sd16384)>>>15);st<=VIB_APPLY;
+                end
                 VIB_APPLY:begin
                     next_cents[source]<=18'(slewed);ratio_index<=9'(offset>>>8);ratio_fraction<=offset[7:0];st<=RATIO_LD;
                 end

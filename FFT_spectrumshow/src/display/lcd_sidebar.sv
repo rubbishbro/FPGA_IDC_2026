@@ -31,7 +31,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
     endcase
     function automatic logic[7:0] value_label(input integer index,input integer value);
         case(index)
-            0:value_label=(value>=0&&value<=9)?8'(100+value):8'd72;
+            0:value_label=config_pkg::instrument_label(16'(value));
             2:value_label=value==0?50:(value==1?52:53);
             3,8,9,10:value_label=value==0?50:51;
             5:value_label=value==0?59:60;

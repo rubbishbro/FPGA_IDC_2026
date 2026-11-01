@@ -22,18 +22,43 @@ module stereo_spatializer #(
                    ITD_MAX_SAMPLES==2 || ITD_MAX_SAMPLES==4 || ITD_MAX_SAMPLES==8))
         $error("stereo_spatializer ITD_MAX_SAMPLES must be 0/1/2/4/8");
 
-    // round(256*(1-p)/sqrt(2*(1+p*p))), p=(index-16)/16.
-    // The right coefficient is the exact mirror of this table.
+    // Preserve L:R ratio with max(L,R)=1. Center is unity on both channels.
+    // Ratio is precomputed offline; no division on the audio input.
     function automatic logic [8:0] gain_lut(input logic [5:0] index);
         case(index)
-             0,1:gain_lut=256; 2,3:gain_lut=255; 4:gain_lut=253;
-             5:gain_lut=252; 6:gain_lut=249; 7:gain_lut=247; 8:gain_lut=243;
-             9:gain_lut=238;10:gain_lut=233;11:gain_lut=227;12:gain_lut=220;
-            13:gain_lut=211;14:gain_lut=202;15:gain_lut=192;16:gain_lut=181;
-            17:gain_lut=169;18:gain_lut=157;19:gain_lut=145;20:gain_lut=132;
-            21:gain_lut=119;22:gain_lut=106;23:gain_lut=93;24:gain_lut=81;
-            25:gain_lut=69;26:gain_lut=58;27:gain_lut=47;28:gain_lut=36;
-            29:gain_lut=26;30:gain_lut=17;31:gain_lut=8;
+            6'd0:gain_lut=9'd256;
+            6'd1:gain_lut=9'd256;
+            6'd2:gain_lut=9'd256;
+            6'd3:gain_lut=9'd256;
+            6'd4:gain_lut=9'd256;
+            6'd5:gain_lut=9'd256;
+            6'd6:gain_lut=9'd256;
+            6'd7:gain_lut=9'd256;
+            6'd8:gain_lut=9'd256;
+            6'd9:gain_lut=9'd256;
+            6'd10:gain_lut=9'd256;
+            6'd11:gain_lut=9'd256;
+            6'd12:gain_lut=9'd256;
+            6'd13:gain_lut=9'd256;
+            6'd14:gain_lut=9'd256;
+            6'd15:gain_lut=9'd256;
+            6'd16:gain_lut=9'd256;
+            6'd17:gain_lut=9'd226;
+            6'd18:gain_lut=9'd199;
+            6'd19:gain_lut=9'd175;
+            6'd20:gain_lut=9'd154;
+            6'd21:gain_lut=9'd134;
+            6'd22:gain_lut=9'd116;
+            6'd23:gain_lut=9'd100;
+            6'd24:gain_lut=9'd85;
+            6'd25:gain_lut=9'd72;
+            6'd26:gain_lut=9'd59;
+            6'd27:gain_lut=9'd47;
+            6'd28:gain_lut=9'd37;
+            6'd29:gain_lut=9'd26;
+            6'd30:gain_lut=9'd17;
+            6'd31:gain_lut=9'd8;
+            6'd32:gain_lut=9'd0;
             default:gain_lut=0;
         endcase
     endfunction
@@ -95,7 +120,7 @@ module stereo_spatializer #(
     always_ff @(posedge clk or negedge rst_n)begin
         if(!rst_n)begin
             state<=IDLE;out_valid<=0;out_left<=0;out_right<=0;
-            position_q4<=256;gain_left_q12<=13'd2896;gain_right_q12<=13'd2896;
+            position_q4<=256;gain_left_q12<=13'd4096;gain_right_q12<=13'd4096;
             delay_left_q6<=0;delay_right_q6<=0;valid_count<=0;clear_q<=0;
             itd_q<=0;mirror_pos<=256;target_dl<=0;target_dr<=0;
             interp_l<=0;interp_r<=0;delta_l<=0;delta_r<=0;interp_frac_l<=0;interp_frac_r<=0;

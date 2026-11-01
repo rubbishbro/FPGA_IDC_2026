@@ -40,6 +40,9 @@ module exc_router #(
     always_comb begin
         case (inst)
             router_pkg::INST_PIANO: begin
+                shift=6'd16;rise_sh=6'd5;pw_len=16'd32;gap_len=16'd448;n_pulse=3'd3;
+            end
+            router_pkg::INST_PIANO_ABC: begin
                 // 钢琴击弦：对齐 sythsound/sim_piano.py::SF 的形状（方案 B）
                 //   Python: 0.5 ms 线性上升 + 1 ms 指数尾巴 + 10 ms 一个 + 0.7^k 递减，4 个
                 //   这里:   2 采样上升 + 指数尾巴 + 周期 480(10 ms) + 0.6875^k
@@ -53,7 +56,7 @@ module exc_router #(
                 gap_len = 16'd478;
                 n_pulse = 3'd3;
             end
-            router_pkg::INST_GUITAR: begin
+            router_pkg::INST_GUITAR,router_pkg::INST_GUITAR_ABC: begin
                 // TODO: 核定拨弦形状；暂保留两采样上升、单次拨弦。
                 shift = 6'd16;
                 rise_sh = 6'd1;

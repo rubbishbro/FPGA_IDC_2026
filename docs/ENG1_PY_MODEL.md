@@ -2,7 +2,7 @@
 
 更新：2026-10-30。本页前半部分为当前生产合同；后半部分保留迁移前 Q30 文档，供历史实验追溯。
 
-接入更新（2026-11-01）：钢琴/吉他已由eng0迁入eng1，正式资源使用`rtl/router/tools/performance/`的ABC/P1T1四音色镜像，不能继续部署旧矩阵BIN。`Eng1Synth`仍负责B类模型；其中violin已同步生产的20ms/full sustain/80ms包络，旧逐槽A/R仍用于flute/trumpet/cello。钢琴/吉他前端的激励、包络旧level时序及资源格式由新增性能资源回归验证；历史试听中的旧默认配置按各自日期解释。
+接入更新（2026-11-01，更正）：eng0矩阵钢琴1/吉他1保留ID0/1；eng1的钢琴2/吉他2新增ID10/11，与小号3、小提琴5共用固定步长Flash和原engine mux。`performance/`为六音色混合格式镜像，不能把矩阵/ABC装到错误编号。公共PCM headroom=3，逐音Q12增益与声部数补偿见[双引擎接入与增益](双引擎接入与增益_2026-11-01.md)。`Eng1Synth`仍负责B类，已同步小提琴20ms/full sustain/80ms、部署16音的增益表、release声部计数及复音增益；`performance_chain.RawPerformance`从真实混合镜像读取六种音色，提供校准前的整数递推/激励/包络参考。资源范围外的音符默认单位增益，不属于本次电平标定。
 
 ## 当前入口
 
@@ -42,7 +42,7 @@ synth.note_off(slot)                # 普通释放，保留模态尾音至清零
 | 动态音高 | 双来源Bend/CC1、slew、ROM插值、不可变base/K、一阶a1更新、完整影子批次和原子提交；支持取消、清理、坏P1T1拒绝 |
 | 腔体 | 四种B音色在当前body_router均为直通，未擅自加额外音色滤波 |
 | 混响 | NONE/HALL/BATHROOM均按当前SV表达式宽度复刻，包括F09截断和清空末端边界；没有替RTL修正声音 |
-| 双声道/PCM | ILD插值、位置slew、分数ITD、清空、Q24到PCM16的headroom/舍入/限幅；默认headroom=3，未归一化 |
+| 双声道/PCM | ILD插值、位置slew、分数ITD、清空、Q24到PCM16的headroom/舍入/限幅；默认headroom=3；声像max(L,R)=1，中心单位增益；无逐文件试听归一化 |
 
 `Frame`返回 `x/emap/y/mix/out/pcm/delta/zero/idle`，便于追查差异。`out`是混响后的Q24整数，`pcm`是输出定标后的左右声道。
 `step(active=False)`只屏蔽输出PCM并清空间定位历史；不会把仍在持音的声部假报为空闲。停止DSP采样推进时不要调用`step()`。
@@ -55,7 +55,7 @@ PAD可调用`step_pad(pressure, on_threshold=64, off_threshold=48)`使用板端�
 默认构造/`reset()`表示初始清零已退休、后端可准入音符。换输入来源/配置的完整握手仍由RTL外层负责。
 
 `PitchEngine.clock()`单独逐core时钟建模真实eng1_pitch FSM（包括参数RAM同步读），可以显式驱动sample_tick、commit_ok、control、cancel、cleanup和slot_source。
-高层`control()`队列使用该FSM，按core_hz/sample_rate推进；默认50MHz、16槽帧忙窗598拍，忙窗内禁止提交、帧间原子提交。
+高层`control()`队列使用该FSM，按core_hz/sample_rate推进；默认50MHz、16槽帧忙窗632拍（以router内部采样边界计，公共逐音/复音增益接入后实测），忙窗内禁止提交、帧间原子提交。新增采样边界寄存后，从原始I2S tick计的整链路最大延迟为633拍；该1拍边界延迟不计入高层模型忙窗。
 `frame_busy_cycles`是显式调度参数，不是新建的完整voice_router逐拍模拟；原始MIDI到声音的绝对延迟不由这个简化调度证明。
 
 逐帧回放接口`step(gate=..., level=..., retrigger=..., clear=..., sources=..., committed_delta=...)`接受实际RTL采集的输入/原子比例快照。
@@ -73,7 +73,7 @@ PAD可调用`step_pad(pressure, on_threshold=64, off_threshold=48)`使用板端�
 | B类baseline | 使用当前ENG1整数模型和资源的离线乐谱渲染 | 没有该片段的RTL/PAD对拍，不能称为已验证板端演奏 |
 | 小号EQ、G、包络、脉冲形状、抖动、噪声候选 | 修改Python算法/资源或离线处理 | 未进入当前生产RTL；保留作听感实验 |
 | 小提琴release_only/bow_legato | 修改Python包络；bow_legato还改写gate、重叠和同音重触发 | 不能据其音频证明当前RTL的连奏能力 |
-| 钢琴/吉他eng1试听 | 实验A类模型 | 不代表生产eng0声音或完整矩阵演奏 |
+| 钢琴2/吉他2eng1试听 | A类模型 | 已接新增ID10/11；钢琴1/吉他1仍为eng0声音或完整矩阵演奏 |
 
 小号新激励的“暂定”仅保留为离线听感偏好，撤回其作为当前RTL方案确认的含义。不同Python路径输出相同、无触轨、WAV检查通过均不替代RTL对拍。归一化/淡出的试听WAV也不是位精确RTL PCM。
 

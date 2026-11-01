@@ -4,7 +4,7 @@ Q24 input/state, 64 stored / 48 computed modes, four sustained instruments.
 The DSP consumes accepted gate/level/retrigger/clear snapshots, not raw MIDI
 bytes. PitchEngine separately models the core-clock pitch FSM. Loader/QSPI,
 MIDI queues and audio FIFO/serializer clocks are outside this sample model.
-Known RTL reverb truncation is intentional here; this is not an ideal DSP.
+Reverb uses full-width products and signed saturation, matching production RTL.
 """
 from __future__ import annotations
 
@@ -194,7 +194,7 @@ class Envelope:
 
 
 class Reverb:
-    """Current comb_reverb + reverb_router, with SV expression widths (F09)."""
+    """Current comb_reverb + reverb_router, full-width products and saturation."""
     def __init__(self, preset='NONE'):
         self.preset = None
         self.configure(preset)
@@ -221,23 +221,21 @@ class Reverb:
         for i in range(4):
             at = self.pointers[i]
             s = 0 if clear else self.lines[i][at]
-            feedback = R.wrap_signed(s*p.feedback[i], 64) >> 27
-            taps.append(R.wrap_signed(s*p.weight[i], 69) >> 27)
+            feedback = (s*p.feedback[i]) >> 27
+            taps.append((s*p.weight[i]) >> 27)
             self.lines[i][at] = R.sat_signed(int(x)+feedback, 64)
             self.pointers[i] = 0 if at+1 >= p.lengths[i] else at+1
         self.clear_count = min(2048, self.clear_count+1)
         total = sum(taps)
-        # RTL sum_sat selects overflow direction using bit63, not bit70.
-        wet = total if -(1 << 63) <= total < (1 << 63) else (
-            -(1 << 63) if (total >> 63) & 1 else (1 << 63)-1)
-        dry = R.wrap_signed(int(x)*p.dry, 69) >> 27
-        wet = R.wrap_signed(wet*p.wet, 69) >> 27
+        wet = R.sat_signed(total, 64)
+        dry = (int(x)*p.dry) >> 27
+        wet = (wet*p.wet) >> 27
         return R.sat_signed(dry+wet, 64)
 
 
 class Spatializer:
     """stereo_spatializer sample arithmetic, ILD then fractional ITD."""
-    LUT = tuple(round(256*(32-i)/math.hypot(32-i, i)) for i in range(33))
+    LUT = tuple(round(256*(32-i)/max(32-i, i)) for i in range(33))
 
     def __init__(self, max_itd=4):
         if max_itd not in [0, 1, 2, 4, 8]:
@@ -386,9 +384,11 @@ class PitchEngine:
             self.mul_b = self.depth[self.candidate_wheel[self.source]]
             self.state = 'VIB_MUL'
         elif st == 'VIB_MUL':
-            self.product, self.state = self.mul_a*self.mul_b, 'VIB_APPLY'
+            self.product, self.state = self.mul_a*self.mul_b, 'VIB_ROUND'
+        elif st == 'VIB_ROUND':
+            self.vibration, self.state = (self.product+16384) >> 15, 'VIB_APPLY'
         elif st == 'VIB_APPLY':
-            target = (((self.candidate_bend[self.source]-8192)*25) >> 2)+((self.product+16384) >> 15)
+            target = (((self.candidate_bend[self.source]-8192)*25) >> 2)+self.vibration
             target = max(-56320, min(56320, target))
             c = max(self.cents[self.source]-512, min(self.cents[self.source]+512, target))
             self.next_cents[self.source] = c
@@ -480,7 +480,7 @@ class Eng1Synth:
 
     def __init__(self, instrument='flute', *, note_map=tuple(range(48, 64)),
                  resources=None, reverb='NONE', stereo=True, headroom=3,
-                 sample_rate=48000, core_hz=50_000_000, frame_busy_cycles=598,
+                 sample_rate=48000, core_hz=50_000_000, frame_busy_cycles=632,
                  max_itd=4, initialized=True):
         self.note_map = tuple(map(int, note_map))
         if len(self.note_map) not in (4, 8, 16) or len(set(self.note_map)) != len(self.note_map):
@@ -507,6 +507,10 @@ class Eng1Synth:
         self.pitch = PitchEngine(self.rows)
         self.reverb, self.spatial = Reverb(reverb), Spatializer(max_itd)
         self.stereo, self.headroom = bool(stereo), int(headroom)
+        gain_file=ROOT/'rtl/router/tools/performance/gain.json'
+        gain_rows=json.loads(gain_file.read_text())['instruments'] if gain_file.is_file() else {}
+        profile=gain_rows.get(instrument,{}).get('note_gain_q12',{})
+        self.note_gains=tuple(int(profile.get(str(note),4096)) for note in self.note_map)
         pcm16(0, self.headroom)  # validate even before rendering
         self.reset(initialized=initialized)
 
@@ -535,6 +539,7 @@ class Eng1Synth:
         self.sample_index = 0
         self.rejected_notes = 0
         self.pad_gate = np.zeros(self.slots, dtype=bool)
+        self.poly_gain=4096
 
     def slot_for(self, midi):
         try:
@@ -641,8 +646,15 @@ class Eng1Synth:
         if st_zero is not None:
             zero = _lanes(st_zero, self.slots, bool)
         y, _ = self.core.step(x, zero, active_modes=48)
-        mix = R.wrap_signed(sum((int(y[s])*int(e[s])) >> 31 for s in range(self.slots)), 64)
+        mix = R.wrap_signed(sum(R.sat_signed(((((int(y[s])*int(e[s])) >> 31)*self.note_gains[s])+2048)>>12,64)
+                                for s in range(self.slots)),64)
         out = self.reverb.step(mix)  # B body_router is five exact passthrough sections.
+        voices=int(np.count_nonzero((e>0)&~dead))
+        target=self.poly_gain if voices==0 else round(4096/math.sqrt(voices))
+        if target<self.poly_gain:self.poly_gain-=max(1,(self.poly_gain-target)>>3)
+        elif target>self.poly_gain:self.poly_gain+=max(1,(target-self.poly_gain)>>12)
+        out=(int(out)*self.poly_gain+2048)>>12
+        if clears.any() and not gates.any():self.poly_gain=4096
         if self.stereo:
             left, right = self.spatial.step(out if active else 0, pan, itd, clear=not active)
             pcm = (pcm16(left, self.headroom, 18), pcm16(right, self.headroom, 18))

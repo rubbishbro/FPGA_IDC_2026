@@ -1,12 +1,19 @@
 # Tang Mega 138K Pro 整版第一阶段
 
+## 当前音色与增益（2026-11-01，优先于下文历史记录）
+
+钢琴1/吉他1保留eng0与ID0/1；钢琴2/吉他2(F)新增eng1与ID10/11，小号3/小提琴5。两个引擎保留在原mux，不用eng1覆盖eng0编号。默认RESOURCE_MASK=0xC2B，NOTE_BANKS=0，PCM_HEADROOM_BITS=3；每乐器64KiB、每音4096B，统一768KiB资源BIN从0x800000开始。新增MIDI界面通道7/8对应钢琴2/吉他2，原1..6映射保留。
+
+六种音色以相同headroom重新校准逐音Q12增益，router按包含release的发声数作平滑1/sqrt(N)补偿；声像中心左右均为1。设计、验证和资源地址见[双引擎接入与增益](../../../docs/双引擎接入与增益_2026-11-01.md)。六音色基线构建目录为build/performance_dual_board_timing；最新灯光位序修复与摇杆上下对调构建目录为build/led_joy_board，其验收及是否烧录须另看该目录记录；build/performance_dual_board为首轮时序失败记录；旧build/performance_board已标记SUPERSEDED，不能据此烧录本轮资源。2026-11-01最新LED位序及摇杆上下修复版已烧录并校验，配套文件为build/performance_led_joy_flash，实读User Code=0x00003ED7。
+
+
 统一入口为instrument_board_top：压力/摇杆、双UART通信、真实UI配置后端、loader/双bank合成和I2S接在同一工程。没有并列例化pad_voice_top，只有一套midi_voice_top/voice_router。
 
 2026-10-30迁移origin/board50@6183395d后，LCD同时接真实菜单、4×4引导及合成PCM的FFT/波形/极坐标历史页。PCM抽头使用独立24bit异步FIFO进入像素域；FFT及全部显示后处理留在同一像素时钟域，不反压I2S/PT8211。首次完整频谱发布前输出零，不读取未初始化显示bank。
 
-2026-10-31 操作方向及音量更新：板级默认 `PCM_HEADROOM_BITS=1`（原3，未限幅信号振幅提高4倍，约+12dB，保留舍入/饱和），`LCD_ROTATE_180=1`；摇杆设置为交换XY并同时反转两轴，相对旧方向为下→左、上→右、左→上、右→下。频谱列索引和极坐标扫描补偿随旋转同步调整。5项专项测试、v2 整板综合/PnR 及 SRAM 下载均通过，用户确认当前音量/方向版本实测通过；下载记录见[编辑器插件与板级下载](../../../docs/history/2026-10-31/编辑器v2插件与板级下载_2026-10-31.md)，功能验证详见[本轮记录](../../../docs/history/2026-10-31/板级音量与方向调整_2026-10-31.md)。
+历史记录（已由文首当前配置覆盖）2026-10-31 操作方向及音量更新：板级默认 `PCM_HEADROOM_BITS=1`（原3，未限幅信号振幅提高4倍，约+12dB，保留舍入/饱和），`LCD_ROTATE_180=1`；摇杆设置为交换XY并同时反转两轴，相对旧方向为下→左、上→右、左→上、右→下。频谱列索引和极坐标扫描补偿随旋转同步调整。5项专项测试、v2 整板综合/PnR 及 SRAM 下载均通过，用户确认当前音量/方向版本实测通过；下载记录见[编辑器插件与板级下载](../../../docs/history/2026-10-31/编辑器v2插件与板级下载_2026-10-31.md)，功能验证详见[本轮记录](../../../docs/history/2026-10-31/板级音量与方向调整_2026-10-31.md)。
 
-2026-11-01 音量追加调整：当前板级默认 `PCM_HEADROOM_BITS=-1`，相对 10 月 31 日已验收的 1 再提高约 12dB（振幅 ×4），保持饱和限幅。构建采用上次已验收提交加本次增益修改的隔离快照，不包含工作区的压力垫实验改动；[本轮记录](../../../docs/history/2026-11-01/音量追加12dB.md)。
+历史隔离构建记录（不代表当前源码默认）2026-11-01 音量追加调整：当时构建 `PCM_HEADROOM_BITS=-1`，相对 10 月 31 日已验收的 1 再提高约 12dB（振幅 ×4），保持饱和限幅。构建采用上次已验收提交加本次增益修改的隔离快照，不包含工作区的压力垫实验改动；[本轮记录](../../../docs/history/2026-11-01/音量追加12dB.md)。
 
 ## 时钟、复位及资源
 
@@ -60,7 +67,7 @@ PMOD0和板载UART RX含SSPI/CPU复用脚，build.tcl显式启用use_sspi_as_gpi
 
 pad_driver保留主线的泄放/建立/完成沿sticky/超时重试FSM，未用分支旧定时盲读替换。板级LED由`pad_led_effects`以200Hz全查表渲染明暗行波和16条sinc波纹，64像素写满后交给带busy/frame_done的串行驱动；逻辑坐标保持行=y、列=x，每垫对应2×2灯区。原始ADC字节16约0.5V：板级将正压力乘4并饱和，on/off门限64/48对应原始16/12；负电压噪声按零处理。灯效共用该标定后的压力：>64触发、<48释放，门限之间保持原状态；按下时以该垫左上灯在已显示背景帧中的相位锁定整条波纹的颜色，主峰/旁瓣只变亮度。波宽0.65格、速度6格/s，满16条替换最旧记录，重叠取占优波纹。ROM原始数据14.625KiB，无运行时乘法器；实现说明见[PAD_LED_EFFECTS.md](../../drivers/PAD_LED_EFFECTS.md)。此次未重跑综合/仿真或烧录，不能将旧验收结果视为新灯效的验证。原始fmap/摇杆快照仍可检查；最终压力标定需实板测量。
 
-sidebar的摇杆启用逐轴死区输出：未进入方向的轴输出0，采用board50实板参数200进入/100退出的迟滞，板级当前采用JOY_SWAP_XY=1、JOY_INVERT_X=1、JOY_INVERT_Y=1（2026-10-31旋转屏幕后的新坐标系），防止横推时另一轴噪声移动光标。默认joystick_adapter行为保留兼容。LCD扫描为严格800×480，板级逻辑坐标旋转180°，菜单布局/字模分拍计算，RGB/DE统一延迟4个像素时钟后输出；数值及滑条位置在消隐期准备。通用未旋转sidebar的两张画面像素哈希保持不变，板级旋转另有逐像素验证。
+sidebar的摇杆启用逐轴死区输出：未进入方向的轴输出0，采用board50实板参数200进入/100退出的迟滞，板级当前采用JOY_SWAP_XY=1、JOY_INVERT_X=1、JOY_INVERT_Y=0（2026-11-01仅上下对调，左右保留），防止横推时另一轴噪声移动光标。默认joystick_adapter行为保留兼容。LCD扫描为严格800×480，板级逻辑坐标旋转180°，菜单布局/字模分拍计算，RGB/DE统一延迟4个像素时钟后输出；数值及滑条位置在消隐期准备。通用未旋转sidebar的两张画面像素哈希保持不变，板级旋转另有逐像素验证。
 
 comm事件data/source直接接真实MIDI消费者，quarantine接source_cleanup_req；真实source_cleanup_done/source_ops_idle/midi_ops_idle反馈到session_ctrl。未选来源事件明确消费，按键菜单切换PAD/有线/蓝牙，不伪造音符。
 
@@ -118,7 +125,7 @@ check_board.py --timing读取实际报告，任何违反返回非零；build.tcl
 
 ## 双声道位置输出（2026-10-29）
 
-正式板级默认 `STEREO_ENABLE=1`、`STEREO_PAN=16`、`STEREO_ITD_ENABLE=1`，居中左右各为181/256，替代旧的左右等于原始单声道。MIDI/PAD共用输出模块，原 `sample_valid/sample_value` 仍是空间处理前的单声道。位置控制不复用菜单摇杆、不新增物理引脚。
+正式板级默认 `STEREO_ENABLE=1`、`STEREO_PAN=16`、`STEREO_ITD_ENABLE=1`，居中左右各为256/256（2026-11-01更正为最大侧单位增益），替代旧的左右等于原始单声道。MIDI/PAD共用输出模块，原 `sample_valid/sample_value` 仍是空间处理前的单声道。位置控制不复用菜单摇杆、不新增物理引脚。
 
 `instrument_system.pan_position` 为同 core 域0..32动态输入，`itd_enable` 为辅助时差开关；`instrument_board_top` 目前用参数 `STEREO_PAN` 提供固定位置。试听往返移动时设置 `STEREO_AUTO_SWEEP=1`；每 `SWEEP_HOLD_FRAMES=3072` 个真实I2S帧前进一档，端点自动折返，默认完整往返约4.03秒（当前48.828125kHz）。`STEREO_ENABLE=0` 显式选旧单声道复制旁路。
 

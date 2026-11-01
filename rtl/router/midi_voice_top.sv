@@ -16,7 +16,7 @@ module midi_voice_top #(
     parameter bit NOTE_BANKS=1'b0, SINGLE_SOURCE=1'b1,
     // 开启后由backend事务独占配置；旧并行配置输入不再是第二个写入者。
     parameter bit CONFIG_BACKEND=1'b0,
-    parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
+    parameter logic [11:0] RESOURCE_MASK=12'b000000000001,
     parameter logic [4:0] CONTROL_SUPPORTED=5'b0, // CC1,CC7,CC11,Program,Bend
     parameter integer CONTROL_TIMEOUT_CYCLES=CLK_HZ/100,
     parameter integer OP_TIMEOUT_CYCLES=CLK_HZ/20,
@@ -212,8 +212,8 @@ module midi_voice_top #(
         if(!candidate_supported)candidate_result=config_pkg::CFG_UNSUPPORTED;
         else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(pending_request.id),pending_request.value))
             candidate_result=config_pkg::CFG_OUT_OF_RANGE;
-        else if((pending_request.id==16'h0100 && pending_request.value>9) ||
-                !config_pkg::audio_config_valid(candidate) || candidate_inst>9)
+        else if((pending_request.id==16'h0100 && pending_request.value>11) ||
+                !config_pkg::audio_config_valid(candidate) || candidate_inst>11)
             candidate_result=config_pkg::CFG_UNSUPPORTED;
         else if(!RESOURCE_MASK[candidate_inst[3:0]])candidate_result=config_pkg::CFG_UNSUPPORTED;
     end

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#15191e"><meta name="description" content="FPGA 模态乐器的 WebGL MIDI 编辑与 UART 演奏工作台">
-  <title>微光 · FPGA MIDI Studio</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%231b2229'/%3E%3Cpath d='M10 25V15h5v14h5V11h5v14h5V17' fill='none' stroke='%23f2b86b' stroke-width='3'/%3E%3C/svg%3E"><link rel="stylesheet" href="/style.css">
+  <title>微光 · FPGA MIDI Studio</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%231b2229'/%3E%3Cpath d='M10 25V15h5v14h5V11h5v14h5V17' fill='none' stroke='%235b9cf8' stroke-width='3'/%3E%3C/svg%3E"><link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <svg class="symbols" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -13,19 +13,18 @@
  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5m6-5v5M6 8h12v3a6 6 0 0 1-12 0Zm6 9v5"/></symbol><symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></symbol><symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3m-5 5 5-5 5 5M4 16v5h16v-5"/></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 </defs></svg>
 <div class="app">
-  <header class="app-header">
-    <a class="brand" href="/" aria-label="FPGA MIDI Studio"><span class="brand-mark">▥</span><span>微光 <span class="brand-sub">MIDI STUDIO</span></span></a>
-    <div class="project-title"><span class="project-dot"></span><input id="project-name" aria-label="工程名称" maxlength="150"><span id="save-state" class="quiet">本地草稿</span></div>
-    <div class="header-actions"><button id="help" class="subtle">操作指南 <kbd>?</kbd></button><span class="version">FPGA / 01</span></div>
-  </header>
-  <nav class="transport" aria-label="播放控制">
+  <nav class="transport" aria-label="应用标题与播放控制">
+    <a class="app-brand" href="/" aria-label="微光 · FPGA MIDI Studio"><span class="brand-mark">▥</span><span class="app-brand-name">微光</span></a>
+    <div class="doc-title"><span class="project-dot"></span><input id="project-name" aria-label="工程名称" maxlength="150"></div>
+    <span class="transport-divider"></span>
     <div class="transport-buttons"><button id="rewind" class="icon-button" title="返回起点" aria-label="返回起点"><svg><use href="#i-back"/></svg></button><button id="play" class="play-button" title="播放 / 暂停（空格）" aria-label="播放"><svg><use href="#i-play"/></svg><span>播放</span></button><button id="stop" class="icon-button" title="停止并返回起点" aria-label="停止"><svg><use href="#i-stop"/></svg></button><button id="loop-toggle" class="icon-button active" title="循环（L）" aria-label="循环" aria-pressed="true"><svg><use href="#i-loop"/></svg></button></div>
     <div class="position-readout"><span id="position">001 <em>:</em> 1 <em>:</em> 000</span><small>BAR <span>BEAT</span> TICK</small></div>
     <label class="tempo-control"><span>TEMPO</span><input id="tempo" type="number" min="4" max="1000" step="1" value="110" aria-label="速度 BPM"><small id="tempo-unit">BPM</small></label>
     <div class="meter"><strong>4<span>/</span>4</strong><small>拍号</small></div>
     <div class="transport-spacer"></div>
     <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑参考试听</option><option value="uart">FPGA · 串口</option></select></label>
-    <button id="panic" class="panic" title="停止走带并向全部通道发送清音（Esc）">■ 紧急清音 <kbd>ESC</kbd></button>
+    <button id="panic" class="panic" title="停止走带并向全部通道发送清音（Esc）" aria-label="紧急清音（Esc）"><span class="panic-label">危险操作</span><span class="panic-action">■ 紧急清音<kbd>ESC</kbd></span></button>
+    <button id="help" class="transport-help" title="操作指南（?）" aria-label="操作指南">?</button>
   </nav>
   <main class="workspace">
     <div class="sidebar-dock sidebar-left" id="tracks-dock">
@@ -39,13 +38,14 @@
     </aside>
     </div>
     <section class="editor" aria-label="钢琴卷帘编辑器">
-      <div class="editor-heading"><div><span class="eyebrow">PIANO ROLL</span><h1 id="editing-track">钢琴 · 旋律</h1></div><span class="engine-badge"><i></i><span id="backend">WebGL</span></span><button id="fit" class="subtle">适应音符 ↗</button></div>
       <div class="editor-toolbar">
+        <span class="track-chip" title="当前编辑轨道"><i></i><span id="editing-track">钢琴 · 旋律</span></span>
+        <span class="toolbar-divider"></span>
         <div class="tool-group" role="group" aria-label="编辑工具"><button data-tool="draw" class="icon-button active" title="画笔（D）" aria-label="画笔" aria-pressed="true"><svg><use href="#i-pencil"/></svg></button><button data-tool="select" class="icon-button" title="选择（V），拖动空白框选" aria-label="选择" aria-pressed="false"><svg><use href="#i-select"/></svg></button><button data-tool="erase" class="icon-button" title="橡皮（E）" aria-label="橡皮" aria-pressed="false"><svg><use href="#i-erase"/></svg></button></div>
         <label>吸附 <select id="snap" aria-label="网格吸附"><option value="1">1/4</option><option value="0.5">1/8</option><option value="0.25" selected>1/16</option><option value="0.125">1/32</option><option value="0.3333333333333333">1/8 三连音</option></select></label>
         <label>音长 <select id="note-length" aria-label="新音符长度"><option value=".25">1/16</option><option value=".5" selected>1/8</option><option value="1">1/4</option><option value="2">1/2</option><option value="4">全音符</option></select></label>
         <span class="toolbar-divider"></span><button id="undo" class="icon-button" title="撤销 Ctrl+Z" aria-label="撤销"><svg><use href="#i-undo"/></svg></button><button id="redo" class="icon-button" title="重做 Ctrl+Shift+Z" aria-label="重做"><svg><use href="#i-redo"/></svg></button>
-        <div class="transport-spacer"></div><label class="zoom-control">− <input id="zoom" type="range" min="24" max="240" value="72" aria-label="水平缩放"> ＋</label>
+        <div class="transport-spacer"></div><button id="fit" class="subtle toolbar-fit" title="适应当前轨道音符">适应音符</button><label class="zoom-control">− <input id="zoom" type="range" min="24" max="240" value="72" aria-label="水平缩放"> ＋</label>
       </div>
       <div class="roll-wrap"><canvas id="roll" aria-hidden="true"></canvas><canvas id="roll-overlay" tabindex="0" role="application" aria-label="MIDI 钢琴卷帘。画笔点击添加，拖动移动，拖右缘调整音长，右键删除；下方编辑力度。"></canvas></div>
       <div class="editor-footer"><span><i class="legend-dot"></i>当前轨道 <i class="legend-dot ghost"></i>其他轨道</span><span>滚轮移调视图 · Shift 横移 · Ctrl 缩放</span></div>
@@ -77,7 +77,7 @@
           </details>
         </div>
         <details id="hardware-profile"><summary>板端已加载配置 <span>手动核对</span></summary>
-          <label class="stack-label">当前接收通道 / 音色<select id="hw-channel"><option value="0">1 · 吉他</option><option value="1" selected>2 · 钢琴</option><option value="2">3 · 小号</option><option value="3">4 · 小提琴</option><option value="4">5 · 大提琴</option><option value="5">6 · 长笛</option></select></label>
+          <label class="stack-label">当前接收通道 / 音色<span class="channel-field"><span id="hw-channel-icon" class="instrument-icon" aria-hidden="true"></span><select id="hw-channel"><option value="0">1 · 吉他1</option><option value="1" selected>2 · 钢琴1</option><option value="2">3 · 小号</option><option value="3">4 · 小提琴</option><option value="4">5 · 大提琴</option><option value="5">6 · 长笛</option><option value="6">7 · 钢琴2</option><option value="7">8 · 吉他2</option></select></span></label>
           <label class="stack-label">当前已加载音高（MIDI 编号）<textarea id="hw-notes" rows="3" spellcheck="false">40,42,44,46,48,50,52,54,56,58,60,62,64,67,71,76</textarea></label>
           <button id="load-manifest" class="full subtle">从 Flash manifest 读取音组</button><input id="manifest-input" type="file" accept=".json" hidden>
           <label class="inline-field">清单音组<select id="manifest-bank"><option value="0">低组 / 0</option><option value="1">高组 / 1</option></select></label>
@@ -88,8 +88,9 @@
     </aside>
     </div>
   </main>
-  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="transport-spacer"></span><span id="output-status">参考试听 · 三角波</span><span class="status-divider">|</span><span id="protocol-status">UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
+  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="status-divider">·</span><span class="status-engine" title="钢琴卷帘渲染后端"><i></i><span id="backend">WebGL</span></span><span class="transport-spacer"></span><span id="output-status">参考试听 · 三角波</span><span class="status-divider">|</span><span id="protocol-status">UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
 </div>
+<div id="channel-menu" class="channel-menu" role="listbox" aria-label="MIDI 通道与音色" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
 <dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听使用三角波参考音源。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
 <script type="module" src="/src/app.mjs"></script>

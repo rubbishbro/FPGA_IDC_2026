@@ -80,6 +80,13 @@ logic   [2:0]      t0_v;
 shift_timer #(.N(3)) timer0 (.cr({cr.clk, cr.clk_en, state == S_TX}), .val(t0_v));
 
 //写显存
+// idx walks upward from bit 0. Store each pixel in wire order so that the
+// receiver sees G7..G0, R7..R0, B7..B0 (WS2812 MSB first), not reversed bytes.
+wire [23:0] pixel_grb = pix;
+wire [23:0] serial_pixel;
+for(genvar bit_index=0;bit_index<24;bit_index++) begin:g_wire_order
+    assign serial_pixel[bit_index]=pixel_grb[23-bit_index];
+end
 always_ff @(posedge cr.clk or negedge cr.rst_n) begin
     if(!cr.rst_n) begin
         gram.raw <= '0;
@@ -88,7 +95,7 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         logic [2:0] y_;
         y_ = (x[0] == 0) ? y : ~y;
 
-        gram.pixels[x][y_] <= pix;
+        gram.pixels[x][y_] <= pixel_t'(serial_pixel);
     end
 end
 

@@ -1,7 +1,8 @@
 export const PPQ=480;
-export const COLORS=['#f2b86b','#80c6b7','#9da8e8','#d998ac','#94bb75','#7cb9d2'];
+export const COLORS=['#5b9cf8','#80c6b7','#b49be8','#d998ac','#94bb75','#7cb9d2'];
 export const LEGACY_NOTES=[40,42,44,46,48,50,52,54,56,58,60,62,64,67,71,76];
-export const INSTRUMENTS=['吉他','钢琴','小号','小提琴','大提琴','长笛'];
+export const INSTRUMENTS=['吉他1','钢琴1','小号','小提琴','大提琴','长笛','钢琴2','吉他2'];
+export const INSTRUMENT_ICONS=['guitar-1','piano-1','trumpet','violin','cello','flute','piano-2','guitar-2'];
 export const uid=()=>globalThis.crypto.randomUUID();
 export const clamp=(n,a,b)=>Math.min(b,Math.max(a,n));
 export const noteName=n=>['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][n%12]+(Math.floor(n/12)-1);
@@ -74,7 +75,7 @@ export class History {
 }
 
 export function profileExercise(profile) {
-  if(!Number.isInteger(profile.channel)||profile.channel<0||profile.channel>5||!Array.isArray(profile.notes)||!profile.notes.length||profile.notes.length>16||new Set(profile.notes).size!==profile.notes.length||profile.notes.some(n=>!Number.isInteger(n)||n<0||n>127))throw Error('请先填写有效的板端通道及 1～16 音清单');
+  if(!Number.isInteger(profile.channel)||profile.channel<0||profile.channel>7||!Array.isArray(profile.notes)||!profile.notes.length||profile.notes.length>16||new Set(profile.notes).size!==profile.notes.length||profile.notes.some(n=>!Number.isInteger(n)||n<0||n>127))throw Error('请先填写有效的板端通道及 1～16 音清单');
   const p=blankProject();p.name='当前音组 · UART 测试';p.tempoMap=[{beat:0,bpm:100}];p.bars=Math.max(1,Math.ceil(profile.notes.length/8));p.loop.end=p.bars*4;
   const t=p.tracks[0];t.channel=profile.channel;t.name=INSTRUMENTS[profile.channel]+' · 音组测试';t.notes=profile.notes.map((pitch,i)=>({id:uid(),pitch,beat:i*.5,duration:.4,velocity:90}));return p;
 }

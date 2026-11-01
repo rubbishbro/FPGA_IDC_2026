@@ -43,7 +43,10 @@ module tb_pad_led_effects;
                 if(!writing) begin written=0; writes=0; writing=1; end
                 if(written[{leds.y,leds.x}]) $fatal(1,"FAIL duplicate pixel");
                 written[{leds.y,leds.x}]=1; writes++;
-                expected_bits[(int'(leds.x)*8+(leds.x[0] ? 7-int'(leds.y) : int'(leds.y)))*24 +:24]=leds.pix;
+                // Protocol order, not the driver's internal storage bit order.
+                for(int b=0;b<24;b++)
+                    expected_bits[(int'(leds.x)*8+(leds.x[0] ? 7-int'(leds.y) : int'(leds.y)))*24+b]=
+                        1'(24'(leds.pix) >> (23-b));
             end
             if(!leds.wr && writing) begin
                 if(written!=='1 || writes!=64) $fatal(1,"FAIL missing pixel");

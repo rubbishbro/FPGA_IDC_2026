@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate deployment contract and four real Flash->router paths with Verilator."""
+"""Validate deployment contract and six real Flash->router paths with Verilator."""
 import argparse
 import hashlib
 import json
@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import sys
 from check_performance_resources import check, ROOT
 
 
@@ -35,9 +36,21 @@ def main():
         subprocess.run([str(out/'obj/Vtb_performance_flash')],cwd=out,stdout=log,
                        stderr=subprocess.STDOUT,check=True,timeout=600)
     output=(out/'simulation.log').read_text()
-    if 'PASS tb_performance_flash loads=4 records=4096' not in output or 'FAIL' in output:
+    if 'PASS tb_performance_flash loads=6 records=6144' not in output or 'FAIL' in output:
         raise RuntimeError(output)
+    sys.path.insert(0,str(ROOT/'python/modal_sim'))
+    import eng1_rtl as E
+    from run_eng1_model import compare_wave
+    directory=ROOT/'rtl/router/tools/performance'
+    manifest=json.loads((directory/'resources.json').read_text());raw=(directory/'resources.bin').read_bytes()
+    parity={}
+    for name,ident in [('trumpet',3),('violin',5)]:
+        notes={r['midi']:E.NoteResource.decode(r['midi'],raw[r['offset']:r['offset']+4096],r)
+               for r in manifest['entries'] if r['name']==name}
+        parity[name]=compare_wave(out/f'eng1_trace_{ident}.txt',E.ResourceBank(name,notes),min_checks=500)
+        print('PASS Python/RTL deployed',name,parity[name],flush=True)
     result=dict(passed=True,contract=contract,summary=output.splitlines(),
+        python_parity=parity,
         source_hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
     (out/'verification.json').write_text(json.dumps(result,indent=2)+'\n')
     print(output)

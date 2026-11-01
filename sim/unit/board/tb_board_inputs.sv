@@ -6,7 +6,7 @@ module tb_board_inputs;
     logic calibrated,stale,update;
     logic signed [14:0] dx,dy;
     joystick_pkg::joy_dir_t direction;
-    joystick_adapter #(.CLK_HZ(1_000_000),.CALIB_LOG2(1),.FILTER_CENTER(1),.SWAP_XY(1),.INVERT_X(1),.INVERT_Y(1),.DEADZONE_ON(200),.DEADZONE_OFF(100),.SAMPLE_TIMEOUT_MS(2)) dut(
+    joystick_adapter #(.CLK_HZ(1_000_000),.CALIB_LOG2(1),.FILTER_CENTER(1),.SWAP_XY(1),.INVERT_X(1),.INVERT_Y(0),.DEADZONE_ON(200),.DEADZONE_OFF(100),.SAMPLE_TIMEOUT_MS(2)) dut(
         .clk(clk),.rst_n(rst_n),.recalibrate(1'b0),.sample_valid(sample),.raw_x(x),.raw_y(y),
         .calibrated(calibrated),.stale(stale),.center_x(),.center_y(),.position_update(update),
         .dx(dx),.dy(dy),.direction(direction),.nav_valid(),.nav_ready(1'b1),.nav_dir(),.nav_repeat());
@@ -34,22 +34,22 @@ module tb_board_inputs;
         repeat(4)@(negedge clk);rst_n=1;put(3000,3200);put(3000,3200);
         if(!calibrated)$fatal(1,"FAIL calibration");
         put(3300,3001);
-        if(dx!=0 || dy!=-300 || direction!=joystick_pkg::JOY_DOWN)$fatal(1,"FAIL transverse axis escaped deadzone");
+        if(dx!=0 || dy!=300 || direction!=joystick_pkg::JOY_UP)$fatal(1,"FAIL transverse axis escaped deadzone");
         put(3300,3000);if(dx!=200)$fatal(1,"FAIL diagonal activation");
         put(3300,3050);if(dx!=150)$fatal(1,"FAIL hysteresis retention");
         put(3300,3100);if(dx!=0)$fatal(1,"FAIL axis release");
         put(3100,3101);if(dx!=0 || dy!=0 || direction!=joystick_pkg::JOY_CENTER)$fatal(1,"FAIL center drift");
         put(2700,3200);
-        if(dx!=0 || dy!=300 || direction!=joystick_pkg::JOY_UP)$fatal(1,"FAIL board rotated profile up");
+        if(dx!=0 || dy!=-300 || direction!=joystick_pkg::JOY_DOWN)$fatal(1,"FAIL board up/down swap");
         put(3000,3200);
         if(dx!=0 || dy!=0)$fatal(1,"FAIL board XY center release");
-        move_cursor(5000,3200,0,1);  // former right -> new down
-        move_cursor(1000,3200,0,-1); // former left -> new up
+        move_cursor(5000,3200,0,-1); // previous down -> new up
+        move_cursor(1000,3200,0,1);  // previous up -> new down
         move_cursor(3000,1200,1,0);  // former up -> new right
         move_cursor(3000,5200,-1,0); // former down -> new left
         put(3000,3200);
         repeat(2200)@(negedge clk);if(!stale || dx!=0 || dy!=0)$fatal(1,"FAIL stale input");
-        $display("PASS tb_board_inputs board50 swapped XY inverted X/Y 200/100 four-screen-directions deadzone/hysteresis/center/stale");$finish;
+        $display("PASS tb_board_inputs swapped XY inverted X normal Y four-screen-directions deadzone/hysteresis/center/stale");$finish;
     end
 endmodule
 

@@ -11,7 +11,7 @@
 // 流水（每级只干一件事；地址/输入都要跟着流水走，不能只留一份）：
 //   A  in_valid : 发读地址 -> 存 ad_a、din_a、s <= c[p]
 //   B  v1       : fb <= (s*g)>>>F、t <= (s*w)>>>F、ad_b <= ad_a、din_b <= din_a
-//   C  v2       : c[ad_b] <= sat(din_b + fb)（组合算完直接进 RAM 的 D）
+//   C  v2       : wd <= sat(din_b + fb)；输入和完整缩放反馈先做宽和
 //                 sum_q  <= t0+t1+t2+t3
 //   D  v3       : wet <= sum_q
 //   out_valid 比 in_valid 晚 4 拍。
@@ -21,8 +21,7 @@
 //     组合读会变成分布式 RAM，资源上放不下。
 //   * 延迟 / 反馈 / 加权都是运行时输入（reverb_router 按预设给），n_k 必须 1..N。
 //   * 系数 Q4.27（1.0 = 1<<27）；反馈 |g| < 1.0 才稳定。
-//   * 回写饱和用"65 位加法的进位 vs 符号"判，不用 96 位比大小（后者 PnR 实测
-//     多花 4 ns 还占一堆 LUT）。
+//   * 64x32乘法显式保留96位；缩放反馈保留96-G_FRAC位，再与输入相加饱和。
 //   * 复位后**不写 0**：挂"清空中"标志，标志期间读出的旧值当 0 用（和 eng0 的
 //     st_zero 一个套路），回写照常写新数据；跑满 N 个采样后标志自动落，那时
 //     整条线已被新数据覆盖。这样既不用 2048 拍空转，也不会读到 BSRAM 上电的
@@ -46,6 +45,15 @@ module comb_reverb #(
 );
 
     localparam int AW = $clog2(N);
+    localparam int FW = 96 - G_FRAC; // full signed64 x signed32 product, then scale
+    localparam int SUM_W = FW + 2;
+    localparam int ADD_W = ((FW > 64) ? FW : 64) + 1;
+    function automatic logic signed [FW-1:0] scaled_product(
+        input logic signed [63:0] a, input logic signed [31:0] b);
+        logic signed [95:0] product;
+        product = a * b;
+        return product >>> G_FRAC;
+    endfunction
 
     (* syn_ramstyle = "block_ram" *) logic signed [63:0] c1 [0:N-1];
     (* syn_ramstyle = "block_ram" *) logic signed [63:0] c2 [0:N-1];
@@ -57,8 +65,8 @@ module comb_reverb #(
     logic [AW-1:0]       ad_b1, ad_b2, ad_b3, ad_b4;  // B 级地址（C 级写 RAM 用）
     logic signed [63:0]  s1, s2, s3, s4;              // RAM 读出
     logic signed [63:0]  din_a, din_b;                // 输入，跟着流水走
-    logic signed [63:0]  fb1, fb2, fb3, fb4;          // (s*g)>>>F
-    logic signed [68:0]  t1, t2, t3, t4;              // (s*w)>>>F，保留完整 69 位（先不截断）
+    logic signed [FW-1:0] fb1, fb2, fb3, fb4;          // (s*g)>>>F
+    logic signed [FW-1:0] t1, t2, t3, t4;              // (s*w)>>>F，保留完整 69 位（先不截断）
     logic signed [63:0]  sum_q;
     logic                v1, v2, v3;
 
@@ -78,30 +86,30 @@ module comb_reverb #(
     // ---- 加权输出：保留 69 位，只在求和那一级饱和一次 --------------------
     //   (s*w) 是 96 位、>>>G_FRAC 之后还有 69 位。直接赋给 64 位就是**截断**：
     //   加权系数 > 1.0 或者后面 4 路求和超范围时，高位会被悄悄丢掉（听感是
-    //   爆音 / 极性翻转）。这里先判高 32 位是不是全等于符号位，不是就钳位。
+    //   爆音 / 极性翻转）。四路先做宽和，再统一饱和，方向取宽和符号位。
     // 4 路求和：71 位加法，只有最后饱和一次（原来 64 位直接加，超了会回绕）
     //   每项 69 位 + 2 位余量给 4 路和，比较只看高 8 位是不是全符号位 —— 比
     //   在乘法那一级塞 4 个 32 位比较器便宜得多（那个版本 PnR 直接掉到 57 MHz）。
-    logic signed [70:0]  sum4;
+    logic signed [SUM_W-1:0] sum4;
     logic                sum_ok;
     logic signed [63:0]  sum_sat;
 
-    assign sum4    = {{2{t1[68]}}, t1} + {{2{t2[68]}}, t2} +
-                     {{2{t3[68]}}, t3} + {{2{t4[68]}}, t4};
-    assign sum_ok  = (sum4[70:63] == {8{sum4[63]}});
+    assign sum4    = {{2{t1[FW-1]}}, t1} + {{2{t2[FW-1]}}, t2} +
+                     {{2{t3[FW-1]}}, t3} + {{2{t4[FW-1]}}, t4};
+    assign sum_ok  = (sum4[SUM_W-1:63] == {(SUM_W-63){sum4[63]}});
     assign sum_sat = sum_ok ? sum4[63:0] :
-                     (sum4[63] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                     (sum4[SUM_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
 
-    // 回写数据：din_b + fb，65 位加法 + 饱和（组合，直接进 RAM 的 D）
-    logic signed [64:0]  sm1, sm2, sm3, sm4;
+    // 回写：先保留完整缩放反馈，再用 ADD_W 位加法与输入相加，最后饱和一次。
+    logic signed [ADD_W-1:0] sm1, sm2, sm3, sm4;
     logic signed [63:0]  wd1, wd2, wd3, wd4;
 
-    assign sm1 = {din_b[63], din_b} + {fb1[63], fb1};
-    assign sm2 = {din_b[63], din_b} + {fb2[63], fb2};
-    assign sm3 = {din_b[63], din_b} + {fb3[63], fb3};
-    assign sm4 = {din_b[63], din_b} + {fb4[63], fb4};
+    assign sm1 = {{(ADD_W-64){din_b[63]}}, din_b} + {{(ADD_W-FW){fb1[FW-1]}}, fb1};
+    assign sm2 = {{(ADD_W-64){din_b[63]}}, din_b} + {{(ADD_W-FW){fb2[FW-1]}}, fb2};
+    assign sm3 = {{(ADD_W-64){din_b[63]}}, din_b} + {{(ADD_W-FW){fb3[FW-1]}}, fb3};
+    assign sm4 = {{(ADD_W-64){din_b[63]}}, din_b} + {{(ADD_W-FW){fb4[FW-1]}}, fb4};
 
-    // wd 是**寄存器**（在 C 级算、D 级才写 RAM）：65 位加 + 饱和 mux 和
+    // wd 在 C 级计算、D 级写 RAM，保持原有四拍流水延迟。
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -170,26 +178,26 @@ module comb_reverb #(
             if (v1) begin
                 ad_b1 <= ad_a1;  ad_b2 <= ad_a2;  ad_b3 <= ad_a3;  ad_b4 <= ad_a4;
                 din_b <= din_a;
-                fb1 <= (s1_r * g1)  >>> G_FRAC;
-                fb2 <= (s2_r * g2)  >>> G_FRAC;
-                fb3 <= (s3_r * g3)  >>> G_FRAC;
-                fb4 <= (s4_r * g4)  >>> G_FRAC;
-                t1  <= (s1_r * w1c) >>> G_FRAC;
-                t2  <= (s2_r * w2c) >>> G_FRAC;
-                t3  <= (s3_r * w3c) >>> G_FRAC;
-                t4  <= (s4_r * w4c) >>> G_FRAC;
+                fb1 <= scaled_product(s1_r, g1);
+                fb2 <= scaled_product(s2_r, g2);
+                fb3 <= scaled_product(s3_r, g3);
+                fb4 <= scaled_product(s4_r, g4);
+                t1  <= scaled_product(s1_r, w1c);
+                t2  <= scaled_product(s2_r, w2c);
+                t3  <= scaled_product(s3_r, w3c);
+                t4  <= scaled_product(s4_r, w4c);
             end
 
             // C：加 + 饱和（只打进寄存器）
             if (v2) begin
-                wd1 <= (sm1[64] == sm1[63]) ? sm1[63:0] :
-                       (sm1[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-                wd2 <= (sm2[64] == sm2[63]) ? sm2[63:0] :
-                       (sm2[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-                wd3 <= (sm3[64] == sm3[63]) ? sm3[63:0] :
-                       (sm3[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
-                wd4 <= (sm4[64] == sm4[63]) ? sm4[63:0] :
-                       (sm4[64] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd1 <= (sm1[ADD_W-1:63] == {(ADD_W-63){sm1[63]}}) ? sm1[63:0] :
+                       (sm1[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd2 <= (sm2[ADD_W-1:63] == {(ADD_W-63){sm2[63]}}) ? sm2[63:0] :
+                       (sm2[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd3 <= (sm3[ADD_W-1:63] == {(ADD_W-63){sm3[63]}}) ? sm3[63:0] :
+                       (sm3[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
+                wd4 <= (sm4[ADD_W-1:63] == {(ADD_W-63){sm4[63]}}) ? sm4[63:0] :
+                       (sm4[ADD_W-1] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF);
                 sum_q <= sum_sat;
             end
 

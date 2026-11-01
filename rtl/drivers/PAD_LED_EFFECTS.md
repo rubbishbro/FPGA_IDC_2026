@@ -72,3 +72,29 @@ python3 rtl/drivers/tools/gen_pad_led_tables.py --check
 `tb_pad_led_effects` 已改为检查灰度背景、左上灯取色、锁色、同垫连击、16 垫同时触发、
 退休、串行波形与复位；整板夹具改为核对完整 8×8 帧及蛇形接线。
 本次仅做表生成一致性及静态编译检查，按用户要求未运行 HDL 仿真、综合或烧录。
+
+## 2026-11-01 实板跳变定位与修复
+
+原`led8x8`按`gram.raw[idx]`递增发送，原显存直接存GRB字，却先发了B0，
+造成每通道位序反转及G/B顺序交换。WS2812接收顺序应为G7..G0、R7..R0、B7..B0，
+见[Worldsemi WS2812B数据手册](https://datasheet.lcsc.com/lcsc/2106062036_Worldsemi-WS2812B-B-T_C2761795.pdf)。
+灰度1因此会被解成128，63→64会被解成252→2。实际breath表相邻输入最多差2，
+错误线端解释后最大跳250，能直接解释静止不按键时的刺眼跳变；这不是200Hz刷新过快。
+
+修复在显存写入处对每像素24位作固定连线重排，保留原坐标、串行脉宽、刷新率、
+5.2秒背景周期及波纹速度。没有新增运算或帧缓存。现有预取与renderer测试也已调整为
+正确协议语义，整板夹具的内部显存比较明确区分逻辑GRB与串行存储顺序。
+
+新增`sim/run_led_protocol.py`用独立接收端按脉宽解码，再逐24位按GRB/MSB重组；
+旧RTL在第二个像素即复现expected=010101、got=808080。修复后5帧320像素通过，
+覆盖全部256级灰度及独立RGB值；原预取3072位/385440时钟比较、完整波纹回归也通过。
+证据：`build/led_protocol_verify/verification.json`。运行：
+
+```bash
+python3 sim/run_led_protocol.py --verilator verilator
+```
+
+板上效果仍需新固件验证。修复后的整板构建目录为`build/led_joy_board`，同时包含摇杆
+上下对调；不得将此前已烧固件或旧PnR报告当作这次修复已上板。
+
+该修复现已随`build/led_joy_board`通过整板时序并烧录；实读User Code=0x00003ED7，参数区在更新固件后再次校验一致。灯光实物观感待用户核听/观察，证据见`build/performance_led_joy_flash/programming-result.json`。

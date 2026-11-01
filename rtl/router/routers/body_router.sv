@@ -48,6 +48,7 @@ module body_router #(
     localparam logic signed [31:0] ONE = 32'sd1 <<< COEFF_FRAC;   // 1.0
 
     logic signed [NSEC*NTAP-1:0][31:0] coef_q;
+    wire router_pkg::instrument_e body_inst=inst==router_pkg::INST_GUITAR_ABC ? router_pkg::INST_GUITAR : inst;
 
     always_comb begin
         // 默认：NSEC 段全直通（段数少的乐器末尾自动直通，不用额外补逻辑）
@@ -55,7 +56,7 @@ module body_router #(
         for (int s = 0; s < NSEC; s++)
             coef_q[s*NTAP + 0] = ONE;
 
-        case (inst)
+        case (body_inst)
             router_pkg::INST_GUITAR: begin
                 // 5 段实测腔体（Q4.27 定点，见文件头）
                 // section 0
@@ -89,7 +90,15 @@ module body_router #(
                 coef_q[23] = -32'sd223863730;
                 coef_q[24] =  32'sd94210040;
             end
-            router_pkg::INST_PIANO: begin
+            router_pkg::INST_PIANO:begin
+                coef_q[ 0]=32'sd603840;coef_q[ 1]=32'sd76002;coef_q[ 2]=-32'sd715860;
+                coef_q[ 3]=-32'sd247369736;coef_q[ 4]=32'sd123858118;
+                coef_q[ 5]=-32'sd436574912;coef_q[ 6]=32'sd81584862;coef_q[ 7]=32'sd409619507;
+                coef_q[ 8]=-32'sd27521759;coef_q[ 9]=-32'sd94371634;
+                coef_q[10]=32'sd299364184;coef_q[11]=-32'sd493793142;coef_q[12]=32'sd221367920;
+                coef_q[13]=-32'sd255674090;coef_q[14]=32'sd122404426;
+            end
+            router_pkg::INST_PIANO_ABC: begin
                 // Selected ENG1 piano: 40Hz highpass + 2kHz/+3dB shelf.
                 // Exact audition Q4.27 constants; sections 2..4 passthrough.
                 // section 0

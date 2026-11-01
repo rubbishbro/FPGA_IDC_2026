@@ -38,6 +38,7 @@ module tb_sustain_system;
     logic verify=0,expect_pending=0,full_hold=0;
     longint signed expected_y,acc,shifted,sum_voice,coefficient1,coefficient2;
     logic signed [95:0] product;
+    integer expected_gain=4096,expected_count,target_gain;
     logic [15:0] expected_pcm;
     logic pcm_pending=0;
     logic [15:0] last_pcm=0;
@@ -51,6 +52,7 @@ module tb_sustain_system;
             last_pcm<=shifted>32767?16'h7fff:shifted< -32768?16'h8000:16'(shifted);pcm_pending<=1;
         end
         if(tick)pcm_pending<=0;
+        if(dut.u_voice.effects_clear)expected_gain=4096;
         if(late || over || under)$fatal(1,"FAIL audio diagnostics %b %b %b",late,over,under);
         if(verify && dut.u_voice.frame_start)begin
             for(int s=0;s<16;s++)begin
@@ -67,19 +69,20 @@ module tb_sustain_system;
                 if(dut.u_voice.part_clear[s])begin lvl[s]=0;estate[s]=0;end
                 else if(dut.u_voice.part_trigger[s] || (dut.u_voice.part_gate[s] && !prev_gate[s]))begin lvl[s]=0;estate[s]=1;end
                 else if(!dut.u_voice.part_gate[s])begin
-                    if(lvl[s]<=release_step[ni])begin lvl[s]=0;estate[s]=0;end
-                    else begin lvl[s]-=release_step[ni];estate[s]=4;end
+                    if(lvl[s]<=(INST==5?559241:release_step[ni]))begin lvl[s]=0;estate[s]=0;end
+                    else begin lvl[s]-=(INST==5?559241:release_step[ni]);estate[s]=4;end
                 end else if(estate[s]==1)begin
-                    tmp=longint'(lvl[s])+attack[ni];
+                    tmp=longint'(lvl[s])+(INST==5?2236963:attack[ni]);
                     if(tmp>2147483647)begin lvl[s]=2147483647;estate[s]=2;end else lvl[s]=int'(tmp);
                 end else if(estate[s]==2)begin
-                    if(lvl[s]<=536870911+1048576)begin lvl[s]=536870911;estate[s]=3;end else lvl[s]-=1048576;
+                    if(INST==5)begin lvl[s]=2147483647;estate[s]=3;end
+                    else if(lvl[s]<=536870911+1048576)begin lvl[s]=536870911;estate[s]=3;end else lvl[s]-=1048576;
                 end else if(estate[s]==0)estate[s]=1;
                 prev_gate[s]=dut.u_voice.part_gate[s];expect_e[s]=lvl[s];
             end
         end
         if(verify && dut.u_voice.xw_run)begin
-            expected_y=0;expect_pending=1;
+            expected_y=0;expect_pending=1;expected_count=0;
             for(int s=0;s<16;s++)begin
                 int ni;bit zero;
                 ni=int'(dut.u_voice.pending_notes[s*7 +:7])-48;
@@ -98,8 +101,15 @@ module tb_sustain_system;
                     v[s][m]=q[s][m];q[s][m]=int'(shifted);sum_voice+=shifted;
                 end
                 product=sum_voice*longint'(expect_e[s]);
-                expected_y+=64'(product>>>31);
+                product=(product>>>31)*longint'(performance_gain_pkg::note_gain(instrument_e'(INST),7'(ni+48)));
+                expected_y+=64'((product+96'sd2048)>>>12);
+                if(expect_e[s]>0)expected_count++;
             end
+            target_gain=expected_count==0 ? expected_gain : int'(performance_gain_pkg::count_scale(5'(expected_count)));
+            if(target_gain<expected_gain)expected_gain-=((expected_gain-target_gain)>>3)>0 ? (expected_gain-target_gain)>>3 : 1;
+            else if(target_gain>expected_gain)expected_gain+=((target_gain-expected_gain)>>12)>0 ? (target_gain-expected_gain)>>12 : 1;
+            product=expected_y*longint'(expected_gain);
+            expected_y=64'((product+96'sd2048)>>>12);
             core_frames++;
         end
         if(verify && dut.u_voice.y_valid)begin

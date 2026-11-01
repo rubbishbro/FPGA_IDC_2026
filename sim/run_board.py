@@ -7,7 +7,7 @@ BOARD=ROOT/'rtl/platform/tang_mega_138k_pro'
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',type=Path,default=ROOT/'build/board_sim')
-    ap.add_argument('--test',action='append',choices=['inputs','lcd','system','clocks','polyphony','audio','pcm','numeric','led','led_effects','stereo_sweep','guide','pt8211','visualizer','polar','polar_render'])
+    ap.add_argument('--test',action='append',choices=['inputs','lcd','system','clocks','polyphony','audio','pcm','numeric','led','led_effects','led_protocol','stereo_sweep','guide','pt8211','visualizer','polar','polar_render'])
     args=ap.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     (out/'results.json').unlink(missing_ok=True)
     ini=Path(os.environ.get('QSIM_INI') or str(Path.home()/'gowin/simlib_questa/modelsim.ini'))
@@ -35,9 +35,11 @@ def main():
     if (ROOT/'sim/unit/board/tb_instrument_board.sv').exists():src.append(ROOT/'sim/unit/board/tb_instrument_board.sv')
     src.append(ROOT/'sim/unit/board/tb_stereo_board_sweep.sv')
     src.append(ROOT/'sim/unit/board/tb_pad_led_effects.sv')
+    src.append(ROOT/'sim/unit/board/tb_led_protocol.sv')
     run('vlog',['-sv','-work',work,*src],'compile')
     tops={'inputs':'tb_board_inputs','lcd':'tb_board_lcd_timing','system':'tb_instrument_board','clocks':'tb_clock_contracts','polyphony':'tb_polyphonic_audio','audio':'tb_i2s_audio_output','pcm':'tb_pcm_equivalence','numeric':'tb_numeric_contracts','led':'tb_led_prefetch','stereo_sweep':'tb_stereo_board_sweep','guide':'tb_instrument_board','pt8211':'tb_pt8211_output','visualizer':'tb_board_visualizer','polar':'tb_polar_contracts','polar_render':'tb_polar_page'};results=[]
     tops['led_effects']='tb_pad_led_effects'
+    tops['led_protocol']='tb_led_protocol'
     for name in args.test or tops:
         top=tops[name];text=run('vsim',['-c','-lib',work,top,*(['-gGUIDE_TEST=1'] if name=='guide' else []),'-wlf',out/(name+'.wlf'),'-do','run -all; quit -f'],name)
         summary=[s.lstrip('# ') for s in text.splitlines() if 'PASS '+top in s]

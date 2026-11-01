@@ -31,6 +31,7 @@ module voice_router #(
     parameter int   N_MODES    = 64,          // 唯一的模态数：系数表/状态/激励/参数表都按它开
     parameter int   CLK_HZ     = 100_000_000,
     parameter int   SR_HZ      = 48_000,
+    parameter bit POLYPHONIC_GAIN=1'b1,
     parameter logic [7:0] PAD_NOTE_ON_TH=8'd102, PAD_NOTE_OFF_TH=8'd13,
     parameter logic DEBUG_PORT = 1'b1,
     parameter bit EXTERNAL_SAMPLE_TICK = 1'b0,
@@ -112,7 +113,7 @@ module voice_router #(
     instrument_e inst_prev;
     logic [SLOTS-1:0] dead_pend, dead_f;
     typedef enum logic [3:0] { S_DONE, S_LOAD, S_RUN_X, S_XS, S_RUN_V,
-                               S_ENVMUL, S_ENVACC, S_ADV, S_WAIT, S_CFG } st_e;
+                               S_ENVMUL, S_ENVACC, S_ADV, S_WAIT, S_CFG,S_VGAIN_MUL,S_VGAIN_FOLD } st_e;
     st_e                 state;
 
     // fmap 先寄存一拍再分发给三个部件：它扇出很大（激励/包络/note_on 比较），
@@ -199,7 +200,20 @@ module voice_router #(
         end
     end endgenerate
 
+    // Register the sample boundary once at the router input. The I2S
+    // frame_seen -> sample_tick XOR used to fan out combinationally into
+    // performance_input_mux/note_pend; starting the frame from this flop cuts
+    // that route while keeping every downstream sample-boundary signal on the
+    // same (now one clk later) edge. The tick is still one clk wide, so no
+    // event can be merged or lost; the whole frame just starts one clk later.
+    logic smp_tick_q;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) smp_tick_q <= 1'b0;
+        else        smp_tick_q <= smp_tick;
+    end
+
     sustain_cfg_t pending_play[0:SLOTS-1],active_play[0:SLOTS-1];
+    logic[19:0] pending_gain[0:SLOTS-1],active_gain[0:SLOTS-1],cfg_gain;
     logic [SLOTS*7-1:0] pending_notes;
     logic [SLOTS*32-1:0] pending_offsets;
     logic [VWID-1:0] cfg_slot;
@@ -294,7 +308,7 @@ module voice_router #(
     // 滞回用的上一次门控状态
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n)        gate_r <= '0;
-        else if (smp_tick) gate_r <= pad_note_on;
+        else if (smp_tick_q) gate_r <= pad_note_on;
     end
 
     // One coherent performance snapshot before the high-fanout DSP controls.
@@ -303,9 +317,9 @@ module voice_router #(
             part_clear<='0;part_gate<='0;part_trigger<='0;
             part_strike<='0;part_envelope<='0;part_tick<=0;part_midi<=0;part_commit<=0;committed_gate<='0;part_pitch_delta<='0;
         end else begin
-            part_tick<=smp_tick;part_commit<=performance_commit;
+            part_tick<=smp_tick_q;part_commit<=performance_commit;
             if(performance_commit)committed_gate<=note_on;
-            if(smp_tick) begin
+            if(smp_tick_q) begin
                 part_clear<=perf_clear | {SLOTS{play_clear}};
                 part_gate<=play_clear ? '0 : note_on;
                 part_trigger<=perf_trigger;part_strike<=strike_level;
@@ -368,7 +382,7 @@ module voice_router #(
     wire pitch_commit_ok;
     eng1_pitch #(.SLOTS(SLOTS),.N_MODES(N_MODES)) u_pitch(
         .clk(clk),.rst_n(child_reset[2][1]),.clear(play_clear || !router_pkg::is_sustain(inst_lat)),
-        .sample_tick(smp_tick),.commit_ok(pitch_commit_ok),.cleanup(pitch_cleanup),.n_modes(nm_lat),
+        .sample_tick(smp_tick_q),.commit_ok(pitch_commit_ok),.cleanup(pitch_cleanup),.n_modes(nm_lat),
         .slot_source(pitch_slot_source),.control_valid(pitch_control_valid),.control_cancel(pitch_control_cancel),
         .control_source(pitch_control_source),.control_data(pitch_control_data),
         .control_ready(pitch_control_ready),.control_rejected(pitch_control_rejected),
@@ -660,6 +674,16 @@ module voice_router #(
     logic signed [31:0]   e_lat;       // emap[voi] 打一拍：16:1 读单独占一拍
     logic signed [AW-1:0] y_env;       // 本声部过包络后的输出
     logic signed [95:0]   y_mul;
+    logic[19:0] gain_lat,gain_b_lat;
+    logic signed[84:0] voice_gain_product;
+    logic signed[63:0] y_calibrated;
+    function automatic logic signed[63:0] fold_voice_gain(input logic signed[84:0] product);
+        logic signed[84:0] shifted;
+        shifted=(product+85'sd2048)>>>12;
+        if(shifted>85'sd9223372036854775807)return 64'sh7fff_ffff_ffff_ffff;
+        if(shifted< -85'sd9223372036854775808)return 64'sh8000_0000_0000_0000;
+        return 64'(shifted);
+    endfunction
 
     // Local, one-cycle delayed group copy isolates the envelope mux from the
     // coefficient/state-address fanout of g. It settles long before y_valid.
@@ -676,6 +700,7 @@ module voice_router #(
             e_lat <= '0;
             y_env <= '0;
             y_acc <= '0;
+            gain_lat<=4096;gain_b_lat<=4096;voice_gain_product<=0;y_calibrated<=0;
         end else begin
             if (state == S_RUN_V && era_yv && erb_yv) begin
                 // 有效拍同时锁存 A/B；eng1 的结果在 y_valid 后不保证保持。
@@ -684,14 +709,19 @@ module voice_router #(
                 y_b_lat <= erb_y;
                 e_b_lat <= $signed(emap_frame[VWID'($unsigned(envelope_group))+VWID'(HS)]);
                 e_lat <= $signed(emap_frame[VWID'($unsigned(envelope_group))]);
+                gain_lat<=active_gain[VWID'($unsigned(envelope_group))];
+                gain_b_lat<=active_gain[VWID'($unsigned(envelope_group))+VWID'(HS)];
             end
             // 乘法结果先落一拍，下一拍才做 64 位累加（原来是 mul + add 同一拍）
             if (state == S_ENVMUL) y_env <= y_mul[94:31];   // (eng_y*E) >>> 31
             if (state == S_ENVACC)
-                y_acc <= (g == '0 && !pick_b) ? y_env : (y_acc + y_env);
+                y_acc <= (g == '0 && !pick_b) ? y_calibrated : (y_acc + y_calibrated);
+            if(state==S_VGAIN_MUL)voice_gain_product<=y_env*$signed({1'b0,gain_lat});
+            if(state==S_VGAIN_FOLD)y_calibrated<=fold_voice_gain(voice_gain_product);
             if (state == S_ADV && !pick_b) begin
                 y_lat <= y_b_lat;
                 e_lat <= e_b_lat;
+                gain_lat<=gain_b_lat;
             end
         end
     end
@@ -730,13 +760,45 @@ module voice_router #(
     logic                 rev_out_valid;
     logic signed [63:0]   rev_y;
     logic [3:0]           mix_outstd, rev_outstd;
+    logic effects_clear, effects_pending, effects_cleared, body_clear_busy;
     logic frame_drained;
+    logic gain_valid;
+    logic signed[63:0] gained_y;
+    logic[3:0] gain_outstd;
+    logic [4:0] speaking_count, speaking_count_q;
+    logic[12:0] poly_gain_q12;
+    always_comb begin
+        speaking_count=0;
+        for(int c=0;c<SLOTS;c++)if(!dead_frame[c] && $signed(emap_frame[c])>0)speaking_count=speaking_count+1'b1;
+    end
+    // emap_frame is only refreshed at the frame head and stays stable through
+    // the whole compute/reverb window. Registering this 16-way compare/count
+    // removes it from the polyphony_gain target->multiplier path; by the time
+    // rev_out_valid reaches u_gain the count is long settled, so the audio
+    // sample index/semantics are unchanged (only the gain target sees a
+    // previous-cycle count, which is the same frame value at the gain step).
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) speaking_count_q <= '0;
+        else        speaking_count_q <= speaking_count;
+    end
     assign frame_drained = (state == S_WAIT) && (mix_outstd == '0) &&
-                          !mix_v && (rev_outstd == '0);
+                          !mix_v && (rev_outstd == '0) && gain_outstd=='0;
 
     assign body_accept = mix_v && body_in_ready;
-    assign y_valid     = rev_out_valid && table_valid;
-    assign y_data      = table_valid ? rev_y : 64'sd0;
+    assign y_valid     = gain_valid && table_valid;
+    assign y_data      = table_valid ? gained_y : 64'sd0;
+    polyphony_gain #(.ENABLE(POLYPHONIC_GAIN)) u_gain(.clk(clk),.rst_n(rst_n),
+        .clear(play_clear || effects_clear),.in_valid(rev_out_valid && table_valid),
+        .in_data(rev_y),.voices(speaking_count_q),.out_valid(gain_valid),.out_data(gained_y),.gain_q12(poly_gain_q12));
+    always_ff @(posedge clk or negedge rst_n)begin
+        if(!rst_n)gain_outstd<=0;
+        else if(play_clear || effects_clear)gain_outstd<=0;
+        else case({rev_out_valid && table_valid,gain_valid})
+            2'b10:gain_outstd<=gain_outstd+1'b1;
+            2'b01:gain_outstd<=gain_outstd-1'b1;
+            default:;
+        endcase
+    end
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -816,8 +878,8 @@ module voice_router #(
 
     assign pm_read_addr=pitch_p_re ? pitch_p_addr : pm_idx;
     assign pitch_commit_ok=(state==S_DONE || (state==S_RUN_X && wait_xmap)) &&
-                           !smp_tick && !part_tick && table_valid && !load_now;
-    assign performance_commit = (state == S_RUN_X) && wait_xmap && smp_tick;
+                           !smp_tick_q && !part_tick && table_valid && !load_now;
+    assign performance_commit = (state == S_RUN_X) && wait_xmap && smp_tick_q;
     assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid && part_commit;
 
     always_ff @(posedge clk or negedge rst_n) begin
@@ -890,7 +952,7 @@ module voice_router #(
         if (!rst_n) begin
             cfg_slot<='0;cfg_phase<=0;cfg_note<=0;cfg_lookup<='0;
             pending_notes<='0;pending_offsets<='0;cfg_error<=0;cfg_fail_pulse<=0;
-            for(int p=0;p<SLOTS;p++)begin pending_play[p]<='0;active_play[p]<='0;end
+            for(int p=0;p<SLOTS;p++)begin pending_play[p]<='0;active_play[p]<='0;pending_gain[p]<=4096;active_gain[p]<=4096;end
             state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
@@ -984,7 +1046,8 @@ module voice_router #(
                     // separate cycles. This only runs before Flash loading.
                     case(cfg_phase)
                         0:begin cfg_note<=pending_notes[cfg_slot*7 +:7];cfg_phase<=1;end
-                        1:begin cfg_lookup<=sustain_profiles_pkg::lookup(inst_lat,cfg_note);cfg_phase<=2;end
+                        1:begin cfg_lookup<=sustain_profiles_pkg::lookup(inst_lat,cfg_note);
+                            cfg_gain<=performance_gain_pkg::note_gain(inst_lat,cfg_note);cfg_phase<=2;end
                         default:begin
                             cfg_phase<=0;
                             if(is_sustain(inst_lat) && (!cfg_lookup.valid || cfg_lookup.period<2 ||
@@ -992,6 +1055,7 @@ module voice_router #(
                                 cfg_error<=1;cfg_fail_pulse<=1;state<=S_DONE;
                             end else begin
                                 pending_play[cfg_slot]<=is_sustain(inst_lat) ? cfg_lookup : sustain_cfg_t'('0);
+                                pending_gain[cfg_slot]<=cfg_gain;
                                 if(cfg_slot==VWID'(SLOTS-1))begin ld_start<=1;state<=S_LOAD;end
                                 else cfg_slot<=cfg_slot+1'b1;
                             end
@@ -1004,7 +1068,7 @@ module voice_router #(
                         if(ld_err)begin
                             state<=S_DONE;
                         end else begin
-                            for(int p=0;p<SLOTS;p++) active_play[p]<=pending_play[p];
+                            for(int p=0;p<SLOTS;p++)begin active_play[p]<=pending_play[p];active_gain[p]<=pending_gain[p];end
                             zero_frames <= (IW+1)'(1);
                             inst_prev <= inst_lat;
 
@@ -1066,7 +1130,9 @@ module voice_router #(
                 end
 
                 // 包络乘法：这一拍把乘法结果打进 y_env
-                S_ENVMUL: state <= S_ENVACC;
+                S_ENVMUL: state <= S_VGAIN_MUL;
+                S_VGAIN_MUL: state<=S_VGAIN_FOLD;
+                S_VGAIN_FOLD: state<=S_ENVACC;
 
                 // 这一拍把 y_env 累加进 y_acc
                 S_ENVACC: state <= S_ADV;
@@ -1113,7 +1179,6 @@ module voice_router #(
     //         （一次作业里乐器号不变，系数就不会中途跳）
     //   混响：预设由上层给（reverb_preset），NONE 时是逐位直通的延迟
     // =========================================================================
-    logic effects_clear, effects_pending, effects_cleared, body_clear_busy;
     wire effects_need = (maintain_req || active_midi) && (|clear_f) && committed_gate=='0;
     // Retirement is a registered fence, not a combinational feedback through
     // the same frame's performance-input mux. It can only delay completion.

@@ -11,7 +11,7 @@ import router_eng1 as R
 
 def bits(value,n=16):return np.array([(value>>s)&1 for s in range(n)],dtype=bool)
 
-def compare_wave(path, bank):
+def compare_wave(path, bank, min_checks=2000):
     model=None;epoch=None;pending=None;checks=0;idle_checks=0;last_retired=None
     for line in path.read_text().splitlines():
         kind,*v=line.split();v=list(map(int,v))
@@ -48,7 +48,7 @@ def compare_wave(path, bank):
             assert np.array_equal(model.idle,bits(idle)),(path.name,seq,'idle',model.idle,bits(idle))
             last_retired=(ep,seq)
             idle_checks+=1
-    assert checks>=2000 and pending is None
+    assert checks>=min_checks and pending is None
     return dict(frames=checks,idle_frames=idle_checks,passed=True)
 
 
@@ -63,6 +63,9 @@ def compare_pitch(out):
     nominal_words=engine.words.copy()
     for line in (out/'pitch_clock_trace.txt').read_text().splitlines():
         c,tick,ok,cv,src,data,cancel,cleanup,sources,bad,ready,reject,cw,addr,a1,bank,busy,commit,sready,*delta=map(int,line.split())
+        # Decode the physical signed24 lanes. Verilator 5.49's decimal display
+        # of a dynamic packed part-select can retain adjacent upper word bits.
+        delta=[R.wrap_signed(value,24) for value in delta]
         control=None
         if cv:
             kind=data>>28

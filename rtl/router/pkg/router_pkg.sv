@@ -21,6 +21,8 @@ package router_pkg;
         INST_DRUMS      = 4'd7, // iir引擎
         INST_BANJO      = 4'd8,
         INST_MANDOLIN   = 4'd9,
+        INST_PIANO_ABC  = 4'd10, // piano2: ABC; piano1 keeps its original ID/engine
+        INST_GUITAR_ABC = 4'd11, // guitar2: F coefficients
         INST_NONE       = 4'hF
     } instrument_e;
 
@@ -92,14 +94,15 @@ package router_pkg;
     // 加乐器/调模态数只改这里 —— 顶层不再有 n_modes 端口。
     function automatic int unsigned n_modes_of(input instrument_e inst);
         case (inst)
-            INST_PIANO,INST_GUITAR: return 48; // ABC resources; storage remains 64
+            INST_PIANO:return 64;
+            INST_GUITAR:return 20;
             default:     return 48;      // eng1 首版计算前48；资源/状态仍按64模态存储
         endcase
     endfunction
 
     function automatic logic eng_sel(input instrument_e inst);
         case (inst)
-            INST_PIANO, INST_GUITAR: return 1'b1;
+            INST_PIANO, INST_GUITAR: return 1'b0;
             default:                 return 1'b1;
         endcase
     endfunction

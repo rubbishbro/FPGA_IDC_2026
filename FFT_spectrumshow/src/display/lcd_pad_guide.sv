@@ -55,7 +55,7 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem")(
             background={6'h04,6'h0b,6'h10};text_y=16;
             if(pix_x<176)begin text_x=24;label_id=95;end
             else if(pix_x<352)begin text_x=184;label_id=view.audio.source==2?63:62;end
-            else if(pix_x<544)begin text_x=376;label_id=8'(100+view.audio.instrument);end
+            else if(pix_x<544)begin text_x=376;label_id=config_pkg::instrument_label(view.audio.instrument);end
             else if(pix_x<688)begin
                 if(pix_x<608)begin text_x=552;label_id=120;end
                 else begin text_x=608;digits={channel_digits[15:0],8'd0};end

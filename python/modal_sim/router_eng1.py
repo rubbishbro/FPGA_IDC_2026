@@ -698,6 +698,8 @@ def _read_body_router_case(instrument: str) -> list[list[int]] | None:
         "guitar": "INST_GUITAR",
         "bass": "INST_BASS",
         "piano": "INST_PIANO",
+        "piano_abc": "INST_PIANO_ABC",
+        "guitar_abc": "INST_GUITAR",
     }.get(str(instrument).lower())
     if inst is None:
         return None
