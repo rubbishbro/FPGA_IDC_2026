@@ -20,6 +20,8 @@ module stereo_reference #(
     endfunction
     function automatic integer coefficient(input integer p);
         integer i,f;
+        // TEMP_AUDIO_AUDITION_20261101: exact center is unity in each ear.
+        if(p==256)return 4096;
         i=p/16;f=p%16;
         return i==32?knot(32)*16:knot(i)*(16-f)+knot(i+1)*f;
     endfunction

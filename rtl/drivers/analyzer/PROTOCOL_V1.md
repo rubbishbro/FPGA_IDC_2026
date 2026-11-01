@@ -1,6 +1,6 @@
 # 串口演奏／配置协议 v1
 
-日期：2026-10-26。状态：**通信 RTL 已实现并完成独立仿真；本文记录当前线上协议。** 设备 RX 接受 MIDI_DATA／CONFIG，TX 生成 REPLY；真实音频／EQ 后级不在本目录实现。外层消息是私有封装，MIDI_DATA 内的 MIDI 字节保持标准含义。
+日期：2026-10-26。状态：**通信 RTL 已实现并完成独立仿真；本文记录当前线上协议。** 设备 RX 接受 MIDI_DATA／CONFIG，TX 生成 REPLY，并支持第10节的有线PERFORMANCE演奏事件；真实音频／EQ后级不在本目录实现。外层消息是私有封装，MIDI_DATA 内的 MIDI 字节保持标准含义。
 
 ## 1. 分帧方式
 
@@ -34,7 +34,7 @@ SLIP 只负责边界，不自带消息分类或校验；TYPE、LEN、SEQ 和 CRC
 | Offset | 字段 | 字节数 | 定义 |
 |---:|---|---:|---|
 | 0 | VERSION | 1 | 固定 01 |
-| 1 | TYPE | 1 | 01=MIDI_DATA，02=CONFIG，80=REPLY |
+| 1 | TYPE | 1 | 01=MIDI_DATA，02=CONFIG，80=REPLY，82=PERFORMANCE（上行） |
 | 2 | SEQ | 2 | 序号／配置请求标识，低字节在前 |
 | 4 | LEN | 2 | 未转义 payload 的字节数，低字节在前 |
 | 6 | PAYLOAD | LEN | 按 TYPE 解释 |
@@ -209,3 +209,46 @@ C0 01 80 01 00 03 00 02 02 00 61 50 C0
 ## 9. 已有验证入口
 
 六组固定向量、CRC 标准检查与随机分片／粘包由 `sim/check_comm_vectors.py` 检查；RTL 仿真覆盖分帧、长度／转义／CRC 错误、背压、MIDI→CONFIG→MIDI 屏障、重复配置及来源故障恢复。具体测试和结果见 [VERIFICATION.md](../../comm/VERIFICATION.md)。
+
+## 10. 有线压力垫演奏录制扩展（2026-10-31）
+
+本节为可编辑MIDI轨道的事件回传，不是PCM/WAV；蓝牙v2不包含此扩展。
+旧MIDI/CONFIG/REPLY字节及长度不变。设备RX仍只接收MIDI/CONFIG，新增TYPE82只允许设备→有线PC。
+
+CONFIG `12 RECORD_START` / `13 RECORD_STOP`：payload均为`command:u8 recording_id:u32LE`，LEN=5。
+只允许有线来源，且需现有有线远程权限。START需音频资源有效、PAD来源、音色有固定MIDI通道映射；不满足返回NOT_READY；已有take活动/排空返回BUSY；STOP的ID不符返回OUT_OF_RANGE。
+START在下一音频帧边界开始；STOP在下一边界停止观察，不清音、不停止PAD发声。设备600秒自主截止；配置桥等待起停最多2秒，超时取消并返回NOT_READY。
+START/STOP回复沿用TYPE80、匹配CONFIG SEQ及command，原去重缓存继续有效。STOP成功只能在END已交付编码器之后产生；仲裁锁定整帧，故线上END完整地先于STOP回复。
+录制中不重复START；同次连接主机使用新的32bit录制ID，MIDI/配置/录制上行序号相互独立。无物理状态时拔线不能立即由设备识别，主机断线后必须将take标不完整；设备最长600秒截止。维护/有线隔离不伪装完整录制。
+
+### TYPE82 PERFORMANCE，LEN固定24，body固定32字节
+
+所有整数字段小端，每帧只包含一项记录，完整SLIP/CRC与v1一致；仍在40字节body上限内。
+
+|payload offset|字段|含义|
+|---:|---|---|
+|0|kind:u8|0 STARTED；1 NOTE_ON；2 NOTE_OFF；3 END|
+|1|flags:u8|bit0=不完整（END有效）；其它0|
+|2|channel:u8|实际音色映射的0-based MIDI通道0..5|
+|3|slot:u8|矩阵槽0..15；STARTED/END为0|
+|4|recording_id:u32|对应START请求|
+|8|ordinal:u32|STARTED=0，每个成功入队记录递增1；header SEQ为低16bit|
+|12|frame_index:u32|相对于START的音频帧数；STARTED=0；END为停止边界|
+|16|a:u32|STARTED=采样率分子12500000；ON/OFF低byte为note、次byte为velocity；END=0|
+|20|b:u32|STARTED=采样率分母256；ON/OFF=0；END=此前成功入队的ON/OFF记录数|
+
+相同生效快照内的音符共享frame_index，按slot顺序发送；UART到达时间不是演奏时间。
+NOTE_OFF使用此前起音音高，不能随实时音高清单变化。力度为max(1,floor((strike_level×127+127)/255))，OFF力度不用于重建持续时间。
+首版固定槽内一次一个按键实例，通过slot/recording_id匹配；不增加动态多次叠按计数。同槽再次ON在PC收束旧实例并标记不完整，不能跨丢失事件猜测完美轨道。
+
+设备使用128项同步RAM FIFO，不反压合成。队列满/采集扫描重叠会停止take，保留此前记录并发带不完整标志的END；允许等空间发END，不能丢弃结束标志。48.828125kHz采样窗口内扫描16槽，时间戳来自快照而非扫描结束时间。
+
+STARTED可能先于START回复，PC从arming起即接收。收到END后将仍按住的音符在其时间戳封口；无ON不猜音符；序号缺失/错误尾部/断线需标记不完整。无END只可保存已确认部分，不能用PC墙钟伪造设备停止时间。普通长按即使没有新事件也不视作断线。
+
+黄金向量：[performance_vectors.json](performance_vectors.json)。验证入口：
+
+```bash
+python3 sim/run_comm.py --test tb_performance_record --test tb_performance_limits
+python3 sim/run_board.py --test record
+node web/midi-editor/tests/run.mjs
+```

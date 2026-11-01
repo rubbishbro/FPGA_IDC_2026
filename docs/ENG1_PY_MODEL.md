@@ -41,7 +41,7 @@ synth.note_off(slot)                # 普通释放，保留模态尾音至清零
 | idle | 帧内状态写回退休后发布；release到零不提前允许另一归属抢槽 |
 | 动态音高 | 双来源Bend/CC1、slew、ROM插值、不可变base/K、一阶a1更新、完整影子批次和原子提交；支持取消、清理、坏P1T1拒绝 |
 | 腔体 | 四种B音色在当前body_router均为直通，未擅自加额外音色滤波 |
-| 混响 | NONE/HALL/BATHROOM均按当前SV表达式宽度复刻，包括F09截断和清空末端边界；没有替RTL修正声音 |
+| 混响 | NONE/HALL/BATHROOM使用显式96位乘积、宽反馈求和与正确符号饱和；2026-11-01同步修复RTL的F09截断，保留清空末端边界行为 |
 | 双声道/PCM | ILD插值、位置slew、分数ITD、清空、Q24到PCM16的headroom/舍入/限幅；默认headroom=3；声像max(L,R)=1，中心单位增益；无逐文件试听归一化 |
 
 `Frame`返回 `x/emap/y/mix/out/pcm/delta/zero/idle`，便于追查差异。`out`是混响后的Q24整数，`pcm`是输出定标后的左右声道。
@@ -275,3 +275,8 @@ FFT_results/sim/eng1/
 前述零模态/吞吐是旧阶段记录：当前工作区eng1已改为五级跨模态流水，空作业和满深度由sim/run_audio.py的新整数oracle验证。本文独立Python模型仍使用Q30；当前router激励/PCM按Q24解释，不能直接复制SHIFT22。
 
 B类周期驱动、ADSR及逐槽period现已接入RTL；实施合同和修复前实测统一见[eng1演奏前端](ENG1演奏前端设计.md)。BSynth提供参考，当前RTL验证结果另见[工程验证](工程评审与验证.md#sustain-implementation-2026-10-29)。
+
+
+## 2026-11-01 临时试听增益
+
+`TEMP_AUDIO_AUDITION_20261101`：当前工作区临时在 voice_router 最终输出处乘2并饱和到signed64；声像恰好居中时两耳增益改为4096/4096。Python `Eng1Synth` 和 `Spatializer` 同步这两项临时设置，代码位置均有同名注释。恢复时须将RTL、模型和声像参考测试一并恢复。非居中声像及ITD计算未改变。之前的峰值报告/已生成音频对应改动前配置。

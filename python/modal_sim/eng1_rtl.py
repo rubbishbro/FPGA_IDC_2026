@@ -253,6 +253,9 @@ class Spatializer:
 
     @classmethod
     def gain(cls, position):
+        # TEMP_AUDIO_AUDITION_20261101: mirror exact-center unity in RTL.
+        if position == 256:
+            return 4096
         i, f = divmod(position, 16)
         return cls.LUT[i]*16 if i == 32 else cls.LUT[i]*(16-f)+cls.LUT[i+1]*f
 

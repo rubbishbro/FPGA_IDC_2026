@@ -47,6 +47,8 @@ rtl/drivers/bluetooth_hc05/comm_hc05_status.sv
 rtl/drivers/bluetooth_hc05/hc05_driver.sv
 rtl/comm/slip_frame_rx.sv
 rtl/comm/slip_frame_tx.sv
+rtl/comm/performance_frame_tx.sv
+rtl/comm/performance_capture.sv
 rtl/comm/transport_link.sv
 rtl/comm/comm_v2_codec.sv
 rtl/comm/transport_v2_link.sv
@@ -94,5 +96,6 @@ rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v
 rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v
 rtl/platform/tang_mega_138k_pro/ip/pll_init.v
 rtl/platform/tang_mega_138k_pro/board_clock_reset.sv
+rtl/platform/tang_mega_138k_pro/temporary_fmap_display.sv
 rtl/platform/tang_mega_138k_pro/instrument_system.sv
 rtl/platform/tang_mega_138k_pro/instrument_board_top.sv

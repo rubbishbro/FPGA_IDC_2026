@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "test": "node tests/run.mjs",
-    "check": "node --check src/app.mjs && node --check src/piano-roll.mjs && node --check src/serial.mjs && node --check src/protocol-v2.mjs && node --check src/serial-v2.mjs"
+    "check": "node --check src/app.mjs && node --check src/piano-roll.mjs && node --check src/serial.mjs && node --check src/protocol-v2.mjs && node --check src/serial-v2.mjs && node --check src/performance-recorder.mjs && node --check src/recording-ui.mjs"
   },
   "engines": {
     "node": ">=20"

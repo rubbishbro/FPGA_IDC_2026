@@ -4,3 +4,5 @@ import './serial.test.mjs';
 import '../test/protocol-v2.test.mjs';
 import './protocol-v2-recovery.test.mjs';
 import './serial-v2.test.mjs';
+
+import './performance.test.mjs';

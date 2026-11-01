@@ -5,6 +5,8 @@ import {SerialLink} from './serial.mjs';
 import {V2SerialLink} from './serial-v2.mjs';
 import {Playback,ReferenceSynth} from './playback.mjs';
 import {setupSidebars} from './sidebars.mjs';
+import {setupRecording} from './recording-ui.mjs';
+let recording;
 const $=id=>document.getElementById(id),DRAFT='fpga-midi-studio:v1';
 let toastTimer,autosaveTimer,selectedTrack,clipboard=[],worker,output='local',manifest=null,starting=false,lastTick=0,startGeneration=0;
 let project=demoProject();
@@ -30,7 +32,7 @@ const playback=new Playback({
 });
 for(const link of [serialV1,serialV2])link.onFault=e=>{
   if(link!==serial)return;
-  resumeAfterRecovery=false;stopPlayback();toast(`通信故障：${e.message}。请断开后重新连接。`,true);
+  recording?.onFault();resumeAfterRecovery=false;stopPlayback();toast(`通信故障：${e.message}。请断开后重新连接。`,true);
 };
 serialV2.onRecovery=()=>{
   if(serial!==serialV2)return;
@@ -60,7 +62,7 @@ function toast(message,error=false){clearTimeout(toastTimer);$('toast').textCont
 function log(kind,message){const p=document.createElement('p'),strong=document.createElement('strong');strong.textContent=`${new Date().toLocaleTimeString('zh-CN',{hour12:false})} ${kind} `;p.append(strong,document.createTextNode(message));$('link-log').prepend(p);while($('link-log').children.length>40)$('link-log').lastChild.remove();}
 function currentTrack(){return history.current.tracks.find(t=>t.id===selectedTrack)??history.current.tracks[0];}
 function scheduleSave(){clearTimeout(autosaveTimer);$('draft-time').textContent='保存中…';autosaveTimer=setTimeout(()=>{try{localStorage.setItem(DRAFT,JSON.stringify(history.current));$('draft-time').textContent=`草稿已保存 ${new Date().toLocaleTimeString('zh-CN',{hour12:false})}`;}catch{$('draft-time').textContent='草稿保存失败';toast('浏览器存储已满或不可用，请保存 JSON 工程',true);}},450);}
-function edit(fn){stopPlayback();try{const next=structuredClone(history.current);fn(next);next.bars=Math.max(next.bars,Math.ceil(endBeat(next)/4));validateProject(next);history.commit(next);}catch(e){toast(e.message,true);render();}}
+function edit(fn){if(recording?.busy){toast('请先停止演奏录制');return;}stopPlayback();try{const next=structuredClone(history.current);fn(next);next.bars=Math.max(next.bars,Math.ceil(endBeat(next)/4));validateProject(next);history.commit(next);}catch(e){toast(e.message,true);render();}}
 function render(){
   const p=history.current;if(!p.tracks.some(t=>t.id===selectedTrack))selectedTrack=p.tracks[0].id;
   document.title=`${p.name} · FPGA MIDI Studio`;$('project-name').value=p.name;$('track-count').textContent=String(p.tracks.length).padStart(2,'0');$('bar-count').textContent=p.bars;$('tempo').value=Math.round(p.tempoMap[0].bpm*100)/100;$('tempo-unit').textContent=p.tempoMap.length>1?'变速':'BPM';$('tempo').title=p.tempoMap.length>1?'修改后会将整首曲谱设为此固定速度':'每分钟拍数';
@@ -164,6 +166,7 @@ function renderSerial(){
 function hardwareProfile(){const notes=$('hw-notes').value.split(/[\s,，]+/).filter(Boolean).map(Number);if(notes.some(n=>!Number.isInteger(n)||n<0||n>127)||new Set(notes).size!==notes.length)throw Error('已加载音高清单必须是不重复的 0～127 整数');return {channel:Number($('hw-channel').value),notes};}
 function stopPlayback(){startGeneration++;playback.stop();worker?.postMessage('stop');renderTransport();}
 async function play(){
+  if(recording?.busy)return;
   if(playback.playing){stopPlayback();return;}if(starting){stopPlayback();return;}starting=true;const generation=++startGeneration;
   try{
     if(!worker)throw Error('播放时钟不可用');validateProject(history.current);
@@ -224,6 +227,7 @@ $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$
 $('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if($('help-dialog').open)return;$('panic').click();return;}
+  if(recording?.busy)return;
   if(e.target.closest('input,textarea,select')||$('help-dialog').open)return;
   const mod=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
   if(e.code==='Space'){e.preventDefault();play();return;}
@@ -241,3 +245,14 @@ window.addEventListener('pagehide',()=>{stopPlayback();try{localStorage.setItem(
 if(!navigator.serial)$('serial-support').textContent='当前浏览器无 Web Serial。连接硬件请用 Chrome / Edge 打开本地地址。';
 log('就绪','v1 有线演奏 / v2 会话插件 · 本地编辑');render();renderSerial();
 requestAnimationFrame(()=>requestAnimationFrame(()=>roll.fit()));
+
+recording=setupRecording({getLink:()=>serial,supportsRecording:()=>serial===serialV1,
+ getProject:()=>history.current,getPosition:()=>playback.position,stopPlayback,toast,status,
+ commitTrack:(track,incomplete)=>{
+  const next=structuredClone(history.current);if(incomplete)track.name+='（不完整）';
+  const takeEnd=Math.max(...track.notes.map(n=>n.beat+n.duration),4);
+  next.tracks.push(track);next.bars=Math.max(next.bars,Math.ceil(takeEnd/4));
+  if(next.loop.enabled && takeEnd>next.loop.end)next.loop.end=next.bars*4;
+  validateProject(next);selectedTrack=track.id;history.commit(next);roll.select([]);roll.fit();
+ }});
+serialV1.onFrame=frame=>recording.onFrame(frame);

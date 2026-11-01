@@ -92,9 +92,30 @@ module instrument_system #(
     pad_led_effects u_pad_leds(.cr({clk_core,pad_tick,core_n}),.force_map(force_map),
         .led_busy(led_busy),.led_frame_done(led_frame_done),.leds(leds));
 
+    logic [1:0] quarantine,cleanup_done,source_idle;
+    logic audio_valid,audio_fault;
+    audio_config_t audio_state;
+    logic record_snapshot_valid,rec_active,rec_draining,rec_completed,rec_failed;
+    logic [15:0] record_snapshot_gate;
+    logic [127:0] record_snapshot_level;
+    logic [111:0] record_snapshot_notes;
+    logic rec_start,rec_stop,rec_abort,perf_valid,perf_ready;
+    logic [31:0] rec_wait_timer;
+    logic [191:0] perf_payload;
+    logic [15:0] perf_seq;
+    logic [31:0] rec_request_id,rec_current_id;
+    wire [4:0] rec_ui_channel=config_pkg::instrument_channel(audio_state.instrument);
+    wire rec_eligible=audio_valid && !audio_fault && audio_state.source==0 && rec_ui_channel!=0;
+    performance_capture u_record(
+        .clk(clk_core),.rst_n(core_n),.frame_tick(spatial_frame_tick),.abort_capture(quarantine[0] || rec_abort),
+        .start_req(rec_start),.stop_req(rec_stop),.request_id(rec_request_id),
+        .eligible(rec_eligible),.channel(4'(rec_ui_channel-1'b1)),
+        .snapshot_valid(record_snapshot_valid),.snapshot_gate(record_snapshot_gate),
+        .snapshot_level(record_snapshot_level),.snapshot_notes(record_snapshot_notes),
+        .active(rec_active),.draining(rec_draining),.completed(rec_completed),.failed(rec_failed),
+        .out_valid(perf_valid),.out_ready(perf_ready),.out_payload(perf_payload),.out_seq(perf_seq));
     logic event_valid,event_ready,event_source;
     logic [31:0] event_data;
-    logic [1:0] quarantine,cleanup_done,source_idle;
     logic midi_idle,cfg_valid,cfg_ready,cfg_source,cfg_done,cfg_done_ready;
     logic [15:0] cfg_seq;
     logic [7:0] cfg_cmd,cfg_result;
@@ -106,15 +127,13 @@ module instrument_system #(
         .midi_ops_idle(midi_idle),.source_quarantine(quarantine),.link_fault_pending(),.error_sticky(),.rx_error_count(),
         .event_valid(event_valid),.event_ready(event_ready),.event_data(event_data),.event_source_id(event_source),.midi_parse_error(),
         .cfg_valid(cfg_valid),.cfg_ready(cfg_ready),.cfg_source_id(cfg_source),.cfg_seq(cfg_seq),.cfg_command(cfg_cmd),
-        .cfg_payload_len(cfg_len),.cfg_shadow(cfg_shadow),.cfg_done_valid(cfg_done),.cfg_done_ready(cfg_done_ready),.cfg_result(cfg_result));
+        .cfg_payload_len(cfg_len),.cfg_shadow(cfg_shadow),.cfg_done_valid(cfg_done),.cfg_done_ready(cfg_done_ready),.cfg_result(cfg_result),.perf_valid(perf_valid),.perf_ready(perf_ready),.perf_seq(perf_seq),.perf_payload(perf_payload));
 
     logic backend_valid,backend_ready,backend_source,backend_rsp_valid,backend_rsp_ready;
     cfg_request_t backend_request;
     cfg_response_t backend_response,voice_response,policy_response;
     logic voice_ready,voice_rsp_valid,policy_rsp_valid;
     logic [config_pkg::CFG_COUNT-1:0] voice_supported;
-    logic audio_valid,audio_fault;
-    audio_config_t audio_state;
     cfg_values_t values;
     sidebar_scene_t scene;
     guide_display_t guide_display;
@@ -146,6 +165,8 @@ module instrument_system #(
         .PCM_HEADROOM_BITS(PCM_HEADROOM_BITS),
         .FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.RESOURCE_MASK(RESOURCE_MASK),.PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48)) u_sound(
         .clk(clk_core),.audio_clk(clk_audio),.rst_n(core_n),.run(1'b1),.fmap(force_map),
+        .record_snapshot_valid(record_snapshot_valid),.record_snapshot_gate(record_snapshot_gate),
+        .record_snapshot_level(record_snapshot_level),.record_snapshot_notes(record_snapshot_notes),
         .pan_position(spatial_pan),.itd_enable(itd_enable),
         .pad_instrument(router_pkg::INST_PIANO),.reverb_preset(router_pkg::REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),.selected_channel(4'd1),
@@ -170,7 +191,7 @@ module instrument_system #(
     logic ext_valid,ext_ready,ext_rsp_valid;
     cfg_request_t ext_request;
     cfg_response_t ext_response;
-    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE} bridge_t;
+    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_REC_START,B_REC_STOP} bridge_t;
     bridge_t bridge_state;
     logic ctx_source;
     logic [15:0] ctx_seq;
@@ -183,14 +204,28 @@ module instrument_system #(
     assign ext_request={ctx_seq,16'h0200,24'd0,ctx_shadow[15:8]};
     // Keep all physical context until the real response retires. Parser owns v1 cache/reply.
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;end
-        else case(bridge_state)
+        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;end
+        else begin
+        rec_start<=0;rec_stop<=0;rec_abort<=0;
+        if(bridge_state==B_REC_START||bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
+        else rec_wait_timer<=0;
+        case(bridge_state)
             B_IDLE:if(cfg_valid)begin
                 ctx_source<=cfg_source;ctx_seq<=cfg_seq;ctx_cmd<=cfg_cmd;ctx_len<=cfg_len;ctx_shadow<=cfg_shadow;bridge_state<=B_CHECK;
             end
             B_CHECK:begin
                 cfg_result<=6;
                 if(quarantine[ctx_source] || !remote_permission[ctx_source])bridge_state<=B_DONE;
+                else if((ctx_cmd==8'h12 || ctx_cmd==8'h13) && ctx_len==5)begin
+                    if(ctx_source)begin cfg_result<=1;bridge_state<=B_DONE;end
+                    else if(ctx_cmd==8'h12)begin
+                        if(rec_active||rec_draining)begin cfg_result<=4;bridge_state<=B_DONE;end
+                        else if(!rec_eligible)begin cfg_result<=6;bridge_state<=B_DONE;end
+                        else begin rec_request_id<=ctx_shadow[39:8];rec_current_id<=ctx_shadow[39:8];rec_start<=1;bridge_state<=B_REC_START;end
+                    end else if(ctx_shadow[39:8]!=rec_current_id)begin cfg_result<=3;bridge_state<=B_DONE;end
+                    else if(rec_completed)begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
+                    else begin rec_stop<=1;bridge_state<=B_REC_STOP;end
+                end
                 else if(ctx_cmd==2 && ctx_len==2 && ctx_shadow[15:8]<=2)bridge_state<=B_SEND;
                 else begin cfg_result<=ctx_cmd==1 ? 8'd6 : 8'd1;bridge_state<=B_DONE;end
             end
@@ -203,9 +238,14 @@ module instrument_system #(
                 endcase
                 bridge_state<=B_DONE;
             end
+            B_REC_START:if(rec_active)begin cfg_result<=0;bridge_state<=B_DONE;end
+                else if(rec_wait_timer>=2*CLK_HZ)begin rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;end
+            B_REC_STOP:if(rec_completed || quarantine[0])begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
+                else if(rec_wait_timer>=2*CLK_HZ)begin rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;end
             B_DONE:if(cfg_done_ready)bridge_state<=B_IDLE;
             default:bridge_state<=B_IDLE;
         endcase
+        end
     end
     wire [9:0] pix_x,pix_y;
     wire de,frame_pulse,display_de;
@@ -293,6 +333,9 @@ module instrument_system #(
         .curve_rd_data(curve_rd_data_fft)
     );
 
+    // TEMP_FMAP_DISPLAY_20261101: route original RGB through the separate debug
+    // overlay below. Restore u_ui outputs directly to lcd_r/g/b when removing it.
+    wire [5:0] temp_base_r,temp_base_g,temp_base_b;
     // Pixel FFT data and local guide/menu overlays share the existing sidebar path.
     // Keep the swapped axes and horizontal orientation; flip only final UP/DOWN
     // relative to the 2026-10-31 profile (previously JOY_INVERT_Y=1).
@@ -310,8 +353,17 @@ module instrument_system #(
         .backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
         .frame_pulse(frame_pulse),.lcd_valid(de),.pix_x(pix_x),.pix_y(pix_y),
         .q_y(q_y_fft),.q_ov(q_ov_fft),.wave_rd_data(wave_rd_data_fft),.wave_rd_addr(wave_rd_addr_fft),.curve_rd_data(curve_rd_data_fft),.curve_rd_addr(curve_rd_addr_fft),
-        .lcd_r(lcd_r),.lcd_g(lcd_g),.lcd_b(lcd_b),.lcd_valid_out(display_de),
+        .lcd_r(temp_base_r),.lcd_g(temp_base_g),.lcd_b(temp_base_b),.lcd_valid_out(display_de),
         .active_values(values),.ui_scene(scene),.sidebar_width());
+    // TEMP_FMAP_DISPLAY_20261101: raw pad.fmap (not the scaled force_map).
+    // Keep LCD rotation, DE and the existing UI's four-clock pixel latency.
+    temporary_fmap_display u_temp_fmap(
+        .rst_n(rst_n),.core_clk(clk_core),.pix_clk(clk_pix),
+        .frame_pulse(frame_pulse),.lcd_valid(de),.fmap_raw(pad.fmap.raw),
+        .pix_x(pix_x),.pix_y(pix_y),
+        .base_r(temp_base_r),.base_g(temp_base_g),.base_b(temp_base_b),
+        .lcd_r(lcd_r),.lcd_g(lcd_g),.lcd_b(lcd_b));
+    // END TEMP_FMAP_DISPLAY_20261101
     assign lcd_en=display_de;
     // synthesis translate_off
     initial if(CLK_HZ<2_500_000 || CLK_HZ%2_500_000!=0)$fatal(1,"board PAD clock must divide to 2.5MHz");

@@ -7,6 +7,8 @@ rtl/drivers/bluetooth_hc05/comm_hc05_status.sv
 rtl/drivers/bluetooth_hc05/hc05_driver.sv
 rtl/comm/slip_frame_rx.sv
 rtl/comm/slip_frame_tx.sv
+rtl/comm/performance_frame_tx.sv
+rtl/comm/performance_capture.sv
 rtl/comm/transport_link.sv
 rtl/comm/comm_v2_codec.sv
 rtl/comm/transport_v2_link.sv

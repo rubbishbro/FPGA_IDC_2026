@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module tb_instrument_board #(parameter bit GUIDE_TEST=0);
+module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
     logic pad_enabled=1;
     import config_pkg::*;
     logic clk=0,rst_n=0,key0=1,key1=1;
@@ -31,6 +31,10 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
         dut.u_system.u_sound.g_audio.u_audio.rvalid?dut.u_system.u_sound.g_audio.u_audio.rdata:32'd0,
         pt_frames,pt_nonzero,pt_different);
     always @(negedge dut.clk_core)if(pa!==sd)$fatal(1,"FAIL headphone enable/mute connection");
+    integer recording_wire_file;
+    initial if(RECORD_TEST)recording_wire_file=$fopen("recording_uart.hex","w");
+    integer perf_starts=0,perf_ons=0,perf_offs=0,perf_ends=0;
+    logic [31:0] perf_first_on_tick=0;
     integer replies[2],nb[2],cfg_commits=0,nonzero=0,samples=0,display_frames=0;
     longint unsigned sample_peak=0;
     logic [7:0] reply_bytes[2][40],last_result[2];
@@ -71,14 +75,29 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
             logic [7:0] val;
             logic [15:0] checksum;
             val=byte_data[source*8 +:8];
+            if(RECORD_TEST && source==0)$fdisplay(recording_wire_file,"%02x",val);
             if(val==8'hc0)begin
                 if(started[source] && nb[source]>0)begin
+                    if(RECORD_TEST && reply_bytes[source][1]==8'h82)begin
+                        checksum=16'hffff;for(int j=0;j<30;j++)checksum=crc(checksum,reply_bytes[source][j]);
+                        if(source!=0 || nb[source]!=32 || checksum!={reply_bytes[source][31],reply_bytes[source][30]})$fatal(1,"FAIL recorded frame CRC/length");
+                        if({reply_bytes[source][13],reply_bytes[source][12],reply_bytes[source][11],reply_bytes[source][10]}!=32'hdbc01234)$fatal(1,"FAIL take ID");
+                        case(reply_bytes[source][6])
+                          0:perf_starts++;
+                          1:begin perf_ons++;if(perf_ons==1)perf_first_on_tick={reply_bytes[source][21],reply_bytes[source][20],reply_bytes[source][19],reply_bytes[source][18]};if(reply_bytes[source][22]!=40 || reply_bytes[source][23]!=64)$fatal(1,"FAIL PAD recorded pitch/velocity %d/%d",reply_bytes[source][22],reply_bytes[source][23]);end
+                          2:begin perf_offs++;
+                            if(({reply_bytes[source][21],reply_bytes[source][20],reply_bytes[source][19],reply_bytes[source][18]}-perf_first_on_tick)<190)$fatal(1,"FAIL device record timestamp/held duration");
+                          end
+                          3:begin perf_ends++;if(reply_bytes[source][7]!=0)$fatal(1,"FAIL take incomplete");end
+                        endcase
+                    end else begin
                     checksum=16'hffff;for(int j=0;j<9;j++)checksum=crc(checksum,reply_bytes[source][j]);
                     if(nb[source]!=11 || reply_bytes[source][0]!=1 || reply_bytes[source][1]!=8'h80 ||
                        reply_bytes[source][4]!=3 || reply_bytes[source][6]!=2 ||
                        checksum!={reply_bytes[source][10],reply_bytes[source][9]})$fatal(1,"FAIL board UART reply/CRC");
                     last_result[source]=reply_bytes[source][8];last_seq[source]={reply_bytes[source][3],reply_bytes[source][2]};
                     replies[source]++;
+                    end
                 end
                 started[source]=1;escaped[source]=0;nb[source]=0;
             end else if(started[source])begin
@@ -98,7 +117,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
                 sample_peak=dut.u_system.sample_value<0 ? -dut.u_system.sample_value : dut.u_system.sample_value;
         end
         if(dut.u_system.audio_diagnostics!=0)$fatal(1,"FAIL board audio diagnostics %b",dut.u_system.audio_diagnostics);
-        if(dut.u_system.cfg_done && dut.u_system.cfg_result==0 &&
+        if(dut.u_system.cfg_done && dut.u_system.cfg_result==0 && dut.u_system.ctx_cmd==2 &&
            (!dut.u_system.audio_valid || dut.u_system.audio_state.reverb!=dut.u_system.ctx_shadow[15:8]))
             $fatal(1,"FAIL serial ACK before actual configuration");
     end
@@ -141,7 +160,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
         if(dut.u_system.scene.result!=CFG_OK)$fatal(1,"FAIL source menu commit");
     endtask
     integer before_cfg;
-    initial if(!GUIDE_TEST)begin
+    initial if(!GUIDE_TEST && !RECORD_TEST)begin
         for(int s=0;s<2;s++)begin replies[s]=0;nb[s]=0;started[s]=0;escaped[s]=0;end
         #100;rst_n=1;
         wait(dut.u_system.audio_valid);wait(nonzero>600);clocks(10);
@@ -251,6 +270,24 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0);
         if(dut.u_system.guide_display.target!=0 || !dut.u_system.u_sound.u_voice.note_on[0] || dut.u_system.audio_fault)
             $fatal(1,"FAIL Bluetooth quarantine interrupted manual guide performance");
         $display("PASS tb_instrument_board GUIDE UART/BT/menu/ADC/LCD/engine samples=%0d nonzero=%0d",samples,nonzero);$finish;
+    end
+    initial if(RECORD_TEST)begin
+        for(int i=0;i<2;i++)begin replies[i]=0;nb[i]=0;started[i]=0;escaped[i]=0;end
+        pad_enabled=0;#100;rst_n=1;wait(dut.u_system.audio_valid);clocks(2000);
+        // Unsupported source/profile and permission are checked by the real bridge.
+        config_reply(0,30,5,128'hdbc0123412,0);
+        wait(perf_starts==1);pad_enabled=1;wait(perf_ons==1);clocks(200000);
+        pad_enabled=0;wait(perf_offs==1);clocks(100000);
+        pad_enabled=1;wait(perf_ons==2);clocks(400000);
+        // Stop while still holding a key: take must finish without stopping PAD audio.
+        config_reply(0,31,5,128'hdbc0123413,0);
+        if(perf_ends!=1 || dut.u_system.u_sound.u_voice.note_on[0]!=1)$fatal(1,"FAIL END-before-ACK or STOP muted PAD");
+        if(perf_ons!=2 || perf_offs!=1 || dut.u_system.rec_active)$fatal(1,"FAIL recorded events");
+        // Cached START and STOP are not allowed to create another take.
+        config_reply(0,31,5,128'hdbc0123413,0);
+        if(perf_starts!=1)$fatal(1,"FAIL STOP retry restarted capture");
+        $fclose(recording_wire_file);
+        $display("PASS tb_instrument_board RECORD real_ADC_router_UART on=%0d off=%0d END_before_ACK",perf_ons,perf_offs);$finish;
     end
     initial begin #400000000;$fatal(1,"FAIL board watchdog menu=%d/%d/%d cfg=%d bridge=%d source=%d replies=%d/%d",dut.u_system.scene.layer,dut.u_system.scene.category,dut.u_system.scene.selection,dut.u_system.u_sound.cfg_state,dut.u_system.bridge_state,dut.u_system.audio_state.source,replies[0],replies[1]);end
     initial begin #40000000;if(!GUIDE_TEST && nonzero==0)$fatal(1,"FAIL ADC/PAD boot watchdog raw=%h normalized=%h",dut.u_system.pad.fmap.raw,dut.u_system.force_map.raw);end
