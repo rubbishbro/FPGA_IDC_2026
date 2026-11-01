@@ -59,7 +59,7 @@ module record_bridge_probe;
 """ + capture + declarations + "\n" + bridge + "\nendmodule\n"
     (out / "record_bridge_probe.sv").write_text(wrapper)
     router = (ROOT / "rtl/router/voice_router.sv").read_text()
-    ticks = between(router, "    wire smp_tick;", "    sustain_cfg_t pending_play")
+    ticks = between(router, "    wire smp_tick;", "    sustain_cfg_t active_play")
     (out / "sample_tick_probe.sv").write_text("""`timescale 1ns/1ps
 module sample_tick_probe #(parameter bit EXTERNAL_SAMPLE_TICK=0,
     parameter int CLK_HZ=100,SR_HZ=10)(input logic clk,rst_n,sample_tick);

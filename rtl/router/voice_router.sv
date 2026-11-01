@@ -218,7 +218,7 @@ module voice_router #(
         else        smp_tick_q <= smp_tick;
     end
 
-    sustain_cfg_t pending_play[0:SLOTS-1],active_play[0:SLOTS-1];
+    sustain_cfg_t active_play[0:SLOTS-1];
     logic [SLOTS*7-1:0] pending_notes;
     logic [SLOTS*32-1:0] pending_offsets;
     logic ld_cfg_we,ld_control_we;
@@ -957,16 +957,17 @@ module voice_router #(
     // 清零信号在引擎实例那边按 bank 各自给（era_zero / erb_zero），这里不用了
 
     // Parameter data is initialized by the load transaction, not async reset.
-    // S_CFG overwrites every pending slot before any commit. Until successful
-    // full commit, table_valid/play_clear and the registered part_clear/gate
-    // isolate both excitation and envelope consumers (slot_clear has priority).
+    // S_CFG initializes every slot; S_LOAD writes the unpublished table in place.
+    // Until ld_done succeeds, table_valid/play_clear and the paired part_tick /
+    // part_clear snapshot isolate excitation and envelope (clear has priority).
+    // The loader emits the last cfg_we before done, so data and cfg_error have
+    // settled before the unchanged FSM publishes table_valid. A failed load
+    // leaves the table invalid; recovery starts again at S_CFG.
     always_ff @(posedge clk) begin
         if (state == S_CFG)
-            for (int p=0;p<SLOTS;p++) pending_play[p] <= '0;
+            for (int p=0;p<SLOTS;p++) active_play[p] <= '0;
         else if (state == S_LOAD && ld_cfg_we)
-            pending_play[ld_cfg_slot] <= ld_cfg_data;
-        if (state == S_LOAD && ld_done && !ld_err && !cfg_error)
-            for (int p=0;p<SLOTS;p++) active_play[p] <= pending_play[p];
+            active_play[ld_cfg_slot] <= ld_cfg_data;
     end
 
     always_ff @(posedge clk or negedge rst_n) begin

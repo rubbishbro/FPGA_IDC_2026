@@ -248,7 +248,8 @@ module weight_loader #(
     end
     // synthesis translate_off
     initial begin
-        if(SLOTS<2 || N_MODES<2 || SCK_DIV<4 || SCK_DIV%4 || FLASH_NOTES<SLOTS || TIMEOUT_CYCLES<1)
+        if(SLOTS<2 || N_MODES<2 || (LOAD_CONTROL && N_MODES<3) ||
+           SCK_DIV<4 || SCK_DIV%4 || FLASH_NOTES<SLOTS || TIMEOUT_CYCLES<1)
             $fatal(1,"weight_loader invalid parameters");
     end
     // synthesis translate_on
