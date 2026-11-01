@@ -195,7 +195,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
                 int physical_y;logic [23:0] expected,stored;
                 physical_y=x%2 ? 7-y : y;
                 expected=dut.u_system.u_pad_leds.framebuffer[y*8+x];
-                stored=dut.u_system.u_pad.led_inst.gram.pixels[x][physical_y];
+                stored=dut.u_system.u_pad.led_inst.pixel_ram[x*8+physical_y];
                 for(int bit_id=0;bit_id<24;bit_id++)
                     if(stored[bit_id]!==expected[23-bit_id])
                         $fatal(1,"FAIL LED image/serpentine/wire mapping x=%d y=%d",x,y);

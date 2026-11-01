@@ -58,12 +58,13 @@ module led8x8 #(parameter bit PIPELINED_READ=0)(
     output logic       frame_done
 );
 
-// 联合定义8*8的数组, 用1536位的逻辑向量表示(共享内存)
-typedef union packed{pixel_t [7:0][7:0] pixels; logic [1535:0] raw;} gram_t;
 typedef enum logic [1:0] {S_PREPARE, S_TX, S_RESET, S_LATCH} led_state_t;
 
-//由本模块自行复位
-gram_t             gram;  // 显存
+// Pixel-addressed SDP memory; bit zero in each word is transmitted first.
+(* syn_ramstyle="block_ram" *) logic [23:0] pixel_ram [0:63];
+logic [23:0] pixel_q;
+logic [5:0] tx_pixel;
+logic [4:0] tx_bit;
 led_state_t        state; // 状态机状态
 assign busy = state == S_TX || state == S_RESET;
 logic   [10:0]     idx;   // 索引，范围 0~1535
@@ -96,25 +97,16 @@ always_ff @(posedge cr.clk) begin
         logic [2:0] y_;
         y_ = (x[0] == 0) ? y : ~y;
 
-        gram.pixels[x][y_] <= pixel_t'(serial_pixel);
+        pixel_ram[{x,y_}] <= serial_pixel;
     end
 end
 
-// The 400ns protocol enable leaves many core clocks between LED bits.
-// Read the unchanged 1536-bit image with two small mux stages, not one huge mux.
+// Keep the legacy parameter for callers. Both settings now use synchronous
+// pixel reads; the protocol leaves multiple clocks between address changes and
+// the next rising bit pulse, even when clk_en is continuously asserted.
 logic led_bit;
-generate if(PIPELINED_READ)begin:g_prefetch
-    logic[23:0] bucket;
-    always_ff @(posedge cr.clk or negedge cr.rst_n)begin
-        if(!cr.rst_n)begin bucket<=0;led_bit<=0;end
-        else begin
-            for(integer j=0;j<24;j++)bucket[j]<=1'(gram.raw[j*64 +:64] >> idx[5:0]);
-            led_bit<=idx[10:6]<24 ? bucket[idx[10:6]] : 1'b0;
-        end
-    end
-end else begin:g_direct
-    assign led_bit=gram.raw[idx];
-end endgenerate
+always_ff @(posedge cr.clk) pixel_q <= pixel_ram[tx_pixel];
+assign led_bit = pixel_q[tx_bit];
 
 //刷新屏幕
 always_ff @(posedge cr.clk or negedge cr.rst_n) begin
@@ -123,6 +115,8 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         state <= S_PREPARE;
         trig <= '0;
         idx <= '0;
+        tx_pixel <= '0;
+        tx_bit <= '0;
         cnt <= '0;
     end
     else if(cr.clk_en) begin
@@ -135,6 +129,8 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
             if(idx >= 1536) begin //此处捕获 idx 溢出
                 state <= S_RESET;
                 idx <= '0;
+                tx_pixel <= '0;
+                tx_bit <= '0;
             end
             else if(t0_v == 3'b100) begin
                 dat <= 1'b1;
@@ -143,6 +139,8 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
             else if(t0_v == trig) begin
                 dat <= 1'b0;
                 idx <= idx + 1'b1;
+                if(tx_bit==23) begin tx_bit<=0;tx_pixel<=tx_pixel+1'b1;end
+                else tx_bit<=tx_bit+1'b1;
             end
         end
         S_RESET: begin

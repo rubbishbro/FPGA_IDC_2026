@@ -156,9 +156,11 @@ module pad_led_effects #(
     logic [15:0] snap_valid;
     logic [3:0] snap_pad [0:15];
     logic [5:0] snap_colour [0:15],snap_age [0:15];
-    logic [23:0] snap_radius [0:15];
+    logic [23:0] snap_birth_travel [0:15];
+    logic [23:0] frame_travel;
     logic [15:0] frame_phase;
-    pixel_t framebuffer [0:63];
+    (* syn_ramstyle="block_ram" *) pixel_t framebuffer [0:63];
+    pixel_t framebuffer_q;
     logic [5:0] pixel_idx,fill_idx;
     logic [3:0] wave_idx;
     logic [7:0] background;
@@ -183,7 +185,10 @@ module pad_led_effects #(
     wire [4:0] dy=py2>=cy2 ? py2-cy2 : cy2-py2;
     wire [5:0] distance_addr={dy[3:1],dx[3:1]};
     wire [23:0] distance_q16={4'b0,distance_q,8'b0};
-    wire [23:0] lag=snap_radius[wave_idx]-distance_q16;
+    // Snapshot the origin and common frame time, then share one subtraction
+    // across the already serialized wave scan. Never use the live travel_acc.
+    logic [23:0] radius;
+    wire [23:0] lag=radius-distance_q16;
     always_ff @(posedge cr.clk) begin
         phase_q<=phase_rom[pixel_idx];
         breath_q<=breath_rom[pixel_phase[15:8]];
@@ -199,22 +204,38 @@ module pad_led_effects #(
         R_COLOUR_ADDR,R_COLOUR,R_READY,R_FILL
     } render_state_t;
     render_state_t state;
+    // The existing address state supplies a free pipeline boundary before
+    // R_DISTANCE: do not put radius and lag subtraction on the same path.
+    always_ff @(posedge cr.clk)
+        if(state==R_WAVE_ADDR) radius<=frame_travel-snap_birth_travel[wave_idx];
     // Capture every payload slot together with snap_valid before rendering.
     // R_WAVE_ADDR skips invalid slots before their payload affects the image.
     // Keep snap_valid, renderer FSM, addresses and scan counters resettable.
     always_ff @(posedge cr.clk) begin
         if(state==R_IDLE && frame_tick) begin
+            frame_travel<=travel_acc;
             for(int i=0;i<16;i++) begin
                 snap_pad[i]<=wave_pad[i]; snap_colour[i]<=wave_colour[i];
                 snap_age[i]<=6'(age_clock-wave_birth_age[i]);
-                snap_radius[i]<=travel_acc-wave_birth_travel[i];
+                snap_birth_travel[i]<=wave_birth_travel[i];
             end
         end
+    end
+    // Prefetch pixel zero while waiting for TX, and the next pixel on every
+    // accepted fill tick. This also works with consecutive clk_en pulses.
+    wire [5:0] framebuffer_read_addr = state==R_READY ? 6'd0 :
+        ((state==R_FILL && cr.clk_en) ? fill_idx+6'd1 : fill_idx);
+    always_ff @(posedge cr.clk) begin
+        if(cr.rst_n && state==R_COLOUR)
+            framebuffer[pixel_idx] <= {
+                8'(colour_q.g.val+background),8'(colour_q.r.val+background),
+                8'(colour_q.b.val+background)};
+        framebuffer_q <= framebuffer[framebuffer_read_addr];
     end
     always_comb begin
         leds='0; leds.x=fill_idx[2:0]; leds.y=fill_idx[5:3];
         leds.wr=state==R_BOOT_FILL || state==R_FILL;
-        if(state==R_FILL) leds.pix=framebuffer[fill_idx];
+        if(state==R_FILL) leds.pix=framebuffer_q;
     end
     always_ff @(posedge cr.clk or negedge cr.rst_n) begin
         if(!cr.rst_n) begin
@@ -241,7 +262,7 @@ module pad_led_effects #(
             R_BG: begin background<=breath_q; best_amplitude<=0; best_colour<=0; wave_idx<=0; state<=R_WAVE_ADDR; end
             R_WAVE_ADDR: state<=snap_valid[wave_idx] ? R_DISTANCE : R_NEXT_WAVE;
             R_DISTANCE: begin
-                if(snap_radius[wave_idx]<distance_q16 || lag>=24'd524288) state<=R_NEXT_WAVE;
+                if(radius<distance_q16 || lag>=24'd524288) state<=R_NEXT_WAVE;
                 else begin
                     shape_addr<=lag[18:10]; // 1/64-cell bins
                     age_addr<=snap_age[wave_idx]; radial_addr<=distance_q[11:6];
@@ -264,9 +285,6 @@ module pad_led_effects #(
             R_COLOUR_ADDR: state<=R_COLOUR;
             R_COLOUR: begin
                 // 80 background + 160 wave <= 240: no clipping/hue distortion.
-                framebuffer[pixel_idx].g.val<=colour_q.g.val+background;
-                framebuffer[pixel_idx].r.val<=colour_q.r.val+background;
-                framebuffer[pixel_idx].b.val<=colour_q.b.val+background;
                 if(pixel_idx==63) state<=R_READY;
                 else begin pixel_idx<=pixel_idx+1'b1; state<=R_PIXEL_ADDR; end
             end
