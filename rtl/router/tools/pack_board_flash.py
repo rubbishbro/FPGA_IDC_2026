@@ -27,7 +27,7 @@ def check_layout(base, capacity, length):
         raise ValueError('Resource image exceeds physical Flash or 24-bit address space')
 
 
-def pack(instruments, table_bytes, base, capacity):
+def pack(instruments, table_bytes, base, capacity, control_profiles=False):
     if not instruments:
         raise ValueError('No instruments supplied')
     if table_bytes <= 0 or table_bytes % 64 or any(not 0 <= ident <= 15 for ident in instruments):
@@ -47,7 +47,7 @@ def pack(instruments, table_bytes, base, capacity):
             data = original[ident * table_bytes:]
         else:
             raise ValueError(f'{path}: expected one table or an erased-prefix relative image')
-        if any(data[i + 28:i + 32] != b'\0' * 4 for i in range(0, table_bytes, 64)):
+        if any(data[i + 28:i + 32] != b'\0' * 4 for i in range(0, table_bytes, 64) if not control_profiles or (i//64)%64>=3):
             raise ValueError(f'{path}: reserved coefficient word is not zero')
         offset = ident * table_bytes
         image[offset:offset + table_bytes] = data
@@ -62,7 +62,7 @@ def pack(instruments, table_bytes, base, capacity):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--instrument', action='append', metavar='ID=BIN', help='Repeat for multiple instruments; default is six deployed timbres')
-    ap.add_argument('--notes', type=int, choices=(16, 32), default=16)
+    ap.add_argument('--notes', type=int, choices=(16, 32), default=32)
     ap.add_argument('--out', type=Path, default=ROOT / 'build/flash_resources/resources.bin')
     args = ap.parse_args()
     try:
@@ -77,20 +77,25 @@ def main():
                 raise ValueError('Duplicate/invalid instrument ID')
             instruments[ident] = path
         base, capacity = board_layout()
-        image, records = pack(instruments, args.notes * 64 * 64, base, capacity)
+        image, records = pack(instruments, args.notes * 64 * 64, base, capacity, control_profiles=True)
         for region in records:
             data=image[region['offset']:region['offset']+region['bytes']]
             matrix=region['instrument'] in (0,1)
             region['engine']='eng0' if matrix else 'eng1'
             for offset in range(0,len(data),64):
-                abc=data[offset+60:offset+64]==b'P1T1' and data[offset+12:offset+32]==bytes(20)
+                abc=data[offset+60:offset+64]==b'P1T1' and data[offset+12:offset+28]==bytes(16)
                 if abc==matrix:
                     raise ValueError('Instrument ID/engine format mismatch: IDs 0/1 require matrix; other IDs require ENG1 ABC/P1T1')
     except (ValueError, OSError) as exc:
         ap.error(str(exc))
+    from pitch_tables import control_page
+    control_offset=12*args.notes*4096
+    if len(image)>control_offset:ap.error('instrument IDs 12..15 overlap the control page')
+    image+=b'\xff'*(control_offset-len(image))+control_page()
+    check_layout(base,capacity,len(image))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(image)
-    manifest = dict(schema=2, format='instrument-indexed eng0 matrix + eng1 ABC/P1T1', flash_base=base, flash_bytes=capacity, image_flash_address=base,
+    manifest = dict(schema=4,control_page=dict(offset=control_offset,bytes=4096,ratio_word=0,sine_word=512,depth_word=768), format='instrument-indexed eng0 matrix + eng1 ABC/P1T1', flash_base=base, flash_bytes=capacity, image_flash_address=base,
                     image_bytes=len(image), notes=args.notes, storage_modes=64, record_bytes=64,
                     image_sha256=hashlib.sha256(image).hexdigest(), instruments=records,
                     firmware_flash_address=0, bulk_erase_between_files=False)

@@ -23,16 +23,19 @@ DIRECTORY=ROOT/'rtl/router/tools/performance'
 class PerformanceResourcesTests(unittest.TestCase):
     def test_current_deployment_contract(self):
         result=check(DIRECTORY)
-        self.assertEqual((result['records'],result['image_bytes']), (6144,786432))
+        self.assertEqual((result['records'],result['image_bytes']), (12288,1576960))
 
     def test_exported_records_are_selected_source_coefficients(self):
         m=json.loads((DIRECTORY/'resources.json').read_text())
         data=(DIRECTORY/'resources.bin').read_bytes()
         for name,ident in P.INSTRUMENTS.items():
-            for midi in (40,60,76):
-                slot=m['note_map'].index(midi)
+            for slot in (0,15,16,31):
+                midi=m['note_maps'][name][slot]
                 row=P.make_note(name,midi)
-                at=ident*65536+slot*4096
+                profile=((1<<80)|(row['period']<<64)|(row['a_step']<<32)|row['r_step']) if name in ('trumpet','violin') else 0
+                from pitch_tables import with_profile
+                row['data']=with_profile(row['data'],profile)
+                at=ident*131072+slot*4096
                 self.assertEqual(data[at:at+4096],row['data'],(name,midi))
 
     def test_wrong_map_and_stride_fail_closed(self):
@@ -43,7 +46,7 @@ class PerformanceResourcesTests(unittest.TestCase):
             original=json.loads((d/'resources.json').read_text())
             for change in ('map','offset'):
                 m=json.loads(json.dumps(original))
-                if change=='map':m['note_map'][0],m['note_map'][1]=m['note_map'][1],m['note_map'][0]
+                if change=='map':m['note_maps']['piano'][0],m['note_maps']['piano'][1]=m['note_maps']['piano'][1],m['note_maps']['piano'][0]
                 else:m['entries'][-1]['offset']-=2*65536
                 (d/'resources.json').write_text(json.dumps(m))
                 with self.subTest(change=change),self.assertRaises(ValueError):check(d)
@@ -65,43 +68,10 @@ class PerformanceResourcesTests(unittest.TestCase):
                 (d/'resources.json').write_text(json.dumps(m))
                 with self.subTest(change=change),self.assertRaises(ValueError):check(d)
 
-    def test_polyphony_gain_lut_is_inverse_sqrt(self):
-        pkg=(ROOT/'rtl/router/pkg/performance_gain_pkg.sv').read_text()
-        scales={int(k):int(v) for k,v in
-                re.findall(r"5'd(\d+):return 13'd(\d+)",pkg)}
-        expected=[4096]+[round(4096/math.sqrt(i)) for i in range(1,17)]
-        self.assertEqual([scales.get(i) for i in range(17)],expected)
-
-    def test_missing_calibration_dependency_is_rejected(self):
-        with tempfile.TemporaryDirectory() as temp:
-            d=Path(temp)
-            for p in DIRECTORY.iterdir():
-                if p.is_file():shutil.copyfile(p,d/p.name)
-            gain=json.loads((d/'gain.json').read_text())
-            del gain['source_hashes']['python/modal_sim/eng1_rtl.py']
-            (d/'gain.json').write_text(json.dumps(gain))
-            m=json.loads((d/'resources.json').read_text())
-            m['gain_calibration']['sha256']=hashlib.sha256((d/'gain.json').read_bytes()).hexdigest()
-            (d/'resources.json').write_text(json.dumps(m))
-            with self.assertRaisesRegex(ValueError,'missing calibration dependencies'):check(d)
-
-    def test_fresh_resources_cannot_bless_stale_model_gain(self):
-        with tempfile.TemporaryDirectory() as temp:
-            d=Path(temp)
-            for p in DIRECTORY.iterdir():
-                if p.is_file():shutil.copyfile(p,d/p.name)
-            gain=json.loads((d/'gain.json').read_text())
-            gain['source_hashes']['python/modal_sim/eng1_rtl.py']='0'*64
-            (d/'gain.json').write_text(json.dumps(gain))
-            m=json.loads((d/'resources.json').read_text())
-            m['gain_calibration']['sha256']=hashlib.sha256((d/'gain.json').read_bytes()).hexdigest()
-            (d/'resources.json').write_text(json.dumps(m))
-            with self.assertRaisesRegex(ValueError,'stale gain source: python/modal_sim/eng1_rtl.py'):check(d)
-
     def test_wrong_engine_id_cli_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             p=subprocess.run([sys.executable,str(ROOT/'rtl/router/tools/pack_board_flash.py'),
-                '--instrument',f'10={ROOT/"rtl/router/tools/piano_flash.bin"}',
+                '--instrument',f'10={ROOT/"rtl/router/tools/coefficients/eng0_piano.bin"}',
                 '--out',str(Path(temp)/'wrong.bin')],capture_output=True,text=True)
             self.assertNotEqual(p.returncode,0)
             self.assertIn('Instrument ID/engine format mismatch',p.stderr)
@@ -112,7 +82,7 @@ class PerformanceResourcesTests(unittest.TestCase):
         for ident in (3,5,10,11):
             for slot in range(16):
                 for mode in range(48,64):
-                    self.assertEqual(struct.unpack_from('>3I',data,ident*65536+slot*4096+mode*64),(0,0,0))
+                    self.assertEqual(struct.unpack_from('>3I',data,ident*131072+slot*4096+mode*64),(0,0,0))
 
 
 if __name__=='__main__':unittest.main()

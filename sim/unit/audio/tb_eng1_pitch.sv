@@ -14,7 +14,18 @@ module tb_eng1_pitch;
     integer writes=0,checks=0,jobs=0;
     integer cycles=0,job_cycle=0,max_prepare=0;
     bit bad_tag=0,writing_bank,saw_ack=0,saw_reject=0;
-    eng1_pitch #(.SLOTS(S),.N_MODES(N),.INTERVAL(1)) dut(
+    logic table_we=0;
+    logic [9:0] table_addr=0;
+    logic [31:0] table_data=0,table_words[0:1023];
+    task automatic load_tables;
+        $readmemh("pitch_tables.mem",table_words);
+        for(int k=0;k<1024;k++)begin
+            @(negedge clk);table_we=1;table_addr=10'(k);table_data=table_words[k];
+        end
+        @(negedge clk);table_we=0;
+    endtask
+    modulation1 #(.SLOTS(S),.N_MODES(N),.INTERVAL(1)) dut(
+        .table_we(table_we),.table_addr(table_addr),.table_data(table_data),
         .clk(clk),.rst_n(rst_n),.clear(clear),.sample_tick(tick),.commit_ok(allow_commit),
         .cleanup(cleanup),.n_modes(7'd48),.slot_source(sources),.control_valid(cv),.control_cancel(cancel),
         .control_source(src),.control_data(data),.control_ready(ready),.control_rejected(rejected),
@@ -41,7 +52,7 @@ module tb_eng1_pitch;
     task automatic finish_job;
         wait(dut.st==dut.COMMIT);
         if(kind!=3 && kind!=6)begin
-            if(cycles-job_cycle>6*S*M+20)$fatal(1,"FAIL pitch preparation budget");
+            if(cycles-job_cycle>6*S*M+24)$fatal(1,"FAIL pitch preparation budget");
             if(cycles-job_cycle>max_prepare)max_prepare=cycles-job_cycle;
         end
         if(writes!=S*M)$fatal(1,"FAIL incomplete coefficient batch %d",writes);
@@ -72,7 +83,7 @@ module tb_eng1_pitch;
             memory[0][i]=params[i][1];memory[1][i]=params[i][1];
         end
         $fclose(fd);fd=$fopen("pitch_jobs.txt","r");
-        repeat(4)@(negedge clk);rst_n=1;
+        load_tables();repeat(4)@(negedge clk);rst_n=1;
         while(!$feof(fd))begin
             rc=$fscanf(fd,"%d %d %d %d %d %d %d",kind,ss,value,ec0,ec1,ed0,ed1);
             if(rc!=7)break;

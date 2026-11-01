@@ -7,7 +7,7 @@ package config_pkg;
         logic signed [31:0] value;
     } cfg_request_t;
     localparam logic [7:0] CFG_OK=0, CFG_UNSUPPORTED=1, CFG_OUT_OF_RANGE=2,
-                           CFG_DENIED=3, CFG_FAILED=4;
+                           CFG_DENIED=3, CFG_FAILED=4, CFG_BUSY=5;
     typedef struct packed {
         logic [15:0] tag;
         logic [15:0] id;

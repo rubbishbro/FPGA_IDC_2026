@@ -9,7 +9,7 @@ WAVs:
     high shelf -3 dB @ 5 kHz    (soften the top)
     RTL 4-comb reverb, 12% wet, wet low-passed at 4 kHz (space, not sizzle)
 
-The reverb is the same 4-comb topology as ``rtl/core/comb_reverb.sv`` (delays 1116 /
+The reverb is the same 4-comb topology as ``history/core_2026-11-01/rtl/core/comb_reverb.sv`` (delays 1116 /
 1188 / 1277 / 1356, feedback 0.71875, damping 1/8); the extra 4 kHz low-pass on the wet
 is a mixing choice, not in the RTL.
 
@@ -101,7 +101,7 @@ def main():
                reverb=dict(delays=list(COMB_DELAYS), feedback=COMB_FB,
                            damping=COMB_DAMP, wet=REVERB_WET,
                            wet_lowpass_hz=REVERB_LP_HZ,
-                           topology="rtl/core/comb_reverb.sv 4-comb"),
+                           topology="history/core_2026-11-01/rtl/core/comb_reverb.sv 4-comb"),
                note="presentation audition only; raw engine output is mystery_flute*.wav")
     for name in ("mystery_flute", "mystery_flute_solo"):
         y, sr = sf.read(os.path.join(OUT, name + ".wav"))

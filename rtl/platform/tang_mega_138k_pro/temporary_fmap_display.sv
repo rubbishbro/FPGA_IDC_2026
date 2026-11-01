@@ -10,6 +10,16 @@ module temporary_fmap_display(
     input wire [5:0] base_r,base_g,base_b,
     output wire [5:0] lcd_r,lcd_g,lcd_b
 );
+    // The common input may release on the PLL's 50MHz initialization clock.
+    // Pixel state must leave reset on pix_clk, not directly on that request.
+    // Permit synthesis to share the identical system pixel reset chain.
+    // Functional pixel registers retain normal recovery/removal timing.
+    (* ASYNC_REG="TRUE" *) logic [2:0] pix_reset;
+    always_ff @(posedge pix_clk or negedge rst_n)
+        if(!rst_n)pix_reset<=0;
+        else pix_reset<={pix_reset[1:0],1'b1};
+    wire pix_n=pix_reset[2];
+
     wire snapshot_valid;
     wire [127:0] snapshot;
     // Whole-map handshake keeps the source bus stable across clock domains.
@@ -33,8 +43,8 @@ module temporary_fmap_display(
         end
     endfunction
     logic [11:0] numbers[0:15];
-    always_ff @(posedge pix_clk or negedge rst_n)begin
-        if(!rst_n)for(integer i=0;i<16;i=i+1)numbers[i]<=0;
+    always_ff @(posedge pix_clk or negedge pix_n)begin
+        if(!pix_n)for(integer i=0;i<16;i=i+1)numbers[i]<=0;
         else if(frame_pulse && snapshot_valid)
             for(integer i=0;i<16;i=i+1)numbers[i]<=decimal_byte(snapshot[i*8 +:8]);
     end
@@ -80,8 +90,8 @@ module temporary_fmap_display(
     // Match sidebar_system's three pixel stages plus final RGB/DE register.
     // No extra clock is inserted in the LCD clock, DE or base RGB path.
     logic [3:0] hit_q,ink_q,grid_q;
-    always_ff @(posedge pix_clk or negedge rst_n)begin
-        if(!rst_n)begin hit_q<=0;ink_q<=0;grid_q<=0;end
+    always_ff @(posedge pix_clk or negedge pix_n)begin
+        if(!pix_n)begin hit_q<=0;ink_q<=0;grid_q<=0;end
         else begin
             hit_q<={hit_q[2:0],panel};ink_q<={ink_q[2:0],ink};
             grid_q<={grid_q[2:0],panel && (x[5:0]==0 || y[4:0]==0 || x==255 || y==127)};

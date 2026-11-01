@@ -22,7 +22,8 @@ def main():
     args = ap.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(ROOT / "FFT_spectrumshow/board/sidebar_font.mem", out / "sidebar_font.mem")
+    for name in ["sidebar_font.mem","sidebar_labels.mem"]:
+        shutil.copyfile(ROOT / "FFT_spectrumshow/board" / name, out / name)
     for memory in (ROOT / "FFT_spectrumshow/board").glob("*.mem"):
         shutil.copyfile(memory, out / memory.name)
     (out / "results.json").unlink(missing_ok=True)
@@ -59,8 +60,8 @@ def main():
 
     run("vlib", "vlib", [work])
     # Same production DSP files/order as the existing music build.
-    sources = re.findall(r"'(rtl/[^']+\.sv)'", (ROOT / "rtl/router/tools/run_all.ps1").read_text())
-    sources = [s for s in sources if s != "rtl/router/tb/tb_music.sv"]
+    sources = re.findall(r"'((?:rtl|tb)/[^']+\.sv)'", (ROOT / "sim/router_sources.list").read_text())
+    sources = [s for s in sources if s != "rtl/tb/router/tb_music.sv"]
     sources += ["rtl/midi/midi_note_state.sv", "rtl/midi/midi_guide_state.sv", "rtl/midi/midi_instrument_map.sv",
                 "rtl/router/midi_voice_top.sv", "rtl/router/pad_voice_top.sv"]
     sources += [s for s in (ROOT / "sim/ui_sources.f").read_text().splitlines() if s not in sources]

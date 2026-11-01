@@ -140,8 +140,9 @@ module tb_i2s_synthesis;
         fmap='0;repeat(5)begin @(posedge tick);@(negedge clk);end
         reload=1;@(negedge clk);reload=0;wait(busy);wait(ready);
         repeat(8)begin @(posedge tick);@(negedge clk);end
-        // Failed table remains silent; explicit reload recovers without drift.
-        blank=1;reload=1;@(negedge clk);reload=0;wait(failed);
+        // All-zero payload is accepted; reload restores the normal test image.
+        blank=1;reload=1;@(negedge clk);reload=0;wait(busy);wait(ready);
+        if(failed)$fatal(1,"FAIL zero-payload reload rejected");
         repeat(10)begin @(posedge tick);@(negedge clk);end
         blank=0;reload=1;@(negedge clk);reload=0;wait(ready);
         repeat(8)begin @(posedge tick);@(negedge clk);end

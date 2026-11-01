@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// Fixed v1 TYPE82, LEN24. Descriptor is immutable until the trailing END retires.
+// Unversioned TYPE82, SEQ:u8, LEN24; payload layout retained. Descriptor is immutable until the trailing END retires.
 module performance_frame_tx(
  input logic clk,rst_n,flush,
  input logic s_valid, output logic s_ready,
@@ -16,9 +16,9 @@ module performance_frame_tx(
  logic [7:0] b;
  always_comb begin
   case(idx)
-   0:b=1;1:b=8'h82;2:b=seq[7:0];3:b=seq[15:8];4:b=24;5:b=0;
-   30:b=crc[7:0];31:b=crc[15:8];
-   default:b=payload[(idx-6)*8 +:8];
+   0:b=8'h82;1:b=seq[7:0];2:b=24;
+   27:b=crc[7:0];28:b=crc[15:8];
+   default:b=payload[(idx-3)*8 +:8];
   endcase
   m_valid=state!=IDLE;m_last=state==TRAIL;busy=state!=IDLE;
   s_ready=state==IDLE && !flush;
@@ -39,9 +39,9 @@ module performance_frame_tx(
    LEAD:if(m_ready)state<=BODY;
    BODY:if(m_ready)begin
     if(b==8'hc0||b==8'hdb)state<=ESC;
-    else begin if(idx<30)crc<=update_crc(crc,b);if(idx==31)state<=TRAIL;else idx<=idx+1'b1;end
+    else begin if(idx<27)crc<=update_crc(crc,b);if(idx==28)state<=TRAIL;else idx<=idx+1'b1;end
    end
-   ESC:if(m_ready)begin if(idx<30)crc<=update_crc(crc,b);idx<=idx+1'b1;if(idx==31)state<=TRAIL;else state<=BODY;end
+   ESC:if(m_ready)begin if(idx<27)crc<=update_crc(crc,b);idx<=idx+1'b1;if(idx==28)state<=TRAIL;else state<=BODY;end
    TRAIL:if(m_ready)state<=IDLE;
    default:state<=IDLE;
   endcase

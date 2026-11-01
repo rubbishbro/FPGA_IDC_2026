@@ -9,13 +9,13 @@ module frame_arbiter (
     output logic [1:0] s_ready,
     input logic [15:0] s_data, s_type,
     input logic [31:0] s_seq,
-    input logic [11:0] s_payload_len,
+    input logic [13:0] s_payload_len,
     input logic [1:0] s_first, s_last,
     output logic m_valid,
     input logic m_ready,
     output logic [7:0] m_data, m_type,
     output logic [15:0] m_seq,
-    output logic [5:0] m_payload_len,
+    output logic [6:0] m_payload_len,
     output logic m_first, m_last, m_source_id,
     output logic [1:0] pin,
     output logic busy
@@ -29,7 +29,7 @@ module frame_arbiter (
     assign m_data = owner ? s_data[15:8] : s_data[7:0];
     assign m_type = owner ? s_type[15:8] : s_type[7:0];
     assign m_seq = owner ? s_seq[31:16] : s_seq[15:0];
-    assign m_payload_len = owner ? s_payload_len[11:6] : s_payload_len[5:0];
+    assign m_payload_len = owner ? s_payload_len[13:7] : s_payload_len[6:0];
     assign m_first = s_first[owner];
     assign m_last = s_last[owner];
     always_comb begin

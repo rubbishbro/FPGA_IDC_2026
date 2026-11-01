@@ -1,6 +1,6 @@
 # RTL 入口与路径边界
 
-更新：2026-10-29。当前开发主线为 [router](router/README.md)，保留的 `core/` 共享 RAM 实现独立存在，二者不是同一个顶层。
+更新：2026-10-29。当前开发主线为 [router](router/README.md)，旧 `core/` 共享 RAM 实现已归档至 `history/core_2026-11-01/`，二者不是同一个顶层。
 
 | 位置 | 职责与状态 |
 |---|---|
@@ -19,23 +19,6 @@
 
 当前代码导读见 [CODE_ARCHITECTURE](../CODE_ARCHITECTURE.md)，显示/侧栏集成位于 `FFT_spectrumshow/`，不在此目录生成另一个总顶层。历史FIFO/I2S原件保留在history/rtl/audio，当前复用模块在audio/；顶层接线已恢复；整板PnR时序未达标，实板DAC仍待验。
 
-## 保留共享 RAM 路径
+## 已归档共享 RAM 路径
 
-```text
-router_system_top
-├─ router_loader → index_loader20 / index_loader64
-├─ router_frontend → router_ctrl / excitation_convert
-└─ shared_engines_system_top
-   ├─ router_voice_alloc
-   └─ shared_engines_top
-      ├─ engine_mux → pure_engine_abc / e2_engine
-      ├─ shared_modal_ram
-      └─ post_chain → envelope_mul / body_biquad / comb_reverb
-                     / dry_wet_mix / final_adder
-```
-
-`router_frontend_a_path_top` 是 A 路径 MVP。core 的 body_biquad 是 4 section，与新 router 的 5 section 接口/格式不同。2026-10-22 的 POST_EN=1、21 项 PASS 和探针时序均是该旧路径的历史结果。
-
-当前 `sim/run_core.sh` 前两项通过，第 3 项缺少 `rtl/simsynth/modal_step_pkg.sv`；`e2_engine` 仍引用旧 modal_engine7。这个保留路径尚不能一键完整回归，也不能借它的历史 Fmax 签核当前 voice_router。
-
-2026-10-22 重命名：class_loader/class_loader64→index_loader20/index_loader64，eng1_lane_core→abc_lane_core，eng1_engine_top_ext→abc_engine，eng2_engine_top_ext→e2_engine；旧 loader/frontends/parallel 路径在 `history/rtl/core/`。完整历史稿和图见 [history](../history/README.md)。
+旧 ABC/E2 共享 RAM 实现及其测试、综合探针已移至 [CORE 归档](../history/core_2026-11-01/README.md)。它与当前 voice_router 无父子关系，不能用于当前功能或时序签核。归档保留原始文件和已知编译阻塞说明。

@@ -1,7 +1,0 @@
-// voice_router 引脚约束（GW5AST-LV138FPG676AES）
-//
-// 现在**故意不写 IO_LOC**：上板前必须按板子原理图填具体引脚
-// （clk 要放专用时钟脚，否则工具会绕普通布线、Fmax 被明显低估）。
-// 只保留电平标准，免得占位引脚和封装冲突（P16/R15 在这个封装上就不能用）。
-IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=UP;
-IO_PORT "rst_n" IO_TYPE=LVCMOS33 PULL_MODE=UP;

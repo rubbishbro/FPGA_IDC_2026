@@ -21,7 +21,7 @@ module midi_analyzer (
     input  logic        s_first,
     input  logic        s_last,
     input  logic        s_source_id,
-    input  logic [5:0]  s_payload_len,  // 合法帧为 1..32
+    input  logic [6:0]  s_payload_len,  // 合法帧为 1..64
 
     // 32-bit 事件 + 来源侧带
     output logic        event_valid,
@@ -58,8 +58,8 @@ module midi_analyzer (
     logic [7:0]  status_cur;    // pending 通道消息的 status
     logic [7:0]  running;       // 当前通道 running status，0 表示无
     logic [1:0]  sys_skip;      // 剩余需要吞掉的 System Common 数据字节数
-    logic [5:0]  byte_count;    // 本帧已接收的字节数
-    logic [5:0]  frame_len;     // 锁存的 s_payload_len
+    logic [6:0]  byte_count;    // 本帧已接收的字节数
+    logic [6:0]  frame_len;     // 锁存的 s_payload_len
     logic        frame_source;  // 锁存的 s_source_id
     logic        frame_bad;     // 长度/帧边界违约，已停止解析
     logic [7:0]  data1;         // pending 消息的第一个已接收数据字节
@@ -83,9 +83,9 @@ module midi_analyzer (
     logic [7:0]  n_status_cur;
     logic [7:0]  n_running;
     logic [1:0]  n_sys_skip;
-    logic [5:0]  n_byte_count;
+    logic [6:0]  n_byte_count;
     logic [7:0]  n_data1;
-    logic [5:0]  n_frame_len;
+    logic [6:0]  n_frame_len;
     logic        n_frame_source;
     logic        n_frame_bad;
     logic        n_event_valid;
@@ -230,7 +230,7 @@ module midi_analyzer (
                     n_state        = ST_ACTIVE;
                     n_frame_source = s_source_id;
                     n_frame_len    = s_payload_len;
-                    n_byte_count   = 6'd1;
+                    n_byte_count   = 7'd1;
                     n_frame_bad    = 1'b0;
                     n_in_sysex     = 1'b0;
                     n_pending      = 1'b0;
@@ -240,7 +240,7 @@ module midi_analyzer (
                     n_sys_skip     = 2'd0;
                     n_data1        = 8'd0;
 
-                    if ((s_payload_len == 6'd0) || (s_payload_len > 6'd32)) begin
+                    if ((s_payload_len == 7'd0) || (s_payload_len > 7'd64)) begin
                         // 声明的长度非法：只消费字节、不尝试解析，保证不越界。
                         n_frame_bad   = 1'b1;
                         n_parse_error = 1'b1;
@@ -269,8 +269,8 @@ module midi_analyzer (
 
                     if (s_last) begin
                         n_state = ST_TAIL;
-                        if ((s_payload_len >= 6'd1) &&
-                            (s_payload_len <= 6'd32) &&
+                        if ((s_payload_len >= 7'd1) &&
+                            (s_payload_len <= 7'd64) &&
                             (n_byte_count != n_frame_len)) begin
                             n_parse_error = 1'b1;
                         end
@@ -296,8 +296,8 @@ module midi_analyzer (
                     n_parse_error = 1'b1;
                 end
 
-                if (byte_count != 6'd63) begin
-                    n_byte_count = byte_count + 6'd1;
+                if (byte_count != 7'd127) begin
+                    n_byte_count = byte_count + 7'd1;
                 end else begin
                     // 畸形帧导致计数失控时饱和而不是回绕；frame_bad=1 后解析已经停止。
                     n_byte_count = byte_count;
@@ -386,8 +386,8 @@ module midi_analyzer (
 
                 if (s_last) begin
                     n_state = ST_TAIL;
-                    if ((n_frame_len >= 6'd1) &&
-                        (n_frame_len <= 6'd32) &&
+                    if ((n_frame_len >= 7'd1) &&
+                        (n_frame_len <= 7'd64) &&
                         (n_byte_count != n_frame_len)) begin
                         n_parse_error = 1'b1;
                     end
@@ -433,8 +433,8 @@ module midi_analyzer (
             status_cur     <= 8'd0;
             running        <= 8'd0;
             sys_skip       <= 2'd0;
-            byte_count     <= 6'd0;
-            frame_len      <= 6'd0;
+            byte_count     <= 7'd0;
+            frame_len      <= 7'd0;
             frame_source   <= 1'b0;
             frame_bad      <= 1'b0;
             data1          <= 8'd0;
@@ -453,8 +453,8 @@ module midi_analyzer (
             status_cur     <= 8'd0;
             running        <= 8'd0;
             sys_skip       <= 2'd0;
-            byte_count     <= 6'd0;
-            frame_len      <= 6'd0;
+            byte_count     <= 7'd0;
+            frame_len      <= 7'd0;
             frame_source   <= 1'b0;
             frame_bad      <= 1'b0;
             data1          <= 8'd0;

@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+// Both UART and HC-05 use docs/通信协议约定.md: no VERSION, SEQ/LEN are bytes.
 // 通信集成顶层：设备字节驱动、协议适配、帧路由、共享解析和会话协调。
 // 对外端口/参数保持兼容；业务后级通过显式请求/完成接口连接。
 module comm_top #(
@@ -11,16 +12,13 @@ module comm_top #(
     parameter int RX_DEPTH = 1024,
     parameter int FRAME_DEPTH = 8,
     parameter int EVENT_DEPTH = 64,
-    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b1,
+    parameter bit ISOLATE_PROTOCOL_ERRORS = 1'b0,
     parameter int EQ_BANDS = 3,
     parameter int TIMEOUT_CYCLES = CLK_HZ,
     parameter bit BT_HAS_STATE = 1'b0,
     parameter int STATE_DEBOUNCE_CYCLES = CLK_HZ / 50,
-    parameter bit BT_PROTOCOL_V2 = 1'b0,
-    parameter int BT_HEARTBEAT_CYCLES = 2 * CLK_HZ,
-    parameter int BT_PROGRESS_CYCLES = CLK_HZ / 4,
-    parameter int BT_ERROR_LIMIT = 8,
-    parameter int BT_ERROR_WINDOW_CYCLES = CLK_HZ
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
+
 ) (
     input logic clk, rst_n,
     input logic [1:0] rx_i,
@@ -42,8 +40,8 @@ module comm_top #(
     output logic cfg_source_id,
     output logic [15:0] cfg_seq,
     output logic [7:0] cfg_command,
-    output logic [4:0] cfg_payload_len,
-    output logic [127:0] cfg_shadow,
+    output logic [6:0] cfg_payload_len,
+    output logic [511:0] cfg_shadow,
     input logic cfg_done_valid,
     output logic cfg_done_ready,
     input logic [7:0] cfg_result,
@@ -57,13 +55,13 @@ module comm_top #(
     logic [1:0] frame_valid, frame_ready, frame_first, frame_last, frame_available;
     logic [15:0] frame_data, frame_type, frame_errors;
     logic [31:0] frame_seq;
-    logic [11:0] frame_len;
+    logic [13:0] frame_len;
     logic [1:0] pin, fault_now, restart_req, cancel_source, flush_link, cache_reset;
     logic bt_link_up, bt_state_known, bt_init_done, bt_disconnect, bt_connect;
     logic arb_valid, arb_ready, arb_first, arb_last, arb_source, arb_busy;
     logic [7:0] arb_data, arb_type;
     logic [15:0] arb_seq;
-    logic [5:0] arb_len;
+    logic [6:0] arb_len;
     logic dispatch_admit, dispatch_busy, dispatch_source;
     logic parsed_valid, parsed_ready, parsed_source;
     logic [31:0] parsed_data;
@@ -74,7 +72,6 @@ module comm_top #(
     logic [15:0] reply_seq;
     logic [7:0] reply_command, reply_result;
     logic [1:0] reply_space, eligible;
-    logic v2_cleanup_request;
     logic [1:0] midi_error_sources;
 
     uart_driver #(.CLK_HZ(CLK_HZ), .BAUD(WIRED_BAUD),
@@ -93,9 +90,8 @@ module comm_top #(
         .DEBOUNCE_CYCLES(STATE_DEBOUNCE_CYCLES)) u_bluetooth (
         .clk(clk), .rst_n(rst_n), .rx_i(rx_i[1]), .tx_o(tx_o[1]),
         .state_async(hc05_state_async),
-        // v2 control RX must remain available while business is quarantined.
-        .capture_enable(BT_PROTOCOL_V2 || !source_quarantine[1]),
-        .flush_rx(!BT_PROTOCOL_V2 && flush_link[1]),
+        .capture_enable(!source_quarantine[1]),
+        .flush_rx(flush_link[1]),
         .rx_valid(byte_rx_valid[1]), .rx_ready(byte_rx_ready[1]),
         .rx_data(byte_rx_data[15:8]), .rx_level(),
         .tx_valid(byte_tx_valid[1]), .tx_ready(byte_tx_ready[1]),
@@ -107,28 +103,6 @@ module comm_top #(
     );
     for (genvar g = 0; g < 2; g = g + 1) begin : g_link
         localparam bit SOURCE = (g == 1);
-        if (g == 1 && BT_PROTOCOL_V2) begin : g_v2
-        transport_v2_link #(.CLK_HZ(CLK_HZ), .FRAME_DEPTH(FRAME_DEPTH),
-            .TIMEOUT_CYCLES(TIMEOUT_CYCLES), .HEARTBEAT_CYCLES(BT_HEARTBEAT_CYCLES),
-            .PROGRESS_CYCLES(BT_PROGRESS_CYCLES), .ERROR_LIMIT(BT_ERROR_LIMIT),
-            .ERROR_WINDOW_CYCLES(BT_ERROR_WINDOW_CYCLES)) u_transport (
-            .clk(clk), .rst_n(rst_n), .flush(flush_link[g]), .pin(pin[g]),
-            .maintenance_done(cache_reset[g]),
-            .physical_fault(rx_frame_err[g] || rx_break[g] || rx_overflow[g] || session_restart[g]),
-            .disconnect_event(bt_disconnect), .midi_error(midi_error_sources[g]),
-            .cleanup_request(v2_cleanup_request),
-            .rx_valid(byte_rx_valid[g]), .rx_ready(byte_rx_ready[g]), .rx_data(byte_rx_data[g*8 +: 8]),
-            .tx_valid(byte_tx_valid[g]), .tx_ready(byte_tx_ready[g]), .tx_data(byte_tx_data[g*8 +: 8]),
-            .frame_valid(frame_valid[g]), .frame_ready(frame_ready[g]),
-            .frame_data(frame_data[g*8 +: 8]), .frame_type(frame_type[g*8 +: 8]),
-            .frame_seq(frame_seq[g*16 +: 16]), .frame_payload_len(frame_len[g*6 +: 6]),
-            .frame_first(frame_first[g]), .frame_last(frame_last[g]),
-            .frame_available(frame_available[g]), .protocol_errors(frame_errors[g*8 +: 8]),
-            .reply_valid(reply_valid && reply_source == SOURCE && !cancel_source[g]),
-            .reply_ready(reply_space[g]), .reply_seq(reply_seq),
-            .reply_command(reply_command), .reply_result(reply_result), .tx_busy()
-        );
-        end else begin : g_v1
         wire perf_space;
         if(g==0)assign perf_ready=perf_space;
         transport_link #(.FRAME_DEPTH(FRAME_DEPTH), .TIMEOUT_CYCLES(TIMEOUT_CYCLES)) u_transport (
@@ -139,7 +113,7 @@ module comm_top #(
             .tx_data(byte_tx_data[g*8 +: 8]),
             .frame_valid(frame_valid[g]), .frame_ready(frame_ready[g]),
             .frame_data(frame_data[g*8 +: 8]), .frame_type(frame_type[g*8 +: 8]),
-            .frame_seq(frame_seq[g*16 +: 16]), .frame_payload_len(frame_len[g*6 +: 6]),
+            .frame_seq(frame_seq[g*16 +: 16]), .frame_payload_len(frame_len[g*7 +: 7]),
             .frame_first(frame_first[g]), .frame_last(frame_last[g]),
             .frame_available(frame_available[g]), .protocol_errors(frame_errors[g*8 +: 8]),
             .reply_valid(reply_valid && reply_source == SOURCE && !cancel_source[g]),
@@ -148,27 +122,21 @@ module comm_top #(
             .perf_valid(!SOURCE && perf_valid),.perf_ready(perf_space),
             .perf_seq(perf_seq),.perf_payload(perf_payload)
         );
-        end
         // 单个配置在途，且只有 analyzer 生产回复；准入检查隐含预留一个回复名额。
         assign eligible[g] = !cancel_source[g] &&
                              ((frame_type[g*8 +: 8] != 8'h02) || reply_space[g]);
     end
-    generate if (!BT_PROTOCOL_V2) begin : g_no_v2
-        assign v2_cleanup_request = 1'b0;
-    end endgenerate
-
     // 延迟一拍锁存语法错误来源，避免parse_error/flush形成组合环。
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) midi_error_sources<=0;
         else midi_error_sources<=midi_parse_error ? (2'b01 << dispatch_source) : 2'b00;
     end
-    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH),.ISOLATE_PROTOCOL_ERRORS(ISOLATE_PROTOCOL_ERRORS),
-        .EXTERNAL_MANAGED_BT(BT_PROTOCOL_V2)) u_session (
-        .clk(clk), .rst_n(rst_n), .session_restart(session_restart | {v2_cleanup_request, 1'b0}),
-        .connect_event({bt_connect && !BT_PROTOCOL_V2, 1'b0}),
-        .disconnect_event({bt_disconnect && !BT_PROTOCOL_V2, 1'b0}),
+    session_ctrl #(.EVENT_DEPTH(EVENT_DEPTH),.ISOLATE_PROTOCOL_ERRORS(ISOLATE_PROTOCOL_ERRORS)) u_session (
+        .clk(clk), .rst_n(rst_n), .session_restart(session_restart),
+        .connect_event({bt_connect, 1'b0}),
+        .disconnect_event({bt_disconnect, 1'b0}),
         .framing_err(rx_frame_err), .break_detect(rx_break),
-        .overflow(rx_overflow | {BT_PROTOCOL_V2 && frame_errors[13], 1'b0}),
+        .overflow(rx_overflow),
         .protocol_errors(frame_errors), .midi_error(midi_error_sources),
         .source_cleanup_done(source_cleanup_done), .source_ops_idle(source_ops_idle),
         .arb_busy(arb_busy), .arb_source(arb_source),
@@ -189,7 +157,7 @@ module comm_top #(
         .m_seq(arb_seq), .m_payload_len(arb_len), .m_first(arb_first), .m_last(arb_last),
         .m_source_id(arb_source), .pin(pin), .busy(arb_busy)
     );
-    parser_dispatch #(.EQ_BANDS(EQ_BANDS)) u_dispatch (
+    parser_dispatch #(.EQ_BANDS(EQ_BANDS),.SUPPORTED_INSTRUMENTS(SUPPORTED_INSTRUMENTS)) u_dispatch (
         .clk(clk), .rst_n(rst_n), .s_valid(arb_valid), .s_ready(arb_ready),
         .s_data(arb_data), .s_type(arb_type), .s_seq(arb_seq), .s_payload_len(arb_len),
         .s_first(arb_first), .s_last(arb_last), .s_source_id(arb_source),

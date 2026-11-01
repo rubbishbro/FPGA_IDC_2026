@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 module instrument_board_top #(
     parameter int BAUD=115200,KEY_DEBOUNCE=1_000_000,KEY_LONG=40_000_000,
-    parameter bit NOTE_BANKS=0,BT_HAS_STATE=0,BT_PROTOCOL_V2=0,
+    parameter bit NOTE_BANKS=1,BT_HAS_STATE=0,
     parameter int PCM_HEADROOM_BITS=3,
     parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
@@ -10,6 +10,7 @@ module instrument_board_top #(
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,STEREO_ITD_ENABLE=1'b1,
     parameter logic [5:0] STEREO_PAN=6'd16,
     parameter int SWEEP_HOLD_FRAMES=3072,
+    // Legacy probe fallback; production NOTE_BANKS uses per-instrument note_first.
     parameter logic [6:0] FIRST_MIDI=48
 )(
     input wire clk,rst_n,key0,key1,
@@ -30,7 +31,7 @@ module instrument_board_top #(
     board_clock_reset u_clocks(.clk_50m(clk),.rst_n(rst_n),.clk_core(clk_core),.clk_audio(clk_audio),
         .clk_pix(clk_pix),.reset_request_n(reset_request_n),.locked(locked));
     instrument_system #(.FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.BAUD(BAUD),.KEY_DEBOUNCE(KEY_DEBOUNCE),.KEY_LONG(KEY_LONG),
-        .NOTE_BANKS(NOTE_BANKS),.BT_HAS_STATE(BT_HAS_STATE),.BT_PROTOCOL_V2(BT_PROTOCOL_V2),.RESOURCE_MASK(RESOURCE_MASK),.FIRST_MIDI(FIRST_MIDI),
+        .NOTE_BANKS(NOTE_BANKS),.BT_HAS_STATE(BT_HAS_STATE),.RESOURCE_MASK(RESOURCE_MASK),.FIRST_MIDI(FIRST_MIDI),
         .PCM_HEADROOM_BITS(PCM_HEADROOM_BITS),.LCD_ROTATE_180(LCD_ROTATE_180),
         .STEREO_ENABLE(STEREO_ENABLE),.STEREO_AUTO_SWEEP(STEREO_AUTO_SWEEP),.SWEEP_HOLD_FRAMES(SWEEP_HOLD_FRAMES)) u_system(
         .clk_core(clk_core),.clk_audio(clk_audio),.clk_pix(clk_pix),.rst_n(reset_request_n),.key0(key0),.key1(key1),

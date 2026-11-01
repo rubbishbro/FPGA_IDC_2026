@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // Full LCD page, three pixel stages, matching lcd_sidebar's synchronous font path.
-module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem")(
+module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE="sidebar_labels.mem")(
     input logic clk,rst_n,frame_pulse,lcd_valid,
     input logic [9:0] pix_x,pix_y,
     input config_pkg::guide_display_t view,
@@ -89,7 +89,7 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem")(
                         text_x=10'd80+{col,7'd0}+{col,5'd0}+10'd16;
                         char_offset=int'(lx-16)>>4;
                         case(char_offset)
-                            0:override_glyph=text_glyph(119,0);
+                            0:label_id=119;
                             1:override_glyph=digit_glyph(slot_index>=9?4'd1:4'd0);
                             2:override_glyph=digit_glyph(slot_index>=9?slot_index-4'd9:slot_index+1'b1);
                             default:override_glyph=0;
@@ -130,22 +130,28 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem")(
         end
     end
     logic hit_a,hit_b,text_a,text_b;
-    logic [7:0] label_a,override_a,glyph_b;
+    logic [7:0] label_a,override_a,bypass_glyph_b,label_glyph_b;
+    logic use_label_b;
+    wire [7:0] glyph_b=use_label_b ? label_glyph_b : bypass_glyph_b;
     logic [3:0] character_a,font_x_a,font_y_a,font_x_b,font_y_b,column_q;
     logic [17:0] bg_a,bg_b,bg_q,color_a,color_b,color_q;
     logic [15:0] font_rom[0:4095],font_bits;
     logic text_q;
     initial $readmemh(FONT_FILE,font_rom);
+    // Stage B: registered label address -> synchronous glyph ROM. Bypass and
+    // pixel coordinates are registered on the same edge; stage C reads bitmap.
+    sidebar_label_rom #(.LABEL_FILE(LABEL_FILE)) u_labels(
+        .clk(clk),.label_id(label_a),.character(character_a),.glyph(label_glyph_b));
     always_ff @(posedge clk or negedge rst_n)begin
         if(!rst_n)begin
             hit_a<=0;hit_b<=0;hit<=0;text_a<=0;text_b<=0;text_q<=0;
-            label_a<=0;override_a<=0;glyph_b<=0;character_a<=0;
+            label_a<=0;override_a<=0;bypass_glyph_b<=0;use_label_b<=0;character_a<=0;
             font_x_a<=0;font_y_a<=0;font_x_b<=0;font_y_b<=0;column_q<=0;
             bg_a<=0;bg_b<=0;bg_q<=0;color_a<=0;color_b<=0;color_q<=0;font_bits<=0;
         end else begin
             hit_a<=hit_now;text_a<=text_on;label_a<=label_id;override_a<=override_glyph;character_a<=character;
             font_x_a<=font_x;font_y_a<=font_y;bg_a<=background;color_a<=color;
-            hit_b<=hit_a;text_b<=text_a;glyph_b<=override_a!=0?override_a:text_glyph(label_a,character_a);
+            hit_b<=hit_a;text_b<=text_a;bypass_glyph_b<=override_a;use_label_b<=override_a==0;
             font_x_b<=font_x_a;font_y_b<=font_y_a;bg_b<=bg_a;color_b<=color_a;
             hit<=hit_b;text_q<=text_b;font_bits<=font_rom[{glyph_b,font_y_b}];column_q<=font_x_b;bg_q<=bg_b;color_q<=color_b;
         end

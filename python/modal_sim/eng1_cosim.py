@@ -120,7 +120,7 @@ def run_tb(mode: str = "rtl"):
         ROOT / "rtl/math/pkg/fxp_pkg.sv",
         ROOT / "rtl/router/pkg/modal_step_pkg.sv",
         ROOT / "rtl/router/engines/eng1.sv",
-        ROOT / "rtl/router/tb_eng1_cosim.sv",
+        ROOT / "rtl/tb/router/tb_eng1_cosim.sv",
     ]
     cmd = [iverilog, "-g2012", "-s", "tb_eng1_cosim", "-o", str(exe)] + [str(p) for p in srcs]
     proc = subprocess.run(cmd, cwd=ROOT, text=True, capture_output=True)

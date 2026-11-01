@@ -38,6 +38,7 @@ module config_dispatch #(
     cfg_request_t pending;
     integer index;
     logic [$clog2(CAL_TIMEOUT_MS+1)-1:0] cal_age;
+    logic [4:0] remote_wait_ms;
     logic audio_synced;
     cfg_response_t backend_q;
     audio_config_t audio_q;
@@ -56,13 +57,17 @@ module config_dispatch #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n)begin
-            state<=IDLE;pending<='0;response<='0;response_source<=0;
+            state<=IDLE;pending<='0;response<='0;response_source<=0;remote_wait_ms<=0;
             active_values<=cfg_defaults();render_config<=display_defaults();render_epoch<=0;
             index<=0;cal_age<=0;joy_recalibrate<=0;
             audio_synced<=0;backend_q<='0;audio_q<='0;audio_valid_q<=0;
             commit_audio<=0;commit_scalar<=0;boot_pending<=0;
         end else begin
             joy_recalibrate<=0;
+            // External requests have a bounded PRE-ACCEPT wait. Once the audio
+            // backend accepts, wait for its authoritative completion (no false BUSY).
+            if(state!=BACKEND_SEND)remote_wait_ms<=0;
+            else if(tick_ms && remote_wait_ms<20)remote_wait_ms<=remote_wait_ms+1'b1;
             // Initial publication uses the same held snapshot, independent of
             // upstream backend mux/valid propagation and ordinary requests.
             if(AUDIO_BACKEND && !audio_synced && state==IDLE && !req_valid &&
@@ -110,6 +115,9 @@ module config_dispatch #(
                     active_values[index]<=pending.value;response.applied_value<=pending.value;state<=REPLY;
                 end
                 BACKEND_SEND:if(backend_ready)state<=BACKEND_WAIT;
+                    else if(response_source && remote_wait_ms>=20)begin
+                        response.result<=CFG_BUSY;state<=REPLY;
+                    end
                 BACKEND_WAIT:if(backend_rsp_valid)begin
                     backend_q<=backend_response;audio_q<=backend_audio_state;
                     audio_valid_q<=backend_audio_valid;state<=BACKEND_CHECK;

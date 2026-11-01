@@ -86,7 +86,7 @@ def safe_common_cap(rows):
 
 
 def main():
-    image = ROOT / 'rtl/router/tools/guitar_flash.bin'
+    image = ROOT / 'rtl/router/tools/coefficients/eng0_guitar.bin'
     raw = image.read_bytes()
     rows = []
     for slot, note in enumerate(NOTES):

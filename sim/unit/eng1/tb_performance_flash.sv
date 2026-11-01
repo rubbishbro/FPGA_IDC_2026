@@ -36,18 +36,27 @@ module tb_performance_flash;
             $fwrite(trace_fd,"\n");trace_pending=0;
         end
     end
-    voice_router #(.SLOTS(16),.N_MODES(64),.CLK_HZ(50_000_000),.SR_HZ(48_000),.MIDI_ENABLE(1),
+    logic selected_bank=0,map_reload=0;
+    logic [111:0] bank_notes;
+    logic [511:0] bank_offsets;
+    always_comb begin
+        for(int key=0;key<16;key++)begin
+            bank_notes[key*7 +:7]=7'(note_first(inst)+(selected_bank?16:0)+key);
+            bank_offsets[key*32 +:32]=32'(((selected_bank?16:0)+key)*4096);
+        end
+    end
+    voice_router #(.SLOTS(16),.N_MODES(64),.CLK_HZ(50_000_000),.SR_HZ(48_000),.MIDI_ENABLE(1),.LOAD_OFFSETS(1),.FLASH_NOTES(32),
         .PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48),.FLASH_BASE(32'h800000),.FLASH_BYTES(16_777_216)) dut(
         .clk(clk),.rst_n(rst_n),.fmap(fmap),.inst(inst),.reverb_preset(REVERB_NONE),
-        .reload(1'b0),.start(1'b1),.sample_tick(1'b0),.slot_note_map(default_note_map()),
+        .reload(1'b0),.start(1'b1),.sample_tick(1'b0),.slot_note_map(bank_notes),
         .done(done),.ready(),.load_err(err),.table_valid(valid),.y_valid(),.y_data(),
         .qspi_cs_n(),.qspi_sck(),.qspi_dq_o(),.qspi_dq_oe(),.qspi_dq_i(flash_i),
         .midi_select(1'b0),.midi_valid(1'b0),.midi_gate('0),.midi_retrigger('0),
         .midi_hard_clear('0),.midi_velocity('0),.midi_ready(),
         .maintenance_clear(maintenance),.maintenance_done(maintenance_done),
-        .map_reload(1'b0),.load_offsets('0),.midi_inflight(),.voice_idle(),.load_complete(),
+        .map_reload(map_reload),.load_offsets(bank_offsets),.midi_inflight(),.voice_idle(),.load_complete(),
         .ns_rd_en(1'b0),.ns_rd_addr('0),.ns_rd_sel(1'b0),.ns_rd_data(),.ns_rd_valid());
-    w25q64_read_model #(.N_MODES(64),.MEM_FILE("resources.mem"),.MEM_BYTES(786432),
+    w25q64_read_model #(.N_MODES(64),.MEM_FILE("resources.mem"),.MEM_BYTES(1576960),
         .RESOURCE_BASE(32'h800000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),
         .WRITE_NS(20_000_000)) flash(.cs_n(dut.qspi_cs_n),.sck(dut.qspi_sck),
         .dq_o(dut.qspi_dq_o),.dq_oe(dut.qspi_dq_oe),.blank(1'b0),.dq_i(flash_i));
@@ -63,20 +72,46 @@ module tb_performance_flash;
     end
     function automatic logic[31:0] word(input int ident,slot,mode,w);
         int addr;
-        addr=ident*65536+slot*4096+mode*64+w*4;
+        addr=ident*131072+((selected_bank?16:0)+slot)*4096+mode*64+w*4;
         return {flash.memory[addr],flash.memory[addr+1],flash.memory[addr+2],flash.memory[addr+3]};
     endfunction
     task automatic verify_table(input instrument_e selected);
-        logic[31:0] g,a1,a2;
+        logic[223:0] got_co,want_co;
+        logic[255:0] got_pm,want_pm;
+        logic[31:0] shadow_a1,control_word,profile_word;
+        logic[80:0] profile_expected;
         int addr;
+        // Verify the wire-loaded public RAM contents, not just modal coefficients.
+        for(int k=0;k<896;k++)begin
+            addr=1572864+k*4;
+            control_word={flash.memory[addr],flash.memory[addr+1],flash.memory[addr+2],flash.memory[addr+3]};
+            if(k<512)begin
+                if(dut.u_pitch.ratio0[k]!==control_word[24:0] || dut.u_pitch.ratio1[k]!==control_word[24:0])$fatal(1,"FAIL Flash ratio RAM %d",k);
+            end else if(k<768)begin
+                if(dut.u_pitch.sine[k-512]!==control_word[15:0])$fatal(1,"FAIL Flash sine RAM %d",k);
+            end else if(dut.u_pitch.depth[k-768]!==control_word[13:0])$fatal(1,"FAIL Flash depth RAM %d",k);
+        end
+        for(int slot=0;slot<16;slot++)begin
+            profile_word=word(int'(selected),slot,0,7);
+            profile_expected={profile_word[16:0],word(int'(selected),slot,1,7),word(int'(selected),slot,2,7)};
+            if(dut.active_play[slot]!==profile_expected)$fatal(1,"FAIL Flash performance profile %d",slot);
+        end
         for(int slot=0;slot<16;slot++)for(int mode=0;mode<64;mode++)begin
             addr=(slot%8)*64+mode;
-            g=slot<8 ? dut.ca_a11_a[addr] : dut.ca_a11_b[addr];
-            a1=slot<8 ? dut.ca_a12_a[addr] : dut.ca_a12_b[addr];
-            a2=slot<8 ? dut.ca_a21_a[addr] : dut.ca_a21_b[addr];
-            if({g,a1,a2}!=={word(int'(selected),slot,mode,0),word(int'(selected),slot,mode,1),word(int'(selected),slot,mode,2)})
+            got_co=slot<8 ?
+                {dut.ca_a11_a[addr],dut.ca_a12_a[addr],dut.ca_a21_a[addr],dut.ca_a22_a[addr],dut.ca_gq_a[addr],dut.ca_gv_a[addr],dut.ca_wo_a[addr]} :
+                {dut.ca_a11_b[addr],dut.ca_a12_b[addr],dut.ca_a21_b[addr],dut.ca_a22_b[addr],dut.ca_gq_b[addr],dut.ca_gv_b[addr],dut.ca_wo_b[addr]};
+            want_co={word(int'(selected),slot,mode,0),word(int'(selected),slot,mode,1),word(int'(selected),slot,mode,2),
+                word(int'(selected),slot,mode,3),word(int'(selected),slot,mode,4),word(int'(selected),slot,mode,5),word(int'(selected),slot,mode,6)};
+            if(got_co!==want_co)
                 $fatal(1,"FAIL coeff layout inst=%0d slot=%0d mode=%0d",selected,slot,mode);
-            if(dut.pm_swo[slot*64+mode]!==word(int'(selected),slot,mode,15))$fatal(1,"FAIL modulation metadata");
+            got_pm={dut.pm_a11[slot*64+mode],dut.pm_a12[slot*64+mode],dut.pm_a22[slot*64+mode],dut.pm_wo[slot*64+mode],
+                dut.pm_s11[slot*64+mode],dut.pm_s12[slot*64+mode],dut.pm_s22[slot*64+mode],dut.pm_swo[slot*64+mode]};
+            want_pm={word(int'(selected),slot,mode,8),word(int'(selected),slot,mode,9),word(int'(selected),slot,mode,10),word(int'(selected),slot,mode,11),
+                word(int'(selected),slot,mode,12),word(int'(selected),slot,mode,13),word(int'(selected),slot,mode,14),word(int'(selected),slot,mode,15)};
+            if(got_pm!==want_pm)$fatal(1,"FAIL modulation fields inst=%0d slot=%0d mode=%0d",selected,slot,mode);
+            shadow_a1=slot<8 ? dut.pitch_a12_a[addr] : dut.pitch_a12_b[addr];
+            if(shadow_a1!==word(int'(selected),slot,mode,1))$fatal(1,"FAIL initial shadow a1");
             checked++;
         end
     endtask
@@ -84,9 +119,10 @@ module tb_performance_flash;
         int target;
         target=outputs+count;wait(outputs>=target);@(negedge clk);
     endtask
-    task automatic audition(input instrument_e selected);
+    task automatic audition(input instrument_e selected,input logic bank=0);
         int before_nonzero;
-        @(negedge clk);inst=selected;
+        @(negedge clk);inst=selected;selected_bank=bank;map_reload=1;
+        @(negedge clk);map_reload=0;wait(dut.state==dut.S_LOAD);
         wait(dut.inst_prev==selected && valid && done);@(negedge clk);
         if(err || dut.nm_lat!=n_modes_of(selected))$fatal(1,"FAIL selected profile");
         case(selected)
@@ -101,7 +137,7 @@ module tb_performance_flash;
             default:;
         endcase
         verify_table(selected);loads++;
-        if(selected==INST_TRUMPET || selected==INST_VIOLIN)begin
+        if(!bank && (selected==INST_TRUMPET || selected==INST_VIOLIN))begin
             trace_fd=$fopen($sformatf("eng1_trace_%0d.txt",selected),"w");trace_seq=0;
         end
         before_nonzero=nonzero_outputs;
@@ -124,9 +160,11 @@ module tb_performance_flash;
         repeat(8)@(negedge clk);rst_n=1;
         audition(INST_PIANO);audition(INST_GUITAR);audition(INST_TRUMPET);audition(INST_VIOLIN);
         audition(INST_PIANO_ABC);audition(INST_GUITAR_ABC);
-        if(loads!=6 || checked!=6144)$fatal(1,"FAIL incomplete coverage");
+        audition(INST_PIANO,1);audition(INST_GUITAR,1);audition(INST_TRUMPET,1);
+        audition(INST_VIOLIN,1);audition(INST_PIANO_ABC,1);audition(INST_GUITAR_ABC,1);
+        if(loads!=12 || checked!=12288)$fatal(1,"FAIL incomplete coverage");
         $display("PASS tb_performance_flash loads=%0d records=%0d outputs=%0d",loads,checked,outputs);
         $finish;
     end
-    initial begin #500000000;$fatal(1,"FAIL timeout inst=%0d state=%0d loads=%0d",inst,dut.state,loads);end
+    initial begin #1000000000;$fatal(1,"FAIL timeout inst=%0d state=%0d loads=%0d",inst,dut.state,loads);end
 endmodule

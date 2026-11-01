@@ -16,6 +16,31 @@ module tb_temporary_fmap_display;
         @(negedge pix_clk);frame_pulse=1;
         @(negedge pix_clk);frame_pulse=0;
     endtask
+    // Release raw reset between pixel edges while a visible panel is requested.
+    // Pixel state must remain cleared for all three synchronization edges;
+    // on the fourth edge the normal four-stage overlay pipeline may advance.
+    task automatic reset_probe(input integer phase_ns);
+        @(negedge pix_clk);x=320;y=48;de=1;frame_pulse=0;fmap='1;
+        #(phase_ns);rst_n=0;
+        #1;
+        if(dut.pix_reset!==0 || {dut.hit_q,dut.ink_q,dut.grid_q}!==12'd0)
+            $fatal(1,"overlay reset assertion was not asynchronous");
+        for(integer i=0;i<16;i++)
+            if(dut.numbers[i]!==0)$fatal(1,"reset retained old displayed number");
+        #7;rst_n=1;
+        for(integer stage=0;stage<3;stage++)begin
+            @(posedge pix_clk);#1;
+            if(dut.pix_n!==(stage==2))$fatal(1,"pixel reset released at wrong edge");
+            if({dut.hit_q,dut.ink_q,dut.grid_q}!==12'd0)
+                $fatal(1,"pixel pipeline advanced before synchronized release");
+            for(integer i=0;i<16;i++)
+                if(dut.numbers[i]!==0)$fatal(1,"number advanced during reset release");
+        end
+        @(posedge pix_clk);#1;
+        if(dut.hit_q!==4'b0001)$fatal(1,"pixel pipeline did not resume after reset");
+        @(negedge pix_clk);de=0;
+        repeat(4)@(posedge pix_clk);
+    endtask
     task automatic pixel(input integer px,py,input bit valid,
                           input integer er,eg,eb);
         @(negedge pix_clk);x=10'(px);y=10'(py);de=valid;
@@ -26,6 +51,8 @@ module tb_temporary_fmap_display;
     integer file_id;
     initial begin
         #101;rst_n=1;
+        reset_probe(3);
+        reset_probe(11);
         // Settle the initially queued reset map before each new group.
         for(integer group=0;group<16;group++)begin
             @(negedge core_clk);
@@ -71,7 +98,7 @@ module tb_temporary_fmap_display;
             end
         end
         $fclose(file_id);
-        $display("PASS tb_temporary_fmap_display all256_decimal frame_snapshot slot_order pixel_latency passthrough");
+        $display("PASS tb_temporary_fmap_display reset_release all256_decimal frame_snapshot slot_order pixel_latency passthrough");
         $finish;
     end
     initial begin #20_000_000;$fatal(1,"timeout");end

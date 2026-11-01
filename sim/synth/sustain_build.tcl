@@ -5,7 +5,7 @@ file mkdir $out
 create_project -name sustain_probe -dir $out -pn GW5AST-LV138FPG676AES -device_version B -force
 set_option -verilog_std sysv2017
 set_option -top_module sustain_probe
-set manifest [open "$root/rtl/router/tools/run_all.ps1" r]
+set manifest [open "$root/sim/router_sources.list" r]
 set sources [read $manifest]
 close $manifest
 foreach {full path} [regexp -all -inline {'(rtl/[^']+\.sv)'} $sources] {

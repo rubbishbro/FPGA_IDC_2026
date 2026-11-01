@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // Three pixel stages: region/descriptor -> glyph -> synchronous font ROM.
 // The compositor must delay background and DE by the same three clocks.
-module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
+module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE="sidebar_labels.mem")(
     input logic clk,rst_n,frame_pulse,lcd_valid,
     input logic[9:0] pix_x,pix_y,
     input config_pkg::sidebar_snapshot_t view,
@@ -242,7 +242,10 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
         end
     end
     logic hit_a,hit_b,text_a,text_b,char_a,number_a;
-    logic[7:0] label_a,override_a,glyph_b;
+    logic[7:0] label_a,override_a;
+    logic[7:0] label_glyph_b,bypass_glyph_b;
+    logic use_label_b;
+    wire[7:0] glyph_b=use_label_b ? label_glyph_b : bypass_glyph_b;
     logic[3:0] character_a,font_x_a,font_y_a,font_x_b,font_y_b;
     logic[31:0] digits_a;
     logic[17:0] background_a,color_a,background_b,color_b;
@@ -250,10 +253,14 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
     logic[3:0] column_q;
     logic text_q;
     logic[17:0] background_q,text_color_q;
+    // Stage B: registered label address -> synchronous glyph ROM. Bypass and
+    // pixel coordinates are registered on the same edge; stage C reads bitmap.
+    sidebar_label_rom #(.LABEL_FILE(LABEL_FILE)) u_labels(
+        .clk(clk),.label_id(label_a),.character(character_a),.glyph(label_glyph_b));
     always_ff @(posedge clk or negedge rst_n)begin
         if(!rst_n)begin
             hit_a<=0;hit_b<=0;text_a<=0;text_b<=0;char_a<=0;number_a<=0;
-            label_a<=0;override_a<=0;glyph_b<=0;character_a<=0;digits_a<=0;
+            label_a<=0;override_a<=0;bypass_glyph_b<=0;use_label_b<=0;character_a<=0;digits_a<=0;
             font_x_a<=0;font_y_a<=0;font_x_b<=0;font_y_b<=0;
             background_a<=0;color_a<=0;background_b<=0;color_b<=0;
             hit<=0;font_bits<=0;column_q<=0;text_q<=0;background_q<=0;text_color_q<=0;
@@ -262,14 +269,14 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem")(
             label_a<=label_id;override_a<=glyph;character_a<=character;digits_a<=digits;
             font_x_a<=font_x;font_y_a<=font_y;background_a<=background;color_a<=text_color;
             hit_b<=hit_a;text_b<=text_a;
-            glyph_b<=override_a;
+            bypass_glyph_b<=override_a;
+            use_label_b<=!number_a && override_a==0 && label_a!=0 && char_a;
             if(number_a) begin
                 case(character_a)
-                    0:glyph_b<=digits_a[31:24];1:glyph_b<=digits_a[23:16];
-                    2:glyph_b<=digits_a[15:8];3:glyph_b<=digits_a[7:0];default:glyph_b<=0;
+                    0:bypass_glyph_b<=digits_a[31:24];1:bypass_glyph_b<=digits_a[23:16];
+                    2:bypass_glyph_b<=digits_a[15:8];3:bypass_glyph_b<=digits_a[7:0];default:bypass_glyph_b<=0;
                 endcase
-            end else if(override_a==0 && label_a!=0 && char_a)
-                glyph_b<=text_glyph(label_a,character_a);
+            end
             font_x_b<=font_x_a;font_y_b<=font_y_a;background_b<=background_a;color_b<=color_a;
             hit<=hit_b;font_bits<=font_rom[{glyph_b,font_y_b}];column_q<=font_x_b;
             text_q<=text_b;background_q<=background_b;text_color_q<=color_b;

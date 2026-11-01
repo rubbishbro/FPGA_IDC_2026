@@ -7,11 +7,11 @@
 | 编号/范围 | 当前事实与影响 | 关闭条件 |
 |---|---|---|
 | I02 板级音频验收 | 六音色、LED线序和摇杆修复已写入Flash并完整校验；用户报告整体音量偏小 | 完成相同输入/模拟增益下的音量复核、连续播放和听感验收；最新合并源码另行编译下载 |
-| I04 整版物理时序 | 已烧录3ED7包的setup/hold违例0、最差+2.608/+0.181ns；此次main合并尚未实现 | 允许编译后对新源码重新PnR签核；不沿用旧FS或100MHz目标 |
+| I04 整版物理时序 | main_merge_pnr的setup+0.278ns、removal-0.620ns；共享像素复位链修正后，可布线优先实现removal+0.353ns，但setup-3.052ns/291违例，不能采用。功能仿真通过，当前独立复核并尝试复用原物理结果 | 必须同时通过setup、hold、recovery、removal、脉宽及显式max_delay门禁；不得将复位修复或完成布线等同整版验收 |
 | M14 忙时panic抢占 | 当前midi_voice_top已移除panic_pending和忙时故障旁路；panic边沿只在可接收配置状态处理，不能承诺装载中立即取消 | 定义忙时请求保留/取消/退休合同，覆盖装载、排空、失败和backend在途；菜单清音与硬panic分别验证 |
 | F09 混响乘积 | 已合入96位完整乘积、宽反馈/干湿和及正确符号饱和修正；旧边界失败数据保留在调试记录 | 新源码signed64极值、正负溢出、非零尾音及预设切换验证，再完成物理实现 |
+| F10 全局表装载与完整性 | 每音P1T1参数走Flash，但全局pitch三表及逐音note_gain仍来自SV常量；按用户要求已删除loader全0/FF判空；仍没有CRC。六音色回归已补齐全部15个有效字与影子a1，6144记录通过 | 迁移全局查表须补明确的Flash区域/格式、实际装载及RAM读口；补充完整性校验后才能将读回成功等同资源有效 |
 | 调制提交 | ENG1 Bend/CC1已接不可变base/K、影子批次和帧边界提交；eng0压力调制仍只作用低4模态 | 持音/加载并发、真实音准、时变稳定域及UI消费者验收；不把eng0压力更新等同ENG1原子提交 |
-| T01 旧core迁移 | 27日run_core前两项通过，第3项缺rtl/simsynth/modal_step_pkg.sv；e2_engine仍引用旧modal_engine7 | 明确保留路径的迁移策略，干净目录跑完整回归；历史21PASS不可沿用 |
 | T03 旧eng1对拍入口 | eng1_cosim.py默认历史rtl模式，旧TB依赖串行核内部接口；改为intended也不能代表当前流水回归 | 同步runner/TB或明确废弃；当前算术使用sim/run_audio.py的独立整数oracle |
 | T04 Windows音乐/loader验收 | 已补源清单/MEM准备、改入库生成脚本、吉他64存储、参数化TB、覆盖索引及失败退出；Linux/Questa公开vendor模型5项通过 | Windows PowerShell/Vivado入口尚未实际执行；不能把Linux验证写成xsim通过 |
 

@@ -11,7 +11,18 @@ module tb_eng1_pitch_trace;
     integer params[1024][5],fd,vf,rc;
     bit bad_tag=0,ack_before;
     always #5 clk=~clk;
-    eng1_pitch dut(.clk(clk),.rst_n(rst_n),.clear(1'b0),.sample_tick(tick),.commit_ok(commit_ok),
+    logic table_we=0;
+    logic [9:0] table_addr=0;
+    logic [31:0] table_data=0,table_words[0:1023];
+    task automatic load_tables;
+        $readmemh("pitch_tables.mem",table_words);
+        for(int k=0;k<1024;k++)begin
+            @(negedge clk);table_we=1;table_addr=10'(k);table_data=table_words[k];
+        end
+        @(negedge clk);table_we=0;
+    endtask
+    modulation1 dut(.table_we(table_we),.table_addr(table_addr),.table_data(table_data),
+        .clk(clk),.rst_n(rst_n),.clear(1'b0),.sample_tick(tick),.commit_ok(commit_ok),
         .cleanup(cleanup),.n_modes(7'd48),.slot_source(sources),.control_valid(cv),.control_cancel(cancel),
         .control_source(source),.control_data(data),.control_ready(ready),.control_rejected(rejected),
         .active_bank(bank),.busy(busy),.commit_pulse(commit),.active_delta(delta),.sources_ready(sources_ready),
@@ -24,7 +35,7 @@ module tb_eng1_pitch_trace;
         vf=$fopen("pitch_params.txt","r");
         for(int i=0;i<1024;i++)rc=$fscanf(vf,"%d %d %d %d %d",params[i][0],params[i][1],params[i][2],params[i][3],params[i][4]);
         $fclose(vf);fd=$fopen("pitch_clock_trace.txt","w");
-        repeat(4)@(negedge clk);rst_n=1;
+        load_tables();repeat(4)@(negedge clk);rst_n=1;
         for(int c=0;c<40000;c++)begin
             @(negedge clk);
             tick=c%100==0;commit_ok=c%100>=60;cleanup=0;cancel=0;

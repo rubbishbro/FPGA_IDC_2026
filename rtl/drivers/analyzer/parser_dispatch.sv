@@ -2,14 +2,15 @@
 // 共用一个解析上下文。在选中的解析器退休前，不得放行下一帧
 // （仅收完最后一字节，并不等于其待处理事件/ACK 已完成）。
 module parser_dispatch #(
-    parameter int EQ_BANDS = 3
+    parameter int EQ_BANDS = 3,
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
 ) (
     input logic clk, rst_n,
     input logic s_valid,
     output logic s_ready,
     input logic [7:0] s_data, s_type,
     input logic [15:0] s_seq,
-    input logic [5:0] s_payload_len,
+    input logic [6:0] s_payload_len,
     input logic s_first, s_last, s_source_id,
     output logic admit_new_frame, busy, context_source_id,
     input logic [1:0] session_reset, cancel_source,
@@ -23,8 +24,8 @@ module parser_dispatch #(
     output logic cfg_source_id,
     output logic [15:0] cfg_seq,
     output logic [7:0] cfg_command,
-    output logic [4:0] cfg_payload_len,
-    output logic [127:0] cfg_shadow,
+    output logic [6:0] cfg_payload_len,
+    output logic [511:0] cfg_shadow,
     input logic cfg_done_valid,
     output logic cfg_done_ready,
     input logic [7:0] cfg_result,
@@ -59,7 +60,7 @@ module parser_dispatch #(
         .event_source_id(event_source_id), .frame_done(midi_done),
         .parse_error(parse_error), .busy(midi_busy)
     );
-    config_analyzer #(.EQ_BANDS(EQ_BANDS)) u_config (
+    config_analyzer #(.EQ_BANDS(EQ_BANDS),.SUPPORTED_INSTRUMENTS(SUPPORTED_INSTRUMENTS)) u_config (
         .clk(clk), .rst_n(rst_n),
         .s_valid(s_valid && to_config), .s_ready(config_ready), .s_data(s_data),
         .s_first(s_first), .s_last(s_last), .s_source_id(s_source_id),

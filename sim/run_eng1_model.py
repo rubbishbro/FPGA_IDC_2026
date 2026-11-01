@@ -151,7 +151,7 @@ def main():
                 lines.append(' '.join(str(w[i]) for i in [0,1,2,8,10,13]))
         (out/f'pitch_oracle_{inst}.txt').write_text('\n'.join(lines)+'\n')
     run('vlib',[work],'vlib')
-    sources=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
+    sources=re.findall(r"'((?:rtl|tb)/[^']+\.sv)'",(ROOT/'sim/router_sources.list').read_text())
     sources=[ROOT/p for p in sources if not p.endswith(('/tb_music.sv','/w25q_dut.sv'))]
     sources += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_guide_state.sv','rtl/midi/midi_instrument_map.sv',
         'rtl/router/midi_voice_top.sv','sim/unit/midi/w25q64_read_model.sv','sim/unit/audio/tb_i2s_audio_output.sv',

@@ -63,6 +63,7 @@ module sidebar_ctrl #(
         item=category_item(scene.category,int'(scene.selection));
         count=category_count(scene.category);
         limit=cfg_max(scene.edit_index);
+        if(scene.edit_index==5)limit=1; // low/high 16-note group, committed by audio backend
         if(scene.edit_index==0)limit=11; // Legacy IDs preserved; ABC piano/guitar at10/11
         if(scene.edit_index==6)limit=2; // 当前实际绘制目录：0/1/2
         change=(scene.edit_index==1 || scene.edit_index==4)?10:1;

@@ -112,10 +112,10 @@ module tb_midi_safety;
         send(0,1,1,76,80);drained();
         ck(event_ready && dut.u_notes.slot_owned==0,"PAD mode drains MIDI head");
         midi_select=1;wait(config_busy);configured();
-        // Broken Flash must not publish a new bank as active or report success.
+        // Zero payload is accepted; configuration identity still commits atomically.
         blank=1;note_bank=0;wait(config_busy);wait(!config_busy);
-        ck(config_failed && active_bank==1 && load_err && event_ready,"load failure leaves old active identity and drains input");
-        blank=0;retry();ck(active_bank==0,"explicit retry recovers failed bank load");
+        ck(!config_failed && active_bank==0 && !load_err && event_ready,"zero-payload load commits new identity and drains input");
+        blank=0;retry();ck(active_bank==0,"explicit reload restores normal bank payload");
         // A missing sample boundary is finite failure, not an eternal hidden stall.
         send(0,1,1,60,80);force dut.u_voice.smp_tick=0;
         wait(config_failed);

@@ -1,14 +1,6 @@
 `timescale 1ns/1ps
-// -----------------------------------------------------------------------------
-// slip_frame_tx -- REPLY（TYPE=80，LEN=3）的 SLIP/CRC 编码器。
-//
-// 描述符接口：{seq[15:0], command[7:0], result[7:0]}。
-// 线上帧：C0 | SLIP(VER=01 TYPE=80 SEQ LEN=0003 PAYLOAD[02,cmd,res] CRC16) | C0。
-//
-// 编码器只保留每帧的小状态（seq/cmd/result/CRC/index），一次一个字节地送入
-// UART 字节流。CRC 对每个解码后的 body 字节更新一次，与线上是否转义无关。
-// 尾部 C0 必须交给 UART 后，才能接收下一个描述符。
-// -----------------------------------------------------------------------------
+// CONFIG reply: C0 | SLIP(TYPE=80 SEQ:u8 LEN=02 COMMAND RESULT CRClo CRChi) | C0.
+// Internal 16-bit tags are zero-extended wire SEQ bytes. No VERSION field.
 module slip_frame_tx (
     input  logic        clk,
     input  logic        rst_n,
@@ -58,7 +50,7 @@ module slip_frame_tx (
     assign m_valid = (state != ST_IDLE);
     assign busy    = (state != ST_IDLE);
 
-    // body 字节，小端：VERSION、TYPE、SEQ、LEN、PAYLOAD、CRC。
+    // body 字节，小端：TYPE、SEQ、LEN、PAYLOAD、CRC。
     function automatic logic [7:0] body_byte(
         input logic [3:0]  idx,
         input logic [15:0] seq,
@@ -66,19 +58,15 @@ module slip_frame_tx (
         input logic [7:0]  res,
         input logic [15:0] crc
     );
-        case (idx)
-            4'd0:    body_byte = 8'h01;             // VERSION
-            4'd1:    body_byte = TYPE_REPLY;        // 0x80
-            4'd2:    body_byte = seq[7:0];
-            4'd3:    body_byte = seq[15:8];
-            4'd4:    body_byte = 8'h03;             // LEN 低字节
-            4'd5:    body_byte = 8'h00;             // LEN 高字节
-            4'd6:    body_byte = 8'h02;             // request_type = CONFIG
-            4'd7:    body_byte = cmd;
-            4'd8:    body_byte = res;
-            4'd9:    body_byte = crc[7:0];
-            4'd10:   body_byte = crc[15:8];
-            default: body_byte = 8'h00;
+        case(idx)
+            0:body_byte=TYPE_REPLY;
+            1:body_byte=seq[7:0];
+            2:body_byte=8'd2;
+            3:body_byte=cmd;
+            4:body_byte=res;
+            5:body_byte=crc[7:0];
+            6:body_byte=crc[15:8];
+            default:body_byte=0;
         endcase
     endfunction
 
@@ -133,12 +121,12 @@ module slip_frame_tx (
 
                 ST_BODY: begin
                     if (m_ready) begin
-                        if (body_idx < 4'd9)
+                        if (body_idx < 4'd5)
                             crc_r <= crc16_byte(crc_r, cur_body);
 
                         if (body_esc) begin
                             state <= ST_ESC;       // DB prefix already sent this beat
-                        end else if (body_idx == 4'd10) begin
+                        end else if (body_idx == 4'd6) begin
                             state <= ST_TRAIL;
                         end else begin
                             body_idx <= body_idx + 4'd1;
@@ -148,7 +136,7 @@ module slip_frame_tx (
 
                 ST_ESC: begin
                     if (m_ready) begin
-                        if (body_idx == 4'd10)
+                        if (body_idx == 4'd6)
                             state <= ST_TRAIL;
                         else begin
                             body_idx <= body_idx + 4'd1;

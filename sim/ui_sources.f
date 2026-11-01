@@ -2,6 +2,7 @@ rtl/config_pkg.sv
 rtl/drivers/pkg/joystick_pkg.sv
 FFT_spectrumshow/src/ui/ui_pkg.sv
 FFT_spectrumshow/src/ui/sidebar_font_pkg.sv
+FFT_spectrumshow/src/ui/sidebar_label_rom.sv
 rtl/control_loop.sv
 rtl/config_dispatch.sv
 rtl/drivers/joystick_adapter.sv

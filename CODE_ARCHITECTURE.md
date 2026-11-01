@@ -13,7 +13,7 @@
 | 通信 | `rtl/comm/comm_top.sv` | Event32+source、Config shadow及会话接口；演奏消费者已有，统一板级接线已有，REVERB_SET映射真实后端；EQ明确NOT_READY |
 | 显示/配置 | `FFT_spectrumshow/src/ui/sidebar_system.sv` | loop/dispatch、真实后端握手、配置/引导独立显示CDC；独立demo后端能力仍为0 |
 | 本地主机 | `web/midi-editor/` | 编辑/参考试听/Web Serial；无板端PCM回传或远程音色设置 |
-| 保留core | `rtl/core/router_system_top.sv` | 另一套共享RAM ABC/E2实现，与当前router无父子关系 |
+| 归档core | `history/core_2026-11-01/rtl/core/router_system_top.sv` | 另一套共享RAM ABC/E2实现，与当前router无父子关系 |
 
 统一板级只有一套voice_router，内部保留eng0/eng1选择。六音色固件3ED7已烧录；main新增录制/fmap/混响修改后的源码尚未编译。core50MHz、audio12.5MHz、pixel约33.333MHz，实际Fs=48.828125kHz。
 

@@ -23,7 +23,7 @@ def main():
     out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     (out/'verification.json').unlink(missing_ok=True)
     shutil.copyfile(ROOT/'rtl/router/tools/performance/resources.mem',out/'resources.mem')
-    sources=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
+    sources=re.findall(r"'((?:rtl|tb)/[^']+\.sv)'",(ROOT/'sim/router_sources.list').read_text())
     sources=[ROOT/p for p in sources if not p.endswith(('/tb_music.sv','/w25q_dut.sv'))]
     sources += [ROOT/'sim/unit/midi/w25q64_read_model.sv',ROOT/'sim/unit/eng1/tb_performance_flash.sv']
     command=[exe,'--binary','--timing','--timescale','1ns/1ps','-Wno-fatal',
@@ -36,7 +36,7 @@ def main():
         subprocess.run([str(out/'obj/Vtb_performance_flash')],cwd=out,stdout=log,
                        stderr=subprocess.STDOUT,check=True,timeout=600)
     output=(out/'simulation.log').read_text()
-    if 'PASS tb_performance_flash loads=6 records=6144' not in output or 'FAIL' in output:
+    if 'PASS tb_performance_flash loads=12 records=12288' not in output or 'FAIL' in output:
         raise RuntimeError(output)
     sys.path.insert(0,str(ROOT/'python/modal_sim'))
     import eng1_rtl as E
@@ -46,7 +46,7 @@ def main():
     parity={}
     for name,ident in [('trumpet',3),('violin',5)]:
         notes={r['midi']:E.NoteResource.decode(r['midi'],raw[r['offset']:r['offset']+4096],r)
-               for r in manifest['entries'] if r['name']==name}
+               for r in manifest['entries'] if r['name']==name and r['slot']<16}
         parity[name]=compare_wave(out/f'eng1_trace_{ident}.txt',E.ResourceBank(name,notes),min_checks=500)
         print('PASS Python/RTL deployed',name,parity[name],flush=True)
     result=dict(passed=True,contract=contract,summary=output.splitlines(),

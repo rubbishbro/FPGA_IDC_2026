@@ -3,9 +3,10 @@
 module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
-    parameter bit NOTE_BANKS=0, BT_HAS_STATE=0, BT_PROTOCOL_V2=0,
+    parameter bit NOTE_BANKS=1, BT_HAS_STATE=0,
     parameter int PCM_HEADROOM_BITS=3,
     parameter bit LCD_ROTATE_180=1'b1,
+    // Legacy probe fallback; production NOTE_BANKS uses per-instrument note_first.
     parameter logic [6:0] FIRST_MIDI=48,
     parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
@@ -119,9 +120,9 @@ module instrument_system #(
     logic midi_idle,cfg_valid,cfg_ready,cfg_source,cfg_done,cfg_done_ready;
     logic [15:0] cfg_seq;
     logic [7:0] cfg_cmd,cfg_result;
-    logic [4:0] cfg_len;
-    logic [127:0] cfg_shadow;
-    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BAUD),.BT_HAS_STATE(BT_HAS_STATE),.BT_PROTOCOL_V2(BT_PROTOCOL_V2)) u_comm(
+    logic [6:0] cfg_len;
+    logic [511:0] cfg_shadow;
+    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BAUD),.BT_HAS_STATE(BT_HAS_STATE),.SUPPORTED_INSTRUMENTS({4'b0,RESOURCE_MASK})) u_comm(
         .clk(clk_core),.rst_n(core_n),.rx_i(uart_rx),.tx_o(uart_tx),.hc05_state_async(bt_state),
         .session_restart(session_restart),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),
         .midi_ops_idle(midi_idle),.source_quarantine(quarantine),.link_fault_pending(),.error_sticky(),.rx_error_count(),
@@ -161,7 +162,7 @@ module instrument_system #(
     wire flash_oe;
     wire [3:0] flash_out;
     assign flash_dq=flash_oe ? flash_out : 4'bzzzz;
-    midi_voice_top #(.CLK_HZ(CLK_HZ),.AUDIO_ENABLE(1),.PT8211_ENABLE(1),.STEREO_ENABLE(STEREO_ENABLE),.CONFIG_BACKEND(1),.NOTE_BANKS(NOTE_BANKS),
+    midi_voice_top #(.CLK_HZ(CLK_HZ),.AUDIO_ENABLE(1),.PT8211_ENABLE(1),.STEREO_ENABLE(STEREO_ENABLE),.CONFIG_BACKEND(1),.NOTE_BANKS(NOTE_BANKS),.INSTRUMENT_NOTE_RANGES(NOTE_BANKS),
         .PCM_HEADROOM_BITS(PCM_HEADROOM_BITS),
         .FLASH_BASE(FLASH_BASE),.FLASH_BYTES(FLASH_BYTES),.RESOURCE_MASK(RESOURCE_MASK),.PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48)) u_sound(
         .clk(clk_core),.audio_clk(clk_audio),.rst_n(core_n),.run(1'b1),.fmap(force_map),
@@ -191,24 +192,37 @@ module instrument_system #(
     logic ext_valid,ext_ready,ext_rsp_valid;
     cfg_request_t ext_request;
     cfg_response_t ext_response;
-    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_REC_START,B_REC_STOP} bridge_t;
+    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN} bridge_t;
     bridge_t bridge_state;
     logic ctx_source;
     logic [15:0] ctx_seq;
     logic [7:0] ctx_cmd;
-    logic [4:0] ctx_len;
-    logic [127:0] ctx_shadow;
+    logic [6:0] ctx_len;
+    logic [511:0] ctx_shadow;
+    logic [$clog2(CLK_HZ/50+1)-1:0] remote_admit_age;
+    logic [3:0] key_scan_slot;
+    logic key_note_supported;
+    localparam logic [111:0] COMM_NOTE_MAP=router_pkg::default_note_map();
+    wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
+    always_comb begin
+        key_note_supported=0;
+        if(NOTE_BANKS)key_note_supported=router_pkg::note_in_range(
+            router_pkg::instrument_e'(ctx_shadow[(1+2*key_scan_slot)*8 +:4]),key_scan_note);
+        else for(int slot=0;slot<16;slot++)
+            if(key_scan_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
+    end
     assign cfg_ready=bridge_state==B_IDLE && core_n;
     assign cfg_done=bridge_state==B_DONE && core_n;
     assign ext_valid=bridge_state==B_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
     assign ext_request={ctx_seq,16'h0200,24'd0,ctx_shadow[15:8]};
-    // Keep all physical context until the real response retires. Parser owns v1 cache/reply.
+    // Keep all physical context until the real response retires. Parser owns duplicate-request cache/reply.
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;end
+        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;end
         else begin
         rec_start<=0;rec_stop<=0;rec_abort<=0;
-        if(bridge_state==B_REC_START||bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
-        else rec_wait_timer<=0;
+        if(bridge_state!=B_SEND)remote_admit_age<=0;
+        else if(remote_admit_age<CLK_HZ/50)remote_admit_age<=remote_admit_age+1'b1;
+        rec_wait_timer<=0;
         case(bridge_state)
             B_IDLE:if(cfg_valid)begin
                 ctx_source<=cfg_source;ctx_seq<=cfg_seq;ctx_cmd<=cfg_cmd;ctx_len<=cfg_len;ctx_shadow<=cfg_shadow;bridge_state<=B_CHECK;
@@ -216,32 +230,28 @@ module instrument_system #(
             B_CHECK:begin
                 cfg_result<=6;
                 if(quarantine[ctx_source] || !remote_permission[ctx_source])bridge_state<=B_DONE;
-                else if((ctx_cmd==8'h12 || ctx_cmd==8'h13) && ctx_len==5)begin
-                    if(ctx_source)begin cfg_result<=1;bridge_state<=B_DONE;end
-                    else if(ctx_cmd==8'h12)begin
-                        if(rec_active||rec_draining)begin cfg_result<=4;bridge_state<=B_DONE;end
-                        else if(!rec_eligible)begin cfg_result<=6;bridge_state<=B_DONE;end
-                        else begin rec_request_id<=ctx_shadow[39:8];rec_current_id<=ctx_shadow[39:8];rec_start<=1;bridge_state<=B_REC_START;end
-                    end else if(ctx_shadow[39:8]!=rec_current_id)begin cfg_result<=3;bridge_state<=B_DONE;end
-                    else if(rec_completed)begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
-                    else begin rec_stop<=1;bridge_state<=B_REC_STOP;end
-                end
                 else if(ctx_cmd==2 && ctx_len==2 && ctx_shadow[15:8]<=2)bridge_state<=B_SEND;
-                else begin cfg_result<=ctx_cmd==1 ? 8'd6 : 8'd1;bridge_state<=B_DONE;end
+                else if(ctx_cmd==8'h20 && ctx_len==33)begin
+                    // Protocol supports the atomic table descriptor, but this backend
+                    // cannot route a different instrument for every pad. No partial write.
+                    key_scan_slot<=0;bridge_state<=B_KEY_SCAN;
+                end else begin cfg_result<=1;bridge_state<=B_DONE;end
             end
             B_SEND:if(quarantine[ctx_source] || !remote_permission[ctx_source])begin cfg_result<=6;bridge_state<=B_DONE;end
                    else if(ext_ready)bridge_state<=B_WAIT;
+                   else if(remote_admit_age>=CLK_HZ/50)begin cfg_result<=4;bridge_state<=B_DONE;end
             B_WAIT:if(ext_rsp_valid)begin
                 if(ext_response.tag!=ctx_seq || ext_response.id!=16'h0200)cfg_result<=6;
                 else case(ext_response.result)
-                    CFG_OK:cfg_result<=0;CFG_UNSUPPORTED:cfg_result<=1;CFG_OUT_OF_RANGE:cfg_result<=3;default:cfg_result<=6;
+                    CFG_OK:cfg_result<=0;CFG_UNSUPPORTED:cfg_result<=1;CFG_OUT_OF_RANGE:cfg_result<=3;CFG_BUSY:cfg_result<=4;default:cfg_result<=6;
                 endcase
                 bridge_state<=B_DONE;
             end
-            B_REC_START:if(rec_active)begin cfg_result<=0;bridge_state<=B_DONE;end
-                else if(rec_wait_timer>=2*CLK_HZ)begin rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;end
-            B_REC_STOP:if(rec_completed || quarantine[0])begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
-                else if(rec_wait_timer>=2*CLK_HZ)begin rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;end
+            B_KEY_SCAN:begin
+                if(!key_note_supported)begin cfg_result<=3;bridge_state<=B_DONE;end
+                else if(key_scan_slot==15)begin cfg_result<=6;bridge_state<=B_DONE;end
+                else key_scan_slot<=key_scan_slot+1'b1;
+            end
             B_DONE:if(cfg_done_ready)bridge_state<=B_IDLE;
             default:bridge_state<=B_IDLE;
         endcase

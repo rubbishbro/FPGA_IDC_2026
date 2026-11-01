@@ -48,7 +48,7 @@ def main():
         if p.returncode or re.search(r'\*\* (?:Error|Fatal)|\b(?:FAIL|FATAL)\b',txt):raise RuntimeError(name+'\n'+txt[-5000:])
         return txt
     run('vlib',[work],'vlib')
-    src=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
+    src=re.findall(r"'((?:rtl|tb)/[^']+\.sv)'",(ROOT/'sim/router_sources.list').read_text())
     src=[ROOT/p for p in src if not p.endswith('/tb_music.sv') and not p.endswith('/w25q_dut.sv')]
     src += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_guide_state.sv','rtl/midi/midi_instrument_map.sv','rtl/router/midi_voice_top.sv',
         'rtl/router/pad_voice_top.sv','sim/unit/midi/w25q64_read_model.sv','sim/unit/audio/tb_i2s_audio_output.sv',

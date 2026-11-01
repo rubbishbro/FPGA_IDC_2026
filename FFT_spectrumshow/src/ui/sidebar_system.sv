@@ -11,7 +11,8 @@ module sidebar_system #(
     parameter bit JOY_SWAP_XY=1'b0,
     parameter bit JOY_INVERT_X=1'b0, JOY_INVERT_Y=1'b0,
     parameter bit REVERSE_SCAN=1'b0,
-    parameter FONT_FILE="sidebar_font.mem"
+    parameter FONT_FILE="sidebar_font.mem",
+    parameter LABEL_FILE="sidebar_labels.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
     input logic joy_sample_valid,
@@ -85,9 +86,12 @@ module sidebar_system #(
         .key_valid(key_valid),.key_event(key_event),.active_values(active_values),.supported(supported),
         .cfg_valid(ui_cfg_valid),.cfg_ready(ui_cfg_ready),.cfg_request(ui_request),
         .rsp_valid(ui_rsp_valid),.rsp_ready(),.cfg_response(response),.scene(ui_scene));
+    logic ext_loop_ready;
+    wire ext_admit=req_ready && !req_valid;
+    assign ext_cfg_ready=ext_loop_ready && ext_admit;
     control_loop #(.SOURCES(2),.REQUEST_W($bits(cfg_request_t))) u_loop(
         .clk(ctrl_clk),.rst_n(ctrl_n),.poll_tick(tick_ms),
-        .src_valid({ext_cfg_valid,ui_cfg_valid}),.src_ready({ext_cfg_ready,ui_cfg_ready}),
+        .src_valid({ext_cfg_valid && ext_admit,ui_cfg_valid}),.src_ready({ext_loop_ready,ui_cfg_ready}),
         .src_request({ext_cfg_request,ui_request}),.req_valid(req_valid),.req_ready(req_ready),
         .req_request(request),.req_source(req_source));
     assign ui_rsp_valid=rsp_valid&&!rsp_source;
@@ -184,10 +188,10 @@ module sidebar_system #(
         .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
         .curve_rd_data(curve_rd_data),.curve_rd_addr(curve_rd_addr),
         .lcd_r(base_r),.lcd_g(base_g),.lcd_b(base_b));
-    lcd_pad_guide #(.FONT_FILE(FONT_FILE)) u_guide_page(
+    lcd_pad_guide #(.FONT_FILE(FONT_FILE),.LABEL_FILE(LABEL_FILE)) u_guide_page(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
         .pix_x(pix_x),.pix_y(pix_y),.view(pixel_guide),.hit(guide_hit),.r(guide_r),.g(guide_g),.b(guide_b));
-    lcd_sidebar #(.FONT_FILE(FONT_FILE)) u_sidebar(
+    lcd_sidebar #(.FONT_FILE(FONT_FILE),.LABEL_FILE(LABEL_FILE)) u_sidebar(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
         .pix_x(pix_x),.pix_y(pix_y),.view(pixel_view),.guide_view(pixel_guide),.hit(overlay_hit),
         .r(overlay_r),.g(overlay_g),.b(overlay_b),.visible_width(sidebar_width));

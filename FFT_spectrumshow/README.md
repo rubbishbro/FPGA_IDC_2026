@@ -1,3 +1,5 @@
+> 2026-11-01 核查：14 个可视化自检在当前工作区通过；旧 ROM 生成器和无断言 FFT 诊断台已移至 [sim/archive/2026-11-01](sim/archive/2026-11-01/README.md)。完整核查范围与当前侧栏失败见 [测试审计](../sim/TEST_AUDIT_2026-11-01.md)。
+
 # FFT Spectrum Show
 
 **2026-10-29 板级集成补充：**独立ui_demo_top仍保留测试音源；统一[instrument_board_top](../rtl/platform/tang_mega_138k_pro/README.md)复用本目录LCD扫描、按键和sidebar_system，控制域100MHz、像素域约33.333MHz，已接真实摇杆与音频配置后端。统一板级当前未实例化FFT，频谱/波形读口接零，PCM独立CDC留到第二阶段。lcd_timing已修为严格800×480、总周期1192×533；当前整板PnR时序失败，旧独立demo通过记录不能代替它。

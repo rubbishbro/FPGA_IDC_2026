@@ -9,6 +9,7 @@
         <File path="../../rtl/config_pkg.sv" type="file.verilog" enable="1"/>
         <File path="../../rtl/drivers/pkg/joystick_pkg.sv" type="file.verilog" enable="1"/>
         <File path="../src/ui/sidebar_font_pkg.sv" type="file.verilog" enable="1"/>
+        <File path="../src/ui/sidebar_label_rom.sv" type="file.verilog" enable="1"/>
         <File path="../../rtl/control_loop.sv" type="file.verilog" enable="1"/>
         <File path="../../rtl/config_dispatch.sv" type="file.verilog" enable="1"/>
         <File path="../../rtl/drivers/joystick_adapter.sv" type="file.verilog" enable="1"/>

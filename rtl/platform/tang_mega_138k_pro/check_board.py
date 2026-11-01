@@ -56,7 +56,24 @@ def main():
         expected_clocks={'clk50':50.0,'clk_core':50.0,'clk_audio':12.5,'clk_pix':33.333}
         for name,target in expected_clocks.items():
             assert name in clocks and abs(clocks[name]['target_mhz']-target)<0.002, f'missing/changed target clock {name}'
-        result['timing']=dict(report=str(args.timing),setup_violations=setup,hold_violations=hold,checks=checks,clocks=clocks)
+        # Explicit CDC routing budgets are reported separately from ordinary
+        # setup paths/Fmax. They must pass even if every clock summary is clean.
+        exception_parts=re.split(r'^3\.7\.1 Setup Analysis Report\s*$',timing,maxsplit=1,flags=re.M)
+        assert len(exception_parts)==2, 'missing actual setup exceptions report'
+        exception_section=re.split(r'^3\.7\.2 ',exception_parts[1],maxsplit=1,flags=re.M)[0]
+        max_delays=[]
+        for block in re.split(r'^Timing Path Constraint\[',exception_section,flags=re.M)[1:]:
+            rule=block.splitlines()[0].split(']:',1)[1].strip()
+            if not rule.startswith('set_max_delay '):continue
+            slacks=[float(v) for v in re.findall(r'^Slack\s*:\s*(-?\d+\.\d+)\s*$',block,re.M)]
+            assert slacks, f'missing analyzed paths for {rule}'
+            max_delays.append(dict(constraint=rule,worst_slack_ns=min(slacks),
+                                   reported_violations=sum(v<0 for v in slacks)))
+        assert max_delays, 'missing analyzed maximum-delay constraints'
+        checks['max_delay']=dict(worst_slack_ns=min(c['worst_slack_ns'] for c in max_delays),
+                                 reported_violations=sum(c['reported_violations'] for c in max_delays))
+        result['timing']=dict(report=str(args.timing),setup_violations=setup,hold_violations=hold,checks=checks,clocks=clocks,
+                              max_delay_constraints=max_delays)
         result['status']='failed' if setup or hold or any(c['reported_violations'] for c in checks.values()) or any(c['fmax_mhz']<c['target_mhz'] for c in clocks.values()) else 'passed'
     if args.out:args.out.parent.mkdir(parents=True,exist_ok=True);args.out.write_text(json.dumps(result,indent=2)+'\n')
     print(f'PASS board source/pin preflight: {len(ports)} ports, {len(files)} production files')

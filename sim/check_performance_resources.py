@@ -31,24 +31,24 @@ def check(directory, deployment=True):
     data=(directory/'resources.bin').read_bytes()
     def require(ok,msg):
         if not ok:raise ValueError(msg)
+    require(m['schema']==5,'Flash control parameters require resource schema 5')
     require(m['format']=='instrument-indexed eng0 matrix + eng1 ABC/P1T1','wrong format')
     require(m['active_modes_limit']==64 and m['eng1_active_modes_limit']==48,'wrong engine mode limits')
-    require(m['record_formats']['eng0 matrix']['reserved_words']==[7] and
-            m['record_formats']['eng1 ABC/P1T1']['reserved_words']==[3,4,5,6,7],'mixed-format ABI metadata mismatch')
+    require(m['record_formats']['eng0 matrix']['reserved_words']==[] and
+            m['record_formats']['eng1 ABC/P1T1']['reserved_words']==[3,4,5,6],'mixed-format ABI metadata mismatch')
     require(m['flash_base']==0x800000 and m['image_flash_address']==m['flash_base'],
             'wrong Flash resource base')
     require(m['firmware_flash_address']==0 and m['bulk_erase_between_files'] is False,
             'resource BIN must not include/erase firmware')
-    require(m['notes'] in (16,32) and len(m['note_map'])==m['notes'] and
-            len(set(m['note_map']))==m['notes'] and min(m['note_map'])>=0 and
-            max(m['note_map'])<=127,'invalid note map')
-    if m['note_banks']:
-        require(m['notes']==32 and m['first_midi'] is not None and
-                tuple(m['note_map'])==tuple(range(m['first_midi'],m['first_midi']+32)),
-                'invalid banked note map')
-    else:
-        require(tuple(m['note_map'])==LEGACY_NOTES,'wrong fixed 16-note map')
-    require(len(data)==m['image_bytes']==(max(INSTRUMENTS)+1)*m['table_bytes'],'wrong region stride/image length')
+    ranges={'piano':(21,52),'piano_abc':(21,52),'guitar':(40,71),'guitar_abc':(40,71),'trumpet':(51,82),'violin':(55,86)}
+    require(m['notes']==32 and m['note_banks']==1 and m['default_bank']==0,'wrong bank layout')
+    require(set(m['note_maps'])==set(ranges),'missing instrument note maps')
+    for name,(first,last) in ranges.items():
+        require(m['note_maps'][name]==list(range(first,last+1)),f'wrong range: {name}')
+        row=m['note_ranges'][name]
+        require(row['instrument']==INSTRUMENT_IDS[name] and row['first']==first and row['last']==last and
+                row['count']==32 and row['low']==list(range(first,first+16)) and row['high']==list(range(first+16,last+1)),f'wrong bank metadata: {name}')
+    require(len(data)==m['image_bytes']==(max(INSTRUMENTS)+1)*m['table_bytes']+4096,'wrong region stride/image length')
     require(hashlib.sha256(data).hexdigest()==m['image_sha256'],'image hash mismatch')
     require(m['resource_mask']==0xc2b==sum(1<<i for i in INSTRUMENTS) and
             m['table_bytes']==m['notes']*4096,'wrong instrument mask/stride')
@@ -78,48 +78,15 @@ def check(directory, deployment=True):
                 r['flash_address']==m['flash_base']+r['offset'],f'bad region address: {ident}')
         require(hashlib.sha256(data[r['offset']:r['offset']+r['bytes']]).hexdigest()==r['table_sha256'],
                 f'region hash mismatch: {ident}')
-    binding=m['gain_calibration'];gain_path=directory/binding['file']
-    require(hashlib.sha256(gain_path.read_bytes()).hexdigest()==binding['sha256'],'stale gain calibration')
-    gain=json.loads(gain_path.read_text())
-    require(gain['resources_sha256']==m['image_sha256'],'gain/resource identity mismatch')
-    require(gain['headroom']==binding['headroom']==m['pcm_headroom_bits']==3,'gain/headroom mismatch')
-    required_gain_sources={
-        'rtl/router/tools/calibrate_performance_gain.py','rtl/router/tools/performance_resources.py',
-        'python/modal_sim/performance_chain.py','python/modal_sim/eng1_rtl.py',
-        'python/modal_sim/router_eng1.py','python/modal_sim/eng1_audition.py',
-        'rtl/router/pkg/modal_step_pkg.sv','rtl/router/pkg/router_pkg.sv',
-        'rtl/router/routers/body_router.sv','rtl/router/routers/env_router.sv',
-        'rtl/router/routers/exc_router.sv','rtl/router/parts/polyphony_gain.sv',
-        'rtl/router/voice_router.sv',
-        'rtl/platform/tang_mega_138k_pro/instrument_board_top.sv',
-        'rtl/platform/tang_mega_138k_pro/instrument_system.sv'}
-    require(required_gain_sources<=set(gain['source_hashes']),'missing calibration dependencies')
-    for source,digest in gain['source_hashes'].items():
-        require(hashlib.sha256((ROOT/source).read_bytes()).hexdigest()==digest,f'stale gain source: {source}')
-    pkg=(ROOT/'rtl/router/pkg/performance_gain_pkg.sv').read_text()
-    gains={int(k):int(v) for k,v in re.findall(r"11'd(\d+):return 20'd(\d+)",pkg)}
-    require(set(gain['instruments'])==set(INSTRUMENTS.values()),'missing/extra calibrated instruments')
-    for name,row in gain['instruments'].items():
-        require(row['instrument']==INSTRUMENT_IDS[name],f'wrong gain instrument: {name}')
-        require(set(map(int,row['note_gain_q12']))==set(m['note_map']),'incomplete pitch gain map')
-        for note,value in row['note_gain_q12'].items():
-            require(0<value<(1<<20),f'pitch gain outside Q12 signed20: {name}/{note}')
-            require(gains.get(row['instrument']*128+int(note))==value,f'RTL gain mismatch: {name}/{note}')
-    norm=gain['normalization_q12']
-    require(norm==[4096]+[round(4096/math.sqrt(i)) for i in range(1,17)],
-            'polyphony normalization is not 1/sqrt(N)')
-    scales={int(k):int(v) for k,v in re.findall(r"5'd(\d+):return 13'd(\d+)",pkg)}
-    require([scales.get(i) for i in range(17)]==norm,'polyphony gain LUT mismatch')
-    if m['notes']==16:
-        for name,ident in (('piano',0),('guitar',1)):
-            original=(ROOT/f'rtl/router/tools/{name}_flash.bin').read_bytes()
-            require(data[ident*m['table_bytes']:(ident+1)*m['table_bytes']]==
-                    original[ident*m['table_bytes']:(ident+1)*m['table_bytes']],
-                    f'legacy {name} matrix changed')
+    page=m['control_page']
+    require(page['offset']==12*m['table_bytes'] and page['bytes']==4096,'wrong control page address')
+    tables=json.loads((ROOT/'rtl/router/tools/pitch_tables.json').read_text())
+    expected_page=[0]*1024
+    for key,base in [('pitch_ratio',0),('pitch_sine',512),('pitch_depth',768)]:
+        expected_page[base:base+len(tables[key])]=tables[key]
+    require(data[page['offset']:]==struct.pack('>1024I',*expected_page),'control table payload mismatch')
+    require(m['pcm_headroom_bits']==3,'unexpected PCM headroom')
     count=0
-    profiles=(ROOT/'rtl/router/pkg/sustain_profiles_pkg.sv').read_text()
-    profile_words={int(key):int(value,16) for key,value in
-                   re.findall(r"11'd(\d+): lookup=81'h([0-9a-f]+)",profiles)}
     for entry in m['entries']:
         matrix=entry['instrument'] in MATRIX_IDS
         require((entry.get('format')=='eng0 matrix')==matrix,
@@ -128,12 +95,11 @@ def check(directory, deployment=True):
                 else (1<=entry['modes']<=48),'wrong active mode count')
         off=entry['offset'];note=data[off:off+4096]
         require(off==entry['instrument']*m['table_bytes']+entry['slot']*4096,'double-offset/slot stride')
-        require(entry['midi']==m['note_map'][entry['slot']],'note map mismatch')
+        require(entry['midi']==m['note_maps'][entry['name']][entry['slot']],'note map mismatch')
         require(hashlib.sha256(note).hexdigest()==entry['coeff_sha256'],'note resource hash mismatch')
-        if entry['name'] in ('trumpet','violin'):
-            expected=(1<<80)|(entry['period']<<64)|(entry['a_step']<<32)|entry['r_step']
-            require(profile_words.get(entry['instrument']*128+entry['midi'])==expected,
-                    'Flash coefficients/profile ROM identity mismatch')
+        actual_profile=((struct.unpack_from('>I',note,28)[0]&0x1ffff)<<64)|(struct.unpack_from('>I',note,92)[0]<<32)|struct.unpack_from('>I',note,156)[0]
+        expected=((1<<80)|(entry['period']<<64)|(entry['a_step']<<32)|entry['r_step']) if entry['name'] in ('trumpet','violin') else 0
+        require(actual_profile==expected,'Flash profile payload mismatch')
         if entry['name']=='guitar_abc':
             path=ROOT/entry['source_file']
             require(hashlib.sha256(path.read_bytes()).hexdigest()==entry['source_recording_sha256'],'guitar recording changed')
@@ -141,11 +107,11 @@ def check(directory, deployment=True):
         for mode in range(64):
             words=struct.unpack_from('>16i',note,mode*64)
             if matrix:
-                require(words[7]==0,'matrix reserved word')
+                require(mode<3 or words[7]==0,'matrix profile padding')
                 count+=1
                 continue
             g,a1,a2=words[:3]
-            require(words[3:8]==(0,)*5 and words[15]==0x50315431,'matrix/ABC or P1T1 ABI mismatch')
+            require(words[3:7]==(0,)*4 and (mode<3 or words[7]==0) and words[15]==0x50315431,'matrix/ABC or P1T1 ABI mismatch')
             require(-(1<<25)<=g<1<<25 and -(1<<25)<=a1<1<<25 and 0<=a2<1<<24,'coefficient bit width')
             if mode<entry['modes']:
                 require(a2>0 and (1<<24)+a1+a2>0 and (1<<24)-a1+a2>0,'unstable pole')
@@ -168,11 +134,11 @@ def check(directory, deployment=True):
             require(headroom and int(headroom[1])==m['pcm_headroom_bits'],'board PCM headroom mismatch')
         source=(ROOT/'rtl/platform/tang_mega_138k_pro/instrument_board_top.sv').read_text()
         require(int(re.search(r'NOTE_BANKS=(\d+)',source)[1])==m['note_banks'],'bank mode mismatch')
-        if not m['note_banks']:
-            pkg=(ROOT/'rtl/router/pkg/router_pkg.sv').read_text()
-            notes=[int(value) for _,value in re.findall(r'(\d+):return (\d+);',pkg)]
-            require(notes==m['note_map'],'board default note map mismatch')
-        else:require(int(re.search(r'FIRST_MIDI=(\d+)',source)[1])==m['first_midi'],'bank base mismatch')
+        require('.INSTRUMENT_NOTE_RANGES(NOTE_BANKS)' in
+                (ROOT/'rtl/platform/tang_mega_138k_pro/instrument_system.sv').read_text(),'per-instrument ranges disabled')
+        pkg=(ROOT/'rtl/router/pkg/router_pkg.sv').read_text()
+        for token,value in [('INST_PIANO,INST_PIANO_ABC',21),('INST_GUITAR,INST_GUITAR_ABC',40),('INST_TRUMPET',51),('INST_MANDOLIN,INST_VIOLIN',55)]:
+            require(f'{token}:return {value};' in pkg,'RTL note range mismatch')
         require(m['flash_base']==0x800000 and m['flash_base']+len(data)<=min(m['flash_bytes'],1<<24),'Flash bounds')
     return dict(passed=True,notes=m['notes'],records=count,image_bytes=len(data),
                 flash_base=m['flash_base'],sha256=m['image_sha256'])

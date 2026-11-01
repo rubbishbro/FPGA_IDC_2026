@@ -10,8 +10,6 @@ rtl/comm/slip_frame_tx.sv
 rtl/comm/performance_frame_tx.sv
 rtl/comm/performance_capture.sv
 rtl/comm/transport_link.sv
-rtl/comm/comm_v2_codec.sv
-rtl/comm/transport_v2_link.sv
 rtl/comm/frame_arbiter.sv
 rtl/comm/session_ctrl.sv
 rtl/drivers/analyzer/midi_analyzer.sv

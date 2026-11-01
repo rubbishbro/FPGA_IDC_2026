@@ -1,41 +1,34 @@
 `timescale 1ns/1ps
-// One common gain before stereo: 1/sqrt(N), including release voices.
-// Q12 lookup and sample-rate slew; no division or audio-dependent gain boosting.
+// Common post-reverb gain before stereo; count includes release voices.
+// Fixed wiring shifts only: 1 voice x4, 2..7 voices x2, otherwise unity.
+// Preserve the two-register valid/data pipeline; no multiplier or gain slew.
 module polyphony_gain #(
-    parameter bit ENABLE=1,
-    parameter int DOWN_SHIFT=3,UP_SHIFT=12
+    parameter bit ENABLE=1
 )(
     input logic clk,rst_n,clear,in_valid,
     input logic signed[63:0] in_data,
     input logic[4:0] voices,
     output logic out_valid,
     output logic signed[63:0] out_data,
-    output logic[12:0] gain_q12
+    output logic[14:0] gain_q12
 );
-    logic[12:0] target,next_gain,step_value;
-    logic signed[77:0] product;
-    logic product_valid;
-    always_comb begin
-        target=!ENABLE ? 13'd4096 : voices==0 ? gain_q12 : performance_gain_pkg::count_scale(voices);
-        next_gain=gain_q12;step_value=0;
-        if(target<gain_q12)begin
-            step_value=(gain_q12-target)>>DOWN_SHIFT;
-            next_gain=gain_q12-(step_value==0 ? 13'd1 : step_value);
-        end else if(target>gain_q12)begin
-            step_value=(target-gain_q12)>>UP_SHIFT;
-            next_gain=gain_q12+(step_value==0 ? 13'd1 : step_value);
-        end
-    end
+    logic signed[63:0] shifted;
+    logic shifted_valid;
     always_ff @(posedge clk or negedge rst_n)begin
-        if(!rst_n)begin gain_q12<=4096;product<=0;product_valid<=0;out_valid<=0;out_data<=0;end
-        else if(clear)begin gain_q12<=4096;product<=0;product_valid<=0;out_valid<=0;out_data<=0;end
+        if(!rst_n)begin gain_q12<=4096;shifted<=0;shifted_valid<=0;out_valid<=0;out_data<=0;end
+        else if(clear)begin gain_q12<=4096;shifted<=0;shifted_valid<=0;out_valid<=0;out_data<=0;end
         else begin
-            product_valid<=in_valid;out_valid<=product_valid;
+            shifted_valid<=in_valid;out_valid<=shifted_valid;
             if(in_valid)begin
-                gain_q12<=next_gain;
-                product<=$signed(in_data)*$signed({1'b0,next_gain});
+                if(ENABLE && voices==1)begin
+                    shifted<={in_data[61:0],2'b00};gain_q12<=15'd16384;
+                end else if(ENABLE && voices>=2 && voices<=7)begin
+                    shifted<={in_data[62:0],1'b0};gain_q12<=15'd8192;
+                end else begin
+                    shifted<=in_data;gain_q12<=15'd4096;
+                end
             end
-            if(product_valid)out_data<=64'((product+78'sd2048)>>>12);
+            if(shifted_valid)out_data<=shifted;
         end
     end
 endmodule

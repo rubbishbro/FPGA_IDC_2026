@@ -1,6 +1,6 @@
 """统一记录格式（A/B/C）的 Python pack/unpack。
 
-位序必须与 ``rtl/core/class_format_pkg.sv`` 完全一致：
+位序必须与 ``history/core_2026-11-01/rtl/core/class_format_pkg.sv`` 完全一致：
   Event 64 / Key 13 / Index 64 / Control 256 / Core 72 / Seed 64
 先冻结 ``n_vel = 4``、``band = vel8[7:6]``、
 ``core_addr = mode_offset + band*n_modes + mode``。

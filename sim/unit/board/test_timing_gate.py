@@ -19,7 +19,7 @@ TABLES = {
 class TimingGate(unittest.TestCase):
     def invoke(self, bad=None, omit=None):
         text = '<Numbers of Setup Violated Endpoints>:0\n<Numbers of Hold Violated Endpoints>:0\n'
-        for i,(name,target) in enumerate([('clk50',50),('clk_core',100),('clk_audio',12.5),('clk_pix',33.333)]):
+        for i,(name,target) in enumerate([('clk50',50),('clk_core',50),('clk_audio',12.5),('clk_pix',33.333)]):
             text+=f'  {i+1} {name} {target:.3f}(MHz) {target+10:.3f}(MHz) 1 TOP\n'
         # Include the real report's directory: a TOC entry is not a timing table.
         text += '\n'.join('\t' + title for title in TABLES.values()) + '\n'
@@ -27,6 +27,11 @@ class TimingGate(unittest.TestCase):
             if name != omit:
                 text += f'\n{title}\n  1  {"-0.001" if name == bad else "0.100"}  source  destination\n'
         text += '\n3.3 Timing Report By Analysis Type\n'
+        if omit != 'max_delay':
+            text += ('\n3.7.1 Setup Analysis Report\n'
+                     'Timing Path Constraint[1]: set_max_delay -from source -to capture 10.000\n'
+                     f'Slack : {"-0.001" if bad == "max_delay" else "0.100"}\n'
+                     '3.7.2 Hold Analysis Report\n')
         with tempfile.TemporaryDirectory() as tmp:
             report, result = Path(tmp)/'fixture.tr', Path(tmp)/'result.json'
             report.write_text(text)
@@ -40,14 +45,14 @@ class TimingGate(unittest.TestCase):
         self.assertEqual(result['status'], 'passed')
 
     def test_each_category_rejects_even_with_zero_summary_counts(self):
-        for name in TABLES:
+        for name in [*TABLES, 'max_delay']:
             with self.subTest(category=name):
                 code, result = self.invoke(bad=name)
                 self.assertNotEqual(code, 0)
                 self.assertEqual(result['timing']['checks'][name]['reported_violations'], 1)
 
     def test_missing_table_fails_closed(self):
-        for name in TABLES:
+        for name in [*TABLES, 'max_delay']:
             with self.subTest(category=name):
                 code, _ = self.invoke(omit=name)
                 self.assertNotEqual(code, 0)

@@ -13,7 +13,7 @@ def main():
     ini=Path(os.environ.get('QSIM_INI') or str(Path.home()/'gowin/simlib_questa/modelsim.ini'))
     work=out/'work';txt=re.sub(r'^work\s*=.*$','work = '+str(work),ini.read_text(),flags=re.M)
     (out/'modelsim.ini').write_text(txt);env=os.environ.copy();env['QSIM_INI']=str(out/'modelsim.ini');env['MODELSIM']=env['QSIM_INI']
-    for src,name in [('FFT_spectrumshow/board/sidebar_font.mem','sidebar_font.mem'),('rtl/router/tools/performance/resources.mem','performance_resources.mem')]:shutil.copyfile(ROOT/src,out/name)
+    for src,name in [('FFT_spectrumshow/board/sidebar_font.mem','sidebar_font.mem'),('FFT_spectrumshow/board/sidebar_labels.mem','sidebar_labels.mem'),('rtl/router/tools/performance/resources.mem','performance_resources.mem')]:shutil.copyfile(ROOT/src,out/name)
     for memory in (ROOT / "FFT_spectrumshow/board").glob("*.mem"):
         shutil.copyfile(memory, out / memory.name)
     led_tables=out/'rtl/drivers/pad_led_tables';led_tables.mkdir(parents=True,exist_ok=True)

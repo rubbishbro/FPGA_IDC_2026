@@ -380,6 +380,8 @@ class PitchEngine:
                     self.next_cents, self.next_delta = self.cents.copy(), self.current_delta.copy()
                     self.slot, self.mode, self.state = 0, 0, 'RD'
         elif st == 'SETUP':
+            self.state = 'SETUP_DATA'
+        elif st == 'SETUP_DATA':
             self.mul_a = self.sine[(self.phase_job >> 16) & 255]
             self.mul_b = self.depth[self.candidate_wheel[self.source]]
             self.state = 'VIB_MUL'
@@ -395,6 +397,8 @@ class PitchEngine:
             self.ratio_index, self.ratio_fraction = divmod(c+56320, 256)
             self.state = 'RATIO_LD'
         elif st == 'RATIO_LD':
+            self.state = 'RATIO_DATA'
+        elif st == 'RATIO_DATA':
             self.ratio_base = self.ratios[self.ratio_index]
             self.mul_a = self.ratios[self.ratio_index+1]-self.ratio_base
             self.mul_b = self.ratio_fraction
@@ -507,10 +511,6 @@ class Eng1Synth:
         self.pitch = PitchEngine(self.rows)
         self.reverb, self.spatial = Reverb(reverb), Spatializer(max_itd)
         self.stereo, self.headroom = bool(stereo), int(headroom)
-        gain_file=ROOT/'rtl/router/tools/performance/gain.json'
-        gain_rows=json.loads(gain_file.read_text())['instruments'] if gain_file.is_file() else {}
-        profile=gain_rows.get(instrument,{}).get('note_gain_q12',{})
-        self.note_gains=tuple(int(profile.get(str(note),4096)) for note in self.note_map)
         pcm16(0, self.headroom)  # validate even before rendering
         self.reset(initialized=initialized)
 
@@ -646,14 +646,13 @@ class Eng1Synth:
         if st_zero is not None:
             zero = _lanes(st_zero, self.slots, bool)
         y, _ = self.core.step(x, zero, active_modes=48)
-        mix = R.wrap_signed(sum(R.sat_signed(((((int(y[s])*int(e[s])) >> 31)*self.note_gains[s])+2048)>>12,64)
+        mix = R.wrap_signed(sum(R.wrap_signed((int(y[s])*int(e[s])) >> 31,64)
                                 for s in range(self.slots)),64)
         out = self.reverb.step(mix)  # B body_router is five exact passthrough sections.
         voices=int(np.count_nonzero((e>0)&~dead))
-        target=self.poly_gain if voices==0 else round(4096/math.sqrt(voices))
-        if target<self.poly_gain:self.poly_gain-=max(1,(self.poly_gain-target)>>3)
-        elif target>self.poly_gain:self.poly_gain+=max(1,(target-self.poly_gain)>>12)
-        out=(int(out)*self.poly_gain+2048)>>12
+        shift=2 if voices==1 else 1 if 2<=voices<=7 else 0
+        self.poly_gain=4096<<shift
+        out=R.wrap_signed(int(out)<<shift,64)
         if clears.any() and not gates.any():self.poly_gain=4096
         if self.stereo:
             left, right = self.spatial.step(out if active else 0, pan, itd, clear=not active)

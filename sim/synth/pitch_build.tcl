@@ -6,7 +6,7 @@ create_project -name pitch_router -dir $out -pn GW5AST-LV138FPG676AES -device_ve
 set_option -verilog_std sysv2017
 set_option -top_module pitch_sustain_probe
 set_option -opt_goal timing
-set fh [open "$root/rtl/router/tools/run_all.ps1" r]
+set fh [open "$root/sim/router_sources.list" r]
 set sources [read $fh]
 close $fh
 foreach {full path} [regexp -all -inline {'(rtl/[^']+\.sv)'} $sources] {

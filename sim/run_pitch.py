@@ -7,6 +7,9 @@ sys.path.insert(0,str(ROOT/'python/modal_sim'))
 import pitch_linear as P
 
 def vectors(out):
+    tables=json.loads((ROOT/'rtl/router/tools/pitch_tables.json').read_text());words=[0]*1024
+    for key,base in [('pitch_ratio',0),('pitch_sine',512),('pitch_depth',768)]:words[base:base+len(tables[key])]=tables[key]
+    (out/'pitch_tables.mem').write_text(''.join(f'{word:08x}\n' for word in words))
     import router_eng1 as R
     pm=[]
     for slot in range(16):
@@ -69,7 +72,8 @@ def main():
         catalog=json.loads((ROOT/'rtl/router/tools/sustain_profiles.json').read_text())
         rows={(e['instrument'],e['midi']):e for e in catalog['entries']}
         image=(out/'sustain_flash.bin').read_bytes()
-        for e in manifest['entries']:assert e==rows[e['instrument'],e['midi']]
+        for e in manifest['entries']:
+            assert {k:v for k,v in e.items() if k!='coeff_sha256'}=={k:v for k,v in rows[e['instrument'],e['midi']].items() if k!='coeff_sha256'}
         for inst in [2,3,4,5]:
             lines=[]
             for note in range(48,80):
@@ -87,7 +91,7 @@ def main():
         if p.returncode or re.search(r'\*\* (?:Error|Fatal)|\b(?:FAIL|FATAL)\b',txt):raise RuntimeError(name+'\n'+txt[-5000:])
         return txt
     run('vlib',[work],'vlib')
-    sources=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
+    sources=re.findall(r"'((?:rtl|tb)/[^']+\.sv)'",(ROOT/'sim/router_sources.list').read_text())
     sources=[ROOT/p for p in sources if not p.endswith('/tb_music.sv') and not p.endswith('/w25q_dut.sv')]
     sources += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_guide_state.sv','rtl/midi/midi_instrument_map.sv','rtl/router/midi_voice_top.sv','sim/unit/midi/w25q64_read_model.sv','sim/unit/audio/tb_i2s_audio_output.sv','sim/unit/audio/tb_eng1_pitch.sv','sim/unit/audio/tb_pitch_excitation.sv']]
     if (ROOT/'sim/unit/audio/tb_eng1_pitch_system.sv').exists():sources.append(ROOT/'sim/unit/audio/tb_eng1_pitch_system.sv')

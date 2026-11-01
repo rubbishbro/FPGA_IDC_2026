@@ -4,14 +4,11 @@ rtl/drivers/pkg/clk_rst_pkg.sv
 rtl/drivers/pkg/pad_driver_pkg.sv
 rtl/router/pkg/modal_step_pkg.sv
 rtl/router/pkg/router_pkg.sv
-rtl/router/pkg/performance_gain_pkg.sv
-rtl/router/pkg/sustain_profiles_pkg.sv
-rtl/router/pkg/pitch_tables_pkg.sv
 rtl/router/parts/envelope.sv
 rtl/router/parts/polyphony_gain.sv
 rtl/router/parts/excitation.sv
-rtl/router/parts/modulation.sv
-rtl/router/parts/eng1_pitch.sv
+rtl/router/parts/modulation0.sv
+rtl/router/parts/modulation1.sv
 rtl/router/parts/body_biquad.sv
 rtl/router/parts/comb_reverb.sv
 rtl/router/engines/eng0.sv
@@ -50,8 +47,6 @@ rtl/comm/slip_frame_tx.sv
 rtl/comm/performance_frame_tx.sv
 rtl/comm/performance_capture.sv
 rtl/comm/transport_link.sv
-rtl/comm/comm_v2_codec.sv
-rtl/comm/transport_v2_link.sv
 rtl/comm/frame_arbiter.sv
 rtl/comm/session_ctrl.sv
 rtl/drivers/analyzer/midi_analyzer.sv
@@ -61,6 +56,7 @@ rtl/comm/comm_top.sv
 rtl/drivers/pkg/joystick_pkg.sv
 FFT_spectrumshow/src/ui/ui_pkg.sv
 FFT_spectrumshow/src/ui/sidebar_font_pkg.sv
+FFT_spectrumshow/src/ui/sidebar_label_rom.sv
 rtl/control_loop.sv
 rtl/config_dispatch.sv
 rtl/drivers/joystick_adapter.sv

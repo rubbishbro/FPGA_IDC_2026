@@ -41,6 +41,25 @@ package router_pkg;
     function automatic logic is_sustain(input instrument_e inst);
         return inst inside {INST_FLUTE,INST_TRUMPET,INST_CELLO,INST_VIOLIN};
     endfunction
+    // Frozen per-instrument 32-note windows (通信协议约定 §3.2.1).
+    // Slot index is relative to this first MIDI; it is never sent as the MIDI note.
+    function automatic logic [6:0] note_first(input instrument_e inst);
+        case(inst)
+            INST_PIANO,INST_PIANO_ABC:return 21;
+            INST_GUITAR,INST_GUITAR_ABC:return 40;
+            INST_BANJO:return 48;
+            INST_MANDOLIN,INST_VIOLIN:return 55;
+            INST_FLUTE:return 60;
+            INST_TRUMPET:return 51;
+            INST_CELLO:return 36;
+            INST_OBOE:return 58;
+            default:return 0;
+        endcase
+    endfunction
+    function automatic logic note_in_range(input instrument_e inst,input logic [7:0] note);
+        return inst!=INST_DRUMS && inst!=INST_NONE && inst<=INST_GUITAR_ABC &&
+               {1'b0,note_first(inst)}<=note && 9'(note)<9'(note_first(inst))+9'd32;
+    endfunction
     // Legacy 16-note resource mapping. Banked resources supply their own map.
     function automatic logic [6:0] default_note(input int slot);
         case(slot)

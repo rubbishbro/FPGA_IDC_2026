@@ -1,3 +1,5 @@
+> 2026-11-01：蓝牙 v2 RTL 和构建选项已删除。有线与蓝牙统一使用 [通信协议约定](../../../docs/通信协议约定.md) 的无 VERSION 格式；以下历史 v2 验证记录不适用于当前源码。当前协议迁移尚未测试或编译。
+
 # Tang Mega 138K Pro 整版第一阶段
 
 ## 当前版本
@@ -32,7 +34,7 @@ LCD/按键沿用现行ui_demo.cst；压力/LED采用origin/boardtest的4abc8b19�
 | 外设 | 接口 | FPGA管脚/信号 |
 |---|---|---|
 | LCD、复位、两按键 | 原LCD排线与板载按键 | 完整RGB/DE/CLK映射见instrument_board.cst；rst_n=G16、key0=F15、key1=G15，均低有效 |
-| 有线串口 | 板载USB-UART | FPGA RX=N16，FPGA TX=P15；主机115200 8N1，SLIP/CRC协议v1 |
+| 有线串口 | 板载USB-UART | FPGA RX=N16，FPGA TX=P15；主机115200 8N1，SLIP/CRC 无 VERSION 协议 |
 | 压力行0/1/2/3 | J24 pin11/9/7/5 | H14/L17/E25/C24 |
 | MUX SEL0/1/2 | J24 pin12/10/8 | D25/L18/B24 |
 | 点阵LED DIN | J24 pin6 | H15 |
@@ -46,11 +48,7 @@ LCD/按键沿用现行ui_demo.cst；压力/LED采用origin/boardtest的4abc8b19�
 | HC-05 RX←FPGA TX | PMOD0 | R17（uart_tx[1]） |
 | HC-05 STATE→FPGA | PMOD0，可选 | T24；默认BT_HAS_STATE=0，接并启用后才检测物理断连 |
 
-蓝牙会话 v2 试验入口：板级参数 `BT_PROTOCOL_V2=1`，手机按
-[v2 合同](../../../docs/蓝牙协议.md) 握手后才能发送业务；默认仍为 v1。
-接好 STATE 后另设 `BT_HAS_STATE=1`；未接 STATE 时 v2 仍可依靠心跳撤销会话，
-HELLO 可在来源隔离期间到达，不依赖板级固定为 0 的 `session_restart`。
-本次协议仿真不构成该参数组合的整板时序或实物验收。
+有线 UART 和 HC-05 使用同一套无 VERSION 通信格式；当前约定见 [通信协议约定](../../../docs/通信协议约定.md)。接好 STATE 后可设置 `BT_HAS_STATE=1` 以启用物理连接事件检测；旧 v2 握手、心跳和构建开关已删除。
 
 三个PMOD的pin1/2为+3V3，pin3/4为GND，接线按板上Pin1标记核对。本版使用板载Flash，PMOD0改接蓝牙。Flash须装入匹配镜像；loader每次加载前发送06h及01h（SR1=00、SR2=02）开启QE，并等待20ms，再执行6Bh读表。该过程会写状态寄存器，不写系数区；必须确认镜像所在地址不会与FPGA配置数据重叠。
 
@@ -99,7 +97,7 @@ QT_QPA_PLATFORM=minimal QT_QUICK_BACKEND=software QT_OPENGL=software \
 通过后的bitstream位于 `build/manual_pnr/instrument_board/impl/pnr/instrument_board.fs`，
 验收记录为 `build/manual_pnr/acceptance.json`；时序失败时脚本返回错误，并将bitstream标为 `.fs.UNVALIDATED`。
 两条构建命令不会覆盖 `build/eng1_pitch/board_pnr` 的已验收产物；重复运行会覆盖各自manual目录。
-蓝牙 v2 测试构建在命令前增加 `BOARD_BT_PROTOCOL_V2=1`，并选择独立输出目录。
+已删除旧蓝牙 v2 构建选项，不能再使用 BOARD_BT_PROTOCOL_V2。
 构建脚本在该目录生成顶层参数变体及 `build_profile.json`，有线 UART 仍使用 v1；
 不传此变量则保持源码默认的蓝牙 v1。编辑器连接方式见 [上位机说明](../../../web/midi-editor/README.md#v2-会话插件与无手机测试)。
 板级功能仿真入口为 `python3 sim/run_board.py`。

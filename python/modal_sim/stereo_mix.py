@@ -51,7 +51,7 @@ def shelf(x, lo_hz=350.0, lo_db=0.0, hi_hz=5000.0, hi_db=0.0):
 
 
 def rtl_reverb(x, delays=COMB):
-    """The ``rtl/core/comb_reverb.sv`` 4-comb equations, sample for sample."""
+    """The ``history/core_2026-11-01/rtl/core/comb_reverb.sv`` 4-comb equations, sample for sample."""
     n = len(x)
     bufs = [np.zeros(d) for d in delays]
     lps = [0.0] * 4

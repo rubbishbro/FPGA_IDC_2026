@@ -57,14 +57,6 @@ foreach ($t in $tests) {
     }
 }
 
-# Diagnostic-only FFT impulse test; it has no pass/fail print.
-& $vlog -sv ..\src\fft\fft1024_iter.sv .\fft1024_check_tb.sv | Out-Null
-$out = & $vsim -c -do "run -all; quit" fft1024_check_tb 2>&1
-if ($out -match "TEST FAILED") {
-    Write-Host "fft1024_check_tb              FAIL"
-    $failed++
-}
-
 if ($failed -ne 0) {
     Write-Host "=== REGRESSION FAILED: $failed test(s) ==="
     exit 1

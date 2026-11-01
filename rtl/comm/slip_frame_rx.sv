@@ -1,9 +1,10 @@
 `timescale 1ns/1ps
 // -----------------------------------------------------------------------------
-// slip_frame_rx -- SLIP 分帧 + CRC-16/CCITT-FALSE 校验后的帧存储。
+// slip_frame_rx -- TYPE/SEQ:u8/LEN:u8/PAYLOAD<=64/CRC16; no VERSION.
+// SLIP 分帧 + CRC-16/CCITT-FALSE 校验后的帧存储。
 //
 // 候选帧逐字节解码（转义处理与 CRC 更新），payload 字节直接写入小型
-// payload RAM 中预留的槽位；只有结束 C0、长度、版本/类型、CRC 全部通过后，
+// payload RAM 中预留的槽位；只有结束 C0、长度、类型、CRC 全部通过后，
 // 该槽位才作为已提交帧描述符发布。没有整帧暂存缓冲，也没有 memcpy。
 //
 // 存储是一个 FRAME_DEPTH+1 个 payload 槽位的环（FRAME_DEPTH 个已提交槽位
@@ -36,7 +37,7 @@ module slip_frame_rx #(
     output logic        m_last,
     output logic [7:0]  m_type,
     output logic [15:0] m_seq,
-    output logic [5:0]  m_payload_len,
+    output logic [6:0]  m_payload_len,
     output logic        frame_available,
 
     output logic [7:0]  err_flags
@@ -47,7 +48,7 @@ module slip_frame_rx #(
     localparam int RING_SIZE  = FRAME_DEPTH + 1;
     localparam int PTR_W      = (RING_SIZE <= 2) ? 1 : $clog2(RING_SIZE);
     localparam int CNT_W      = (RING_SIZE <= 2) ? 1 : $clog2(RING_SIZE);
-    localparam int SLOT_BYTES = 32;
+    localparam int SLOT_BYTES = 64;
     localparam int RAM_WORDS  = RING_SIZE * SLOT_BYTES;
     localparam int ADDR_W     = (RAM_WORDS <= 2) ? 1 : $clog2(RAM_WORDS);
     localparam int TMR_W      = (TIMEOUT_CYCLES <= 2) ? 1 : $clog2(TIMEOUT_CYCLES);
@@ -60,7 +61,7 @@ module slip_frame_rx #(
     localparam logic [7:0] ERR_SLIP   = 8'h01;
     localparam logic [7:0] ERR_LEN    = 8'h02;
     localparam logic [7:0] ERR_CRC    = 8'h04;
-    localparam logic [7:0] ERR_VER    = 8'h08;
+    localparam logic [7:0] ERR_TYPE    = 8'h08;
     localparam logic [7:0] ERR_TIMEOUT= 8'h10;
 
     typedef enum logic [1:0] {
@@ -83,19 +84,19 @@ module slip_frame_rx #(
     logic [7:0]  payload_ram [0:RAM_WORDS-1];
     logic [7:0]  meta_type [0:FRAME_DEPTH];
     logic [15:0] meta_seq  [0:FRAME_DEPTH];
-    logic [5:0]  meta_len  [0:FRAME_DEPTH];
+    logic [6:0]  meta_len  [0:FRAME_DEPTH];
 
     // 候选帧解码状态。
-    // header + 最大 payload + CRC 最多 40 个解码字节。要在计数器回绕前拒绝；
+    // header + 最大 payload + CRC 最多 69 个解码字节。要在计数器回绕前拒绝；
     // 不要为此综合一个 32-bit 的畸形帧计时器。
-    logic [5:0] body_count;
+    logic [6:0] body_count;
     logic [15:0] crc_r;
     logic [7:0]  cand_type;
     logic [15:0] cand_seq;
     logic [15:0] cand_len;
     logic        esc_pending;
     logic        invalid_len;
-    logic [7:0]  err_accum;       // 每帧累计的版本/类型诊断
+    logic [7:0]  err_accum;       // 每帧累计的类型诊断
     logic [7:0]  rx_crc_lo;
     logic [7:0]  rx_crc_hi;
     logic [TMR_W-1:0] timeout_cnt;
@@ -103,15 +104,15 @@ module slip_frame_rx #(
     // 输出保持寄存器。这是帧流对外可见的全部状态。
     logic        held_valid;
     logic [7:0]  held_data;
-    logic [4:0]  held_off;
+    logic [5:0]  held_off;
     logic [7:0]  held_type;
     logic [15:0] held_seq;
-    logic [5:0]  held_len;
+    logic [6:0]  held_len;
     logic        held_first;
     logic        held_last;
 
     // 同步 payload RAM 读流水 / 预取。
-    logic [4:0]       next_off;
+    logic [5:0]       next_off;
     logic             rd_capture;
     logic             ram_re;
     logic [ADDR_W-1:0] rd_addr;
@@ -162,10 +163,10 @@ module slip_frame_rx #(
                                              : ((s_data != SLIP_ESC) &&
                                                 (s_data != SLIP_END)));
     wire         payload_wr = take_decoded && !invalid_len &&
-                               (body_count >= 6'd6) &&
-                               (body_count < (6'd6 + cand_len[5:0])) &&
-                               ((body_count - 6'd6) < 32);
-    wire [4:0] payload_wr_offset = body_count[4:0] - 5'd6;
+                               (body_count >= 7'd3) &&
+                               (body_count < (7'd3 + cand_len[6:0])) &&
+                               ((body_count - 7'd3) < 64);
+    wire [5:0] payload_wr_offset = body_count[5:0] - 6'd3;
     wire [ADDR_W-1:0] payload_wr_addr = {tail, payload_wr_offset};
     wire [7:0]   payload_wr_data = decoded_byte(s_data, esc_pending);
 
@@ -183,7 +184,7 @@ module slip_frame_rx #(
             head         <= '0;
             tail         <= '0;
             count        <= '0;
-            body_count   <= 6'd0;
+            body_count   <= 7'd0;
             crc_r        <= 16'hFFFF;
             cand_type    <= 8'h00;
             cand_seq     <= 16'h0000;
@@ -196,13 +197,13 @@ module slip_frame_rx #(
             timeout_cnt  <= '0;
             held_valid   <= 1'b0;
             held_data    <= 8'h00;
-            held_off     <= 5'd0;
+            held_off     <= 6'd0;
             held_type    <= 8'h00;
             held_seq     <= 16'h0000;
-            held_len     <= 6'd0;
+            held_len     <= 7'd0;
             held_first   <= 1'b0;
             held_last    <= 1'b0;
-            next_off     <= 5'd0;
+            next_off     <= 6'd0;
             rd_capture   <= 1'b0;
             err_flags    <= 8'h00;
         end else begin
@@ -214,7 +215,7 @@ module slip_frame_rx #(
                 // 候选帧总是被放弃。推测写槽位就是当前 tail，
                 // 因此不需要任何拷贝就能释放。
                 state       <= S_HUNT;
-                body_count  <= 6'd0;
+                body_count  <= 7'd0;
                 esc_pending <= 1'b0;
                 invalid_len <= 1'b0;
                 err_accum   <= 8'h00;
@@ -228,12 +229,12 @@ module slip_frame_rx #(
                             // 被 pin 的队头已经完整传输完：其余帧也全部丢弃。
                             count   <= '0;
                             head    <= tail;
-                            next_off<= 5'd0;
+                            next_off<= 6'd0;
                         end else begin
                             // 同一队头继续传输；它后面的帧全部消失。
                             count   <= 1'b1;
                             tail    <= ptr_next(head);
-                            next_off<= held_off + 5'd1;
+                            next_off<= held_off + 6'd1;
                         end
                     end else if (count != 0) begin
                         count   <= 1'b1;
@@ -241,13 +242,13 @@ module slip_frame_rx #(
                     end else begin
                         count    <= '0;
                         held_valid <= 1'b0;
-                        next_off <= 5'd0;
+                        next_off <= 6'd0;
                     end
                 end else begin
                     count      <= '0;
                     head       <= tail;
                     held_valid <= 1'b0;
-                    next_off   <= 5'd0;
+                    next_off   <= 6'd0;
                 end
             end else begin
                 rd_capture <= ram_re;
@@ -271,13 +272,13 @@ module slip_frame_rx #(
                                 if (body_count == 0) begin
                                     // 空帧/连续 C0 是合法的，静默忽略。
                                     state      <= S_START;
-                                    body_count <= 6'd0;
+                                    body_count <= 7'd0;
                                     timeout_cnt<= '0;
                                 end else begin
                                     ev = err_accum;
                                     if (invalid_len)
                                         ev[1] = 1'b1;
-                                    else if (body_count != (6'd8 + cand_len[5:0]))
+                                    else if (body_count != (7'd5 + cand_len[6:0]))
                                         ev[1] = 1'b1;
 
                                     if (!ev[1]) begin
@@ -288,14 +289,14 @@ module slip_frame_rx #(
                                     if (ev == 8'h00) begin
                                         meta_type[tail] <= cand_type;
                                         meta_seq[tail]  <= cand_seq;
-                                        meta_len[tail]  <= cand_len[5:0];
+                                        meta_len[tail]  <= cand_len[6:0];
                                         commit_now = 1'b1;
                                     end else begin
                                         err_flags <= ev;
                                     end
 
                                     state      <= S_START;
-                                    body_count <= 6'd0;
+                                    body_count <= 7'd0;
                                     esc_pending<= 1'b0;
                                     invalid_len<= 1'b0;
                                     err_accum  <= 8'h00;
@@ -306,7 +307,7 @@ module slip_frame_rx #(
                                 // 报错并在这里重新同步（它同时充当下一帧的起始定界符）。
                                 err_flags  <= (err_accum | ERR_SLIP);
                                 state      <= S_START;
-                                body_count <= 6'd0;
+                                body_count <= 7'd0;
                                 esc_pending<= 1'b0;
                                 invalid_len<= 1'b0;
                                 err_accum  <= 8'h00;
@@ -318,7 +319,7 @@ module slip_frame_rx #(
                                 // 吞掉字节直到下一个未转义的 C0。
                                 err_flags  <= (err_accum | ERR_SLIP);
                                 state      <= S_DISCARD;
-                                body_count <= 6'd0;
+                                body_count <= 7'd0;
                                 esc_pending<= 1'b0;
                                 invalid_len<= 1'b0;
                                 err_accum  <= 8'h00;
@@ -326,51 +327,30 @@ module slip_frame_rx #(
                             end else begin
                                 // 一个解码后的 body 字节（原始字节，或 DB DC / DB DD）。
                                 // 每个未转义字节只更新一次 CRC，并把 payload 字节直接写入槽位。
-                                if (body_count < 6'd6) begin
-                                    case (body_count)
-                                        6'd0: begin
-                                            if (decoded_byte(s_data, esc_pending) != 8'h01) begin
-                                                err_flags <= ERR_VER;
-                                                state <= S_DISCARD;
+                                if (body_count < 7'd3) begin
+                                    case(body_count)
+                                        0:begin
+                                            cand_type<=decoded_byte(s_data,esc_pending);
+                                            if(decoded_byte(s_data,esc_pending)!=TYPE_MIDI &&
+                                               decoded_byte(s_data,esc_pending)!=TYPE_CONFIG)begin
+                                                err_flags<=ERR_TYPE;state<=S_DISCARD;
                                             end
                                         end
-                                        6'd1: begin
-                                            cand_type <= decoded_byte(s_data, esc_pending);
-                                            if ((decoded_byte(s_data, esc_pending) != TYPE_MIDI) &&
-                                                (decoded_byte(s_data, esc_pending) != TYPE_CONFIG)) begin
-                                                err_flags <= ERR_VER;
-                                                state <= S_DISCARD;
+                                        1:cand_seq<={8'd0,decoded_byte(s_data,esc_pending)};
+                                        2:begin
+                                            cand_len<={8'd0,decoded_byte(s_data,esc_pending)};
+                                            if(decoded_byte(s_data,esc_pending)==0 || decoded_byte(s_data,esc_pending)>64)begin
+                                                invalid_len<=1;err_flags<=ERR_LEN;state<=S_DISCARD;
                                             end
                                         end
-                                        6'd2: cand_seq[7:0]  <= decoded_byte(s_data, esc_pending);
-                                        6'd3: cand_seq[15:8] <= decoded_byte(s_data, esc_pending);
-                                        6'd4: cand_len[7:0]  <= decoded_byte(s_data, esc_pending);
-                                        6'd5: begin
-                                            cand_len[15:8] <= decoded_byte(s_data, esc_pending);
-                                            if (cand_type == TYPE_MIDI) begin
-                                                if (({decoded_byte(s_data, esc_pending), cand_len[7:0]} == 16'd0) ||
-                                                    ({decoded_byte(s_data, esc_pending), cand_len[7:0]} > 16'd32)) begin
-                                                    invalid_len <= 1'b1;
-                                                    err_flags <= ERR_LEN;
-                                                    state <= S_DISCARD;
-                                                end
-                                            end else if (cand_type == TYPE_CONFIG) begin
-                                                if (({decoded_byte(s_data, esc_pending), cand_len[7:0]} == 16'd0) ||
-                                                    ({decoded_byte(s_data, esc_pending), cand_len[7:0]} > 16'd16)) begin
-                                                    invalid_len <= 1'b1;
-                                                    err_flags <= ERR_LEN;
-                                                    state <= S_DISCARD;
-                                                end
-                                            end
-                                        end
-                                        default: ;
+                                        default:;
                                     endcase
                                     crc_r <= crc16_byte(crc_r, decoded_byte(s_data, esc_pending));
-                                end else if (body_count < (6'd6 + cand_len[5:0])) begin
+                                end else if (body_count < (7'd3 + cand_len[6:0])) begin
                                     crc_r <= crc16_byte(crc_r, decoded_byte(s_data, esc_pending));
-                                end else if (body_count == (6'd6 + cand_len[5:0])) begin
+                                end else if (body_count == (7'd3 + cand_len[6:0])) begin
                                     rx_crc_lo <= decoded_byte(s_data, esc_pending);
-                                end else if (body_count == (6'd7 + cand_len[5:0])) begin
+                                end else if (body_count == (7'd4 + cand_len[6:0])) begin
                                     rx_crc_hi <= decoded_byte(s_data, esc_pending);
                                 end else begin
                                     // 任何多余的解码字节都会立即使整个候选帧失效（不让计数器回绕）。
@@ -380,7 +360,7 @@ module slip_frame_rx #(
 
                                 if (esc_pending)
                                     esc_pending <= 1'b0;
-                                body_count <= body_count + 6'd1;
+                                body_count <= body_count + 7'd1;
                             end
                         end
 
@@ -397,7 +377,7 @@ module slip_frame_rx #(
                             // 在 tail 处隐含预留空闲槽位，并开始新的候选帧。
                             // 本拍不消费任何字节。
                             state       <= S_DECODE;
-                            body_count  <= 6'd0;
+                            body_count  <= 7'd0;
                             crc_r       <= 16'hFFFF;
                             cand_type   <= 8'h00;
                             cand_seq    <= 16'h0000;
@@ -417,7 +397,7 @@ module slip_frame_rx #(
                         if (timeout_cnt >= (TIMEOUT_CYCLES - 1)) begin
                             err_flags   <= (err_accum | ERR_TIMEOUT);
                             state       <= S_DISCARD;
-                            body_count  <= 6'd0;
+                            body_count  <= 7'd0;
                             esc_pending <= 1'b0;
                             invalid_len <= 1'b0;
                             err_accum   <= 8'h00;
@@ -438,17 +418,17 @@ module slip_frame_rx #(
                     held_type  <= meta_type[head];
                     held_seq   <= meta_seq[head];
                     held_len   <= meta_len[head];
-                    held_first <= (next_off == 5'd0);
-                    held_last  <= (next_off == (meta_len[head] - 6'd1));
+                    held_first <= (next_off == 6'd0);
+                    held_last  <= (next_off == (meta_len[head] - 7'd1));
                 end
 
                 if (pop_any) begin
                     held_valid <= 1'b0;
                     if (held_last) begin
                         head     <= ptr_next(head);
-                        next_off <= 5'd0;
+                        next_off <= 6'd0;
                     end else begin
-                        next_off <= held_off + 5'd1;
+                        next_off <= held_off + 6'd1;
                     end
                 end
 
@@ -458,7 +438,7 @@ module slip_frame_rx #(
                 if (commit_now) begin
                     tail <= ptr_next(tail);
                     if (count == 0)
-                        next_off <= 5'd0;
+                        next_off <= 6'd0;
                 end
 
                 case ({pop_last, commit_now})

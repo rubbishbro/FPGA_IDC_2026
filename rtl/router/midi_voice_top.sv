@@ -1,6 +1,8 @@
 `timescale 1ns/1ps
 // 已解析事件 -> 现有状态层和router。只在本顶层集中准入、控制超时、清理与配置提交。
-// NOTE_BANKS=1时加载连续32音中的一组16音；first_midi_note由资源清单提供。
+// NOTE_BANKS=1 loads one of two 16-key windows. Production enables
+// INSTRUMENT_NOTE_RANGES: first MIDI comes from router_pkg::note_first(inst);
+// first_midi_note remains only for legacy single-range probes.
 // 未支持控制消费后记录，不伪造效果成功；外部控制在valid/ready握手时原子生效，
 // 超时/维护时control_cancel撤销未握手请求，后端不得在未握手时不可撤销地应用。
 module midi_voice_top #(
@@ -14,6 +16,7 @@ module midi_voice_top #(
     parameter logic [31:0] FLASH_BASE=32'h0000_0000,
     parameter int FLASH_BYTES=8_388_608,
     parameter bit NOTE_BANKS=1'b0, SINGLE_SOURCE=1'b1,
+    parameter bit INSTRUMENT_NOTE_RANGES=1'b0,
     // 开启后由backend事务独占配置；旧并行配置输入不再是第二个写入者。
     parameter bit CONFIG_BACKEND=1'b0,
     parameter logic [11:0] RESOURCE_MASK=12'b000000000001,
@@ -190,6 +193,7 @@ module midi_voice_top #(
         case(pending_request.id)
             16'h0100:begin
                 candidate.instrument=16'(pending_request.value);
+                if(INSTRUMENT_NOTE_RANGES)candidate.bank=0;
                 if(candidate.source==0)candidate_pad=router_pkg::instrument_e'(pending_request.value);
                 else candidate.channel=config_pkg::instrument_channel(16'(pending_request.value));
             end
@@ -206,13 +210,17 @@ module midi_voice_top #(
             end
             16'h0501:begin
                 candidate.channel=5'(pending_request.value);
-                if(candidate.source!=0)candidate.instrument=config_pkg::midi_instrument(candidate.channel);
+                if(candidate.source!=0)begin
+                    candidate.instrument=config_pkg::midi_instrument(candidate.channel);
+                    if(INSTRUMENT_NOTE_RANGES)candidate.bank=0;
+                end
             end
             16'h0503:candidate.guide=pending_request.value[0];
             16'h8001:;
             default:candidate_supported=0;
         endcase
         candidate_inst=candidate.source==0 ? 16'(candidate_pad) : candidate.instrument;
+        if(INSTRUMENT_NOTE_RANGES && have_commit && candidate_inst!=backend_audio_state.instrument)candidate.bank=0;
         if(!candidate_supported)candidate_result=config_pkg::CFG_UNSUPPORTED;
         else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(pending_request.id),pending_request.value))
             candidate_result=config_pkg::CFG_OUT_OF_RANGE;
@@ -347,7 +355,10 @@ module midi_voice_top #(
                              target_channel!=channel_q || target_bank!=bank_q || target_pad!=pad_q);
                         channel_q<=target_channel;mode_q<=target_mode;source_q<=target_source;guide_q<=target_guide;
                         inst_use<=target_mode ? router_pkg::instrument_e'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : target_pad;
-                        bank_q<=target_bank;first_q<=target_first;pad_q<=target_pad;
+                        bank_q<=target_bank;
+                        first_q<=INSTRUMENT_NOTE_RANGES ? router_pkg::note_first(target_mode ?
+                            router_pkg::instrument_e'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : target_pad) : target_first;
+                        pad_q<=target_pad;
                         case(target_reverb)
                             0:reverb_q<=router_pkg::REVERB_NONE;
                             1:reverb_q<=router_pkg::REVERB_HALL;

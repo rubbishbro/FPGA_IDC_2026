@@ -28,7 +28,7 @@ module tb_sustain_system;
         .qspi_cs_n(cs),.qspi_sck(sck),.qspi_dq_o(dqo),.qspi_dq_oe(oe),.qspi_dq_i(dqi),
         .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.audio_sample_tick(tick),
         .audio_deadline_miss(late),.audio_overflow(over),.audio_underflow(under));
-    w25q64_read_model #(.N_MODES(64),.MEM_FILE("sustain_flash.mem")) flash(
+    w25q64_read_model #(.N_MODES(64),.MEM_FILE("sustain_flash.mem"),.MEM_BYTES(12*32*4096+4096)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dqo),.dq_oe(oe),.blank(blank),.dq_i(dqi));
     integer periods[32],attack[32],release_step[32];
     integer gg[32][48],aa[32][48],bb[32][48];
@@ -38,7 +38,7 @@ module tb_sustain_system;
     logic verify=0,expect_pending=0,full_hold=0;
     longint signed expected_y,acc,shifted,sum_voice,coefficient1,coefficient2;
     logic signed [95:0] product;
-    integer expected_gain=4096,expected_count,target_gain;
+    integer expected_gain=0,expected_count;
     logic [15:0] expected_pcm;
     logic pcm_pending=0;
     logic [15:0] last_pcm=0;
@@ -52,7 +52,7 @@ module tb_sustain_system;
             last_pcm<=shifted>32767?16'h7fff:shifted< -32768?16'h8000:16'(shifted);pcm_pending<=1;
         end
         if(tick)pcm_pending<=0;
-        if(dut.u_voice.effects_clear)expected_gain=4096;
+        if(dut.u_voice.effects_clear)expected_gain=0;
         if(late || over || under)$fatal(1,"FAIL audio diagnostics %b %b %b",late,over,under);
         if(verify && dut.u_voice.frame_start)begin
             for(int s=0;s<16;s++)begin
@@ -93,23 +93,19 @@ module tb_sustain_system;
                 sum_voice=0;
                 for(int m=0;m<48;m++)begin
                     if(zero)begin q[s][m]=0;v[s][m]=0;end
-                    coefficient1=longint'(aa[ni][m]);coefficient2=longint'(bb[ni][m]);
-                    acc=longint'(gg[ni][m])*longint'(expect_x[s])-coefficient1*longint'(q[s][m])-coefficient2*longint'(v[s][m]);
+                    coefficient1=blank ? 0 : longint'(aa[ni][m]);coefficient2=blank ? 0 : longint'(bb[ni][m]);
+                    acc=(blank ? 64'sd0 : longint'(gg[ni][m]))*longint'(expect_x[s])-coefficient1*longint'(q[s][m])-coefficient2*longint'(v[s][m]);
                     shifted=(acc+64'sd8388608)>>>24;
                     if(shifted>64'sd2147483647)shifted=64'sd2147483647;
                     else if(shifted< -64'sd2147483648)shifted=-64'sd2147483648;
                     v[s][m]=q[s][m];q[s][m]=int'(shifted);sum_voice+=shifted;
                 end
                 product=sum_voice*longint'(expect_e[s]);
-                product=(product>>>31)*longint'(performance_gain_pkg::note_gain(instrument_e'(INST),7'(ni+48)));
-                expected_y+=64'((product+96'sd2048)>>>12);
+                expected_y+=64'(product>>>31);
                 if(expect_e[s]>0)expected_count++;
             end
-            target_gain=expected_count==0 ? expected_gain : int'(performance_gain_pkg::count_scale(5'(expected_count)));
-            if(target_gain<expected_gain)expected_gain-=((expected_gain-target_gain)>>3)>0 ? (expected_gain-target_gain)>>3 : 1;
-            else if(target_gain>expected_gain)expected_gain+=((target_gain-expected_gain)>>12)>0 ? (target_gain-expected_gain)>>12 : 1;
-            product=expected_y*longint'(expected_gain);
-            expected_y=64'((product+96'sd2048)>>>12);
+            expected_gain=expected_count==1 ? 2 : (expected_count>=2 && expected_count<=7 ? 1 : 0);
+            expected_y=expected_y<<<expected_gain;
             core_frames++;
         end
         if(verify && dut.u_voice.y_valid)begin
@@ -175,10 +171,10 @@ module tb_sustain_system;
         for(int s=0;s<16;s++)event_send(0,48+s,0);
         wait(&dut.voice_idle);frames(2);
         old_period=dut.u_voice.active_play[0].period;
-        // Failed bank load may not commit new drive parameters.
+        // Zero payload is accepted; loader does not classify record contents.
         blank=1;bank=1;wait(busy);wait(failed);
-        if(dut.u_voice.active_play[0].period!=old_period || dut.active_bank!=0)$fatal(1,"FAIL failed bank committed profile");
-        frames(5);@(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(ready);frames(3);
+        if(dut.active_bank!=0)$fatal(1,"FAIL invalid sustain profile committed");
+        @(negedge clk);blank=0;reload=1;@(negedge clk);reload=0;wait(ready);frames(3);
         if(dut.active_bank!=1 || dut.u_voice.active_play[0].period!=periods[16])$fatal(1,"FAIL bank profile commit");
         event_send(1,64,100);frames(100);event_send(2,120,0);wait(&dut.voice_idle);
         if(checks<SAMPLES || nz<100)$fatal(1,"FAIL inadequate real audio coverage");

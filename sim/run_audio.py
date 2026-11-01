@@ -56,7 +56,7 @@ def main():
             raise RuntimeError(name+'\n'+text[-6000:])
         return text
     run('vlib',[work],'vlib')
-    sources=re.findall(r"'(rtl/[^']+\.sv)'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
+    sources=re.findall(r"'((?:rtl|tb)/[^']+\.sv)'",(ROOT/'sim/router_sources.list').read_text())
     sources=[ROOT/s for s in sources if not s.endswith('/tb_music.sv')]
     sources += [ROOT/p for p in ['rtl/midi/midi_note_state.sv','rtl/midi/midi_guide_state.sv','rtl/midi/midi_instrument_map.sv',
         'rtl/router/midi_voice_top.sv','rtl/router/pad_voice_top.sv','sim/unit/midi/w25q64_read_model.sv']]

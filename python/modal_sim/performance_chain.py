@@ -10,9 +10,11 @@ import router_eng1 as R
 
 
 class RawPerformance:
-    def __init__(self, name, manifest, image):
+    def __init__(self, name, manifest, image, bank=0):
         self.name=name;self.cfg=manifest['frontends'][name]
         self.rows=sorted((r for r in manifest['entries'] if r['name']==name),key=lambda r:r['slot'])
+        if bank not in (0,1):raise ValueError('bank must be 0/1')
+        self.rows=self.rows[bank*16:bank*16+16]
         self.slots=len(self.rows)
         raw=b''.join(image[r['offset']:r['offset']+4096] for r in self.rows)
         self.words=np.frombuffer(raw,dtype='>i4').astype(np.int64).reshape(self.slots,64,16)

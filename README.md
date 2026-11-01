@@ -47,7 +47,7 @@
 | `sythsound/` | 独立Python实验库及router钢琴/吉他资源生成 |
 | `web/midi-editor/` | 本地MIDI编辑与UART上位机 |
 | `docs/`、`reference_agent_readfirst/` | 专题设计/验收/问题，以及赛题/平台依据 |
-| `history/`、`rtl/core/` | 历史工程与保留路径；验证证据不能混用 |
+| `history/` | 历史工程与归档 CORE；验证证据不能混用 |
 | `build/` | 本地日志/构建产物，Git忽略 |
 
 串口／蓝牙现可在“输入→演奏方式”选择[引导演奏](docs/MIDI接入.md#midi-guide)：LCD显示4×4目标键，外部MIDI只提示，实体压力键负责发声。菜单／状态／合成／整版协议仿真及板级综合已通过，未烧录；物理时序边界仍按现有I04处理。
@@ -81,7 +81,7 @@ python python/modal_sim/eng1_bc_demo.py
 python3 sim/run_control_loop.py
 python3 sim/run_joystick.py
 python3 sim/run_comm.py
-python3 sim/check_comm_vectors.py
+# 旧帧向量检查已归档：sim/archive/2026-11-01/check_comm_vectors.py
 python3 sim/run_midi.py
 python3 sim/run_router_midi.py
 python3 sim/run_ui.py --legacy

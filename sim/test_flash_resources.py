@@ -10,7 +10,7 @@ pack_module=importlib.util.module_from_spec(spec);spec.loader.exec_module(pack_m
 
 class FlashResourceTests(unittest.TestCase):
     def test_actual_images_do_not_gain_padding_or_double_offset(self):
-        piano=ROOT/'rtl/router/tools/piano_flash.bin';guitar=ROOT/'rtl/router/tools/guitar_flash.bin'
+        piano=ROOT/'rtl/router/tools/coefficients/eng0_piano.bin';guitar=ROOT/'rtl/router/tools/coefficients/eng0_guitar.bin'
         base,capacity=pack_module.board_layout()
         self.assertEqual((base,capacity),(0x800000,0x1000000))
         packed,manifest=pack_module.pack({0:piano,1:guitar},65536,base,capacity)

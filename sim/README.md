@@ -1,6 +1,8 @@
+> 2026-11-01 测试适用性核查：见 [审计与归档清单](TEST_AUDIT_2026-11-01.md)。以下历史通过记录不代表当前工作区全部通过；当前侧栏系统测试已复现 watchdog。
+
 # 仿真、模型与时序入口
 
-更新：2026-10-29。命令均从仓库根目录执行，隔离Questa补测另行注明运行目录；各验证范围分开计数。Python 脚本优先使用 IVERILOG/VVP、PATH，再尝试本机 `~/micromamba/envs/torch312/bin/`；`run_core.sh` 只使用环境变量/PATH。
+更新：2026-10-29。命令均从仓库根目录执行，隔离Questa补测另行注明运行目录；各验证范围分开计数。Python 脚本优先使用 IVERILOG/VVP、PATH，再尝试本机 `~/micromamba/envs/torch312/bin/`。旧 CORE 验证已归档，见下文。
 
 ## 最近实现与回归状态（2026-10-29）
 
@@ -24,11 +26,11 @@
 | `python3 sim/run_control_loop.py` | 15/15 PASS | `build/control_loop/`；5 组参数×3 种子，轮询/公平/背压/复位记账 |
 | `python3 sim/run_joystick.py` | 26/26 PASS | `build/joystick/`；24 组适配参数与 2 组 ADC 行为模型接线，不含真实 ADC/整套 LED |
 | `python3 sim/run_comm.py` | 13/13 PASS | `build/comm/`；通信和 mock 消费者；本轮未重复历史额外 8 种子压力批次 |
-| `python3 sim/check_comm_vectors.py` | PASS | 6 fixtures、CRC29B1、EQ 编码、100 组分片流及错误恢复 |
+| 旧 `check_comm_vectors.py`（已归档） | 历史记录 | 旧版帧向量，不适用于当前协议；见本次审计 |
 | `python3 sim/run_ui.py --legacy` | 17/17 PASS | `build/sidebar/`；2 个异步时钟比的侧栏系统、1 个绘制用例、14 项原频谱回归 |
 | `python -m pytest -q sim/unit/eng1/test_router_eng1.py` | 33 passed | Python 模型语义；不证明当前 router 选核/时序/资源 |
 | `python python/modal_sim/eng1_cosim.py --mode intended` | **66 项，3 项 FAIL** | n_modes=0 的 case 36/52/64 不匹配，其余 63 项一致；详见当前问题 F12 |
-| `bash sim/run_core.sh` | **前 2 项 PASS，第 3 项编译中断** | `rtl/simsynth/modal_step_pkg.sv` 已迁移，不能继续宣称当前 21 项全通过 |
+| 旧 CORE（已归档） | 历史记录：前 2 项 PASS，第 3 项编译中断 | 见 [归档说明](../history/core_2026-11-01/README.md)，不属于当前回归 |
 
 <a id="questa"></a>
 
@@ -50,7 +52,7 @@ QSIM_INI="$PWD/modelsim.ini" vsim -c -suppress 7061 \
 # CASE_ID: 0=等待切音色，1=eng1预算，2=调制版本，3=bank独立性
 ```
 
-同一隔离库的音乐用例可将top换成 `tb_music`：默认参数为24000点；16键补测使用 `-gALL16=1 -gNSAMP=4096 -gHOLD=1500`。运行目录须包含 `rtl/router/tools/piano_flash.mem`，输出在该目录的 `_analysis/`，避免覆盖仓库已有音频。
+同一隔离库的音乐用例可将top换成 `tb_music`：默认参数为24000点；16键补测使用 `-gALL16=1 -gNSAMP=4096 -gHOLD=1500`。运行目录须包含由当前回归入口生成的私有 Flash 模型镜像，输出在该目录的 `_analysis/`，避免覆盖仓库已有音频。
 
 `verified_results.json` 保留完整命令、日志路径和显式判定。SV打印FAIL后仍可能进程返回0，必须检查RESULT／工具错误；原始模块探针另按观察值与期望比较。临时脚本／库不随Git分发，异机复核需从补测记录取得冻结证据包后重建。当前 `eng1_cosim.py` 和已有Python runner仍使用Icarus，本次没有修改它们来支持Questa。
 
@@ -90,13 +92,7 @@ python3 sim/run_router_midi.py --ini /absolute/path/modelsim.ini --out /tmp/rout
 
 ## router 和整数模型
 
-当前音乐入口是 `rtl/router/tb/tb_music.sv`，Windows Vivado xsim 一键流程：
-
-```powershell
-pwsh -File rtl/router/tools/run_all.ps1
-```
-
-脚本默认Windows Vivado 2017.4，可用-Vivado指定。当前tb_music已例化w25q_dut/vendor W25Q128，经真实loader加载；源码头部直灌RAM说明已过时。run_all目前漏列Flash模型源和MEM准备；run_loader仍依赖被忽略的_analysis辅助脚本、旧20模态吉他布局，不能宣称干净clone一键可运行。可维护MEM生成器在rtl/router/tools/gen_mem.py。本次未运行pwsh/xsim；帧数/无X/非零输出也不是逐样本golden，模型不证明真片。
+旧 Windows xsim `run_all/run_guitar/run_loader` 入口已删除。当前 Python 回归共享 `sim/router_sources.list` 中的源文件清单，不再从旧 PowerShell 脚本抽取路径。vendor Flash 回归由 `sim/run_flash_ref.py` 在隔离目录生成 MEM 输入；完整 router 使用当前资源镜像。
 
 Python 回归和 eng1 对拍可在已有数值环境运行：
 
@@ -108,24 +104,15 @@ python python/modal_sim/eng1_cosim.py --mode intended
 
 `eng1_cosim.py` 默认仍是复刻旧 F05 的 rtl 模式，帮助文字也未同步。当前eng1已为五级流水，空作业修复由新oracle复测通过；旧TB依赖串行核内部接口，仅传intended不足以把它变为当前回归。历史向量模式比较仍应显式intended。对拍输出 `build/eng1_cosim/cases.txt` 与可执行文件，不能将 `$finish`/进程退出 0 当成功，应查看 `RESULT`。契约和模型/RTL 差异见 [ENG1 模型](../docs/ENG1模型.md)。
 
-## 保留 core 回归
+## 已归档 CORE 验证
 
-2026-10-22 的 21 项 PASS 是历史范围，当前 `sim/run_core.sh` 在 tb_shared_modal_ram、tb_router_loader 之后失败。缺少的 `modal_step_pkg` 和 `modal_engine7` 不能仅以新文件路径替换，旧 e2_engine 接口也需迁移。旧并行前端测试在 `history/sim/unit/core_legacy/`。
-
-如需复现编译阻塞：
-
-```bash
-IVERILOG="$HOME/micromamba/envs/torch312/bin/iverilog" VVP="$HOME/micromamba/envs/torch312/bin/vvp" OUT=/tmp/fpga_docs_core bash sim/run_core.sh
-```
-
-该目录是中断日志，不是完整回归结果。
+旧 CORE、单元测试、run_core.sh 和共享 RAM 综合探针已整体移至 [history/core_2026-11-01](../history/core_2026-11-01/README.md)。仅保留历史参考价值，不再列作当前回归入口；历史 21 项 PASS 不能用于当前 voice_router 验收。原始脚本存在缺失依赖和旧接口，归档不提供一键运行保证。
 
 ## 时序与构建
 
 - 通信：`sim/synth/comm_build.tcl` / `sim/check_comm_timing.py`。已有独立探针结果见 [VERIFICATION](../rtl/comm/VERIFICATION.md)；后者会启动构建，本轮未重跑 PnR。
 - LCD：`sim/synth/sidebar_build.tcl` 从根目录 source，`BOARD_PNR=1` 执行 PnR；`python3 sim/check_ui_timing.py` **只读已有报告并生成核对摘要**。本轮复核 setup/hold 0/0，最差 +1.448/+0.216ns，约束为 50MHz 控制/33.333MHz 像素；这不是本轮重新构建，也不覆盖音频整机。
 - 摇杆：`sim/synth/joystick_build.tcl` 为独立适配器综合，不包含采集整链和 PnR。
-- core：`sim/synth/gowin_build.tcl` 为保留共享 RAM 探针；router 的 `syn_only.tcl/synth_pnr_router.tcl` 是另一目标。旧 Fmax/资源数均需对照源码/清单/约束及报告日期。
 
 27日既有回归见[验证记录](../docs/工程验证.md#verification)；28日Questa补测及隔离新增夹具见[补测记录](../docs/工程验证.md#questa-2026-10-28)。早先文档更新仅记录结果；后续3.2已修改router选源/接线并新增正式回归入口，范围见上节；没有新增PnR／上板结论。
 

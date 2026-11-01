@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+// Shared unversioned transport for wired UART and HC-05; see docs/通信协议约定.md.
 // 单路协议适配：字节 <-> 已验证帧/回复描述符。无引脚、来源号或业务决策。
 module transport_link #(
     parameter int FRAME_DEPTH = 8,
@@ -16,7 +17,7 @@ module transport_link #(
     input logic frame_ready,
     output logic [7:0] frame_data, frame_type,
     output logic [15:0] frame_seq,
-    output logic [5:0] frame_payload_len,
+    output logic [6:0] frame_payload_len,
     output logic frame_first, frame_last, frame_available,
     output logic [7:0] protocol_errors,
     input logic reply_valid,

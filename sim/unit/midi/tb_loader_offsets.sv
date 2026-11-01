@@ -74,7 +74,8 @@ module tb_loader_offsets #(parameter logic [31:0] FLASH_BASE=0, parameter int FL
         expected_mask=1;update_mask=1;slot_offsets[31:0]=32*192;expect_zero=1;
         before_reads=flash.transactions;begin_load();finish_load(6,1);
         if(flash.transactions!=before_reads) $fatal(1,"FAIL invalid offset started Flash read");
-        slot_offsets[31:0]=0;blank=1;begin_load();finish_load(6,2);blank=0;
+        // All-zero records are ordinary payload, not a loader error.
+        slot_offsets[31:0]=0;blank=1;begin_load();finish_load(6,0);blank=0;
         update_mask=3;expected_mask=3;slot_offsets[63:32]=192;
         begin_load();repeat(80) @(negedge clk);abort=1;finish_load(12,3);abort=0;
         if(RELOCATED)begin

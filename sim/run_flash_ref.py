@@ -22,17 +22,20 @@ def main():
         if p.returncode or re.search(r'\*\* (?:Error|Fatal)|\b(?:FAIL|FATAL)\b',txt):raise RuntimeError(name+'\n'+txt[-4000:])
         return txt
     run('vlib',[work],out,'vlib')
-    paths=re.findall(r"'(rtl/[^']+\.(?:sv|v))'",(ROOT/'rtl/router/tools/run_all.ps1').read_text())
-    run('vlog',['-sv','-work',work,*[ROOT/p for p in paths],ROOT/'rtl/router/tb/tb_loader_ref.sv'],out,'compile')
+    paths=re.findall(r"'((?:rtl|tb)/[^']+\.(?:sv|v))'",(ROOT/'sim/router_sources.list').read_text())
+    run('vlog',['-sv','-work',work,*[ROOT/p for p in paths],ROOT/'rtl/tb/router/tb_loader_ref.sv'],out,'compile')
     cases=[('loader_piano',0,0,False),('loader_guitar',1,0,False),('loader_blank',0,1,False),
            ('music_piano',0,0,True),('music_guitar',1,0,True)]
     results=[]
     for name,inst,blank,music in cases:
         cwd=out/name;cwd.mkdir(exist_ok=True)
         golden=cwd/'rtl/router/tools';golden.mkdir(parents=True,exist_ok=True)
-        for instrument in ['piano','guitar']:shutil.copyfile(ROOT/f'rtl/router/tools/{instrument}_flash.mem',golden/f'{instrument}_flash.mem')
-        for f in ['SECSI.TXT','SFDP.TXT','SREG.TXT']:shutil.copyfile(ROOT/'rtl/router/tb/vendor/w25q128'/f,cwd/f)
+        for instrument in ['piano','guitar']:
+            raw=(ROOT/f'rtl/router/tools/coefficients/eng0_{instrument}.bin').read_bytes()
+            (golden/f'{instrument}_flash.mem').write_text(''.join(f'{v:02X}\n' for v in raw))
+        for f in ['SECSI.TXT','SFDP.TXT','SREG.TXT']:shutil.copyfile(ROOT/'rtl/tb/router/vendor/w25q128'/f,cwd/f)
         vals=['FF']*65536 if blank else (golden/('guitar_flash.mem' if inst else 'piano_flash.mem')).read_text().split()
+        if music:vals=(ROOT/'rtl/router/tools/performance/resources.mem').read_text().split()
         (cwd/'MEM.TXT').write_text('@0\n'+'\n'.join(vals)+'\n')
         if music:
             (cwd/'_analysis').mkdir(exist_ok=True);(cwd/'_analysis/case.txt').write_text(f'{inst}\n0\n{args.samples}\n')

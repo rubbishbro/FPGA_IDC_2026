@@ -16,7 +16,7 @@
 // 符号约定：y = b0*x + b1*x1 + b2*x2 - a1*y1 - a2*y2（a1/a2 给正值）。
 // 定点：Q4.27（1.0 = 1 << COEFF_FRAC = 1 << 27），
 //       数值 = floor(c * 2**27 + 0.5)，c 取自 sythsound/sim_guitar.py 的
-//       BODY_BIQUADS；rtl/router/tools/bq_gen.py 会重算一遍并回读本文件核对
+//       BODY_BIQUADS；历史 bq_gen 实验工具已移除。
 //       字面量，改系数必须两边一起改。
 // -----------------------------------------------------------------------------
 module body_router #(

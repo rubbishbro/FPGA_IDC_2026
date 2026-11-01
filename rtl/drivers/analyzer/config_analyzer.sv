@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// CONFIG 解析器：每个已校验的 CONFIG 帧只处理一条命令，协议 v1。
+// CONFIG 解析器：每个已校验的 CONFIG 帧只处理一条命令，无 VERSION 协议，见 docs/通信协议约定.md。
 //
 // 职责：
 //   - 每条命令只消费一个完整帧（first..last）
@@ -14,7 +14,8 @@
 // 合法配置走 cfg_valid/cfg_ready，再走 cfg_done_valid/cfg_done_ready。
 // 不猜测 ACK。
 module config_analyzer #(
-    parameter int EQ_BANDS = 3
+    parameter int EQ_BANDS = 3,
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
 ) (
     input  logic        clk,
     input  logic        rst_n,
@@ -27,7 +28,7 @@ module config_analyzer #(
     input  logic        s_last,
     input  logic        s_source_id,
     input  logic [15:0] s_seq,
-    input  logic [5:0]  s_payload_len,
+    input  logic [6:0]  s_payload_len,
 
     // 每来源维护侧带。
     input  logic [1:0]  session_reset,
@@ -41,8 +42,8 @@ module config_analyzer #(
     output logic        cfg_source_id,
     output logic [15:0] cfg_seq,
     output logic [7:0]  cfg_command,
-    output logic [4:0]  cfg_payload_len,
-    output logic [127:0] cfg_shadow,
+    output logic [6:0]  cfg_payload_len,
+    output logic [511:0] cfg_shadow,
     input  logic        cfg_ready,
 
     // 后级完成（result 是权威的最终结果）。
@@ -50,7 +51,7 @@ module config_analyzer #(
     output logic        cfg_done_ready,
     input  logic [7:0]  cfg_result,
 
-    // 最终回复描述符。request_type=02 由 TX 编码器补上。
+    // 最终回复描述符。仅携带 COMMAND 和结果码，不补 request_type。
     output logic        reply_valid,
     input  logic        reply_ready,
     output logic        reply_source_id,
@@ -62,7 +63,7 @@ module config_analyzer #(
     output logic        busy
 );
 
-    // 线上协议结果码（PROTOCOL_V1 §7.2）。
+    // 线上协议结果码（docs/通信协议约定.md §4）。
     localparam logic [7:0] RESULT_OK          = 8'd0;
     localparam logic [7:0] RESULT_UNSUPPORTED = 8'd1;
     localparam logic [7:0] RESULT_BAD_LENGTH  = 8'd2;
@@ -71,10 +72,9 @@ module config_analyzer #(
     localparam logic [7:0] RESULT_SEQ_CONFLICT= 8'd5;
     localparam logic [7:0] RESULT_NOT_READY   = 8'd6;
 
-    localparam logic [7:0] CMD_EQ_SET     = 8'h01;
     localparam logic [7:0] CMD_REVERB_SET = 8'h02;
 
-    localparam logic [5:0] MAX_CONFIG_PAYLOAD = 6'd16;
+    localparam logic [6:0] MAX_CONFIG_PAYLOAD = 7'd64;
 
     typedef enum logic [3:0] {
         S_IDLE,
@@ -94,9 +94,9 @@ module config_analyzer #(
     // 锁存的帧上下文。
     logic        ctx_source;
     logic [15:0] ctx_seq;
-    logic [5:0]  ctx_declared_len;
-    logic [5:0]  ctx_count;
-    logic [127:0] ctx_payload;
+    logic [6:0]  ctx_declared_len;
+    logic [6:0]  ctx_count;
+    logic [511:0] ctx_payload;
     logic        ctx_saw_first;
     logic        ctx_bad_frame;
     logic        ctx_overflow;
@@ -108,8 +108,8 @@ module config_analyzer #(
     // 每来源最近一次重试缓存（每个来源一项）。
     logic        cache_valid   [0:1];
     logic [15:0] cache_seq     [0:1];
-    logic [5:0]  cache_len     [0:1];
-    logic [127:0] cache_payload[0:1];
+    logic [6:0]  cache_len     [0:1];
+    logic [511:0] cache_payload[0:1];
     logic [7:0]  cache_result  [0:1];
 
     // 组合逻辑校验结果。
@@ -118,19 +118,14 @@ module config_analyzer #(
     logic [7:0]  sem_result;
     logic        cache_hit;
     logic        cache_conflict;
-    // 把 128-bit 比较拆到时钟边界两侧；否则 Gowin 会在 S_EVAL 结果路径上
+    // 把 512-bit 比较拆到时钟边界两侧；否则 Gowin 会在 S_EVAL 结果路径上
     // 映射出一长串进位/归约链。
-    (* syn_preserve = 1 *) logic [3:0] cache_equal_parts;
+    (* syn_preserve = 1 *) logic [15:0] cache_equal_parts;
     logic cache_key_match, cache_length_match;
 
     logic [7:0]  v_cmd;
-    logic [7:0]  v_band;
-    logic [7:0]  v_enable;
-    logic [7:0]  v_filter_type;
-    logic [7:0]  v_preset;
-    logic [15:0] v_frequency;
-    logic signed [15:0] v_gain;
-    logic [15:0] v_q;
+    logic [7:0] v_preset;
+    logic map_valid;
 
     integer i;
 
@@ -154,7 +149,7 @@ module config_analyzer #(
     assign cfg_source_id   = ctx_source;
     assign cfg_seq         = ctx_seq;
     assign cfg_command     = ctx_payload[7:0];
-    assign cfg_payload_len = ctx_declared_len[4:0];
+    assign cfg_payload_len = ctx_declared_len;
     assign cfg_shadow      = ctx_payload;
 
     assign reply_source_id = ctx_source;
@@ -166,62 +161,40 @@ module config_analyzer #(
     // 帧完整性与语义校验
     // ---------------------------------------------------------------------
     // 解析器先收完整帧，再做任何决定。只有满足以下条件的帧才可用：
-    // 第 0 字节带 s_first 起始、没有多余的 first 标记、不超过 16 字节 CONFIG 上限、
+    // 第 0 字节带 s_first 起始、没有多余的 first 标记、不超过 64 字节 CONFIG 上限、
     // 已接收字节数等于声明的 payload 长度。
     always_comb begin
         frame_ok = ctx_saw_first &&
                    !ctx_bad_frame &&
                    !ctx_overflow &&
-                   (ctx_declared_len >= 6'd1) &&
+                   (ctx_declared_len >= 7'd1) &&
                    (ctx_declared_len <= MAX_CONFIG_PAYLOAD) &&
                    (ctx_count == ctx_declared_len);
     end
 
     // 从 shadow 中提取小端字段（byte 0 位于 [7:0]）。
     assign v_cmd         = ctx_payload[7:0];
-    assign v_band        = ctx_payload[15:8];
-    assign v_enable      = ctx_payload[23:16];
-    assign v_filter_type = ctx_payload[31:24];
-    assign v_preset      = ctx_payload[15:8];
-    assign v_frequency   = {ctx_payload[47:40], ctx_payload[39:32]};
-    assign v_gain        = $signed({ctx_payload[63:56], ctx_payload[55:48]});
-    assign v_q           = {ctx_payload[79:72], ctx_payload[71:64]};
+    assign v_preset=ctx_payload[15:8];
+    always_comb begin
+        map_valid=1;
+        for(int key=0;key<16;key++)begin
+            if(ctx_payload[(1+2*key)*8 +:8]>15 ||
+               !SUPPORTED_INSTRUMENTS[ctx_payload[(1+2*key)*8 +:4]] ||
+               ctx_payload[(2+2*key)*8 +:8]>127)map_valid=0;
+        end
+    end
 
     always_comb begin
         sem_ok     = 1'b0;
         sem_result = RESULT_BAD_LENGTH;
 
-        if ((ctx_declared_len == 6'd0) ||
+        if ((ctx_declared_len == 7'd0) ||
             (ctx_declared_len > MAX_CONFIG_PAYLOAD)) begin
             sem_result = RESULT_BAD_LENGTH;
         end else begin
             case (v_cmd)
-                CMD_EQ_SET: begin
-                    if (ctx_declared_len != 6'd10) begin
-                        sem_result = RESULT_BAD_LENGTH;
-                    end else if (v_filter_type != 8'd0) begin
-                        // v1 只支持 peaking/bell；不要静默映射成别的滤波器。
-                        sem_result = RESULT_UNSUPPORTED;
-                    end else if (v_band >= EQ_BANDS) begin
-                        sem_result = RESULT_OUT_OF_RANGE;
-                    end else if (v_enable > 8'd1) begin
-                        sem_result = RESULT_OUT_OF_RANGE;
-                    end else if ((v_frequency < 16'd20) ||
-                                 (v_frequency > 16'd20000)) begin
-                        sem_result = RESULT_OUT_OF_RANGE;
-                    end else if ((v_gain < -16'sd3072) ||
-                                 (v_gain > 16'sd3072)) begin
-                        sem_result = RESULT_OUT_OF_RANGE;
-                    end else if ((v_q < 16'd26) || (v_q > 16'd2560)) begin
-                        sem_result = RESULT_OUT_OF_RANGE;
-                    end else begin
-                        sem_result = RESULT_OK;
-                        sem_ok     = 1'b1;
-                    end
-                end
-
                 CMD_REVERB_SET: begin
-                    if (ctx_declared_len != 6'd2) begin
+                    if (ctx_declared_len != 7'd2) begin
                         sem_result = RESULT_BAD_LENGTH;
                     end else if (v_preset > 8'd2) begin
                         sem_result = RESULT_OUT_OF_RANGE;
@@ -231,9 +204,10 @@ module config_analyzer #(
                     end
                 end
 
-                8'h12,8'h13: begin
-                    if(ctx_declared_len==6'd5)begin sem_result=RESULT_OK;sem_ok=1'b1;end
-                    else sem_result=RESULT_BAD_LENGTH;
+                8'h20:begin
+                    if(ctx_declared_len!=33)sem_result=RESULT_BAD_LENGTH;
+                    else if(!map_valid)sem_result=RESULT_OUT_OF_RANGE;
+                    else begin sem_result=RESULT_OK;sem_ok=1;end
                 end
                 default: begin
                     sem_result = RESULT_UNSUPPORTED;
@@ -278,10 +252,10 @@ module config_analyzer #(
         if (!rst_n) begin
             state             <= S_IDLE;
             ctx_source        <= 1'b0;
-            ctx_seq           <= 16'd0;
-            ctx_declared_len  <= 6'd0;
-            ctx_count         <= 6'd0;
-            ctx_payload       <= 128'd0;
+            ctx_seq           <= 17'd0;
+            ctx_declared_len  <= 7'd0;
+            ctx_count         <= 7'd0;
+            ctx_payload       <= 512'd0;
             ctx_saw_first     <= 1'b0;
             ctx_bad_frame     <= 1'b0;
             ctx_overflow      <= 1'b0;
@@ -308,8 +282,8 @@ module config_analyzer #(
                         ctx_source        <= s_source_id;
                         ctx_seq           <= s_seq;
                         ctx_declared_len  <= s_payload_len;
-                        ctx_count         <= 6'd1;
-                        ctx_payload       <= {{120{1'b0}}, s_data};
+                        ctx_count         <= 7'd1;
+                        ctx_payload       <= {{504{1'b0}}, s_data};
                         ctx_saw_first     <= s_first;
                         ctx_bad_frame     <= ~s_first;
                         ctx_overflow      <= 1'b0;
@@ -329,18 +303,18 @@ module config_analyzer #(
                         if (s_first)
                             ctx_bad_frame <= 1'b1;
                         if (ctx_count < MAX_CONFIG_PAYLOAD)
-                            ctx_payload[{ctx_count[3:0], 3'b000} +: 8] <= s_data;
+                            ctx_payload[{ctx_count[5:0], 3'b000} +: 8] <= s_data;
                         else
                             ctx_overflow <= 1'b1;
-                        if (ctx_count < 6'd63)
-                            ctx_count <= ctx_count + 6'd1;
+                        if (ctx_count < 7'd127)
+                            ctx_count <= ctx_count + 7'd1;
                         if (s_last)
                             state <= S_LOOKUP;
                     end
                 end
 
                 S_LOOKUP: begin
-                    for (int part = 0; part < 4; part = part + 1)
+                    for (int part = 0; part < 16; part = part + 1)
                         cache_equal_parts[part] <=
                             cache_payload[ctx_source][part*32 +: 32] == ctx_payload[part*32 +: 32];
                     cache_key_match <= cache_valid[ctx_source] &&
@@ -356,9 +330,8 @@ module config_analyzer #(
                     end else if (!frame_ok) begin
                         // 外层帧/长度畸形。不要写缓存，也不要到达后级；
                         // 此时 SEQ 本身不可信。
-                        ctx_result   <= RESULT_BAD_LENGTH;
                         ctx_do_cache <= 1'b0;
-                        state        <= S_REPLY;
+                        state        <= S_RETIRE;
                     end else if (cache_hit) begin
                         ctx_result   <= cache_result[ctx_source];
                         ctx_do_cache <= 1'b0;
@@ -384,6 +357,7 @@ module config_analyzer #(
                         state <= S_RETIRE;
                     else if (barrier_ready)
                         state <= S_CFG;
+                    else begin ctx_result<=RESULT_BUSY;state<=S_REPLY;end
                 end
 
                 S_CFG: begin
@@ -393,7 +367,7 @@ module config_analyzer #(
                     end else if (cfg_ready) begin
                         // 握手完成：从这里开始，提交由后级负责。
                         state <= S_WAIT_DONE;
-                    end
+                    end else begin ctx_result<=RESULT_BUSY;state<=S_REPLY;end
                 end
 
                 S_WAIT_DONE: begin
@@ -437,9 +411,9 @@ module config_analyzer #(
         if (!rst_n) begin
             for (i = 0; i < 2; i = i + 1) begin
                 cache_valid[i]   <= 1'b0;
-                cache_seq[i]     <= 16'd0;
-                cache_len[i]     <= 6'd0;
-                cache_payload[i] <= 128'd0;
+                cache_seq[i]     <= 17'd0;
+                cache_len[i]     <= 7'd0;
+                cache_payload[i] <= 512'd0;
                 cache_result[i]  <= 8'd0;
             end
         end else begin

@@ -4,6 +4,7 @@ import {PianoRoll} from './piano-roll.mjs';
 import {SerialLink} from './serial.mjs';
 import {V2SerialLink} from './serial-v2.mjs';
 import {Playback,ReferenceSynth} from './playback.mjs';
+import {resourceBank} from './resource-banks.mjs';
 import {setupSidebars} from './sidebars.mjs';
 import {setupRecording} from './recording-ui.mjs';
 let recording;
@@ -217,10 +218,15 @@ $('import').onclick=()=>$('file-input').click();$('file-input').onchange=async e
 $('export-midi').onclick=()=>{try{download(writeMidi(history.current),'audio/midi',safeName()+'.mid');toast('已导出全部轨道及速度图');}catch(e){toast(e.message,true);}};$('save-project').onclick=()=>download(JSON.stringify(history.current,null,2),'application/json',safeName()+'.json');
 for(const id of ['hw-channel','hw-notes'])$(id).onchange=()=>{stopPlayback();try{hardwareProfile();status('已更新主机核对清单；请确保与板端实际配置一致');}catch(e){toast(e.message,true);}};
 function syncHwChannelIcon(){setInstrumentIcon($('hw-channel-icon'),Number($('hw-channel').value));}
-$('hw-channel').addEventListener('change',syncHwChannelIcon);syncHwChannelIcon();
+$('hw-channel').addEventListener('change',()=>{syncHwChannelIcon();$('manifest-bank').value='0';if(manifest){try{applyManifest();}catch(e){toast(e.message,true);}}});syncHwChannelIcon();
 $('hardware-exercise').onclick=()=>{try{const p=profileExercise(hardwareProfile());stopPlayback();selectedTrack=p.tracks[0].id;history.commit(p);playback.position=0;roll.cursor=0;roll.select([]);roll.fit();renderPosition();toast('已生成当前音组测试片段；可撤销恢复，点击播放前先选择输出');}catch(e){toast(e.message,true);}};
 $('load-manifest').onclick=()=>$('manifest-input').click();
-function applyManifest(){const bank=Number($('manifest-bank').value),notes=manifest.notes??manifest.midi_notes;if(!Array.isArray(notes)||notes.some(n=>!Number.isInteger(n)||n<0||n>127)||new Set(notes).size!==notes.length||![16,32].includes(notes.length))throw Error('manifest 需包含 16 / 32 项 notes 或 midi_notes 清单');const active=notes.slice(bank*16,bank*16+16);if(active.length!==16)throw Error('该清单没有高音组');$('hw-notes').value=active.join(',');stopPlayback();status('已读取资源清单；主机未向板端发送切组命令');}
+function applyManifest(){
+  const group=resourceBank(manifest,Number($('hw-channel').value),Number($('manifest-bank').value));
+  $('hw-notes').value=group.notes.join(',');
+  $('manifest-bank').options[0].textContent='低组 / 0';$('manifest-bank').options[1].textContent='高组 / 1';
+  stopPlayback();status(`${group.instrument} · ${group.bank?'高':'低'}音组 ${group.first}～${group.last}；请在板端选择相同音组`);
+}
 $('manifest-input').onchange=async e=>{try{if(!e.target.files[0])return;manifest=JSON.parse(await e.target.files[0].text());applyManifest();toast('资源音高清单已载入；请在板端选择对应音组');}catch(err){toast(err.message,true);}finally{e.target.value='';}};$('manifest-bank').onchange=()=>{if(manifest){try{applyManifest();}catch(e){toast(e.message,true);}}else toast('请先载入 Flash manifest');};
 setupSidebars();
 $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$('help-dialog').close();

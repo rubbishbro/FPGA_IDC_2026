@@ -12,11 +12,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (ROOT / "sim/comm_sources.f").read_text().splitlines()
-TESTS = ["tb_performance_limits", "tb_performance_record", "tb_comm_fifo", "tb_comm_uart", "tb_comm_uart_rates", "tb_comm_hc05_status", "tb_slip_frame_rx",
-         "tb_slip_frame_tx", "tb_frame_arbiter", "tb_midi_analyzer",
-         "tb_config_analyzer", "tb_comm_top", "tb_comm_faults",
-         "tb_comm_drivers", "tb_session_ctrl", "tb_comm_v2_codec",
-         "tb_transport_v2_link", "tb_comm_v2_top"]
+# Historical wire-format and pre-migration contract tests are archived;
+# see TEST_AUDIT_2026-11-01.md. This is the remaining regression scope.
+TESTS = ["tb_performance_limits", "tb_comm_fifo", "tb_comm_uart",
+         "tb_comm_uart_rates", "tb_comm_hc05_status", "tb_comm_drivers"]
 
 
 def executable(name: str, env: str) -> str:
