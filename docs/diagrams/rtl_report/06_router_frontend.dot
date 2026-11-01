@@ -1,0 +1,27 @@
+// voice_router 每采样帧头：激励、包络与快照
+digraph router_front {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.3,ranksep=0.45,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 6　voice_router 每采样的帧头：激励与包络并行，帧头一拍整表快照\n一帧只产一个样本；帧内所有槽 / 所有模态都算完才交后级";labelloc=t;
+
+fmap [label="fmap_q\n16×8 压力/力度\n先打一拍再分发",fillcolor="#dbeafe"];
+th   [label="滞回 + note 边沿\nON/OFF 门限\nnote_pend 攒到帧头",fillcolor="#dbeafe"];
+inp  [label="u_input\nperformance_input_mux\n逐槽选源 · gate/strike/retrig",fillcolor="#dbeafe"];
+exc  [label="u_exc : exc_router → u_gen : excitation_gen\n钢琴/吉他打击包络 · B 类逐槽周期冲激\nxmap[16][31:0] Q24（XF=24）",fillcolor="#dcfce7"];
+env  [label="u_env : env_router → u_adsr / u_dyn\nADSR 5 态 · dyn0 = fmap<<23\nemap[16][31:0] Q1.31 + dead[16]",fillcolor="#dcfce7"];
+snap [label="S_XS 快照（一拍）\nxmap → x_q[16]（寄存器）\nemap → emap_frame · dead → dead_frame",fillcolor="#fef3c7",penwidth=2];
+eng  [label="S_RUN_V：交给两个 eng_router\nbank A slot 0–7 · bank B slot 8–15",fillcolor="#ede9fe"];
+fsm  [label="同帧状态机\nS_DONE→S_CFG→S_LOAD\n→S_RUN_X→S_XS→S_RUN_V\n→S_ENVMUL→S_ENVACC→S_ADV→S_WAIT",fillcolor="#f5f3ff"];
+tim  [label="采样节拍\nEXTERNAL_SAMPLE_TICK=1\naudio 域 sample_tick（每帧 1 个 core 脉冲）",fillcolor="#fce7f3"];
+
+fmap -> th -> inp;
+inp -> exc [label="strike / gate"];
+inp -> env;
+exc -> snap [label="xmap_valid"];
+env -> snap [label="emap_valid"];
+snap -> eng [label="x_q · emap_frame"];
+fsm -> snap [style=dashed,label="帧边界"];
+tim -> fsm [style=dashed];
+{rank=same;exc;env;}
+}

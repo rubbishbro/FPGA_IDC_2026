@@ -1,0 +1,69 @@
+{
+  "phase": {
+    "entries": 64,
+    "width": 16,
+    "bits": 1024,
+    "sha256": "ce407c30e0cc01274606d24341d8c87c1c134b78375bc5467fa6207c4dee930b"
+  },
+  "breath": {
+    "entries": 256,
+    "width": 8,
+    "bits": 2048,
+    "sha256": "08748aaf4420bf200788234d05077a30bdce45b17b5037fd47a84e03c9dd65a6"
+  },
+  "palette": {
+    "entries": 256,
+    "width": 6,
+    "bits": 1536,
+    "sha256": "d010efad24ed444b5ac95ab84cfdd1cbf89b5dca329cbd8b7721a892ecef7d0d"
+  },
+  "distance": {
+    "entries": 64,
+    "width": 12,
+    "bits": 768,
+    "sha256": "4310657ffd3ca567bb1abaf7539fd19617be626da22b8063c3140deb8081ae37"
+  },
+  "shape": {
+    "entries": 512,
+    "width": 6,
+    "bits": 3072,
+    "sha256": "254066dba668d1ef3c679edbbf6013a637d6c949c6629341db51c04ad45368f5"
+  },
+  "age": {
+    "entries": 64,
+    "width": 6,
+    "bits": 384,
+    "sha256": "f8cde57a59d4d9824e377ece36149a5ce2b7e195598c701c77d3594fb66fa752"
+  },
+  "radial": {
+    "entries": 64,
+    "width": 6,
+    "bits": 384,
+    "sha256": "212c05e0644b9b7ba382d82e2055428a3b7443e902c4216a2fe59cd55ee175c8"
+  },
+  "combine": {
+    "entries": 4096,
+    "width": 6,
+    "bits": 24576,
+    "sha256": "d11cff1cdc6c8e0b18c340a0ec36a2835ae95f92b132947667bcd33e23cd924f"
+  },
+  "colour": {
+    "entries": 3584,
+    "width": 24,
+    "bits": 86016,
+    "sha256": "f1427f3d259b047feedd3a119e01348725092ebde4c4d9aa2df35451991e2eef"
+  },
+  "total_bits": 119808,
+  "parameters": {
+    "frame_hz": 200,
+    "speed_cells_s": 6,
+    "width_cells": 0.65,
+    "background_period_s": 5.2,
+    "background_wavelength_cells": 4.2,
+    "background_peak": 80,
+    "wave_peak": 160,
+    "age_bin_ms": 50,
+    "radius_step_q16": 1966,
+    "phase_step_q32": 4129776
+  }
+}

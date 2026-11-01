@@ -35,15 +35,16 @@ module env_router #(
                 a_step = 32'd16_777_216;
                 d_step = 32'd1_048_576;
                 s_level = 32'd536_870_912;
-                r_step = PIANO_R_STEP;
+                // 本地调音：release 比 400 ms 的 PIANO_R_STEP 更短
+                r_step = 32'd21_845;
             end
             router_pkg::INST_GUITAR: begin
-                // TODO: 确定吉他 ADSR；当前仍保留常数包络。
-                use_adsr = 1'b0;
-                a_step = 32'd16_777_216;
-                d_step = 32'd1_048_576;
-                s_level = 32'd536_870_912;
-                r_step = 32'd1_048_576;
+                // 本地调音：满幅 sustain、无 decay，release 走 74_566/2^31 每采样
+                use_adsr = 1'b1;
+                a_step = 32'd89_478_486;
+                d_step = 32'd0;
+                s_level = 32'h7fff_ffff;
+                r_step = 32'd74_566;
             end
             router_pkg::INST_FLUTE: begin
                 // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
@@ -70,12 +71,12 @@ module env_router #(
                 r_step = 32'd1_048_576;
             end
             router_pkg::INST_VIOLIN: begin
-                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
+                // 本地调音：配合 current_frame 的连续帧包络，满幅 sustain + 559_241 释放斜率
                 use_adsr = 1'b1;
-                a_step = 32'd16_777_216;
-                d_step = 32'd1_048_576;
-                s_level = 32'h1fff_ffff;
-                r_step = 32'd1_048_576;
+                a_step = 32'd2_236_963;
+                d_step = 32'd0;
+                s_level = 32'h7fff_ffff;
+                r_step = 32'd559_241;
             end
             router_pkg::INST_OBOE: begin
                 // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
@@ -134,13 +135,15 @@ module env_router #(
     // 参数先打一拍再进包络：否则 inst_lat -> 常量 mux -> 32 位加法器 -> 比较 会串成一条长链
     logic [31:0] a_step_r, d_step_r, s_level_r, r_step_r,decay_limit_r;
     wire[31:0] decay_limit_c=(s_level>32'h7fffffff-d_step)?32'h7fffffff:s_level+d_step;
-    logic sustain_mode_r;
+    logic sustain_mode_r,current_frame_r;
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             sustain_mode_r <= 1'b0;
+            current_frame_r<=0;
             a_step_r <= '0; d_step_r <= '0; s_level_r <= '0; r_step_r <= '0;decay_limit_r<=0;
         end else begin
-            sustain_mode_r <= router_pkg::is_sustain(inst);
+            sustain_mode_r <= router_pkg::is_sustain(inst) && inst!=router_pkg::INST_VIOLIN;
+            current_frame_r<=inst==router_pkg::INST_VIOLIN;
             a_step_r  <= a_step;
             d_step_r  <= d_step;
             s_level_r <= s_level;
@@ -150,7 +153,7 @@ module env_router #(
 
     envelope_ADSR #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1),.PRECOMPUTED_DECAY_LIMIT(1)) u_adsr (
         .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
-        .sustain_mode(sustain_mode_r),.slot_a_step(slot_a_step),.slot_r_step(slot_r_step),
+        .sustain_mode(sustain_mode_r),.current_frame(current_frame_r),.slot_a_step(slot_a_step),.slot_r_step(slot_r_step),
         .retrigger(retrigger), .slot_clear(slot_clear),
         .A_STEP(a_step_r), .D_STEP(d_step_r), .S_LEVEL(s_level_r),
         .R_STEP(r_step_r),.decay_limit(decay_limit_r),

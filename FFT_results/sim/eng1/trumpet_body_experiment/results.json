@@ -1,0 +1,268 @@
+{
+  "body_baseline": "five exact passthrough sections; checked bit-for-bit",
+  "note": "EQ candidates are arbitrary sensitivity controls, not fitted trumpet body measurements.",
+  "sample_rate": 48000,
+  "variants": [
+    {
+      "name": "baseline",
+      "gamma": 1,
+      "tongue": false,
+      "pulse2": false,
+      "state_rail_hits": 0,
+      "phrase": {
+        "file": "baseline_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": 11.7926548423412,
+        "active_rms_dbfs": -22.69737246848414,
+        "peak_dbfs": -3.202451608673794,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "8070d1bf58ff2516a2802eeec657eca2c3971af6702f24b950c468abed6bba95"
+      },
+      "single": {
+        "file": "baseline_single.wav",
+        "seconds": 2.4,
+        "gain_db": 7.6111854778643915,
+        "active_rms_dbfs": -22.498774788299105,
+        "peak_dbfs": -7.3839227378355945,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "2ecdd68e411a86dade61c4fccb88e8a9acc487d2c511c943d49140ae197f79e4"
+      },
+      "steady_above_2khz_power_fraction": 0.2324325803584523,
+      "first_50ms_vs_steady_db": -7.266237280340589,
+      "steady_vs_original_target_rms_db": 0.039101834181958464
+    },
+    {
+      "name": "tongue_adsr",
+      "gamma": 1,
+      "tongue": true,
+      "pulse2": false,
+      "state_rail_hits": 0,
+      "phrase": {
+        "file": "tongue_adsr_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": 1.5107872344489826,
+        "active_rms_dbfs": -22.697372425920438,
+        "peak_dbfs": -7.665779335272305,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "596488c5ad69efa40f11c7271c7af5df2086feea8ad607be80b031b192716ef6"
+      },
+      "single": {
+        "file": "tongue_adsr_single.wav",
+        "seconds": 2.4,
+        "gain_db": -4.113557652733663,
+        "active_rms_dbfs": -22.498774746179052,
+        "peak_dbfs": -12.39757839691469,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "3129298391f15e66dfcac1965549ef7b48fbe0da3c9b657a207d2238bcc2c89e"
+      },
+      "steady_above_2khz_power_fraction": 0.23243258017819635,
+      "first_50ms_vs_steady_db": -13.41712353222643,
+      "steady_vs_original_target_rms_db": 0.03910194567435891
+    },
+    {
+      "name": "faster_ringup",
+      "gamma": 4,
+      "tongue": false,
+      "pulse2": false,
+      "state_rail_hits": 0,
+      "phrase": {
+        "file": "faster_ringup_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": 7.039335011868559,
+        "active_rms_dbfs": -22.697372503899427,
+        "peak_dbfs": -2.148847354028151,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "59e16ca001b47129e03d9fc40cad716acfb3cf31f1bf93018ab7bfe528066559"
+      },
+      "single": {
+        "file": "faster_ringup_single.wav",
+        "seconds": 2.4,
+        "gain_db": 6.658897148389984,
+        "active_rms_dbfs": -22.49877488132003,
+        "peak_dbfs": -2.529285341412917,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "0f35cbab82e6ebc6c427f29c9e7a9d203aca827346c9627ab64b14d38ca22d82"
+      },
+      "steady_above_2khz_power_fraction": 0.22980033293890043,
+      "first_50ms_vs_steady_db": 0.9190342885086145,
+      "steady_vs_original_target_rms_db": 0.17769108584594304
+    },
+    {
+      "name": "tongue_fast_ringup",
+      "gamma": 4,
+      "tongue": true,
+      "pulse2": false,
+      "state_rail_hits": 0,
+      "phrase": {
+        "file": "tongue_fast_ringup_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": -1.2604435605572626,
+        "active_rms_dbfs": -22.697372529828396,
+        "peak_dbfs": -9.525077087211368,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "3d60859c84ef1186748b8fecbfde6214591cdbc24d0c439f609241b4a3372bbc"
+      },
+      "single": {
+        "file": "tongue_fast_ringup_single.wav",
+        "seconds": 2.4,
+        "gain_db": -4.304731366650484,
+        "active_rms_dbfs": -22.498774877817546,
+        "peak_dbfs": -12.568562463495983,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "8939085f903eac3d4af4dbf97ab00cbe6cbfaf89165a7ad10c05c42ed57d0ea9"
+      },
+      "steady_above_2khz_power_fraction": 0.22980033252384882,
+      "first_50ms_vs_steady_db": -4.802942385775404,
+      "steady_vs_original_target_rms_db": 0.17769112164596806
+    },
+    {
+      "name": "body_shelf",
+      "body_kind": "shelf",
+      "hz": 1500,
+      "boost_db": 6,
+      "q": null,
+      "body_coeffs_q4_27": [
+        [
+          255267914,
+          -451068547,
+          202038871,
+          -224513941,
+          96534451
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "body_saturations": 0,
+      "phrase": {
+        "file": "body_shelf_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": 8.546442363358063,
+        "active_rms_dbfs": -22.697372424940436,
+        "peak_dbfs": -1.1103466040620245,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "67a5814c7d215178810e8111eb62f8d827754b494705524f36cad7bff435c6ab"
+      },
+      "single": {
+        "file": "body_shelf_single.wav",
+        "seconds": 2.4,
+        "gain_db": 4.2553876942849085,
+        "active_rms_dbfs": -22.49877476808642,
+        "peak_dbfs": -5.401402255781468,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "089a8d60b73d26c2139daadcd964f96d4f3c32b32bfe23283f17dbdb0d25fe7f"
+      },
+      "steady_above_2khz_power_fraction": 0.3813346568625679,
+      "first_50ms_vs_steady_db": -7.172559831724379,
+      "steady_vs_original_target_rms_db": 3.1440583421051955,
+      "integer_body_vs_quantized_float_relative_rms_error": 5.0367211654898056e-08
+    },
+    {
+      "name": "body_presence",
+      "body_kind": "peak",
+      "hz": 2000,
+      "boost_db": 6,
+      "q": 0.8,
+      "body_coeffs_q4_27": [
+        [
+          147943486,
+          -232646388,
+          92909777,
+          -232646388,
+          106635536
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          134217728,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "body_saturations": 0,
+      "phrase": {
+        "file": "body_presence_phrase.wav",
+        "seconds": 11.12,
+        "gain_db": 7.858353850827444,
+        "active_rms_dbfs": -22.697372396844525,
+        "peak_dbfs": -1.6312354182131983,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "b5b43a0a94d3ead21264ab831161036e2842031017880790ea5dbfb1d581fe1a"
+      },
+      "single": {
+        "file": "body_presence_single.wav",
+        "seconds": 2.4,
+        "gain_db": 3.61764634099559,
+        "active_rms_dbfs": -22.498774770200086,
+        "peak_dbfs": -5.871943634191215,
+        "native_mono_pcm_rail_samples": 0,
+        "sha256": "62d517f3de1085d4f8f69da4590afe5161f72a01d3d26bf58335a210cc75199b"
+      },
+      "steady_above_2khz_power_fraction": 0.2643304838497658,
+      "first_50ms_vs_steady_db": -7.26011565147674,
+      "steady_vs_original_target_rms_db": 1.8620154491879017,
+      "integer_body_vs_quantized_float_relative_rms_error": 4.692554241348686e-08
+    }
+  ],
+  "source_recording": "music_resources/trumpet/trumpet_E4_15_forte_normal.mp3",
+  "source_recording_sha256": "d77e139b2755d90280f36716b2d7425a9460edd443e041905b2eb23a75f9619f",
+  "E4_source_attack_ms": 74.625,
+  "E4_gamma_median": 9.203884727313847,
+  "normalization": "all candidate active RMS matched per scene, peak <= .88; constant gain, no compression",
+  "production_files_modified": false,
+  "source_hashes": {
+    "python/modal_sim/trumpet_body_experiment.py": "af019c9202fbeb3c2bf9439e40d04cfe17f6491168ba0e73f915d5f820bf551c",
+    "python/modal_sim/trumpet_diagnose.py": "f81cf1a14b6a89356994aff2ba5f5308ce3be6819749c92ddd695bcb8cb913fe",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "python/modal_sim/router_eng1.py": "da2a7b47128154553f512d27c13a9d585a105ba29b961b8e141da2a4bacb0763",
+    "rtl/router/routers/body_router.sv": "3dd55280de101978e807f1895f20801cb7761ac3c58e164b5915c3c8548e5f02",
+    "FFT_results/params/trumpet_sustain.npz": "78d97747247f20d88e1bf8f49adfff2e9486df5d532b4c2e3bd6d52842568f29"
+  },
+  "baseline_matches_previous_native_pcm_bit_exact": true
+}

@@ -4,10 +4,10 @@ module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=0, BT_HAS_STATE=0, BT_PROTOCOL_V2=0,
-    parameter int PCM_HEADROOM_BITS=1,
+    parameter int PCM_HEADROOM_BITS=4,
     parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [6:0] FIRST_MIDI=48,
-    parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
+    parameter logic [9:0] RESOURCE_MASK=10'b0000101011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,
@@ -74,30 +74,13 @@ module instrument_system #(
         if(!core_n)pad_div<=0;else if(pad_tick)pad_div<=0;else pad_div<=pad_div+1'b1;
     input_param pad;
     led_param leds;
+    logic led_busy,led_frame_done;
     logic joy_valid;
     logic [13:0] joy_x,joy_y;
     pad_driver u_pad(.cr({clk_core,pad_tick,core_n}),.led_p(leds),.dat(led_dat),.input_p(pad),
-        .joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y));
+        .joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
+        .led_busy(led_busy),.led_frame_done(led_frame_done));
     assign pad_row=pad.row_s;assign pad_ch=pad.ch_s;
-    // boardtest 4abc8b19: one cell drives a 2x2 LED block, not four cells.
-    logic [5:0] fill_idx;
-    logic filling;
-    logic [12:0] led_gap;
-    wire [2:0] led_x=fill_idx[2:0],led_y=fill_idx[5:3];
-    wire [3:0] cell_idx={led_y[2:1],led_x[2:1]};
-    wire [7:0] cell_raw=pad.fmap.raw[cell_idx*8 +:8];
-    wire [7:0] brightness=!cell_raw[7] && cell_raw>16 ? cell_raw>>2 : 8'd0;
-    always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin fill_idx<=0;filling<=1;led_gap<=0;leds<='0;end
-        else if(pad_tick)begin
-            leds.x<=led_x;leds.y<=led_y;leds.pix<={brightness,brightness,brightness};leds.wr<=filling;
-            if(filling)begin
-                if(fill_idx==63)begin filling<=0;fill_idx<=0;led_gap<=0;end
-                else fill_idx<=fill_idx+1'b1;
-            end else if(led_gap==5999)begin filling<=1;fill_idx<=0;end
-            else led_gap<=led_gap+1'b1;
-        end
-    end
     // Raw ADC byte16 is about 0.5V in the branch's measured voltage mode.
     // Scale force by four, saturating; use equivalent 16/12 raw hysteresis.
     mat4x4 force_map;
@@ -106,6 +89,8 @@ module instrument_system #(
         assign force_map.raw[s*8 +:8]=raw_force[7] ? 8'd0 :
             (raw_force[6] ? 8'hff : {raw_force[5:0],2'b00});
     end
+    pad_led_effects u_pad_leds(.cr({clk_core,pad_tick,core_n}),.force_map(force_map),
+        .led_busy(led_busy),.led_frame_done(led_frame_done),.leds(leds));
 
     logic event_valid,event_ready,event_source;
     logic [31:0] event_data;

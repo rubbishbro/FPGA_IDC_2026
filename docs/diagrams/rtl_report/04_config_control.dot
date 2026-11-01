@@ -1,0 +1,52 @@
+// 配置与控制平面
+digraph config_control {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.26,ranksep=0.42,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 4　配置与控制平面（sidebar_system，clk_core）\n请求 64bit {tag,id,value} → 结果 72bit {tag,id,result,applied}；只有真实提交/实际应用才回 OK";labelloc=t;
+
+subgraph cluster_in {
+ label="输入源"; fontsize=10; color="#93c5fd"; style="rounded";
+ joy  [label="u_joystick : joystick_adapter\n15bit 原始坐标 · 逐轴迟滞\n校准 / 8 向 / 连发 / stale",fillcolor="#dbeafe"];
+ key  [label="key_ui_event ×2\n2FF + 10ms 去抖 + 400ms 长按",fillcolor="#dbeafe"];
+ ext  [label="comm 外部请求桥\nREVERB_SET → 0x0200\nSEQ 作 tag · 保留来源",fillcolor="#ede9fe"];
+}
+ui   [label="u_ui : sidebar_ctrl\n菜单导航 / 草稿 / 连发节拍\nHOT_DWELL 180ms",fillcolor="#dcfce7"];
+loop [label="u_loop : control_loop\n2 源轮询 · 单槽暂存\n只转交，不解释 id/value",fillcolor="#fef3c7",penwidth=2];
+disp [label="u_config : config_dispatch\nIDLE→VALIDATE→分支→REPLY\n能力位 / 校准超时 2s",fillcolor="#fef3c7",penwidth=2];
+
+subgraph cluster_branch {
+ label="三类提交语义"; fontsize=10; color="#c4b5fd"; style="rounded";
+ br_d [label="① 显示类 0x0400–0x0404\n只改像素域快照\n等 render_epoch 回比",fillcolor="#dcfce7"];
+ br_c [label="② 校准 0x8000\n摇杆重校准\n等 calibrated 撤销再恢复",fillcolor="#dcfce7"];
+ br_b [label="③ 音频后端\n0100 音色 / 0200 混响 / 0300 音区\n0500 来源 / 0501 通道 / 0503 引导\n8001 清音",fillcolor="#bfdbfe"];
+}
+snd [label="u_sound 后端 : midi_voice_top\n清理→锁存→装载→排空→active\ntag/id 匹配后回真实结果",fillcolor="#bfdbfe"];
+pol [label="0502 远程权限（板级）\napplied=0..3 · 外部源只能读",fillcolor="#f5f3ff"];
+mail [label="u_view_cdc / u_guide_cdc\nsidebar_mailbox\ntoggle 握手 · 整包保持",fillcolor="#dcfce7"];
+frame [label="像素帧头提交\n仅 frame_pulse 整包生效",fillcolor="#dcfce7"];
+lcd [label="lcd_draw / lcd_sidebar\nlcd_pad_guide\n三层叠加 + 4 拍 RGB/DE",fillcolor="#dcfce7"];
+rsp [label="cfg_response_t 72bit\nresult 0 OK / 1 UNSUP / 2 RANGE\n/ 3 DENIED / 4 FAILED",fillcolor="#fff7ed"];
+gap [label="未实现（显示“未接入”）\n0101 主音量 · 0210/0211 力度调制\n0600/0601 死区连发 · EQ（NOT_READY）",style="dashed",fillcolor="#f8fafc"];
+
+joy -> ui;
+key -> ui [label="短按/长按事件"];
+ui -> loop [label="本地请求（源 0）"];
+ext -> loop [label="外部请求（源 1）"];
+loop -> disp;
+disp -> br_d;
+disp -> br_c;
+disp -> br_b;
+br_b -> snd [dir=both,label="submit ↔ applied"];
+br_b -> pol [style=dashed,label="id==0502"];
+br_d -> mail [dir=both];
+mail -> frame -> lcd;
+snd -> rsp;
+br_c -> rsp;
+br_d -> rsp [label="epoch 回比"];
+rsp -> ui [style=dashed,label="回到原来源"];
+rsp -> ext [style=dashed];
+disp -> gap [style=dashed,label="能力位=0"];
+{rank=same;br_d;br_c;br_b;}
+{rank=same;mail;snd;pol;}
+}

@@ -550,7 +550,7 @@ module voice_router #(
                     if(pitch_bank)ca_a12_a[pitch_co_addr[BA-1:0]]<=pitch_a1;
                     else pitch_a12_a[pitch_co_addr[BA-1:0]]<=pitch_a1;
                 end
-            end else if ((|mod_co_we) && !ld_busy && !ld_start) begin
+            end else if ((|mod_co_we) && !eng_sel(inst_lat) && !ld_busy && !ld_start) begin
                 if (mod_bank_b) begin
                     if (mod_co_we[0]) ca_a11_b[mod_bank_addr] <= mod_co_wdata.a11;
                     if (mod_co_we[1]) ca_a12_b[mod_bank_addr] <= mod_co_wdata.a12;
@@ -934,7 +934,7 @@ module voice_router #(
                 mod_start <= 1'b1;
             end
 
-            if (active_midi) mod_req <= '0; // velocity 不进入压力调音
+            if (active_midi || eng_sel(inst_lat)) mod_req <= '0;
 
             case (state)
                 // 空闲：done=1（上面组合输出），等 start。
@@ -1041,19 +1041,19 @@ module voice_router #(
                 // 两个引擎都出 y_valid 才算这一组完成（同种引擎、同拍启动，时序一致）
                 S_RUN_V: begin
                     if (era_yv && erb_yv) begin
-                        if (!active_midi && note_f[g[VWID-1:0]]) mod_req[g[VWID-1:0]] <= 1'b1;
-                        if (!active_midi && note_f[VWID'(g + VWID'(HS))])
+                        if (!active_midi && !eng_sel(inst_lat) && note_f[g[VWID-1:0]]) mod_req[g[VWID-1:0]] <= 1'b1;
+                        if (!active_midi && !eng_sel(inst_lat) && note_f[VWID'(g + VWID'(HS))])
                                                             mod_req[VWID'(g + VWID'(HS))] <= 1'b1;
                         // 按住期间**力度变化**也要重新调制（揉弦就靠这个）：
                         //   以前只有 note_f（起音沿）会登记，按住之后 fmap 怎么变
                         //   都没人管 -> 揉弦只生效一下。这里补一个"fmap 变了"的触发，
                         //   每帧每组两个声部各比一次，改了才登记（幂等，重复跑无害）。
-                        if (!active_midi && !maintain_req && part_gate[g[VWID-1:0]] &&
+                        if (!active_midi && !eng_sel(inst_lat) && !maintain_req && part_gate[g[VWID-1:0]] &&
                             (fmap_q.flat_d[g[VWID-1:0]].val != fmap_prev[g[VWID-1:0]])) begin
                             mod_req[g[VWID-1:0]]          <= 1'b1;
                             fmap_prev[g[VWID-1:0]]        <= fmap_q.flat_d[g[VWID-1:0]].val;
                         end
-                        if (!active_midi && !maintain_req && part_gate[VWID'(g + VWID'(HS))] &&
+                        if (!active_midi && !eng_sel(inst_lat) && !maintain_req && part_gate[VWID'(g + VWID'(HS))] &&
                             (fmap_q.flat_d[VWID'(g + VWID'(HS))].val !=
                              fmap_prev[VWID'(g + VWID'(HS))])) begin
                             mod_req[VWID'(g + VWID'(HS))] <= 1'b1;

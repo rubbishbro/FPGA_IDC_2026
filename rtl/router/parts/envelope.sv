@@ -16,6 +16,7 @@ module envelope_ADSR #(
     input  logic                        clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     // 包络参数（由 router 的常量表按乐器选择；综合成常量网络）
     input logic sustain_mode,
+    input logic current_frame=1'b0,
     input logic [SLOTS*32-1:0] slot_a_step,slot_r_step,
     input  logic [31:0]                 A_STEP,
     input  logic [31:0]                 D_STEP,
@@ -90,7 +91,7 @@ module envelope_ADSR #(
             for(int i=0;i<SLOTS;i++)begin
                 st[i]<=next_st[i];lvl[i]<=next_lvl[i];
                 // B uses this frame's envelope; the legacy piano keeps its old latency.
-                emap[i]<=use_slot ? signed'(next_lvl[i]) :
+                emap[i]<=(use_slot || current_frame) ? signed'(next_lvl[i]) :
                     ((slot_clear[i] || retrigger[i]) ? 32'sd0 :
                      ($signed(lvl[i])<0 ? 32'sh7fffffff : signed'(lvl[i])));
             end

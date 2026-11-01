@@ -1,0 +1,1040 @@
+{
+  "instrument": "violin",
+  "status": "RTL-derived Python PAD sample model",
+  "rtl_simulator_required": false,
+  "excerpt_rtl_cosim_performed": false,
+  "input": "Synthetic 16-pad uint8 ADC bytes, not a captured player performance",
+  "route": "ADC byte -> board invalid-bit rejection / saturating x4 force map -> 64/48 hysteresis -> PAD gate/level, retrigger=0 -> current periodic impulse -> original ADSR -> Q24 48-mode ENG1 -> body passthrough -> reverb NONE -> mono PCM16 headroom=3",
+  "sample_rate": 48000,
+  "frames": 697600,
+  "note_map": [
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75
+  ],
+  "events": [
+    {
+      "time": 0.2,
+      "midi": 72,
+      "duration": 1.225,
+      "score_beats": 1.5,
+      "beat": 0.0,
+      "measure": 1,
+      "velocity": 94
+    },
+    {
+      "time": 1.45,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 1.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 1.8666666666666667,
+      "midi": 74,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 2.0,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 2.2833333333333337,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 2.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 2.7,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 3.0,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 3.1166666666666667,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 3.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 3.5333333333333337,
+      "midi": 65,
+      "duration": 1.6416666666666668,
+      "score_beats": 2.0,
+      "beat": 4.0,
+      "measure": 2,
+      "velocity": 94
+    },
+    {
+      "time": 5.2,
+      "midi": 62,
+      "duration": 1.4866666666666668,
+      "score_beats": 2.0,
+      "beat": 6.0,
+      "measure": 2,
+      "velocity": 86
+    },
+    {
+      "time": 6.866666666666667,
+      "midi": 60,
+      "duration": 1.225,
+      "score_beats": 1.5,
+      "beat": 8.0,
+      "measure": 3,
+      "velocity": 94
+    },
+    {
+      "time": 8.116666666666667,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 9.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 8.533333333333333,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 10.0,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 8.95,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 10.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 9.366666666666665,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 11.0,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 9.783333333333333,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 11.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 10.2,
+      "midi": 67,
+      "duration": 3.1533333333333333,
+      "score_beats": 4.0,
+      "beat": 12.0,
+      "measure": 4,
+      "velocity": 94
+    }
+  ],
+  "score_audit": [
+    {
+      "measure": 1,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 72,
+          "beats": 1.5
+        },
+        {
+          "beat": 1.5,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.0,
+          "midi": 74,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.5,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.0,
+          "midi": 69,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.5,
+          "midi": 65,
+          "beats": 0.5
+        }
+      ]
+    },
+    {
+      "measure": 2,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 65,
+          "beats": 2.0
+        },
+        {
+          "beat": 2.0,
+          "midi": 62,
+          "beats": 2.0
+        }
+      ]
+    },
+    {
+      "measure": 3,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 60,
+          "beats": 1.5
+        },
+        {
+          "beat": 1.5,
+          "midi": 65,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.0,
+          "midi": 69,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.5,
+          "midi": 65,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.0,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.5,
+          "midi": 69,
+          "beats": 0.5
+        }
+      ]
+    },
+    {
+      "measure": 4,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 67,
+          "beats": 4.0
+        }
+      ]
+    }
+  ],
+  "comparison": "Same notes, peak pressure and original note-off times. Step versus linear 8ms pressure attack / 12ms release ending at note-off.",
+  "articulation": "Original 20.83-25ms gaps and 180ms phrase gaps retained. No merged repeated notes, overlap, bow envelope, lip jitter or added noise.",
+  "boundary": "Loaded fixed bank, active PAD source, audio-frame input. ADC scanning, core-clock input registers, switching/loading and FIFO excluded. 48k resource-rate audition; not a measurement of hardware DAC clock.",
+  "resources": [
+    {
+      "midi": 60,
+      "period": 183,
+      "a_step": 150194,
+      "r_step": 2236962,
+      "coefficient_sha256": "5323dee2cc8eb024bf323085d4c584d139550f129c73b6b1561461df97f7d62b"
+    },
+    {
+      "midi": 61,
+      "period": 173,
+      "a_step": 150194,
+      "r_step": 2236962,
+      "coefficient_sha256": "54209fadda3b3fcec5b0d8c39b4c5668ae6a15b009b64ca097959bb22d96305d"
+    },
+    {
+      "midi": 62,
+      "period": 163,
+      "a_step": 765045,
+      "r_step": 835922,
+      "coefficient_sha256": "ee374c5e5381ada13188e3eca224bc6b5db78913463326ec502931c148249804"
+    },
+    {
+      "midi": 63,
+      "period": 154,
+      "a_step": 145770,
+      "r_step": 2236962,
+      "coefficient_sha256": "17dccb85181c4f1cc44ac88b3da0dd22e83804cbafb56c3ce6d77d9ec1ae288a"
+    },
+    {
+      "midi": 64,
+      "period": 146,
+      "a_step": 145770,
+      "r_step": 2236962,
+      "coefficient_sha256": "b2605080453473298ebbc4a51ff8893dde3a0e98aa53fc9a51f8f3e1142a636b"
+    },
+    {
+      "midi": 65,
+      "period": 137,
+      "a_step": 139655,
+      "r_step": 2236962,
+      "coefficient_sha256": "a12e4e99f96251f827f2942cc07250a84dbe7f0f21cafa21563bc414da780111"
+    },
+    {
+      "midi": 66,
+      "period": 130,
+      "a_step": 139655,
+      "r_step": 2236962,
+      "coefficient_sha256": "27fadc5e8742d95a16bd0bbf84e4f1564d9439117794b42f1424abdff14246d1"
+    },
+    {
+      "midi": 67,
+      "period": 122,
+      "a_step": 587868,
+      "r_step": 2236962,
+      "coefficient_sha256": "99e398b4c7877d5755833652e08fec35d3bfeb79728b04302d57ccb1f47cfe5b"
+    },
+    {
+      "midi": 68,
+      "period": 116,
+      "a_step": 169493,
+      "r_step": 2236962,
+      "coefficient_sha256": "547dfc6e5ff14e3f300545be61e942db05451a4ca9defa80811ac625fc550b02"
+    },
+    {
+      "midi": 69,
+      "period": 109,
+      "a_step": 169493,
+      "r_step": 2236962,
+      "coefficient_sha256": "1705a85ca090cd5070e6019e87d94e92c1cbf21289af1f1cabdf92b748380cb1"
+    },
+    {
+      "midi": 70,
+      "period": 103,
+      "a_step": 226527,
+      "r_step": 2236962,
+      "coefficient_sha256": "3292337d4c4b56e174bb299b756e5651041b7a48397ee4be8b5944cb1cc27c3d"
+    },
+    {
+      "midi": 71,
+      "period": 97,
+      "a_step": 1100145,
+      "r_step": 1435483,
+      "coefficient_sha256": "7221f59feec8973adac25b7e5b0d7628dc142eb95cc2d2252261c397b01d9a2d"
+    },
+    {
+      "midi": 72,
+      "period": 92,
+      "a_step": 1100145,
+      "r_step": 1435483,
+      "coefficient_sha256": "23503641364f5404a0b3d690dc0caafba28bca227bebd3943924dde38727622e"
+    },
+    {
+      "midi": 73,
+      "period": 87,
+      "a_step": 231934,
+      "r_step": 2236962,
+      "coefficient_sha256": "78b45505e7b0cb5ba0eb4d8a0a80e618fe5393c4451731e1d42ff6312a5269fd"
+    },
+    {
+      "midi": 74,
+      "period": 82,
+      "a_step": 231934,
+      "r_step": 2236962,
+      "coefficient_sha256": "502e3ee54df0e95918b05b7375fdcc3f28b9ed81d3a26d4af5765ccea79775d6"
+    },
+    {
+      "midi": 75,
+      "period": 77,
+      "a_step": 690287,
+      "r_step": 2236962,
+      "coefficient_sha256": "8cdb96fe36a8dc7034a520a48d110e74788995afa56c6e4ea3dc991e7cecb3ae"
+    }
+  ],
+  "renders": [
+    {
+      "name": "step_pressure",
+      "gate_transitions": [
+        {
+          "sample": 9600,
+          "time": 0.2,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 188
+        },
+        {
+          "sample": 68400,
+          "time": 1.425,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 69600,
+          "time": 1.45,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 88600,
+          "time": 1.8458333333333334,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 89600,
+          "time": 1.8666666666666667,
+          "pad": 14,
+          "midi": 74,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 108600,
+          "time": 2.2625,
+          "pad": 14,
+          "midi": 74,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 109600,
+          "time": 2.283333333333333,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 128600,
+          "time": 2.6791666666666667,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 129600,
+          "time": 2.7,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 148600,
+          "time": 3.095833333333333,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 149600,
+          "time": 3.1166666666666667,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 168600,
+          "time": 3.5125,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 169600,
+          "time": 3.533333333333333,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 188
+        },
+        {
+          "sample": 248400,
+          "time": 5.175,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 249600,
+          "time": 5.2,
+          "pad": 2,
+          "midi": 62,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 320960,
+          "time": 6.6866666666666665,
+          "pad": 2,
+          "midi": 62,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 329600,
+          "time": 6.866666666666666,
+          "pad": 0,
+          "midi": 60,
+          "gate": true,
+          "pressure": 188
+        },
+        {
+          "sample": 388400,
+          "time": 8.091666666666667,
+          "pad": 0,
+          "midi": 60,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 389600,
+          "time": 8.116666666666667,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 408600,
+          "time": 8.5125,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 409600,
+          "time": 8.533333333333333,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 428600,
+          "time": 8.929166666666667,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 429600,
+          "time": 8.95,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 448600,
+          "time": 9.345833333333333,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 449600,
+          "time": 9.366666666666667,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 468600,
+          "time": 9.7625,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 469600,
+          "time": 9.783333333333333,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 172
+        },
+        {
+          "sample": 488600,
+          "time": 10.179166666666667,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 0
+        },
+        {
+          "sample": 489600,
+          "time": 10.2,
+          "pad": 7,
+          "midi": 67,
+          "gate": true,
+          "pressure": 188
+        },
+        {
+          "sample": 640960,
+          "time": 13.353333333333333,
+          "pad": 7,
+          "midi": 67,
+          "gate": false,
+          "pressure": 0
+        }
+      ],
+      "internal_zero_gaps": [
+        {
+          "start": 1.4327916666666667,
+          "end": 1.4500208333333333,
+          "ms": 17.229166666666668
+        },
+        {
+          "start": 1.853625,
+          "end": 1.8666875,
+          "ms": 13.0625
+        },
+        {
+          "start": 2.2675,
+          "end": 2.283354166666667,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 2.686958333333333,
+          "end": 2.7000208333333333,
+          "ms": 13.0625
+        },
+        {
+          "start": 3.1008333333333336,
+          "end": 3.1166875,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 3.5174791666666665,
+          "end": 3.533354166666667,
+          "ms": 15.875
+        },
+        {
+          "start": 5.18,
+          "end": 5.200020833333333,
+          "ms": 20.020833333333332
+        },
+        {
+          "start": 6.7000416666666665,
+          "end": 6.8666875,
+          "ms": 166.64583333333334
+        },
+        {
+          "start": 8.096645833333334,
+          "end": 8.1166875,
+          "ms": 20.041666666666668
+        },
+        {
+          "start": 8.517479166666666,
+          "end": 8.533354166666667,
+          "ms": 15.875
+        },
+        {
+          "start": 8.934166666666666,
+          "end": 8.950020833333333,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 9.3508125,
+          "end": 9.3666875,
+          "ms": 15.875
+        },
+        {
+          "start": 9.770291666666667,
+          "end": 9.783354166666667,
+          "ms": 13.0625
+        },
+        {
+          "start": 10.184166666666666,
+          "end": 10.200020833333333,
+          "ms": 15.854166666666666
+        }
+      ],
+      "state_rail_hits": 0,
+      "native_pcm_rail_samples": 0,
+      "file": "step_pressure_listen.wav",
+      "listening_gain_db": 9.693801263775468,
+      "active_rms_dbfs": -22.49877478355001,
+      "peak_dbfs": -5.52533460867433,
+      "sha256": "75647d460f7610210c38ebd1f5a65c74eaeb0c3ef3f320051615e19e50ab2412"
+    },
+    {
+      "name": "ramped_pressure",
+      "gate_transitions": [
+        {
+          "sample": 9735,
+          "time": 0.2028125,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 68259,
+          "time": 1.4220625,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 69747,
+          "time": 1.4530625,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 88446,
+          "time": 1.842625,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 89747,
+          "time": 1.8697291666666667,
+          "pad": 14,
+          "midi": 74,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 108446,
+          "time": 2.2592916666666665,
+          "pad": 14,
+          "midi": 74,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 109747,
+          "time": 2.286395833333333,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 128446,
+          "time": 2.6759583333333334,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 129747,
+          "time": 2.7030625,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 148446,
+          "time": 3.092625,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 149747,
+          "time": 3.1197291666666667,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 168446,
+          "time": 3.5092916666666665,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 169735,
+          "time": 3.5361458333333333,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 248259,
+          "time": 5.1720625,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 249747,
+          "time": 5.2030625,
+          "pad": 2,
+          "midi": 62,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 320806,
+          "time": 6.683458333333333,
+          "pad": 2,
+          "midi": 62,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 329735,
+          "time": 6.869479166666666,
+          "pad": 0,
+          "midi": 60,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 388259,
+          "time": 8.088729166666667,
+          "pad": 0,
+          "midi": 60,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 389747,
+          "time": 8.119729166666668,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 408446,
+          "time": 8.509291666666666,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 409747,
+          "time": 8.536395833333334,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 428446,
+          "time": 8.925958333333334,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 429747,
+          "time": 8.9530625,
+          "pad": 5,
+          "midi": 65,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 448446,
+          "time": 9.342625,
+          "pad": 5,
+          "midi": 65,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 449747,
+          "time": 9.369729166666668,
+          "pad": 12,
+          "midi": 72,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 468446,
+          "time": 9.759291666666666,
+          "pad": 12,
+          "midi": 72,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 469747,
+          "time": 9.786395833333334,
+          "pad": 9,
+          "midi": 69,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 488446,
+          "time": 10.175958333333334,
+          "pad": 9,
+          "midi": 69,
+          "gate": false,
+          "pressure": 44
+        },
+        {
+          "sample": 489735,
+          "time": 10.2028125,
+          "pad": 7,
+          "midi": 67,
+          "gate": true,
+          "pressure": 68
+        },
+        {
+          "sample": 640819,
+          "time": 13.350395833333334,
+          "pad": 7,
+          "midi": 67,
+          "gate": false,
+          "pressure": 44
+        }
+      ],
+      "internal_zero_gaps": [
+        {
+          "start": 1.4298541666666666,
+          "end": 1.4530833333333333,
+          "ms": 23.229166666666668
+        },
+        {
+          "start": 1.8503958333333332,
+          "end": 1.86975,
+          "ms": 19.354166666666668
+        },
+        {
+          "start": 2.264291666666667,
+          "end": 2.2864166666666668,
+          "ms": 22.125
+        },
+        {
+          "start": 2.6837291666666667,
+          "end": 2.7030833333333333,
+          "ms": 19.354166666666668
+        },
+        {
+          "start": 3.097625,
+          "end": 3.11975,
+          "ms": 22.125
+        },
+        {
+          "start": 3.5142708333333332,
+          "end": 3.5361666666666665,
+          "ms": 21.895833333333332
+        },
+        {
+          "start": 5.1770625,
+          "end": 5.203083333333334,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 6.696833333333333,
+          "end": 6.8695,
+          "ms": 172.66666666666666
+        },
+        {
+          "start": 8.093708333333334,
+          "end": 8.11975,
+          "ms": 26.041666666666668
+        },
+        {
+          "start": 8.514270833333333,
+          "end": 8.536416666666666,
+          "ms": 22.145833333333332
+        },
+        {
+          "start": 8.930958333333333,
+          "end": 8.953083333333334,
+          "ms": 22.125
+        },
+        {
+          "start": 9.347604166666667,
+          "end": 9.36975,
+          "ms": 22.145833333333332
+        },
+        {
+          "start": 9.7670625,
+          "end": 9.786416666666666,
+          "ms": 19.354166666666668
+        },
+        {
+          "start": 10.180958333333333,
+          "end": 10.202833333333333,
+          "ms": 21.875
+        }
+      ],
+      "state_rail_hits": 0,
+      "native_pcm_rail_samples": 0,
+      "file": "ramped_pressure_listen.wav",
+      "listening_gain_db": 9.736433834446142,
+      "active_rms_dbfs": -22.498774784826793,
+      "peak_dbfs": -5.491924202181739,
+      "sha256": "06a619f06f70112948f737188fb8a01ea5da8d53f8cfc28f1d8782e8d41b00b4"
+    }
+  ],
+  "source_hashes": {
+    "python/modal_sim/eng1_pad_audition.py": "cf328fbefc2293417c7ac1b63f24f4a3b9995e6957a928f89ce1d91cce22b76a",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "python/modal_sim/router_eng1.py": "da2a7b47128154553f512d27c13a9d585a105ba29b961b8e141da2a4bacb0763",
+    "FFT_results/sim/eng1/hinos_sentimentais/source_what_a_friend.musicxml": "6541aff8b04889fbab4498ec3852076f22c1fc2b695645686415687b15cf7aea",
+    "python/modal_sim/trumpet_hinos_excerpt.py": "faffdb1d303a66445558c933a4a56de416e17c66c6566620f96233963400c619",
+    "rtl/platform/tang_mega_138k_pro/instrument_system.sv": "bdf0e53bd4c959957ba0635d507f5c9d8669cab37e3facc6136e0a7a0a997f99",
+    "rtl/router/voice_router.sv": "cc51c99e597dacf56830e587a85f0fddd38f0ac6bf7f44665c61f0ee0af53faa",
+    "rtl/router/routers/exc_router.sv": "e44b891d9ef64ef1a787e11f740225b860089fdf22e4509d72bf813c22f207a9",
+    "rtl/router/routers/env_router.sv": "070e5d2d6b6df01cea5387cb9aadaf90198ce35747e6abe65995ddacee7b80f6"
+  }
+}

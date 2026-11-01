@@ -40,11 +40,17 @@ module exc_router #(
     always_comb begin
         case (inst)
             router_pkg::INST_PIANO: begin
-                // TODO: 核定击锤形状；暂保留 32 采样上升、四次击锤。
-                shift = 6'd16;
-                rise_sh = 6'd5;
-                pw_len = 16'd32;
-                gap_len = 16'd448;
+                // 钢琴击弦：对齐 sythsound/sim_piano.py::SF 的形状（方案 B）
+                //   Python: 0.5 ms 线性上升 + 1 ms 指数尾巴 + 10 ms 一个 + 0.7^k 递减，4 个
+                //   这里:   2 采样上升 + 指数尾巴 + 周期 480(10 ms) + 0.6875^k
+                //   PW_LEN = 1<<RISE_SH = 2 -> 上升结束正好到峰值（本地调音从 32/448 收到 2/478）
+                //   GAP_LEN = 周期 - PW_LEN = 478（实测周期 = PW_LEN + GAP_LEN）
+                //   峰值幅度由 SHIFT 决定：xmap = strike_level<<SHIFT
+                //     250<<16 / 2^24 = 0.977（Python SF 默认 amplitude=1.4，demo 里是 1.0）
+                shift   = 6'd16;
+                rise_sh = 6'd1;
+                pw_len  = 16'd2;
+                gap_len = 16'd478;
                 n_pulse = 3'd3;
             end
             router_pkg::INST_GUITAR: begin

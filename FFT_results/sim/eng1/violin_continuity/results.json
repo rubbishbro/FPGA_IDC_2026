@@ -1,0 +1,320 @@
+{
+  "instrument": "violin",
+  "cause": "Trumpet-style21..25ms gate gaps plus5..13ms release from1/4 sustain; slow41..320ms attack, peak-to1/4 decay, same-pitch retrigger clears.",
+  "variants": {
+    "baseline": {
+      "file": "hinos_violin_baseline.wav",
+      "frames": 697600,
+      "active_rms_dbfs": -22.49877036324942,
+      "peak_dbfs": -5.527504194934313,
+      "gain_db": 5.099896322654356e-08,
+      "state_rail_hits": 0,
+      "native_pcm_rail_samples": 0,
+      "digital_zero_gaps": [
+        {
+          "start": 1.4327708333333333,
+          "end": 1.4500208333333333,
+          "ms": 17.25
+        },
+        {
+          "start": 1.853625,
+          "end": 1.8666875,
+          "ms": 13.0625
+        },
+        {
+          "start": 2.2675,
+          "end": 2.283354166666667,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 2.686958333333333,
+          "end": 2.7000208333333333,
+          "ms": 13.0625
+        },
+        {
+          "start": 3.1008333333333336,
+          "end": 3.1166875,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 3.5174791666666665,
+          "end": 3.533354166666667,
+          "ms": 15.875
+        },
+        {
+          "start": 5.18,
+          "end": 5.200020833333333,
+          "ms": 20.020833333333332
+        },
+        {
+          "start": 6.7000416666666665,
+          "end": 6.8666875,
+          "ms": 166.64583333333334
+        },
+        {
+          "start": 8.096645833333334,
+          "end": 8.1166875,
+          "ms": 20.041666666666668
+        },
+        {
+          "start": 8.517479166666666,
+          "end": 8.533354166666667,
+          "ms": 15.875
+        },
+        {
+          "start": 8.934166666666666,
+          "end": 8.950020833333333,
+          "ms": 15.854166666666666
+        },
+        {
+          "start": 9.3508125,
+          "end": 9.3666875,
+          "ms": 15.875
+        },
+        {
+          "start": 9.770291666666667,
+          "end": 9.783354166666667,
+          "ms": 13.0625
+        },
+        {
+          "start": 10.184166666666666,
+          "end": 10.200020833333333,
+          "ms": 15.854166666666666
+        }
+      ],
+      "sha256": "42dba6b2b3805268690a25746017a6ec15c6f729f1b8ba114ffc737f492dfefb"
+    },
+    "release_only": {
+      "file": "hinos_violin_release_only.wav",
+      "frames": 697600,
+      "active_rms_dbfs": -22.49877478110782,
+      "peak_dbfs": -5.572498817280218,
+      "gain_db": 9.600511954969672,
+      "state_rail_hits": 0,
+      "native_pcm_rail_samples": 0,
+      "digital_zero_gaps": [
+        {
+          "start": 6.7666458333333335,
+          "end": 6.8666875,
+          "ms": 100.04166666666667
+        }
+      ],
+      "sha256": "1f29bd32df55c57e7d96b75425f87d4ec365f18bc4abd011f39e37f62349e9d5"
+    },
+    "bow_legato": {
+      "file": "hinos_violin_bow_legato.wav",
+      "frames": 697600,
+      "active_rms_dbfs": -22.498774769498535,
+      "peak_dbfs": -14.57283381142206,
+      "gain_db": 0.10104184688176171,
+      "state_rail_hits": 0,
+      "native_pcm_rail_samples": 0,
+      "digital_zero_gaps": [
+        {
+          "start": 6.7666458333333335,
+          "end": 6.8666875,
+          "ms": 100.04166666666667
+        }
+      ],
+      "sha256": "94dbf89bd4f673ef149e7156678a77e3953a77ad485c6014ac4db5be45df703c"
+    }
+  },
+  "release_only": "Original score gaps, original attack/decay/sustain, only release slope80ms from1/4 sustain.",
+  "bow_legato": "20ms attack,full sustain,no decay,80ms release; adjacent different pitches have zero scheduled gate gap with release overlap; repeated pitches continue bow/history and update velocity;180ms phrase breath retained.",
+  "caveat": "Bow legato merges same-pitch rearticulations into continuous bow; not an implemented MIDI/RTL legato policy. Resonator ring-up remains. It is a listening candidate.",
+  "modal_excitation": "Original production violin G/a1/a2 and periodic excitation unchanged; no added noise/reverb.",
+  "schedules": {
+    "release_only": [
+      {
+        "midi": 72,
+        "on": 0.2,
+        "off": 1.425,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 1.45,
+        "off": 1.8458333333333332,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 74,
+        "on": 1.8666666666666667,
+        "off": 2.2625,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 2.2833333333333337,
+        "off": 2.679166666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 2.7,
+        "off": 3.0958333333333337,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 3.1166666666666667,
+        "off": 3.5125,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 3.5333333333333337,
+        "off": 5.175000000000001,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 62,
+        "on": 5.2,
+        "off": 6.686666666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 60,
+        "on": 6.866666666666667,
+        "off": 8.091666666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 8.116666666666667,
+        "off": 8.512500000000001,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 8.533333333333333,
+        "off": 8.929166666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 8.95,
+        "off": 9.345833333333333,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 9.366666666666665,
+        "off": 9.7625,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 9.783333333333333,
+        "off": 10.179166666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 67,
+        "on": 10.2,
+        "off": 13.353333333333332,
+        "carried_same_pitch": false
+      }
+    ],
+    "bow_legato": [
+      {
+        "midi": 72,
+        "on": 0.2,
+        "off": null,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 1.45,
+        "off": 1.8666666666666667,
+        "carried_same_pitch": true
+      },
+      {
+        "midi": 74,
+        "on": 1.8666666666666667,
+        "off": 2.2833333333333337,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 2.2833333333333337,
+        "off": 2.7,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 2.7,
+        "off": 3.1166666666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 3.1166666666666667,
+        "off": null,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 3.5333333333333337,
+        "off": 5.2,
+        "carried_same_pitch": true
+      },
+      {
+        "midi": 62,
+        "on": 5.2,
+        "off": 6.686666666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 60,
+        "on": 6.866666666666667,
+        "off": 8.116666666666667,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 8.116666666666667,
+        "off": 8.533333333333333,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 8.533333333333333,
+        "off": 8.95,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 65,
+        "on": 8.95,
+        "off": 9.366666666666665,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 72,
+        "on": 9.366666666666665,
+        "off": 9.783333333333333,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 69,
+        "on": 9.783333333333333,
+        "off": 10.2,
+        "carried_same_pitch": false
+      },
+      {
+        "midi": 67,
+        "on": 10.2,
+        "off": 13.353333333333332,
+        "carried_same_pitch": false
+      }
+    ]
+  },
+  "normalization": "Matched active RMS,constant gain,peak<=.88,20ms final fade.",
+  "source_hashes": {
+    "python/modal_sim/violin_continuity_experiment.py": "0503514f6ef22c7ad33579301fe1d346ca03b44034fd22f71f32bd2d0552a853",
+    "FFT_results/sim/eng1/hinos_sentimentais/violin/baseline.json": "725d05f31f195fabedee49ad943542885b971558738cc15665e5fb30ea9e052d",
+    "FFT_results/sim/eng1/hinos_sentimentais/violin/hinos_violin_baseline.wav": "3018a47d7f3bafff67110755fc5d7c6e430d2e770f6ed546a8f72679883465ff",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "FFT_results/params/violin_sustain.npz": "f844279a0049bd281885a2ea093d72c3fff3d70d6d1d1b06d3cdd93e97142338"
+  }
+}

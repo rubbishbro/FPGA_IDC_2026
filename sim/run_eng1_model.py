@@ -107,13 +107,24 @@ def main():
     ap.add_argument('--out',type=Path,default=ROOT/'build/eng1_py_sync')
     ap.add_argument('--samples',type=int,default=2048)
     ap.add_argument('--test',action='append',choices=['pitch','wave','post'])
-    a=ap.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=True)
-    env=os.environ.copy()
+    a=ap.parse_args();out=a.out.resolve()
+    executables={}
+    for tool in ('vlib','vlog','vsim'):
+        candidate=shutil.which(tool) or str(Path.home()/'.local/bin'/tool)
+        if Path(candidate).is_file() and os.access(candidate,os.X_OK):
+            executables[tool]=candidate
     ini=Path(os.environ.get('QSIM_INI') or Path.home()/'gowin/simlib_questa/modelsim.ini')
+    missing=[tool for tool in ('vlib','vlog','vsim') if tool not in executables]
+    if not ini.is_file():missing.append(str(ini))
+    if missing:
+        ap.error('RTL verification unavailable; missing: '+', '.join(missing)+
+                 '. No simulation was run and no RTL equivalence result is available.')
+    out.mkdir(parents=True,exist_ok=True)
+    env=os.environ.copy()
     work=out/'work';(out/'modelsim.ini').write_text(re.sub(r'^work\s*=.*$','work = '+str(work),ini.read_text(),flags=re.M))
     env['QSIM_INI']=str(out/'modelsim.ini');env['MODELSIM']=env['QSIM_INI']
     def run(tool,opts,name):
-        exe=shutil.which(tool) or str(Path.home()/'.local/bin'/tool)
+        exe=executables[tool]
         p=subprocess.run([exe,*map(str,opts)],cwd=out,env=env,capture_output=True,text=True,timeout=1800)
         s=p.stdout+p.stderr;(out/(name+'.log')).write_text(s)
         if p.returncode or re.search(r'\*\* (?:Error|Fatal)|\b(?:FAIL|FATAL)\b|Trouble making server|Error:',s):

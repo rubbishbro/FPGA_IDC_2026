@@ -1,0 +1,254 @@
+{
+  "instrument": "trumpet",
+  "status": "Python timbre candidate enabled",
+  "config": {
+    "excitation": "LipExcitation(shape=True, unstable=True, air=True)",
+    "pulse": "Zero-DC bipolar opening 12%, gap 2%, closing 3% of period; fundamental drive matched to impulse",
+    "onset": "Cycle rate std 0.6%, cap 1.8%; amplitude std 8%; decay tau30ms",
+    "air": "500..10000Hz before modal bank, strength=0.040*exp(-age/40ms)+0.005",
+    "envelope": "Unchanged original ADSR",
+    "extra_parallel_breath": false,
+    "extra_modal_harmonic_boost": false,
+    "seed": 20261031
+  },
+  "pressure_fixture": "Identical ramped ADC/force matrix as prior PAD baseline",
+  "sample_rate": 48000,
+  "frames": 697600,
+  "seconds": 14.533333333333333,
+  "note_map": [
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75
+  ],
+  "gate_comparison": {
+    "frames_checked": 697600,
+    "identical": true,
+    "note_ons": 15,
+    "note_offs": 15,
+    "automatic_event_edits": false
+  },
+  "native_output": {
+    "state_rail_hits": 0,
+    "pcm_rail_samples": 0,
+    "headroom": 3,
+    "envelope_peak": [
+      2147483647,
+      0,
+      2147483647,
+      0,
+      0,
+      2147483647,
+      0,
+      2147483647,
+      0,
+      2147483647,
+      0,
+      0,
+      2147483647,
+      0,
+      2147483647,
+      0
+    ]
+  },
+  "excitation_metrics": {
+    "max_instantaneous_frequency_offset_fraction": 0.012635828506033628,
+    "pulse_amplitude_multiplier_range": [
+      0.76,
+      1.1892668001721465
+    ],
+    "air_to_nominal_pulse_energy_db": -41.050976585354476
+  },
+  "normalization": "Pair matched active RMS by constant gain only; no fade/compression/EQ",
+  "modal_coefficients": "Unchanged and checked against baseline hashes",
+  "implementation": "PAD input path preserved; candidate excitation/envelope is Python-only, not implemented in current production RTL. No RTL simulator used.",
+  "renders": [
+    {
+      "name": "original",
+      "file": "original_listen.wav",
+      "sha256": "2a5dbf1d21ce3c3e53f45da8a4d1f5884a1e3cfdb8f8aa9fcc72ada4a5c1cdcc",
+      "listening_gain_db": 10.914906577698527,
+      "active_rms_dbfs": -22.49877477188499,
+      "peak_dbfs": -5.2606275561222535,
+      "internal_zero_gaps": [
+        {
+          "start": 1.4270625,
+          "end": 1.4530833333333333,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 1.847625,
+          "end": 1.86975,
+          "ms": 22.125
+        },
+        {
+          "start": 2.264291666666667,
+          "end": 2.2864166666666668,
+          "ms": 22.125
+        },
+        {
+          "start": 2.6809583333333333,
+          "end": 2.7030833333333333,
+          "ms": 22.125
+        },
+        {
+          "start": 3.097625,
+          "end": 3.11975,
+          "ms": 22.125
+        },
+        {
+          "start": 3.514291666666667,
+          "end": 3.5361666666666665,
+          "ms": 21.875
+        },
+        {
+          "start": 5.1770625,
+          "end": 5.203083333333334,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 6.6884375,
+          "end": 6.8695,
+          "ms": 181.0625
+        },
+        {
+          "start": 8.093708333333334,
+          "end": 8.11975,
+          "ms": 26.041666666666668
+        },
+        {
+          "start": 8.514291666666667,
+          "end": 8.536416666666666,
+          "ms": 22.125
+        },
+        {
+          "start": 8.930958333333333,
+          "end": 8.953083333333334,
+          "ms": 22.125
+        },
+        {
+          "start": 9.347625,
+          "end": 9.36975,
+          "ms": 22.125
+        },
+        {
+          "start": 9.764291666666667,
+          "end": 9.786416666666666,
+          "ms": 22.125
+        },
+        {
+          "start": 10.180958333333333,
+          "end": 10.202833333333333,
+          "ms": 21.875
+        }
+      ]
+    },
+    {
+      "name": "experimental",
+      "file": "experimental_listen.wav",
+      "sha256": "a91b1746013dba746db716adb4fe83837dac526102718b8f36128d73b6dcaa8a",
+      "listening_gain_db": 4.451289569052079,
+      "active_rms_dbfs": -22.49877472642471,
+      "peak_dbfs": -4.559782359093857,
+      "internal_zero_gaps": [
+        {
+          "start": 1.4270625,
+          "end": 1.4530833333333333,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 1.847625,
+          "end": 1.86975,
+          "ms": 22.125
+        },
+        {
+          "start": 2.264291666666667,
+          "end": 2.2864166666666668,
+          "ms": 22.125
+        },
+        {
+          "start": 2.6809583333333333,
+          "end": 2.7030833333333333,
+          "ms": 22.125
+        },
+        {
+          "start": 3.097625,
+          "end": 3.11975,
+          "ms": 22.125
+        },
+        {
+          "start": 3.514291666666667,
+          "end": 3.5361666666666665,
+          "ms": 21.875
+        },
+        {
+          "start": 5.1770625,
+          "end": 5.203083333333334,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 6.6884375,
+          "end": 6.8695,
+          "ms": 181.0625
+        },
+        {
+          "start": 8.093729166666666,
+          "end": 8.11975,
+          "ms": 26.020833333333332
+        },
+        {
+          "start": 8.514291666666667,
+          "end": 8.536416666666666,
+          "ms": 22.125
+        },
+        {
+          "start": 8.930958333333333,
+          "end": 8.953083333333334,
+          "ms": 22.125
+        },
+        {
+          "start": 9.347625,
+          "end": 9.36975,
+          "ms": 22.125
+        },
+        {
+          "start": 9.764291666666667,
+          "end": 9.786416666666666,
+          "ms": 22.125
+        },
+        {
+          "start": 10.180958333333333,
+          "end": 10.202833333333333,
+          "ms": 21.875
+        }
+      ]
+    }
+  ],
+  "input_hashes": {
+    "FFT_results/sim/eng1/pad_path_retest/trumpet/results.json": "f47f544baf4baba84900450cddeb19eff914266cdf1c04e9f38965262e2f4003",
+    "FFT_results/sim/eng1/pad_path_retest/trumpet/ramped_pressure_adc_bytes.npy": "2d1ed29d2cfe9fd9ff3a79dd38cf11c8f1ccb20e82a487897991a102581d0229",
+    "FFT_results/sim/eng1/pad_path_retest/trumpet/ramped_pressure_pressure.npy": "92871a4eeec77b6157aeb6c092dce716f9f19d43c19ff1723bc0fe14bb0d5f4d",
+    "FFT_results/sim/eng1/pad_path_retest/trumpet/ramped_pressure_gate_bits.npy": "905d670660b5a9a9a8a086d2ae72ea2ef785db391c8ce25c112d804b804bd5a7",
+    "FFT_results/sim/eng1/pad_path_retest/trumpet/ramped_pressure_raw_q24.npy": "12fba8e6f6dcbf07c933399da5b0c024a582db4ee7b1f6e76bd0c47ab100c3ff"
+  },
+  "source_hashes": {
+    "python/modal_sim/eng1_pad_config_experiment.py": "e0504017bc30fe85eede57578c62bdd70d82b343f9e32a4ff345cf8102e04a53",
+    "python/modal_sim/eng1_pad_audition.py": "cf328fbefc2293417c7ac1b63f24f4a3b9995e6957a928f89ce1d91cce22b76a",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "python/modal_sim/router_eng1.py": "da2a7b47128154553f512d27c13a9d585a105ba29b961b8e141da2a4bacb0763",
+    "python/modal_sim/trumpet_excitation_experiment.py": "95a8233443a7efdec16e8db0b268277aa329aa3caf03ff707019be698b5b032d",
+    "python/modal_sim/violin_continuity_experiment.py": "0503514f6ef22c7ad33579301fe1d346ca03b44034fd22f71f32bd2d0552a853"
+  }
+}

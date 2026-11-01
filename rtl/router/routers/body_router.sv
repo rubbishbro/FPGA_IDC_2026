@@ -90,28 +90,20 @@ module body_router #(
                 coef_q[24] =  32'sd94210040;
             end
             router_pkg::INST_PIANO: begin
-                // 钢琴 3 段（sythsound/sim_piano.py::PIANO_BODY_BIQUADS_3），
-                // 第 3..4 段保持直通（默认值）。Q4.27 = round(v * 2^27)，
-                // 符号约定同 body_biquad：y = b0x + b1x1 + b2x2 - a1y1 - a2y2，
-                // 所以 a1/a2 直接用表里的有符号值（不取反）。
+                // Selected ENG1 piano: 40Hz highpass + 2kHz/+3dB shelf.
+                // Exact audition Q4.27 constants; sections 2..4 passthrough.
                 // section 0
-                coef_q[ 0] =  32'sd603840;      // b0  +0.004498959
-                coef_q[ 1] =  32'sd76002;       // b1  +0.000566257
-                coef_q[ 2] = -32'sd715860;      // b2  -0.005333572
-                coef_q[ 3] = -32'sd247369736;   // a1  -1.843048159
-                coef_q[ 4] =  32'sd123858118;   // a2  +0.922814888
+                coef_q[ 0] =  32'sd133721719;
+                coef_q[ 1] = -32'sd267443437;
+                coef_q[ 2] =  32'sd133721719;
+                coef_q[ 3] = -32'sd267441604;
+                coef_q[ 4] =  32'sd133227543;
                 // section 1
-                coef_q[ 5] = -32'sd436574912;   // b0  -3.252736569
-                coef_q[ 6] =  32'sd81584862;    // b1  +0.607854590
-                coef_q[ 7] =  32'sd409619507;   // b2  +3.051903151
-                coef_q[ 8] = -32'sd27521759;    // a1  -0.205053082
-                coef_q[ 9] = -32'sd94371634;    // a2  -0.703123463
-                // section 2
-                coef_q[10] =  32'sd299364184;   // b0  +2.230436977
-                coef_q[11] = -32'sd493793142;   // b1  -3.679045601
-                coef_q[12] =  32'sd221367920;   // b2  +1.649319528
-                coef_q[13] = -32'sd255674090;   // a1  -1.904920411
-                coef_q[14] =  32'sd122404426;   // a2  +0.911984039
+                coef_q[ 5] =  32'sd183667245;
+                coef_q[ 6] = -32'sd305371893;
+                coef_q[ 7] =  32'sd130743169;
+                coef_q[ 8] = -32'sd214866875;
+                coef_q[ 9] =  32'sd89687668;
             end
             default: ;                    // 全直通
         endcase

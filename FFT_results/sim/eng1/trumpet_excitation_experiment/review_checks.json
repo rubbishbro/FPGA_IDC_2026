@@ -1,0 +1,46 @@
+{
+  "pulse_shape_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "onset_instability_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "drive_air_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "combined_drive_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "baseline_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "combined_parallel_breath_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "pulse_shape_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "onset_instability_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "drive_air_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "combined_drive_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "baseline_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "combined_parallel_breath_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "first80ms_pulse_intervals": [
+    145,
+    146,
+    147
+  ],
+  "steady_pulse_intervals": [
+    146
+  ]
+}

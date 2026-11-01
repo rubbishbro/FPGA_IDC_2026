@@ -1,0 +1,25 @@
+// Flash 与系数装载
+digraph flash_loader {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.3,ranksep=0.45,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 9　系数装载：QSPI Flash → weight_loader → 模态 RAM\n记录 64B 大端；一个 slot 只发一次 40bit 头，随后 64 条记录连续 quad 读";labelloc=t;
+
+req [label="事务请求\ninst[3:0] · start\nslot_offsets[511:0]\nupdate_mask[15:0] · abort",fillcolor="#fef3c7"];
+ld  [label="weight_loader 状态机\nW_IDLE→W_QE→W_CHECK\n→W_HDR→W_DATA→W_WR\n→W_GAP→(W_FILL)→W_END",fillcolor="#fef3c7",penwidth=2];
+flash [label="QSPI Flash\n6Bh Quad Output Fast Read\nSCK = CLK/4 = 25MHz（quad 100Mbit/s）\n4bit DQ + cs_n/oe",shape=cylinder,fillcolor="#dbeafe"];
+rec [label="记录格式（64B = 16 × 32bit 大端）\nw0..w6：a11 a12 a21 a22 gq gv wo\nw7：保留=0\nw8..w11：基值 a11_0 a12_0 a22_0 wo_0\nw12..w15：s11 s12 s22 swo('P1T1')",fillcolor="#f5f3ff"];
+ram [label="voice_router 系数 RAM\nbank A/B：7 字段 ×512×32\n+pitch_a12 · q/v 状态\n参数表 1024×8×32",shape=cylinder,fillcolor="#dbeafe"];
+tl  [label="table_valid 栅栏\n撤销点在 S_CFG 入口\n失败 → W_FILL 写零 → 静音\n（不自动重试）",fillcolor="#fff7ed"];
+eng [label="eng_router → 每样本递推",fillcolor="#ede9fe"];
+sz  [label="容量与地址\nFLASH_BASE = 0x0080_0000\n16 音：每乐器 64KiB\n32 音：每乐器 128KiB\nbase = INST + slot*4096",fillcolor="#f8fafc"];
+
+req -> ld;
+ld -> flash [dir=both,label="命令/数据"];
+ld -> ram [label="ld_we / ld_addr[10]\nld_co 224bit · ld_pm 256bit"];
+rec -> ld [style=dashed];
+sz -> ld [style=dashed];
+ram -> eng [label="1 拍同步读"];
+ld -> tl [style=dashed,label="done / err"];
+tl -> eng [style=dashed,label="table_valid"];
+}

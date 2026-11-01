@@ -2,6 +2,8 @@
 
 更新：2026-10-30。本页前半部分为当前生产合同；后半部分保留迁移前 Q30 文档，供历史实验追溯。
 
+接入更新（2026-11-01）：钢琴/吉他已由eng0迁入eng1，正式资源使用`rtl/router/tools/performance/`的ABC/P1T1四音色镜像，不能继续部署旧矩阵BIN。`Eng1Synth`仍负责B类模型；其中violin已同步生产的20ms/full sustain/80ms包络，旧逐槽A/R仍用于flute/trumpet/cello。钢琴/吉他前端的激励、包络旧level时序及资源格式由新增性能资源回归验证；历史试听中的旧默认配置按各自日期解释。
+
 ## 当前入口
 
 - `python/modal_sim/eng1_rtl.py::Eng1Synth`：四种 B 类音色的生产模型。
@@ -44,7 +46,7 @@ synth.note_off(slot)                # 普通释放，保留模态尾音至清零
 
 `Frame`返回 `x/emap/y/mix/out/pcm/delta/zero/idle`，便于追查差异。`out`是混响后的Q24整数，`pcm`是输出定标后的左右声道。
 `step(active=False)`只屏蔽输出PCM并清空间定位历史；不会把仍在持音的声部假报为空闲。停止DSP采样推进时不要调用`step()`。
-PAD可调用`step_pad(pressure, on_threshold=64, off_threshold=48)`使用板端门限；默认参数2/1对应voice_router的模块默认门限。
+PAD可调用`step_pad(pressure, on_threshold=64, off_threshold=48)`使用板端门限。Python helper默认参数2/1不对应当前RTL：`voice_router`模块默认门限为230/26，板级`instrument_system`覆盖为64/48。该helper只近似音频帧边界的迟滞，不包含core时钟寄存、扫描、选源与提交握手，不能据此宣称完整PAD链路等价。
 
 ## 模型时序边界
 
@@ -61,6 +63,46 @@ PAD可调用`step_pad(pressure, on_threshold=64, off_threshold=48)`使用板端�
 本接口用来消除外层MIDI/调度到达时刻差异；不会把“同一原始字节时刻”说成完整整机逐拍对拍。
 
 采样率严格匹配48k资源。不能静默把48k模型当成板端48.828125k播放；后者的音高/时间偏差仍见完整性检查报告。
+
+## 2026-10-31试听证据更正
+
+本轮交付的Mystery of Love、Hinos小号/小提琴音频均由Python直接调度`note_on/off`或已接受的gate/level帧生成，未经过真实PAD矩阵输入链，未对这些具体乐段运行RTL并逐帧对拍。乐谱事件、力度与断奏间隔是人工测试输入，不是实际矩阵演奏记录。`native`文件也只是Python模型原始PCM，文件名不构成RTL来源证明。
+
+| 试听范围 | 实际性质 | 当前证据限制 |
+|---|---|---|
+| B类baseline | 使用当前ENG1整数模型和资源的离线乐谱渲染 | 没有该片段的RTL/PAD对拍，不能称为已验证板端演奏 |
+| 小号EQ、G、包络、脉冲形状、抖动、噪声候选 | 修改Python算法/资源或离线处理 | 未进入当前生产RTL；保留作听感实验 |
+| 小提琴release_only/bow_legato | 修改Python包络；bow_legato还改写gate、重叠和同音重触发 | 不能据其音频证明当前RTL的连奏能力 |
+| 钢琴/吉他eng1试听 | 实验A类模型 | 不代表生产eng0声音或完整矩阵演奏 |
+
+小号新激励的“暂定”仅保留为离线听感偏好，撤回其作为当前RTL方案确认的含义。不同Python路径输出相同、无触轨、WAV检查通过均不替代RTL对拍。归一化/淡出的试听WAV也不是位精确RTL PCM。
+
+用户已明确：本次目标是**按当前RTL设计组织Python合成路径并重新试听**，不要求运行RTL仿真器。此前把逐段RTL对拍当成继续实验的前置条件属于范围误判，现撤回该要求。Python模拟应保存明确的输入格式与时序，按当前实现复现压力适配、门控、激励、包络与DSP，不得偷偷增加新算法或合并重复音gate。RTL对拍可以作为独立回归，不是这轮音色实验的必需条件；“RTL设计派生的Python模型”和“已经RTL对拍”仍需分别标明。
+
+本轮环境未发现`vlib/vlog/vsim`、Icarus或Verilator，也未找到下述历史`build/eng1_py_sync/final`证据目录，因此没有新增RTL通过结论。下节历史计数不应归入本轮试听验收。
+
+### 重新实验入口：按键压力到声音
+
+`python python/modal_sim/eng1_pad_audition.py --instrument trumpet`，将参数改为`violin`可重做小提琴。输出为`FFT_results/sim/eng1/pad_path_retest/<instrument>/`，保留原实验文件。
+
+路径固定为：16路合成ADC字节 → 当前板级force_map（bit7为1置零，bit6为1饱和255，否则乘4）→ 64/48迟滞 → PAD gate/level且无独立retrigger → 当前周期冲激 → 原资源A/R、共同D/S → Q24 ENG1的48个计算模态 → body直通/NONE混响 → mono PCM16、headroom=3。模拟开始时已完成固定音组装载并选中PAD；本次不模拟ADC扫描时钟、配置切换及FIFO。试听使用48k资源时基，不宣称实测DAC时钟一致。
+
+使用同一Hinos四小节15音符、同一峰值ADC字节及原谱测试门控时间，比较阶跃压力与8ms上升/12ms下降压力；下降在原note-off时刻结束。两者均保留每个重复音的松键和原断奏/句间间隔，不改包络、不叠加气声、不自动制造连奏。ADC/force矩阵、gate轨迹、原始Q24、原生PCM与恒定增益试听版分别保存，听感变化可回查输入及内部响应。输入是明确的合成按键动作，不冒充实测演奏。
+
+本次运行完成小号、小提琴各两版，每版697600帧/14.533秒；每版15次按下、15次松开，模态状态及原生PCM无触轨。三项针对ADC边界、重复音释放和持键力度变化的stdlib单元检查通过（`python3 -m unittest discover -s sim/unit/eng1 -p test_eng1_pad_audition.py -v`）。
+
+原小号基线与新阶跃输入Q24输出的相关系数约0.99999997，差值RMS相对原信号约-45.3dB；小提琴原生PCM比较约0.99999984/-45.1dB。主要区别是新路径使用实际板级可达的4倍ADC量化力度。此前把原基线与新算法候选一起否定过于笼统：本次重做支持原基线的音频帧合成路径，未实现的新激励和改写gate的连奏候选仍不能当作当前RTL响应。这不是RTL仿真对拍结论。
+
+四版正文RMS均约-22.499dBFS，且在0.3–13.5秒内各有14段至少1ms的数字静音。小号普通换音静音约15.88–20.02ms（阶跃）/21.88–26.04ms（渐变），小提琴约13.06–20.04ms/19.35–26.04ms。渐变压力使门限更早松开、下次更晚按下，因此没有填平短release与原断奏间隔造成的静音。压力渐变还移动起音并重置周期相位，不能把两版逐采样相关性低直接解释为音色差异大。
+
+### 同一PAD输入启用音色实验配置
+
+用户随后要求真正启用先前的实验配置。入口为`python python/modal_sim/eng1_pad_config_experiment.py --instrument trumpet`（或`violin`），输出到`FFT_results/sim/eng1/pad_config_experiment/<instrument>/`。直接复用上轮渐变按键的ADC/force矩阵及原版Q24输出，检查资源hash，并逐帧比较gate。没有改谱、合并重复音或自动重叠按键。
+
+- 小号：启用此前暂定的`LipExcitation(shape=True, unstable=True, air=True)`，原ADSR及G/a1/a2不变；没有额外直达气声或单独的模态G增强。
+- 小提琴：保留周期冲激及模态系数，启用`BowEnvelope`的20ms attack、full sustain、无decay、80ms release；不启用旧bow_legato中的事件重写。
+
+这些配置是明确启用的Python候选；按键输入链沿用当前RTL设计，新增激励/包络算法尚未进入生产RTL。每种乐器分别提供同响度的`original_listen.wav`与`experimental_listen.wav`，只使用恒定增益。输入/源码hash、配置、gate核对和触轨检查保存在`results.json`。
 
 ## 可复跑验证
 

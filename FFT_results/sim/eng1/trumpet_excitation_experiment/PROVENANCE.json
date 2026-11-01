@@ -1,0 +1,28 @@
+{
+  "audit_date": "2026-10-31",
+  "status": "OFFLINE_PYTHON_ONLY_NOT_RTL_VERIFIED",
+  "scope": "Python改变激励形状、起音扰动和气流支路。",
+  "input_origin": "人工乐谱调度，不是实测PAD矩阵演奏记录",
+  "excerpt_rtl_cosim_verified": false,
+  "pad_input_chain_verified": false,
+  "native_pcm_origin": "Python模型；native命名不表示RTL输出",
+  "listening_pcm": "可能经过恒定增益、淡出或候选离线处理；不是位精确RTL输出",
+  "prior_checks": "Python路径一致性、hash、WAV完整性和无触轨检查不构成RTL等价证据",
+  "selection_status": "仅保留离线听感偏好，不构成当前RTL方案确认",
+  "existing_artifact_metadata": "保留原实验元数据供追溯；其中production/PASS等表述受本声明限制",
+  "documentation": "docs/ENG1_PY_MODEL.md#2026-10-31试听证据更正",
+  "audio_files": [
+    "baseline_phrase.wav",
+    "baseline_single.wav",
+    "combined_drive_phrase.wav",
+    "combined_drive_single.wav",
+    "combined_parallel_breath_phrase.wav",
+    "combined_parallel_breath_single.wav",
+    "drive_air_phrase.wav",
+    "drive_air_single.wav",
+    "onset_instability_phrase.wav",
+    "onset_instability_single.wav",
+    "pulse_shape_phrase.wav",
+    "pulse_shape_single.wav"
+  ]
+}

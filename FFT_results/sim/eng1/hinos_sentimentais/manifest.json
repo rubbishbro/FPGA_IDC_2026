@@ -1,0 +1,368 @@
+{
+  "title": "Ó Irmãos, a Deus Devemos / What a Friend We Have in Jesus",
+  "album": "Hinos Sentimentais — Fernando Lopez",
+  "album_track": 11,
+  "composer": "Charles Crozat Converse",
+  "scope": "First4 measures, solo melody. Score-based audition, not transcription of Fernando Lopez arrangement, phrasing or ornaments.",
+  "album_url": "https://www.qobuz.com/ie-en/album/hinos-sentimentais-fernando-lopez/e58131rbp49sa",
+  "score_url": "https://library.timelesstruths.org/music/What_a_Friend_We_Have_in_Jesus/",
+  "title_crosscheck_url": "https://www.superpartituras.com.br/hinario-ccb/-402--o-irmaos-a-deus-devemos",
+  "bpm": 72,
+  "key": "F major, concert pitch",
+  "measures": [
+    1,
+    4
+  ],
+  "lead_seconds": 0.2,
+  "tail_seconds": 1.0,
+  "events": [
+    {
+      "time": 0.2,
+      "midi": 72,
+      "duration": 1.225,
+      "score_beats": 1.5,
+      "beat": 0.0,
+      "measure": 1,
+      "velocity": 94
+    },
+    {
+      "time": 1.45,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 1.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 1.8666666666666667,
+      "midi": 74,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 2.0,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 2.2833333333333337,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 2.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 2.7,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 3.0,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 3.1166666666666667,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 3.5,
+      "measure": 1,
+      "velocity": 86
+    },
+    {
+      "time": 3.5333333333333337,
+      "midi": 65,
+      "duration": 1.6416666666666668,
+      "score_beats": 2.0,
+      "beat": 4.0,
+      "measure": 2,
+      "velocity": 94
+    },
+    {
+      "time": 5.2,
+      "midi": 62,
+      "duration": 1.4866666666666668,
+      "score_beats": 2.0,
+      "beat": 6.0,
+      "measure": 2,
+      "velocity": 86
+    },
+    {
+      "time": 6.866666666666667,
+      "midi": 60,
+      "duration": 1.225,
+      "score_beats": 1.5,
+      "beat": 8.0,
+      "measure": 3,
+      "velocity": 94
+    },
+    {
+      "time": 8.116666666666667,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 9.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 8.533333333333333,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 10.0,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 8.95,
+      "midi": 65,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 10.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 9.366666666666665,
+      "midi": 72,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 11.0,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 9.783333333333333,
+      "midi": 69,
+      "duration": 0.39583333333333337,
+      "score_beats": 0.5,
+      "beat": 11.5,
+      "measure": 3,
+      "velocity": 86
+    },
+    {
+      "time": 10.2,
+      "midi": 67,
+      "duration": 3.1533333333333333,
+      "score_beats": 4.0,
+      "beat": 12.0,
+      "measure": 4,
+      "velocity": 94
+    }
+  ],
+  "score_audit": [
+    {
+      "measure": 1,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 72,
+          "beats": 1.5
+        },
+        {
+          "beat": 1.5,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.0,
+          "midi": 74,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.5,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.0,
+          "midi": 69,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.5,
+          "midi": 65,
+          "beats": 0.5
+        }
+      ]
+    },
+    {
+      "measure": 2,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 65,
+          "beats": 2.0
+        },
+        {
+          "beat": 2.0,
+          "midi": 62,
+          "beats": 2.0
+        }
+      ]
+    },
+    {
+      "measure": 3,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 60,
+          "beats": 1.5
+        },
+        {
+          "beat": 1.5,
+          "midi": 65,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.0,
+          "midi": 69,
+          "beats": 0.5
+        },
+        {
+          "beat": 2.5,
+          "midi": 65,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.0,
+          "midi": 72,
+          "beats": 0.5
+        },
+        {
+          "beat": 3.5,
+          "midi": 69,
+          "beats": 0.5
+        }
+      ]
+    },
+    {
+      "measure": 4,
+      "melody": [
+        {
+          "beat": 0.0,
+          "midi": 67,
+          "beats": 4.0
+        }
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "midi": 60,
+      "source_midi": 61,
+      "source_dynamic": "forte",
+      "period": 183,
+      "modes": 38
+    },
+    {
+      "midi": 61,
+      "source_midi": 61,
+      "source_dynamic": "forte",
+      "period": 173,
+      "modes": 38
+    },
+    {
+      "midi": 62,
+      "source_midi": 62,
+      "source_dynamic": "forte",
+      "period": 163,
+      "modes": 48
+    },
+    {
+      "midi": 65,
+      "source_midi": 65,
+      "source_dynamic": "forte",
+      "period": 137,
+      "modes": 45
+    },
+    {
+      "midi": 67,
+      "source_midi": 67,
+      "source_dynamic": "forte",
+      "period": 122,
+      "modes": 40
+    },
+    {
+      "midi": 69,
+      "source_midi": 69,
+      "source_dynamic": "forte",
+      "period": 109,
+      "modes": 36
+    },
+    {
+      "midi": 72,
+      "source_midi": 72,
+      "source_dynamic": "forte",
+      "period": 92,
+      "modes": 30
+    },
+    {
+      "midi": 74,
+      "source_midi": 74,
+      "source_dynamic": "forte",
+      "period": 82,
+      "modes": 27
+    }
+  ],
+  "melody_extraction": "P1 voice1 chord groups: highest pitch, duration inherited from voice anchor. Source chord duration sometimes omits dot despite dotted type; anchor duration agrees with CCB score preview.",
+  "model": "Production ENG1 modal coefficients and original ADSR/release;8 fixed slots;no reverb;new excitation from trumpet_excitation_experiment.LipExcitation.",
+  "raw_saturation_checks": {
+    "state": {
+      "baseline": 0,
+      "new_excitation": 0
+    },
+    "native_mono_pcm": {
+      "baseline": 0,
+      "new_excitation": 0
+    }
+  },
+  "normalization": "All3 active RMS matched, constant gain,peak<=.88,20ms file-end fade.",
+  "renders": [
+    {
+      "name": "baseline",
+      "file": "hinos_oiirmaos_baseline.wav",
+      "frames": 697600,
+      "seconds": 14.533333333333333,
+      "active_rms_dbfs": -22.49877477189989,
+      "peak_dbfs": -5.043062129914345,
+      "gain_db": 10.803108072732321,
+      "state_rail_hits": 0,
+      "native_mono_pcm_rail_samples": 0,
+      "sha256": "8d3cd0ca8f463c9e15f3848184bf321637739411b04afe8f06dbc327b275bbf5"
+    },
+    {
+      "name": "new_excitation",
+      "file": "hinos_oiirmaos_new_excitation.wav",
+      "frames": 697600,
+      "seconds": 14.533333333333333,
+      "active_rms_dbfs": -22.498774735417612,
+      "peak_dbfs": -4.777906578537697,
+      "gain_db": 4.343058751835258,
+      "state_rail_hits": 0,
+      "native_mono_pcm_rail_samples": 0,
+      "sha256": "3eede6ff392eee7e4b333fc9f5e17e438db9ebf5e2a78067f7354aaa81b63592"
+    },
+    {
+      "name": "new_excitation_breath",
+      "file": "hinos_oiirmaos_new_excitation_breath.wav",
+      "frames": 697600,
+      "seconds": 14.533333333333333,
+      "active_rms_dbfs": -22.498774727079244,
+      "peak_dbfs": -4.800912448093267,
+      "gain_db": 4.342777980044302,
+      "state_rail_hits": null,
+      "native_mono_pcm_rail_samples": null,
+      "sha256": "4f2d335ab6df4539c23fdd72178254621ba96492677bf3377ca908d1d8893abc"
+    }
+  ],
+  "source_hashes": {
+    "python/modal_sim/trumpet_hinos_excerpt.py": "faffdb1d303a66445558c933a4a56de416e17c66c6566620f96233963400c619",
+    "FFT_results/sim/eng1/hinos_sentimentais/source_what_a_friend.musicxml": "6541aff8b04889fbab4498ec3852076f22c1fc2b695645686415687b15cf7aea",
+    "python/modal_sim/trumpet_excitation_experiment.py": "95a8233443a7efdec16e8db0b268277aa329aa3caf03ff707019be698b5b032d",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "FFT_results/params/trumpet_sustain.npz": "78d97747247f20d88e1bf8f49adfff2e9486df5d532b4c2e3bd6d52842568f29"
+  }
+}

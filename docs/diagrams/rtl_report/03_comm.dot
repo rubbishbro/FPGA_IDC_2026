@@ -1,0 +1,65 @@
+// 通信与协议栈
+digraph comm {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.28,ranksep=0.4,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 3　通信子系统 comm_top：双物理通道 → 统一协议栈 → 事件 / 配置两条出口\n全部在 clk_core 单时钟域；source 号在 frame_arbiter 一次性注入（0=有线，1=HC-05）";labelloc=t;
+
+u0 [label="rx_i[0]\n有线 UART",shape=plaintext,fontsize=10];
+u1 [label="rx_i[1]\nHC-05 蓝牙",shape=plaintext,fontsize=10];
+
+subgraph cluster_wire {
+ label="u_wired : uart_driver"; fontsize=10; color="#93c5fd"; style="rounded";
+ wrx [label="comm_uart_rx\n16× NCO 过采样\n3 采样多数表决",fillcolor="#dbeafe"];
+ wff [label="comm_fifo\n8bit × 1024",fillcolor="#f8fafc"];
+ wtx [label="comm_uart_tx\n仅空闲可收字节",fillcolor="#dbeafe"];
+}
+subgraph cluster_bt {
+ label="u_bluetooth : hc05_driver"; fontsize=10; color="#93c5fd"; style="rounded";
+ bst [label="comm_hc05_status\nSTATE 2FF + 去抖\n连接/断开事件",fillcolor="#dbeafe"];
+ bua [label="uart_driver\n同上（8bit×1024）",fillcolor="#dbeafe"];
+}
+subgraph cluster_v1 {
+ label="transport_link（v1，有线固定 / 蓝牙 BT_PROTOCOL_V2=0）"; fontsize=10; color="#c4b5fd"; style="rounded";
+ frx [label="slip_frame_rx\nC0 定界 + 解转义\nCRC-16/CCITT 校验\n错误位 {SLIP,LEN,CRC,VER,TIMEOUT}",fillcolor="#ede9fe"];
+ ftx [label="slip_frame_tx\nTYPE=0x80 REPLY\n{02,cmd,result}",fillcolor="#ede9fe"];
+ rq  [label="comm_fifo 32bit×2\n每链回复队列",fillcolor="#f8fafc"];
+}
+subgraph cluster_v2 {
+ label="transport_v2_link（蓝牙可选）+ comm_v2_codec"; fontsize=10; color="#c4b5fd"; style="rounded";
+ v2c [label="comm_v2_codec\nv2 帧：VER=02 + SESSION:u32\nCONTROL / 业务双队列\npayload 256bit",fillcolor="#ede9fe"];
+ v2s [label="会话状态机\nHELLO→CLEANUP→WELCOME\n→CONFIRM→ACTIVE→RESYNC\nsession[31:0] · epoch[15:0]\n心跳2s / 进度250ms",fillcolor="#f5f3ff"];
+}
+
+arb [label="frame_arbiter\n两源 RR 授权并锁帧\npin[1:0] 锁帧反馈\n★ m_source_id 注入点",fillcolor="#fef3c7",penwidth=2];
+dsp [label="parser_dispatch\n单一解析上下文\n退休后才放下一帧\nbarrier: 事件空 & MIDI 空闲",fillcolor="#fef3c7"];
+mid [label="midi_analyzer\n包内自包含 MIDI\n→ Event32",fillcolor="#cffafe"];
+cfg [label="config_analyzer\nCONFIG 校验 + shadow[127:0]\n每源重试缓存\n两段式提交",fillcolor="#cffafe"];
+evf [label="comm_fifo 33bit×64\nevent + source 侧带",fillcolor="#f8fafc"];
+ses [label="session_ctrl\n每源隔离 / 清理退休\nquarantine[1:0] · error_sticky[15:0]",fillcolor="#f5f3ff"];
+out1 [label="event_valid / event_data[31:0]\n+ event_source_id\n→ midi_voice_top",fillcolor="#e0f2fe"];
+out2 [label="cfg_seq[15:0] / cfg_command[7:0]\ncfg_shadow[127:0] ↔ cfg_result[7:0]\n→ 板级配置桥（EQ 返回 NOT_READY）",fillcolor="#e0f2fe"];
+
+u0 -> wtx [style=invis];
+u0 -> wrx;
+u1 -> bst;
+bst -> bua [style=dashed];
+wrx -> wff -> frx;
+bua -> frx [label="字节流"];
+bua -> v2c [style=dashed,label="V2=1"];
+frx -> arb;
+v2c -> arb;
+arb -> dsp [label="帧描述符\nfirst/last + 6bit LEN"];
+dsp -> mid [label="TYPE=0x01"];
+dsp -> cfg [label="TYPE=0x02 / 0x03"];
+mid -> evf -> out1;
+cfg -> out2 [dir=both,label="请求/结果"];
+cfg -> rq [label="reply_*",style=dashed];
+rq -> ftx [style=dashed];
+ftx -> u0 [style=dashed,label="tx_o[0]"];
+v2s -> v2c [dir=both,style=dashed];
+ses -> dsp [style=dashed,label="cancel/flush/cache_reset"];
+ses -> evf [style=dashed];
+ses -> wff [style=dashed,arrowhead=none];
+{rank=same;u0;wrx;frx;arb;dsp;out1;}
+}

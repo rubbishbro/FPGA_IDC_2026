@@ -1,0 +1,357 @@
+{
+  "sample_rate": 48000,
+  "seed": 20261031,
+  "variants": [
+    {
+      "name": "baseline",
+      "phrase": {
+        "file": "baseline_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.49877478335586,
+        "peak_dbfs": -3.003854313726193,
+        "gain_db": 11.991252491633158,
+        "before_gain_active_rms_dbfs": -34.49002722379915,
+        "addition_to_base_active_rms_db": null,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "a3ddb5c0419f548e16df66651b9665ff6dc8c87b3df0a8b8869a1d923cb7d46a"
+      },
+      "single": {
+        "file": "baseline_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.498774788299105,
+        "peak_dbfs": -7.3839227378355945,
+        "gain_db": 7.6111854778643915,
+        "before_gain_active_rms_dbfs": -30.109960210030387,
+        "addition_to_base_active_rms_db": null,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "2ecdd68e411a86dade61c4fccb88e8a9acc487d2c511c943d49140ae197f79e4"
+      }
+    },
+    {
+      "name": "noise_low",
+      "phrase": {
+        "file": "noise_low_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.49877480040448,
+        "peak_dbfs": -2.9066120057982996,
+        "gain_db": 11.990482274394116,
+        "before_gain_active_rms_dbfs": -34.489257006560116,
+        "addition_to_base_active_rms_db": -36.0,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "f5049b981a9eb094a1ee1cca8e5d9f1b4acdc980a81be0f3d1a7983f26aec19d"
+      },
+      "single": {
+        "file": "noise_low_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.498774766805365,
+        "peak_dbfs": -7.327896893599611,
+        "gain_db": 7.610014421407802,
+        "before_gain_active_rms_dbfs": -30.108789153573802,
+        "addition_to_base_active_rms_db": -36.0,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "6fd36c71ecadcd3ebe455a6c09f79223f2909bda30c0e3e885cf2660c27d0df0"
+      }
+    },
+    {
+      "name": "noise_high",
+      "phrase": {
+        "file": "noise_high_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.498774781732827,
+        "peak_dbfs": -2.813081239180471,
+        "gain_db": 11.987550831582976,
+        "before_gain_active_rms_dbfs": -34.48632556374897,
+        "addition_to_base_active_rms_db": -30.0,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "744acf15fe1c6a4f91be0d5a82899a551046bb35af49fcd764d45eac2a98f6c3"
+      },
+      "single": {
+        "file": "noise_high_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.498774764074696,
+        "peak_dbfs": -7.27467254653695,
+        "gain_db": 7.606684614745532,
+        "before_gain_active_rms_dbfs": -30.105459346911534,
+        "addition_to_base_active_rms_db": -30.0,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "1d4d89ed7d82c0b5957eba077378be734d00a8f99d63b9a1febb75b228db8eca"
+      }
+    },
+    {
+      "name": "harmonic_am",
+      "phrase": {
+        "file": "harmonic_am_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.498774790883978,
+        "peak_dbfs": -2.428288577900356,
+        "gain_db": 11.946057825267907,
+        "before_gain_active_rms_dbfs": -34.444832557433905,
+        "addition_to_base_active_rms_db": -19.843393250052294,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "03ff8c21e9f74efdaba657986a604703a4d874090e8ae84e2f0846aaf980d0d7"
+      },
+      "single": {
+        "file": "harmonic_am_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.498774761029612,
+        "peak_dbfs": -6.80872041781935,
+        "gain_db": 7.565626932797692,
+        "before_gain_active_rms_dbfs": -30.06440166496369,
+        "addition_to_base_active_rms_db": -19.713707869179455,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "4977e9c9b43a6cd4e2137253208d91ec3052f6dcf17d7ceee6d1d4c6d47a033c"
+      }
+    },
+    {
+      "name": "combined",
+      "phrase": {
+        "file": "combined_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.49877479788524,
+        "peak_dbfs": -2.32246699581773,
+        "gain_db": 11.94256857415059,
+        "before_gain_active_rms_dbfs": -34.44134330631659,
+        "addition_to_base_active_rms_db": -19.458989304482802,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "528ea09d9cfee20b62cfea3bf380c67610b9bd515c00682e7fc1dfe39e227ff1"
+      },
+      "single": {
+        "file": "combined_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.49877478210434,
+        "peak_dbfs": -6.767153465134931,
+        "gain_db": 7.561480903186421,
+        "before_gain_active_rms_dbfs": -30.060255635352423,
+        "addition_to_base_active_rms_db": -19.351785258361055,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "97e87f5bf29421c773ed74a974e2ffa91e3a64271f7eefa21d82fa5b614ec24d"
+      }
+    },
+    {
+      "name": "static_brightness",
+      "phrase": {
+        "file": "static_brightness_phrase.wav",
+        "frames": 533760,
+        "active_rms_dbfs": -22.498774780532052,
+        "peak_dbfs": -2.0885774937537582,
+        "gain_db": 11.476140498581858,
+        "before_gain_active_rms_dbfs": -33.974915230747854,
+        "addition_to_base_active_rms_db": -13.80913772600399,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "e38b0764a5ef29e0a5f06815d27262588fb6ccd3f2fdbece89830511a1342575"
+      },
+      "single": {
+        "file": "static_brightness_single.wav",
+        "frames": 115200,
+        "active_rms_dbfs": -22.498774765326992,
+        "peak_dbfs": -6.58056915791693,
+        "gain_db": 6.984148899256658,
+        "before_gain_active_rms_dbfs": -29.482923631422658,
+        "addition_to_base_active_rms_db": -13.707138518737455,
+        "zero_input_output_nonzero_samples": 0,
+        "sha256": "c00e4160739fa5b6899bada7895329d5c24beda8b357f48a59e4e6350cfa5b1d"
+      }
+    }
+  ],
+  "measurements": {
+    "recording_0.3": {
+      "f0_median_hz": 330.1754053139309,
+      "f0_5_95_hz": [
+        329.87078533025766,
+        330.73828681097234
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.02243950377433895,
+        "16": 0.008993009632785163,
+        "32": 0.006359905244309924
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.7080025947016413,
+      "high_low_ratio_std_db": 0.11996587207684867,
+      "fast_highpass_vs_lowband_std_db": 0.19766197323443058,
+      "fast_follower_window_ms": 24.229166666666668,
+      "window_seconds": [
+        0.467,
+        1.067
+      ]
+    },
+    "recording_0.5": {
+      "f0_median_hz": 329.92769037250713,
+      "f0_5_95_hz": [
+        329.83788498103917,
+        330.1677928249871
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.015356374332855898,
+        "16": 0.005218511565637396,
+        "32": 0.003582837764758131
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.597579611497905,
+      "high_low_ratio_std_db": 0.11645744421398242,
+      "fast_highpass_vs_lowband_std_db": 0.22859538423788356,
+      "fast_follower_window_ms": 24.25,
+      "window_seconds": [
+        0.8174166666666667,
+        1.4174166666666668
+      ]
+    },
+    "recording_0.7": {
+      "f0_median_hz": 330.8673106662591,
+      "f0_5_95_hz": [
+        330.01947147629585,
+        331.7176825623475
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.022590244433232643,
+        "16": 0.003547531516589622,
+        "32": 0.001897506835413608
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.5103580732594262,
+      "high_low_ratio_std_db": 0.1681752423172861,
+      "fast_highpass_vs_lowband_std_db": 0.21468920251608223,
+      "fast_follower_window_ms": 24.1875,
+      "window_seconds": [
+        1.1678333333333333,
+        1.7678333333333334
+      ]
+    },
+    "baseline": {
+      "f0_median_hz": 328.8173373948731,
+      "f0_5_95_hz": [
+        328.81730019560393,
+        328.8173957424653
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.010371822877042747,
+        "16": 6.75738672421955e-05,
+        "32": 2.7845251997523815e-06
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.524653764752439,
+      "high_low_ratio_std_db": 0.0004487211793894361,
+      "fast_highpass_vs_lowband_std_db": 0.0006549807226996911,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    },
+    "noise_low": {
+      "f0_median_hz": 328.8174168050669,
+      "f0_5_95_hz": [
+        328.81565894027676,
+        328.8188406835474
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.010608570360212694,
+        "16": 0.0002935548599269899,
+        "32": 0.00020840137671405894
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.522204274473361,
+      "high_low_ratio_std_db": 0.0071407177321132454,
+      "fast_highpass_vs_lowband_std_db": 0.012038203606150273,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    },
+    "noise_high": {
+      "f0_median_hz": 328.8174493441899,
+      "f0_5_95_hz": [
+        328.8139454646021,
+        328.8203017888956
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.011295851410588316,
+        "16": 0.0009665899063375641,
+        "32": 0.0008203133421911442
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.5199884275622126,
+      "high_low_ratio_std_db": 0.01419770116394735,
+      "fast_highpass_vs_lowband_std_db": 0.024020362459321924,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    },
+    "harmonic_am": {
+      "f0_median_hz": 328.81734435610946,
+      "f0_5_95_hz": [
+        328.81721253550535,
+        328.81747937361376
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.020727961001885682,
+        "16": 0.010400500870478425,
+        "32": 0.003398826477504682
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.525612716463715,
+      "high_low_ratio_std_db": 0.0009258715172080526,
+      "fast_highpass_vs_lowband_std_db": 0.25643636469489034,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    },
+    "combined": {
+      "f0_median_hz": 328.8175011622495,
+      "f0_5_95_hz": [
+        328.8140176052853,
+        328.82022284387415
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.021642250761492492,
+        "16": 0.011289795163116564,
+        "32": 0.004210191395999334
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 1.520957104033065,
+      "high_low_ratio_std_db": 0.01430527027089638,
+      "fast_highpass_vs_lowband_std_db": 0.2595957337051897,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    },
+    "static_brightness": {
+      "f0_median_hz": 328.817337285812,
+      "f0_5_95_hz": [
+        328.81730006584985,
+        328.81739570146055
+      ],
+      "inter_harmonic_power_fraction_by_exclusion_hz": {
+        "8": 0.00993218807403454,
+        "16": 6.63317390895392e-05,
+        "32": 2.7060641793664654e-06
+      },
+      "high_k5_20_vs_low_k1_4_db_mean": 2.872772186366791,
+      "high_low_ratio_std_db": 0.0005316357067188238,
+      "fast_highpass_vs_lowband_std_db": 0.0007586424136362408,
+      "fast_follower_window_ms": 24.333333333333332,
+      "window_seconds": [
+        0.8,
+        1.4
+      ]
+    }
+  },
+  "additions": "Offline postprocessing of unchanged production baseline raw; not RTL output. Synthetic noise, not copied recording residual.",
+  "noise": "Instrument-average stored residual-shape FIR plus 600..10000Hz bandpass; -36/-30dB active RMS relative to base; causal 10ms envelope; exact-zero gate.",
+  "harmonic_am": "1500Hz highpass component with continuous 23/37/61Hz sinusoidal AM, nominal 15% RMS; no pitch change; artificial sensitivity test.",
+  "static_brightness": "Add 0.3 times the same highpass component as a static spectral control.",
+  "residual_warning": "Inter-harmonic energy includes window leakage, pitch drift, vibrato/AM sidebands. Not an estimate of true air-noise level or perceived roughness.",
+  "source_file": "music_resources/trumpet/trumpet_E4_15_forte_normal.mp3",
+  "source_on_off_seconds": [
+    0.24135416666666668,
+    1.9934791666666667
+  ],
+  "normalization": "Matched active RMS per scene, common peak-safe target <=.88, constant gain, no compressor; terminal20ms fade.",
+  "hashes": {
+    "python/modal_sim/trumpet_texture_probe.py": "a2722e12819b0c2380fca05625cdbfb39af85c608c4fbd7df74285077ae3317d",
+    "music_resources/trumpet/trumpet_E4_15_forte_normal.mp3": "d77e139b2755d90280f36716b2d7425a9460edd443e041905b2eb23a75f9619f",
+    "FFT_results/params/trumpet_sustain.npz": "78d97747247f20d88e1bf8f49adfff2e9486df5d532b4c2e3bd6d52842568f29",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_single.npy": "5f9dd6d672fa8f6340df5e42295082bba39c66fcf3da1459b14ab38597ba6939",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_phrase.npy": "efed45e0caca3c3e6e2b85d754362fcde4feddc53f29047499090b4affc59923"
+  },
+  "deepseek": "Original delegated task timed out after300s. This is the separate Codex fallback experiment. Read-only DeepSeek retry tracked separately."
+}
