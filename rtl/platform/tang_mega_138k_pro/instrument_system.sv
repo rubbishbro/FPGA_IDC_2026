@@ -4,10 +4,10 @@ module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=0, BT_HAS_STATE=0, BT_PROTOCOL_V2=0,
-    parameter int PCM_HEADROOM_BITS=1,
+    parameter int PCM_HEADROOM_BITS=0,
     parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [6:0] FIRST_MIDI=48,
-    parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
+    parameter logic [9:0] RESOURCE_MASK=10'b0000000011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,
@@ -308,6 +308,9 @@ module instrument_system #(
         .curve_rd_data(curve_rd_data_fft)
     );
 
+    // TEMP_FMAP_DISPLAY_20261101: route original RGB through the separate debug
+    // overlay below. Restore u_ui outputs directly to lcd_r/g/b when removing it.
+    wire [5:0] temp_base_r,temp_base_g,temp_base_b;
     // Pixel FFT data and local guide/menu overlays share the existing sidebar path.
     // Relative to the former X-normal/Y-inverted profile:
     // old DOWN->LEFT, UP->RIGHT, LEFT->UP, RIGHT->DOWN.
@@ -325,8 +328,17 @@ module instrument_system #(
         .backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
         .frame_pulse(frame_pulse),.lcd_valid(de),.pix_x(pix_x),.pix_y(pix_y),
         .q_y(q_y_fft),.q_ov(q_ov_fft),.wave_rd_data(wave_rd_data_fft),.wave_rd_addr(wave_rd_addr_fft),.curve_rd_data(curve_rd_data_fft),.curve_rd_addr(curve_rd_addr_fft),
-        .lcd_r(lcd_r),.lcd_g(lcd_g),.lcd_b(lcd_b),.lcd_valid_out(display_de),
+        .lcd_r(temp_base_r),.lcd_g(temp_base_g),.lcd_b(temp_base_b),.lcd_valid_out(display_de),
         .active_values(values),.ui_scene(scene),.sidebar_width());
+    // TEMP_FMAP_DISPLAY_20261101: raw pad.fmap (not the scaled force_map).
+    // Keep LCD rotation, DE and the existing UI's four-clock pixel latency.
+    temporary_fmap_display u_temp_fmap(
+        .rst_n(rst_n),.core_clk(clk_core),.pix_clk(clk_pix),
+        .frame_pulse(frame_pulse),.lcd_valid(de),.fmap_raw(pad.fmap.raw),
+        .pix_x(pix_x),.pix_y(pix_y),
+        .base_r(temp_base_r),.base_g(temp_base_g),.base_b(temp_base_b),
+        .lcd_r(lcd_r),.lcd_g(lcd_g),.lcd_b(lcd_b));
+    // END TEMP_FMAP_DISPLAY_20261101
     assign lcd_en=display_de;
     // synthesis translate_off
     initial if(CLK_HZ<2_500_000 || CLK_HZ%2_500_000!=0)$fatal(1,"board PAD clock must divide to 2.5MHz");

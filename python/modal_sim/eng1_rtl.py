@@ -4,7 +4,7 @@ Q24 input/state, 64 stored / 48 computed modes, four sustained instruments.
 The DSP consumes accepted gate/level/retrigger/clear snapshots, not raw MIDI
 bytes. PitchEngine separately models the core-clock pitch FSM. Loader/QSPI,
 MIDI queues and audio FIFO/serializer clocks are outside this sample model.
-Known RTL reverb truncation is intentional here; this is not an ideal DSP.
+Reverb uses full-width products and signed saturation, matching production RTL.
 """
 from __future__ import annotations
 
@@ -193,7 +193,7 @@ class Envelope:
 
 
 class Reverb:
-    """Current comb_reverb + reverb_router, with SV expression widths (F09)."""
+    """Current comb_reverb + reverb_router, full-width products and saturation."""
     def __init__(self, preset='NONE'):
         self.preset = None
         self.configure(preset)
@@ -220,17 +220,15 @@ class Reverb:
         for i in range(4):
             at = self.pointers[i]
             s = 0 if clear else self.lines[i][at]
-            feedback = R.wrap_signed(s*p.feedback[i], 64) >> 27
-            taps.append(R.wrap_signed(s*p.weight[i], 69) >> 27)
+            feedback = (s*p.feedback[i]) >> 27
+            taps.append((s*p.weight[i]) >> 27)
             self.lines[i][at] = R.sat_signed(int(x)+feedback, 64)
             self.pointers[i] = 0 if at+1 >= p.lengths[i] else at+1
         self.clear_count = min(2048, self.clear_count+1)
         total = sum(taps)
-        # RTL sum_sat selects overflow direction using bit63, not bit70.
-        wet = total if -(1 << 63) <= total < (1 << 63) else (
-            -(1 << 63) if (total >> 63) & 1 else (1 << 63)-1)
-        dry = R.wrap_signed(int(x)*p.dry, 69) >> 27
-        wet = R.wrap_signed(wet*p.wet, 69) >> 27
+        wet = R.sat_signed(total, 64)
+        dry = (int(x)*p.dry) >> 27
+        wet = (wet*p.wet) >> 27
         return R.sat_signed(dry+wet, 64)
 
 
@@ -254,6 +252,9 @@ class Spatializer:
 
     @classmethod
     def gain(cls, position):
+        # TEMP_AUDIO_AUDITION_20261101: mirror exact-center unity in RTL.
+        if position == 256:
+            return 4096
         i, f = divmod(position, 16)
         return cls.LUT[i]*16 if i == 32 else cls.LUT[i]*(16-f)+cls.LUT[i+1]*f
 
@@ -639,6 +640,8 @@ class Eng1Synth:
         y, _ = self.core.step(x, zero, active_modes=48)
         mix = R.wrap_signed(sum((int(y[s])*int(e[s])) >> 31 for s in range(self.slots)), 64)
         out = self.reverb.step(mix)  # B body_router is five exact passthrough sections.
+        # TEMP_AUDIO_AUDITION_20261101: match voice_router's saturated output x2.
+        out = R.sat_signed(out * 2, 64)
         if self.stereo:
             left, right = self.spatial.step(out if active else 0, pan, itd, clear=not active)
             pcm = (pcm16(left, self.headroom, 18), pcm16(right, self.headroom, 18))

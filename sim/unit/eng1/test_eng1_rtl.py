@@ -109,9 +109,9 @@ def test_fs_and_resource_mismatch_fail_explicitly(resources):
     with pytest.raises(ValueError,match='production ENG1'):
         E.ResourceBank('drums',{})
 
-@pytest.mark.parametrize('value',[1<<42,-(1<<42)])
-def test_reverb_reproduces_current_rtl_none_truncation(value):
-    assert E.Reverb('NONE').step(value)==0
+@pytest.mark.parametrize('value',[0,1,-1,1<<24,-(1<<24),1<<41,-(1<<41),1<<42,-(1<<42),(1<<63)-1,-(1<<63)])
+def test_reverb_none_preserves_full_width(value):
+    assert E.Reverb('NONE').step(value)==value
 
 @pytest.mark.parametrize('headroom',[0,3,53])
 def test_pcm_rounds_and_saturates_like_output(headroom):

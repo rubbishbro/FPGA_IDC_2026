@@ -36,6 +36,13 @@ module reverb_router #(
 );
 
     localparam int AW = $clog2(N);
+    localparam int FW = 96 - G_FRAC;
+    function automatic logic signed [FW-1:0] scaled_product(
+        input logic signed [63:0] a, input logic signed [31:0] b);
+        logic signed [95:0] product;
+        product = a * b;
+        return product >>> G_FRAC;
+    endfunction
     // Q4.27 常数（1.0 = 1<<27）
     localparam logic signed [31:0] Q_ONE   = 32'sd134217728;   // 1.00
     localparam logic signed [31:0] Q_0_93  = 32'sd124822487;   // 0.93
@@ -120,7 +127,7 @@ module reverb_router #(
     //   out_valid = vq[5]，比 in_valid 晚 6 拍
     // ------------------------------------------------------------------
     logic signed [63:0] xd [0:3];
-    logic signed [68:0] dry_w, wet_w;      // 干/湿乘积移位后保留 69 位（先不饱和）
+    logic signed [FW-1:0] dry_w, wet_w;      // 干/湿乘积移位后保留 69 位（先不饱和）
     logic [5:0]         vq;
 
     assign out_valid = vq[5];
@@ -131,10 +138,10 @@ module reverb_router #(
     //   饱和判决放在**相加这一级**，乘法那一级只存 69 位不比较：在乘法后面
     //   塞 32 位比较器会把这条路拖到 57 MHz（教训）。
     // ------------------------------------------------------------------
-    logic signed [69:0] y_sum;
+    logic signed [FW:0] y_sum;
     logic               ys_ok;
-    assign y_sum = {{1{dry_w[68]}}, dry_w} + {{1{wet_w[68]}}, wet_w};
-    assign ys_ok = (y_sum[69:63] == {7{y_sum[63]}});
+    assign y_sum = {{1{dry_w[FW-1]}}, dry_w} + {{1{wet_w[FW-1]}}, wet_w};
+    assign ys_ok = (y_sum[FW:63] == {(FW-62){y_sum[63]}});
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -153,13 +160,13 @@ module reverb_router #(
             for (int k = 1; k < 4; k++) xd[k] <= xd[k-1];
 
             if (vq[3]) begin                // 湿声 + 干声同一拍，只寄存不饱和
-                dry_w <= (xd[3] * gd) >>> G_FRAC;
-                wet_w <= (wet  * gw) >>> G_FRAC;
+                dry_w <= scaled_product(xd[3], gd);
+                wet_w <= scaled_product(wet, gw);
             end
             // 相加这一级才饱和
             if (vq[4]) begin
                 if (ys_ok) y <= y_sum[63:0];
-                else y <= y_sum[69] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF;
+                else y <= y_sum[FW] ? 64'sh8000_0000_0000_0000 : 64'sh7FFF_FFFF_FFFF_FFFF;
             end
         end
     end

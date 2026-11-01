@@ -50,6 +50,11 @@ foreach m [glob -nocomplain "$root/FFT_spectrumshow/board/*.mem"] {
 }
 add_file "$board/instrument_board.cst"
 add_file "$board/instrument_board.sdc"
+# Optional documented router strategy for isolated implementation retries.
+if {[info exists ::env(BOARD_ROUTE_OPTION)]} {
+    if {$::env(BOARD_ROUTE_OPTION) ni {1 2}} {error "BOARD_ROUTE_OPTION must be 1 or 2"}
+    set_option -route_option $::env(BOARD_ROUTE_OPTION)
+}
 run syn
 puts "INSTRUMENT_BOARD_SYN_DONE"
 if {[info exists ::env(BOARD_PNR)] && $::env(BOARD_PNR)=="1"} {

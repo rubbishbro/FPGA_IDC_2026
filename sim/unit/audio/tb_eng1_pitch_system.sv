@@ -116,6 +116,11 @@ module tb_eng1_pitch_system;
                 product=sum_voice*longint'(expect_e[s]);
                 expected_y+=64'(product>>>31);
             end
+            // TEMP_AUDIO_AUDITION_20261101: output-level reference includes x2.
+            // Use independent signed64 input bounds rather than the RTL's 65-bit shift.
+            if(expected_y>64'sh3fffffffffffffff)expected_y=64'sh7fffffffffffffff;
+            else if(expected_y< -64'sh4000000000000000)expected_y=64'sh8000000000000000;
+            else expected_y=expected_y*2;
             core_frames++;
         end
         if(verify && dut.u_voice.y_valid)begin

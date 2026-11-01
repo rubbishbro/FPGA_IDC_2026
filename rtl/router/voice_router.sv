@@ -736,7 +736,15 @@ module voice_router #(
 
     assign body_accept = mix_v && body_in_ready;
     assign y_valid     = rev_out_valid && table_valid;
-    assign y_data      = table_valid ? rev_y : 64'sd0;
+    // TEMP_AUDIO_AUDITION_20261101: user-requested final voice output x2.
+    // Restore by removing this block and assigning y_data = table_valid ? rev_y : 0.
+    // Widen BEFORE shifting; saturate signed64 rather than wrapping on overflow.
+    wire signed [64:0] temp_output_x2 = $signed({rev_y[63], rev_y}) <<< 1;
+    wire signed [63:0] temp_output_scaled =
+        (temp_output_x2[64] == temp_output_x2[63]) ? temp_output_x2[63:0] :
+        (temp_output_x2[64] ? 64'sh8000000000000000 : 64'sh7fffffffffffffff);
+    assign y_data = table_valid ? temp_output_scaled : 64'sd0;
+    // END TEMP_AUDIO_AUDITION_20261101
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin

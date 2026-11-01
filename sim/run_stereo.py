@@ -7,9 +7,12 @@ ROOT=Path(__file__).resolve().parents[1]
 def generate(path,max_itd):
     rng=random.Random(20261029)
     knots=[round(256*(32-i)/math.hypot(32-i,i)) for i in range(33)]
-    def gain(pos):
+    def nominal_gain(pos):
         i,f=divmod(pos,16)
         return knots[i]*16 if i==32 else knots[i]*(16-f)+knots[i+1]*f
+    def gain(pos):
+        # TEMP_AUDIO_AUDITION_20261101: independently specified center unity.
+        return 4096 if pos==256 else nominal_gain(pos)
     def slew(value,target,step=1):
         return value+max(-step,min(step,target-value))
     cases=[(16,False,False)]*32
@@ -50,9 +53,10 @@ def generate(path,max_itd):
         max_power=max(max_power,abs(10*math.log10((k*k+other*other)/256**2)))
         if k and other:max_ild=max(max_ild,abs(20*math.log10((k/other)/((32-i)/i))))
     assert knots==sorted(knots,reverse=True)
-    assert all(gain(p)>=gain(p+1) for p in range(512))
-    assert gain(0)==4096 and gain(256)==2896 and gain(512)==0
-    return dict(rows=len(rows),max_itd=max_itd,knots=knots,max_knot_power_error_db=max_power,max_knot_ild_error_db=max_ild)
+    assert all(nominal_gain(p)>=nominal_gain(p+1) for p in range(512))
+    assert gain(0)==4096 and gain(256)==4096 and gain(512)==0
+    assert all(gain(p)==nominal_gain(p) for p in range(513) if p!=256)
+    return dict(rows=len(rows),max_itd=max_itd,knots=knots,nominal_max_knot_power_error_db=max_power,nominal_max_knot_ild_error_db=max_ild,temporary_center_unity=True)
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)

@@ -2,9 +2,9 @@
 module instrument_board_top #(
     parameter int BAUD=115200,KEY_DEBOUNCE=1_000_000,KEY_LONG=40_000_000,
     parameter bit NOTE_BANKS=0,BT_HAS_STATE=0,BT_PROTOCOL_V2=0,
-    parameter int PCM_HEADROOM_BITS=1,
+    parameter int PCM_HEADROOM_BITS=0,
     parameter bit LCD_ROTATE_180=1'b1,
-    parameter logic [9:0] RESOURCE_MASK=10'b0000000001,
+    parameter logic [9:0] RESOURCE_MASK=10'b0000000011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,STEREO_ITD_ENABLE=1'b1,

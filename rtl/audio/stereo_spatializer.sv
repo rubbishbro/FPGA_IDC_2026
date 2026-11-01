@@ -133,8 +133,18 @@ module stereo_spatializer #(
                     delta_l<=delta_l<<<1;delta_r<=delta_r<<<1;
                     interp_frac_l<=interp_frac_l>>1;interp_frac_r<=interp_frac_r>>1;
                     if(bit_count==3)begin
-                        coeff_l<=interp_sum_l[12:0];coeff_r<=interp_sum_r[12:0];
-                        gain_left_q12<=interp_sum_l[12:0];gain_right_q12<=interp_sum_r[12:0];
+                        // TEMP_AUDIO_AUDITION_20261101: unity gain in BOTH ears
+                        // at the exact center (board fixes pan=16). Keep ILD at
+                        // other positions and all ITD timing unchanged.
+                        // Restore by deleting the center branch below.
+                        if(position_q4==10'd256)begin
+                            coeff_l<=13'd4096;coeff_r<=13'd4096;
+                            gain_left_q12<=13'd4096;gain_right_q12<=13'd4096;
+                        end else begin
+                            coeff_l<=interp_sum_l[12:0];coeff_r<=interp_sum_r[12:0];
+                            gain_left_q12<=interp_sum_l[12:0];gain_right_q12<=interp_sum_r[12:0];
+                        end
+                        // END TEMP_AUDIO_AUDITION_20261101
                         bit_count<=0;state<=GAIN;
                     end else bit_count<=bit_count+1'b1;
                 end
