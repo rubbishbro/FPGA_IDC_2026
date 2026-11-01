@@ -22,7 +22,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
         $fatal(1,"FAIL board joystick XY orientation not connected");
     initial if(dut.u_system.u_sound.PCM_HEADROOM_BITS!=0 || dut.u_system.u_timing.ROTATE_180!=1)
         $fatal(1,"FAIL board louder PCM/rotated LCD profile not connected");
-    w25q64_read_model #(.N_MODES(64),.RESOURCE_BASE(32'h0080_0000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),.WRITE_NS(20_000_000),.MEM_FILE("piano_flash.mem"),.MEM_BYTES(65536)) flash(
+    w25q64_read_model #(.N_MODES(64),.RESOURCE_BASE(32'h0080_0000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),.WRITE_NS(20_000_000),.MEM_FILE("performance_resources.mem"),.MEM_BYTES(393216)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dq),.dq_oe(dut.u_system.flash_oe),.blank(blank),.dq_i(flash_data));
     assign dq=(!cs && !dut.u_system.flash_oe) ? flash_data : 4'bzzzz;
     integer pt_frames,pt_nonzero,pt_different;
@@ -52,8 +52,8 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
         if(!dut.u_system.core_n || !active)begin pcm_pending<=0;last_pcm<=0;end
         else begin
             if(dut.u_system.sample_valid)begin
-                // Independent centered Q8 gain, then a SINGLE rounding to PCM16.
-                scaled=(100'($signed(dut.u_system.sample_value))*100'sd181+
+                // Independent temporary centered unity Q8 gain, then a SINGLE rounding to PCM16.
+                scaled=(100'($signed(dut.u_system.sample_value))*100'sd256+
                         (100'sd1<<(16+dut.PCM_HEADROOM_BITS)))>>>(17+dut.PCM_HEADROOM_BITS);
                 last_pcm<=scaled>32767 ? 16'h7fff : scaled< -32768 ? 16'h8000 : 16'(scaled);pcm_pending<=1;
             end
@@ -167,12 +167,16 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
         $display("BOARD boot/PAD samples=%d t=%t",samples,$time);
         if(!sd || !pa || dut.u_system.pad.fmap.flat_d[0].val!=32 || dut.u_system.force_map.flat_d[0].val!=128 ||
            dut.u_system.u_sound.u_voice.note_on!=16'h0001)$fatal(1,"FAIL raw ADC/force/PAD connection");
-        // A complete LED fill: exactly four pixels for pressure cell0.
-        wait(dut.u_system.filling && dut.u_system.fill_idx==0);wait(!dut.u_system.filling);clocks(80);
-        for(int x=0;x<8;x++)for(int y=0;y<8;y++)begin
-            int physical_y;logic [23:0] expected;
-            physical_y=x%2 ? 7-y : y;expected=x<2 && y<2 ? 24'h080808 : 0;
-            if(dut.u_system.u_pad.led_inst.gram.pixels[x][physical_y]!==expected)$fatal(1,"FAIL LED 2x2 mapping x=%d y=%d",x,y);
+        // The renderer now drives a full 8x8 background/ripple image.
+        begin:check_pad_leds
+            wait(dut.u_system.leds.wr && dut.u_system.u_pad_leds.fill_idx==0);
+            wait(!dut.u_system.leds.wr);clocks(80);
+            for(int x=0;x<8;x++)for(int y=0;y<8;y++)begin
+                int physical_y;logic [23:0] expected;
+                physical_y=x%2 ? 7-y : y;
+                expected=dut.u_system.u_pad_leds.framebuffer[y*8+x];
+                if(dut.u_system.u_pad.led_inst.gram.pixels[x][physical_y]!==expected)$fatal(1,"FAIL LED image/serpentine mapping x=%d y=%d",x,y);
+            end
         end
         key(2);repeat(4)key(1);key(2); // open communication category
         source_menu(1);wait(dut.u_system.values[11]==1);

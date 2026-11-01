@@ -92,15 +92,14 @@ package router_pkg;
     // 加乐器/调模态数只改这里 —— 顶层不再有 n_modes 端口。
     function automatic int unsigned n_modes_of(input instrument_e inst);
         case (inst)
-            INST_PIANO:  return 64;      // 2 x 32 = 64
-            INST_GUITAR: return 20;      
+            INST_PIANO,INST_GUITAR: return 48; // ABC resources; storage remains 64
             default:     return 48;      // eng1 首版计算前48；资源/状态仍按64模态存储
         endcase
     endfunction
 
     function automatic logic eng_sel(input instrument_e inst);
         case (inst)
-            INST_PIANO, INST_GUITAR: return 1'b0;
+            INST_PIANO, INST_GUITAR: return 1'b1;
             default:                 return 1'b1;
         endcase
     endfunction

@@ -1,0 +1,45 @@
+// 引擎、bank 存储与写口仲裁
+digraph engine_store {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.3,ranksep=0.45,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 8　模态存储、写口仲裁与双引擎\nbank 拆分只为凑够端口：两引擎同拍读不同地址 = 2R1W，一块 BSRAM 只有两端口";labelloc=t;
+
+subgraph cluster_wr {
+ label="三个写口（同一 always_ff 内按优先级）"; fontsize=10; color="#fef3c7"; style="rounded";
+ wl [label="loader（最高）\nld_we · 失败写零填充",fillcolor="#fef3c7"];
+ wp [label="eng1_pitch\na1 双缓冲 · 非活动侧",fillcolor="#f5f3ff"];
+ wm [label="modulation0（最低）\n当前 en ≡ 0",style="dashed",fillcolor="#f8fafc"];
+}
+arb [label="写口仲裁\nloader > pitch > mod\n加载期间调制写丢弃\n读侧 1 拍同步",fillcolor="#fef3c7",penwidth=2];
+
+subgraph cluster_mem {
+ label="voice_router 内部数组（无独立 RAM 模块）"; fontsize=10; color="#93c5fd"; style="rounded";
+ ba [label="bank A · slot 0–7\nca_a11/a12/a21/a22/gq/gv/wo\n+ pitch_a12 · q_ram · v_ram\n10 × 512×32",shape=cylinder,fillcolor="#dbeafe"];
+ bb [label="bank B · slot 8–15\n同构，独立读口",shape=cylinder,fillcolor="#dbeafe"];
+ pm [label="参数表 pm_*\na11/a12/a22/wo/s11/s12/s22/swo\n1024 × 8 × 32 · 不拆 bank",shape=cylinder,fillcolor="#dbeafe"];
+}
+
+subgraph cluster_eng {
+ label="eng_router：按 inst 二选一（当前 eng_sel ≡ 1）"; fontsize=10; color="#c4b5fd"; style="rounded";
+ e0 [label="eng0 · 直接型\n7 乘并行 · 五级 R/M/N/S/W\n每作业 N+8 拍\n当前不被选中",style="dashed",fillcolor="#f8fafc"];
+ e1 [label="eng1 · ABC 递推\nacc = G·x − a1·y1 − a2·y2\n五级 R/M/S/N/W · II=1\nN=48 模态 + 排空",fillcolor="#ede9fe"];
+}
+cm [label="系数格式（eng1）\nG/a1 = Q2.24 · a2 = UQ0.24\na21 = −a12（由 a12 取负推算）",fillcolor="#f5f3ff"];
+out [label="y[63:0] → 逐槽包络乘法\n（图 7）",fillcolor="#fff7ed"];
+
+wl -> arb;
+wp -> arb;
+wm -> arb;
+arb -> ba;
+arb -> bb;
+arb -> pm [style=dashed];
+ba -> e0 [dir=both,style=dashed,label="co/st/x"];
+ba -> e1 [dir=both,label="co/st/x"];
+bb -> e1 [dir=both];
+pm -> e1 [style=dashed,label="调制参数读"];
+cm -> e1 [style=dashed];
+e1 -> out;
+e0 -> out [style=dashed];
+{rank=same;e0;e1;}
+}

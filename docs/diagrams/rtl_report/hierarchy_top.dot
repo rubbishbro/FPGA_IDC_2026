@@ -1,0 +1,68 @@
+digraph hierarchy {
+graph [fontname="Noto Sans CJK SC",fontsize=14,rankdir=LR,nodesep=0.28,ranksep=0.6,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=8,margin="0.10,0.05",color="#64748b"];
+edge [color="#94a3b8",arrowsize=0.55,penwidth=0.8];
+label="instrument_board_top 实例树（自动提取自 RTL 源码）";labelloc=t;
+  subgraph cluster_top {
+    label="统一板级系统 instrument_system"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top [label="instrument_board_top\n统一板级入口 · instrument_board_top.sv",shape=box3d,fontsize=11,fillcolor="#f1f5f9"];
+    n_instrument_board_top_u_system [label="instrument_system\nu_system · instrument_system.sv",shape=box,fontsize=8,fillcolor="#f1f5f9"];
+    n_instrument_board_top_u_system_u_key0 [label="key_ui_event\nu_key0 · key_ui_event.sv",shape=box,fontsize=8,fillcolor="#f1f5f9"];
+    n_instrument_board_top_u_system_u_key1 [label="key_ui_event\nu_key1 · key_ui_event.sv",shape=box,fontsize=8,fillcolor="#f1f5f9"];
+  }
+  subgraph cluster_clock {
+    label="时钟与复位 · 50MHz → 单PLL三输出"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_clocks [label="board_clock_reset\nu_clocks · board_clock_reset.sv",shape=box,fontsize=8,fillcolor="#fef3c7"];
+  }
+  subgraph cluster_pad {
+    label="压力垫 / 摇杆采集与 LED"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_pad [label="pad_driver\nu_pad · pad_driver.sv",shape=box,fontsize=8,fillcolor="#dbeafe"];
+    n_instrument_board_top_u_system_u_pad_leds [label="pad_led_effects\nu_pad_leds · pad_led_effects.sv",shape=box,fontsize=8,fillcolor="#dbeafe"];
+  }
+  subgraph cluster_comm {
+    label="通信与协议栈"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_comm [label="comm_top\nu_comm · comm_top.sv",shape=box,fontsize=8,fillcolor="#ede9fe"];
+  }
+  subgraph cluster_sound {
+    label="演奏前端 midi_voice_top"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_sound [label="midi_voice_top\nu_sound · midi_voice_top.sv",shape=box,fontsize=8,fillcolor="#cffafe"];
+    n_instrument_board_top_u_system_u_sound_u_map [label="midi_instrument_map\nu_map · midi_instrument_map.sv",shape=box,fontsize=8,fillcolor="#cffafe"];
+    n_instrument_board_top_u_system_u_sound_u_guide [label="midi_guide_state\nu_guide · midi_guide_state.sv",shape=box,fontsize=8,fillcolor="#cffafe"];
+    n_instrument_board_top_u_system_u_sound_u_notes [label="midi_note_state\nu_notes · midi_note_state.sv",shape=box,fontsize=8,fillcolor="#cffafe"];
+  }
+  subgraph cluster_voice {
+    label="voice_router 合成核心"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_sound_u_voice [label="voice_router\nu_voice · voice_router.sv",shape=box,fontsize=8,fillcolor="#bfdbfe"];
+  }
+  subgraph cluster_audio {
+    label="音频输出与采样时基"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_sound_u_audio [label="i2s_audio_output\nu_audio · i2s_audio_output.sv",shape=box,fontsize=8,fillcolor="#fce7f3"];
+  }
+  subgraph cluster_disp {
+    label="显示与可视化（pix 域）"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_timing [label="lcd_timing\nu_timing · lcd_timing.v",shape=box,fontsize=8,fillcolor="#dcfce7"];
+    n_instrument_board_top_u_system_u_visualizer_fifo [label="audio_async_fifo\nu_visualizer_fifo · audio_async_fifo.sv",shape=box,fontsize=8,fillcolor="#dcfce7"];
+    n_instrument_board_top_u_system_u_fft_chain [label="real_audio_chain\nu_fft_chain · real_audio_chain.v",shape=box,fontsize=8,fillcolor="#dcfce7"];
+  }
+  subgraph cluster_ui {
+    label="配置与侧栏（core → pix 提交）"; fontsize=12; fontcolor="#334155"; color="#cbd5e1"; style="rounded,dashed";
+    n_instrument_board_top_u_system_u_ui [label="sidebar_system\nu_ui · sidebar_system.sv",shape=box,fontsize=8,fillcolor="#dcfce7"];
+  }
+  n_instrument_board_top -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system_u_sound -> None;
+  n_instrument_board_top_u_system_u_sound -> None;
+  n_instrument_board_top_u_system_u_sound -> None;
+  n_instrument_board_top_u_system_u_sound -> None;
+  n_instrument_board_top_u_system_u_sound -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top_u_system -> None;
+  n_instrument_board_top -> None;
+}

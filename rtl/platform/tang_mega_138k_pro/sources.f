@@ -30,6 +30,7 @@ rtl/audio/stereo_spatializer.sv
 rtl/audio/i2s_audio_output.sv
 rtl/math/math.sv
 rtl/drivers/pad_driver.sv
+rtl/drivers/pad_led_effects.sv
 rtl/drivers/gowin_adc/gowin_adc.v
 rtl/midi/midi_note_state.sv
 rtl/midi/midi_guide_state.sv

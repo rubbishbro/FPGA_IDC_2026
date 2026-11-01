@@ -1,6 +1,12 @@
 # From repo root; BOARD_PNR=1 enables physical implementation.
 set root [file normalize [pwd]]
 set board "$root/rtl/platform/tang_mega_138k_pro"
+set resource_python python3
+if {[info exists ::env(BOARD_PYTHON)]} {set resource_python $::env(BOARD_PYTHON)}
+if {[catch {exec $resource_python "$root/sim/check_performance_resources.py"} resource_check]} {
+    error "Flash resource/board contract check failed: $resource_check"
+}
+puts "FLASH_RESOURCE_CONTRACT $resource_check"
 set out "$root/build/instrument_board"
 if {[info exists ::env(INSTRUMENT_BUILD_DIR)]} {set out [file normalize $::env(INSTRUMENT_BUILD_DIR)]}
 file mkdir $out
@@ -47,6 +53,11 @@ foreach path [split [read $fh] "\n"] {
 close $fh
 foreach m [glob -nocomplain "$root/FFT_spectrumshow/board/*.mem"] {
     file copy -force $m "$out/instrument_board/[file tail $m]"
+}
+set led_tables "$out/instrument_board/rtl/drivers/pad_led_tables"
+file mkdir $led_tables
+foreach m [glob "$root/rtl/drivers/pad_led_tables/*.mem"] {
+    file copy -force $m "$led_tables/[file tail $m]"
 }
 add_file "$board/instrument_board.cst"
 add_file "$board/instrument_board.sdc"

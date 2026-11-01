@@ -8,7 +8,7 @@
 module i2s_audio_output #(
     parameter int CLK_DIV=4,
     parameter int FIFO_DEPTH=16,
-    parameter int PCM_HEADROOM_BITS=3, // Q24 -> Q1.15: >> (9 + headroom)
+    parameter int PCM_HEADROOM_BITS=3, // Q24 -> Q1.15: >> (9 + headroom); -1 enables +6dB vs unity
     parameter bit STEREO_ENABLE=1'b1,
     parameter bit PT8211_ENABLE=1'b0,
     parameter int ITD_MAX_SAMPLES=4
@@ -24,8 +24,8 @@ module i2s_audio_output #(
     // Sticky diagnostics, all synchronized to clk. Reset clears them.
     output logic deadline_miss, overflow, underflow
 );
-    initial if (PCM_HEADROOM_BITS<0 || PCM_HEADROOM_BITS>53)
-        $error("PCM_HEADROOM_BITS must be 0..53");
+    initial if (PCM_HEADROOM_BITS< -1 || PCM_HEADROOM_BITS>53)
+        $error("PCM_HEADROOM_BITS must be -1..53");
     localparam int SHIFT=9+PCM_HEADROOM_BITS;
     function automatic logic signed [15:0] pcm16(input logic signed [63:0] y);
         logic signed [79:0] extended;

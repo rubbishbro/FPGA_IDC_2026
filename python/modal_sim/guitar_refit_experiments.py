@@ -44,7 +44,15 @@ def patch():return P.Patch('guitar')
 def source_data(midi,dyn):
  manifest=json.loads((ROOT/'FFT_results/params/guitar_manifest.json').read_text())
  row=next(r for r in manifest if r['midi']==midi and r['dynamic']==dyn and r['variation']=='normal')
- path=Path(row['path']);x,fs=sf.read(path,always_2d=True);x=x[:,0].astype(float)
+ path=Path(row['path'])
+ if not path.is_file():
+  # Historical extraction manifests can name another checkout. Resolve only
+  # the recorded music_resources-relative path, never a different recording.
+  parts=path.parts
+  if 'music_resources' in parts:path=ROOT.joinpath(*parts[parts.index('music_resources'):])
+ if not path.is_file():raise FileNotFoundError(path)
+ row=dict(row,path=str(path))
+ x,fs=sf.read(path,always_2d=True);x=x[:,0].astype(float)
  if fs!=48000:
   gcd=math.gcd(fs,48000);x=resample_poly(x,48000//gcd,fs//gcd)
  win=np.ones(480)/480;env=np.sqrt(np.convolve(x*x,win,mode='same'))

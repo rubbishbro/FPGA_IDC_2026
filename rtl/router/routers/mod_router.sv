@@ -40,7 +40,10 @@ module mod_router #(
 
     always_comb case (inst)
         // 吉他启用一阶调制；目前只更新前四个模态。
-        router_pkg::INST_GUITAR: en = 1'b1;
+        // TODO: 揉弦的一阶线性版本还在调（会写出 >1 的 a11 导致自激），
+        // 先关掉出一版"无调制"的吉他音色；修好再打开。
+        // Matrix modulation must never rewrite ABC G/a1/a2 records.
+        router_pkg::INST_GUITAR: en = !router_pkg::eng_sel(inst);
         default:                 en = 1'b0;
     endcase
 

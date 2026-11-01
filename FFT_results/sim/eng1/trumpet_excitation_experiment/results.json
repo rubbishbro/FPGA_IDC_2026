@@ -1,0 +1,227 @@
+{
+  "sample_rate": 48000,
+  "seed": 20261031,
+  "scenes": [
+    {
+      "scene": "phrase",
+      "active_samples": [
+        5760,
+        466560
+      ],
+      "variants": {
+        "pulse_shape": {
+          "file": "pulse_shape_phrase.wav",
+          "frames": 533760,
+          "gain_db": 5.439801980572966,
+          "active_rms_dbfs": -22.49877472284595,
+          "peak_dbfs": -1.9353589633268196,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.0,
+            "pulse_amplitude_multiplier_range": [
+              1.0,
+              1.0
+            ],
+            "air_to_nominal_pulse_energy_db": null
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "3564e37e1c82e8020d6ad7910ce38cdaa7a6605437bb65e5499e6a691723d762"
+        },
+        "onset_instability": {
+          "file": "onset_instability_phrase.wav",
+          "frames": 533760,
+          "gain_db": 12.08440678367824,
+          "active_rms_dbfs": -22.498774789543113,
+          "peak_dbfs": -2.9363660006509735,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.014724148408462331,
+            "pulse_amplitude_multiplier_range": [
+              0.7903266944776307,
+              1.2123993464337053
+            ],
+            "air_to_nominal_pulse_energy_db": null
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "acc04b5a7d7b76a6fdfc0ebbaef325dd1e5bc4109da0a443c019811b10e34f07"
+        },
+        "drive_air": {
+          "file": "drive_air_phrase.wav",
+          "frames": 533760,
+          "gain_db": 11.992656874743163,
+          "active_rms_dbfs": -22.49877477560386,
+          "peak_dbfs": -2.985625324126175,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.0,
+            "pulse_amplitude_multiplier_range": [
+              1.0,
+              1.0
+            ],
+            "air_to_nominal_pulse_energy_db": -35.890211913115465
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "9ddfdd9a59d4ff559af3558c29eaeba45549cbf81075a568f62af7f3a4162cfb"
+        },
+        "combined_drive": {
+          "file": "combined_drive_phrase.wav",
+          "frames": 533760,
+          "gain_db": 5.527869242472887,
+          "active_rms_dbfs": -22.498774733976795,
+          "peak_dbfs": -1.8988888395296284,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.014724148408462331,
+            "pulse_amplitude_multiplier_range": [
+              0.7903266944776307,
+              1.2123993464337053
+            ],
+            "air_to_nominal_pulse_energy_db": -35.890211913115465
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "7c6ee4e618a8c603e5b2d367397dab7a31fec7a28d14eb5d552236afb5aff61d"
+        },
+        "baseline": {
+          "file": "baseline_phrase.wav",
+          "frames": 533760,
+          "gain_db": 11.991252491633158,
+          "active_rms_dbfs": -22.49877478335586,
+          "peak_dbfs": -3.003854313726193,
+          "excitation": null,
+          "state_rail_hits": null,
+          "native_mono_pcm_rail_samples": null,
+          "sha256": "a3ddb5c0419f548e16df66651b9665ff6dc8c87b3df0a8b8869a1d923cb7d46a"
+        },
+        "combined_parallel_breath": {
+          "file": "combined_parallel_breath_phrase.wav",
+          "frames": 533760,
+          "gain_db": 5.5277664612044,
+          "active_rms_dbfs": -22.498774727436054,
+          "peak_dbfs": -1.9108345746725095,
+          "excitation": null,
+          "state_rail_hits": null,
+          "native_mono_pcm_rail_samples": null,
+          "sha256": "be5c64278395c1b02960409c73614aa2123565c319f50d7d64b4c1d162334943"
+        }
+      }
+    },
+    {
+      "scene": "single",
+      "active_samples": [
+        5760,
+        77760
+      ],
+      "variants": {
+        "pulse_shape": {
+          "file": "pulse_shape_single.wav",
+          "frames": 115200,
+          "gain_db": 1.325413403650169,
+          "active_rms_dbfs": -22.4987747370859,
+          "peak_dbfs": -6.049746660940953,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.0,
+            "pulse_amplitude_multiplier_range": [
+              1.0,
+              1.0
+            ],
+            "air_to_nominal_pulse_energy_db": null
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "e86d6ff858306a6a421133c81f8c24ae6b2b4ce14021289a2426598ae418560e"
+        },
+        "onset_instability": {
+          "file": "onset_instability_single.wav",
+          "frames": 115200,
+          "gain_db": 7.615457583432351,
+          "active_rms_dbfs": -22.49877477951005,
+          "peak_dbfs": -7.40531588136932,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.012208560087945478,
+            "pulse_amplitude_multiplier_range": [
+              0.9220025668102508,
+              1.0681501374200575
+            ],
+            "air_to_nominal_pulse_energy_db": null
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "ab1d7d50ac141d900a913713528bfad7d7a051df59bd66c57b9575ba1b24eec4"
+        },
+        "drive_air": {
+          "file": "drive_air_single.wav",
+          "frames": 115200,
+          "gain_db": 7.612148719161889,
+          "active_rms_dbfs": -22.49877479273949,
+          "peak_dbfs": -7.392270928789525,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.0,
+            "pulse_amplitude_multiplier_range": [
+              1.0,
+              1.0
+            ],
+            "air_to_nominal_pulse_energy_db": -42.320777769945686
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "d9bcb6af3927a9d3c43e3ff0b0c3f42335a386fbbc46a48a9b1aad5465447e78"
+        },
+        "combined_drive": {
+          "file": "combined_drive_single.wav",
+          "frames": 115200,
+          "gain_db": 1.329819679159774,
+          "active_rms_dbfs": -22.498774720640892,
+          "peak_dbfs": -6.0984398961721435,
+          "excitation": {
+            "max_instantaneous_frequency_offset_fraction": 0.012208560087945478,
+            "pulse_amplitude_multiplier_range": [
+              0.9220025668102508,
+              1.0681501374200575
+            ],
+            "air_to_nominal_pulse_energy_db": -42.320777769945686
+          },
+          "state_rail_hits": 0,
+          "native_mono_pcm_rail_samples": 0,
+          "sha256": "45ba262cfae545de7e09c64325bfe1ee7647c9a9cf896fba32b689bb6c2a56af"
+        },
+        "baseline": {
+          "file": "baseline_single.wav",
+          "frames": 115200,
+          "gain_db": 7.6111854778643915,
+          "active_rms_dbfs": -22.498774788299105,
+          "peak_dbfs": -7.3839227378355945,
+          "excitation": null,
+          "state_rail_hits": null,
+          "native_mono_pcm_rail_samples": null,
+          "sha256": "2ecdd68e411a86dade61c4fccb88e8a9acc487d2c511c943d49140ae197f79e4"
+        },
+        "combined_parallel_breath": {
+          "file": "combined_parallel_breath_single.wav",
+          "frames": 115200,
+          "gain_db": 1.3299201114685701,
+          "active_rms_dbfs": -22.49877471910444,
+          "peak_dbfs": -6.063889546877138,
+          "excitation": null,
+          "state_rail_hits": null,
+          "native_mono_pcm_rail_samples": null,
+          "sha256": "273dc822d4e8dc94aeb522d192eeaf61125a269dcf4b229d8d187f9b08efd799"
+        }
+      }
+    }
+  ],
+  "baseline_excitation_scheduler_bit_exact": true,
+  "coefficients": "Production G/a1/a2 unchanged. Original envelope/release retained. No modal gain boost.",
+  "pulse": "Opposite half-sine lobes: opening12%period, gap2%, closing3%; zero-area; fundamental magnitude normalized to unit impulse, phase not matched.",
+  "instability": "Per-cycle frequency offset std0.6%, clipped1.8%; amplitude std8%, clipped0.76..1.24. Both decay exponentially with30ms time constant after each note-on.",
+  "drive_air": "500..10000Hz bandpassed Gaussian drive; RMS ratio to nominal impulse train =0.040*exp(-age/40ms)+0.005 while gated. Resonator filtering affects audible noise level.",
+  "parallel_air": "combined_parallel_breath adds separate500..10000Hz breath to combined_drive at-36dB active RMS relative to production baseline, following baseline envelope. Other variants have no parallel path.",
+  "limitations": "Phenomenological excitation controls, not a coupled lips/breath-pressure/bore simulation. Pulse/table co-design would be required for production. Input noise level is not output noise level.",
+  "normalization": "Matched active RMS per scene; constant gain, peak<=.88,20ms file-end fade.",
+  "source_hashes": {
+    "python/modal_sim/trumpet_excitation_experiment.py": "95a8233443a7efdec16e8db0b268277aa329aa3caf03ff707019be698b5b032d",
+    "python/modal_sim/eng1_rtl.py": "edaff0caf110de4c760726d76d254a589bcfec1b25b823bb700e7d42e63a54f9",
+    "FFT_results/params/trumpet_sustain.npz": "78d97747247f20d88e1bf8f49adfff2e9486df5d532b4c2e3bd6d52842568f29",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_phrase.npy": "efed45e0caca3c3e6e2b85d754362fcde4feddc53f29047499090b4affc59923",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_single.npy": "5f9dd6d672fa8f6340df5e42295082bba39c66fcf3da1459b14ab38597ba6939"
+  }
+}

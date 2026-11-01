@@ -1,0 +1,21 @@
+{
+  "audit_date": "2026-10-31",
+  "status": "OFFLINE_PYTHON_ONLY_NOT_RTL_VERIFIED",
+  "scope": "人工乐谱事件含断奏/换气；小号新激励为Python候选，小提琴baseline为Python模型。",
+  "input_origin": "人工乐谱调度，不是实测PAD矩阵演奏记录",
+  "excerpt_rtl_cosim_verified": false,
+  "pad_input_chain_verified": false,
+  "native_pcm_origin": "Python模型；native命名不表示RTL输出",
+  "listening_pcm": "可能经过恒定增益、淡出或候选离线处理；不是位精确RTL输出",
+  "prior_checks": "Python路径一致性、hash、WAV完整性和无触轨检查不构成RTL等价证据",
+  "selection_status": "仅保留离线听感偏好，不构成当前RTL方案确认",
+  "existing_artifact_metadata": "保留原实验元数据供追溯；其中production/PASS等表述受本声明限制",
+  "documentation": "docs/ENG1_PY_MODEL.md#2026-10-31试听证据更正",
+  "audio_files": [
+    "hinos_oiirmaos_baseline.wav",
+    "hinos_oiirmaos_new_excitation.wav",
+    "hinos_oiirmaos_new_excitation_breath.wav",
+    "violin/hinos_violin_baseline.wav",
+    "violin/hinos_violin_native.wav"
+  ]
+}

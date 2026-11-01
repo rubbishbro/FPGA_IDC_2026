@@ -1,0 +1,26 @@
+// voice_router 计算与后级
+digraph router_compute {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.3,ranksep=0.45,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=9,margin="0.12,0.07",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=8,color="#64748b",arrowsize=0.7];
+label="图 7　voice_router 计算与后级：双 bank 并行 → 逐槽包络 → 混音 → 腔体 → 混响\n排空延迟 = 93（腔体）+ 6（混响）= 99 拍；只有 frame_retire 之后才回 S_DONE";labelloc=t;
+
+era [label="u_era : eng_router\ny[63:0]（bank A）",fillcolor="#ede9fe"];
+erb [label="u_erb : eng_router\ny[63:0]（bank B）",fillcolor="#ede9fe"];
+mul [label="逐槽包络乘法\ny_env = (y × emap) >>> 31\nA/B 复用同一条乘法流水",fillcolor="#fce7f3"];
+acc [label="y_acc 跨槽累加\n64bit · S_ENVACC",fillcolor="#fce7f3"];
+mix [label="mix_q / mix_v\n单深度 skid · 不覆盖",fillcolor="#fce7f3"];
+body [label="u_body : body_router → u_core : body_biquad\n5 段 Q4.27 · 68bit 状态 / 104bit 累加\n93 拍/样本 · 期间 in_ready=0",fillcolor="#fef3c7"];
+rev [label="u_rev : reverb_router → u_comb : comb_reverb\n4 路并联梳状 · 6 拍 · 干湿混合",fillcolor="#fef3c7"];
+out [label="y_valid / y_data[63:0]\nQ24 signed64 · table_valid=0 静音",fillcolor="#fff7ed",penwidth=2];
+cnt [label="在途计数器\nmix_outstd / rev_outstd\nframe_drained → frame_retire",fillcolor="#f5f3ff"];
+
+era -> mul [label="era_y"];
+erb -> mul [label="erb_y"];
+mul -> acc -> mix -> body -> rev -> out;
+cnt -> mix [style=dashed];
+cnt -> rev [style=dashed];
+body -> cnt [style=dashed];
+rev -> cnt [style=dashed];
+{rank=same;era;erb;}
+}

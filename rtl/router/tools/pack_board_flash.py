@@ -61,12 +61,14 @@ def pack(instruments, table_bytes, base, capacity):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--instrument', action='append', metavar='ID=BIN', help='Repeat for multiple instruments; default is current piano')
+    ap.add_argument('--instrument', action='append', metavar='ID=BIN', help='Repeat for multiple instruments; default is four selected ENG1 timbres')
+    ap.add_argument('--legacy-eng0',action='store_true',help='Explicitly allow old matrix resources, incompatible with current board routing')
     ap.add_argument('--notes', type=int, choices=(16, 32), default=16)
     ap.add_argument('--out', type=Path, default=ROOT / 'build/flash_resources/resources.bin')
     args = ap.parse_args()
     try:
-        entries = args.instrument or [f'0={Path(__file__).with_name("piano_flash.bin")}']
+        entries = args.instrument or [f'{ident}={Path(__file__).parent/"performance"/(name+"_eng1.bin")}'
+                                       for ident,name in [(0,'piano'),(1,'guitar'),(3,'trumpet'),(5,'violin')]]
         instruments = {}
         for entry in entries:
             ident, path = entry.split('=', 1)
@@ -76,11 +78,17 @@ def main():
             instruments[ident] = path
         base, capacity = board_layout()
         image, records = pack(instruments, args.notes * 64 * 64, base, capacity)
+        if not args.legacy_eng0:
+            for region in records:
+                data=image[region['offset']:region['offset']+region['bytes']]
+                for offset in range(0,len(data),64):
+                    if data[offset+60:offset+64] != b'P1T1' or data[offset+12:offset+32] != bytes(20):
+                        raise ValueError('Expected ENG1 ABC/P1T1 records; old matrix images require --legacy-eng0')
     except (ValueError, OSError) as exc:
         ap.error(str(exc))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_bytes(image)
-    manifest = dict(schema=1, flash_base=base, flash_bytes=capacity, image_flash_address=base,
+    manifest = dict(schema=1, format='legacy eng0 matrix' if args.legacy_eng0 else 'ENG1 ABC/P1T1', flash_base=base, flash_bytes=capacity, image_flash_address=base,
                     image_bytes=len(image), notes=args.notes, storage_modes=64, record_bytes=64,
                     image_sha256=hashlib.sha256(image).hexdigest(), instruments=records,
                     firmware_flash_address=0, bulk_erase_between_files=False)

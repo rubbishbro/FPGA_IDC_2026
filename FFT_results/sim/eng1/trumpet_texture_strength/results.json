@@ -1,0 +1,210 @@
+{
+  "sample_rate": 48000,
+  "scenes": {
+    "phrase": {
+      "active_samples": [
+        5760,
+        466560
+      ],
+      "variants": {
+        "baseline": {
+          "file": "baseline_phrase.wav",
+          "noise_rms_db_rel_base": null,
+          "highband_am_nominal_std": 0,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.78171948056822,
+          "peak_dbfs": -3.2867999993481622,
+          "gain_db": 11.70830779389567,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": null,
+          "sha256": "a9143e30d5ea8a225d289f5a6f4d2a15524ce88220504c0d254b60ca5aa551cc"
+        },
+        "previous_combo": {
+          "file": "previous_combo_phrase.wav",
+          "noise_rms_db_rel_base": -36,
+          "highband_am_nominal_std": 0.04,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.781719482874824,
+          "peak_dbfs": -2.5258875143308837,
+          "gain_db": 11.685039311260624,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": -29.258750818979138,
+          "sha256": "1fd7f4b7885377be01629e677b43c2f4b9ef5224db7c6b6396ea53984f9eb47e"
+        },
+        "air_strong": {
+          "file": "air_strong_phrase.wav",
+          "noise_rms_db_rel_base": -18,
+          "highband_am_nominal_std": 0,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.781719482018055,
+          "peak_dbfs": -3.312367109817986,
+          "gain_db": 11.63757057900054,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": -18.0,
+          "sha256": "fc7f917efb8cc942f9635326094965e530ce4c8640c50f22a82a09117f14937a"
+        },
+        "harmonic_strong": {
+          "file": "harmonic_strong_phrase.wav",
+          "noise_rms_db_rel_base": null,
+          "highband_am_nominal_std": 0.12,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.781719482764366,
+          "peak_dbfs": -1.1103466040620245,
+          "gain_db": 11.6189641389676,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": -20.734910568325354,
+          "sha256": "be46d28ffd36b88fe43fa3a2b8df5a1fd12857678b5127ceb15c9d2e13bdcd0e"
+        },
+        "medium_combo": {
+          "file": "medium_combo_phrase.wav",
+          "noise_rms_db_rel_base": -24,
+          "highband_am_nominal_std": 0.08,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.781719494016663,
+          "peak_dbfs": -1.9202183019306596,
+          "gain_db": 11.638418396929115,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": -21.13057517865197,
+          "sha256": "b3515676ff582dd4ec5fa798209d99c5856a3fe9729d87e4950907745f5745a6"
+        },
+        "strong_combo": {
+          "file": "strong_combo_phrase.wav",
+          "noise_rms_db_rel_base": -18,
+          "highband_am_nominal_std": 0.12,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.78171950262463,
+          "peak_dbfs": -1.324956372584756,
+          "gain_db": 11.549976758050198,
+          "frames": 533760,
+          "combined_addition_rms_db_rel_base": -16.159060567297146,
+          "sha256": "4b191dba819c90b4da905145f58b0b65b472a56aa2fc79b3408595280e6e924c"
+        }
+      }
+    },
+    "single": {
+      "active_samples": [
+        5760,
+        77760
+      ],
+      "variants": {
+        "baseline": {
+          "file": "baseline_single.wav",
+          "noise_rms_db_rel_base": null,
+          "highband_am_nominal_std": 0,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.498774788299105,
+          "peak_dbfs": -7.3839227378355945,
+          "gain_db": 7.6111854778643915,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": null,
+          "sha256": "2ecdd68e411a86dade61c4fccb88e8a9acc487d2c511c943d49140ae197f79e4"
+        },
+        "previous_combo": {
+          "file": "previous_combo_single.wav",
+          "noise_rms_db_rel_base": -36,
+          "highband_am_nominal_std": 0.04,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.498774772844175,
+          "peak_dbfs": -8.322989573405986,
+          "gain_db": 7.610287128731345,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": -29.201425303521486,
+          "sha256": "682da3f14d3d4a028d7f64d2fd2ec83662096deca89d469c7e2f8adfdafe3f14"
+        },
+        "air_strong": {
+          "file": "air_strong_single.wav",
+          "noise_rms_db_rel_base": -18,
+          "highband_am_nominal_std": 0,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.498774755222982,
+          "peak_dbfs": -6.968770657427104,
+          "gain_db": 7.5453880474783785,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": -18.0,
+          "sha256": "69e036357f0b6092111ad7f94f96b52a7636f32b03f85ffbdf0cebb6e2f9666b"
+        },
+        "harmonic_strong": {
+          "file": "harmonic_strong_single.wav",
+          "noise_rms_db_rel_base": null,
+          "highband_am_nominal_std": 0.12,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.49877479842379,
+          "peak_dbfs": -10.483075120057139,
+          "gain_db": 7.5858487103094845,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": -20.647045329424984,
+          "sha256": "b9335b1127791e906f598269de00a775674a910d78bea379d42c0b4b60e95b60"
+        },
+        "medium_combo": {
+          "file": "medium_combo_single.wav",
+          "noise_rms_db_rel_base": -24,
+          "highband_am_nominal_std": 0.08,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.498774781996936,
+          "peak_dbfs": -9.066814411929396,
+          "gain_db": 7.586837407656518,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": -21.10276548503114,
+          "sha256": "eea16d5b474e3a44d3146ecb2b33176fc6e3a9413eac4e5c4443ed76c61d2019"
+        },
+        "strong_combo": {
+          "file": "strong_combo_single.wav",
+          "noise_rms_db_rel_base": -18,
+          "highband_am_nominal_std": 0.12,
+          "am_rate_hz": [
+            2.5,
+            12
+          ],
+          "active_rms_dbfs": -22.49877480190143,
+          "peak_dbfs": -9.8119830426508,
+          "gain_db": 7.521103119612389,
+          "frames": 115200,
+          "combined_addition_rms_db_rel_base": -16.14273125897702,
+          "sha256": "8e2229997423310c8356a450aec916c3b1595a907b4eefdab2cdb0649511bf43"
+        }
+      }
+    }
+  },
+  "noise_seed": 20261031,
+  "method": "Reuse prior colored-noise realization and 2.5..12Hz highband AM. Strength only; no pitch, release or body changes. Offline additions, not production RTL.",
+  "normalization": "Constant gain, all variants active RMS matched per scene, common peak limit .88, no compression, terminal20ms fade.",
+  "source_hashes": {
+    "python/modal_sim/trumpet_texture_strength.py": "ed67c6b2ad01c3af4d7dafa2dd66760d45d50e7b21438419c1c5d5ddfe47b388",
+    "python/modal_sim/trumpet_texture_experiment.py": "108c0beacd5423dcc1415946e1d26559e9e28dda815b4ea6d8fbcfea0d6f3d0c",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_phrase.npy": "efed45e0caca3c3e6e2b85d754362fcde4feddc53f29047499090b4affc59923",
+    "FFT_results/sim/eng1/trumpet_body_experiment/baseline_single.npy": "5f9dd6d672fa8f6340df5e42295082bba39c66fcf3da1459b14ab38597ba6939"
+  }
+}

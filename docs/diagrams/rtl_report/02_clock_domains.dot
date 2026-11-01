@@ -1,0 +1,56 @@
+// 时钟/复位域与跨域协议
+digraph clock_domains {
+graph [fontname="Noto Sans CJK SC",fontsize=16,rankdir=LR,nodesep=0.3,ranksep=0.45,bgcolor="white",pad=0.2,newrank=true];
+node [shape=box,style="rounded,filled",fontname="Noto Sans CJK SC",fontsize=10,margin="0.14,0.09",color="#64748b",fillcolor="#f1f5f9"];
+edge [fontname="Noto Sans CJK SC",fontsize=9,color="#64748b",arrowsize=0.7];
+label="图 2　时钟域、复位与跨域协议\n单 PLL 派生三域；每个域各自做 3 级复位移位，跨域只用 gray FIFO / 2FF / 整包握手";labelloc=t;
+
+xtal [label="板载晶振 50MHz",fillcolor="#fef3c7"];
+subgraph cluster_pll {
+ label="board_clock_reset.sv · 单 PLL（VCO 800MHz）"; fontsize=11; color="#f59e0b"; style="rounded";
+ pll  [label="Gowin_PLL_core_100M\nCLKOUT0 /16 → 50MHz\nCLKOUT1 /64 → 12.5MHz\nCLKOUT2 /24 → 33.333MHz",fillcolor="#fef3c7"];
+ lock [label="lock 丢失即 reset_request_n=0\n三域共同异步复位",fillcolor="#fef3c7"];
+}
+xtal -> pll;
+pll -> lock [style=dashed];
+
+subgraph cluster_core {
+ label="clk_core = 50MHz"; fontsize=12; color="#93c5fd"; style="rounded";
+ c0 [label="comm_top / 解析与会话\nuart 16× 过采样",fillcolor="#ede9fe"];
+ c1 [label="pad_driver 2.5MHz tick\n按键去抖 / 摇杆滤波",fillcolor="#dbeafe"];
+ c2 [label="sidebar_system 控制侧\ncontrol_loop 1kHz",fillcolor="#dcfce7"];
+ c3 [label="midi_voice_top + voice_router\n每采样 ~500–600 拍",fillcolor="#bfdbfe"];
+}
+subgraph cluster_audio {
+ label="clk_audio = 12.5MHz"; fontsize=12; color="#f9a8d4"; style="rounded";
+ a0 [label="i2s_audio_output\nFs = 12.5M / (4×64)\n= 48.828125kHz",fillcolor="#fce7f3"];
+ a1 [label="i2s_amp_tx / pt8211_tx\n32bit 时隙 · 前后沿",fillcolor="#fce7f3"];
+}
+subgraph cluster_pix {
+ label="clk_pix = 33.333MHz"; fontsize=12; color="#86efac"; style="rounded";
+ p0 [label="real_audio_chain\nFFT / WAVE / FALL",fillcolor="#dcfce7"];
+ p1 [label="sidebar_system 绘制侧\nlcd_draw / lcd_sidebar / guide",fillcolor="#dcfce7"];
+ p2 [label="lcd_timing\n800×480 @ 1192×533",fillcolor="#dcfce7"];
+}
+
+c0 -> a0 [style=invis];
+a0 -> p0 [style=invis];
+
+subgraph cluster_cdc {
+ label="跨域协议清单（按数据量从小到大）"; fontsize=11; color="#a855f7"; style="rounded,dashed";
+ x1 [label="① 引脚异步输入\nuart_rx[1:0] / bt_state\n2FF + ASYNC_REG，clk_core 采样",fillcolor="#f5f3ff"];
+ x2 [label="② I2S 帧节拍\nframe_toggle → 2FF → sample_tick\n（audio → core）",fillcolor="#f5f3ff"];
+ x3 [label="③ 配置/显示整包\nsidebar_mailbox：req/ack toggle\n稳定后整包提交（core ↔ pix）",fillcolor="#f5f3ff"];
+ x4 [label="④ PCM 音频\naudio_async_fifo：32bit×16\ngray 指针 + 2FF 同步",fillcolor="#f5f3ff"];
+ x5 [label="⑤ 观察 PCM 副本\naudio_async_fifo 24bit×16\n显示绝不反压 I2S",fillcolor="#f5f3ff"];
+}
+a0 -> x2 [dir=both,style=dashed];
+a0 -> x4 [dir=both];
+x4 -> c3 [dir=both];
+c3 -> x5 [style=dashed];
+x5 -> p0 [style=dashed];
+x3 -> c2 [dir=both,style=dashed];
+x3 -> p1 [dir=both,style=dashed];
+{rank=same;a0;a1;}
+{rank=same;p0;p1;p2;}
+}

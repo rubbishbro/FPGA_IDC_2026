@@ -78,6 +78,14 @@ SREG.TXT
 
 # eng1 音色诊断/拟合实验的中间产物（npz/npy/wav/csv，可由 python/modal_sim 重新生成）
 # 累计数百 MB，不入库；结论与脚本已跟踪。
+#
+# 2026-11 新增的对照实验（trumpet_*/violin_*/pad_*/yongchun_violin/hinos_sentimentais）：
+# 只入库 results.json / manifest.json / PROVENANCE.json / *_filter.npz / 图与 README，
+# 原始波形数组（.npy，约 300MB）与试听音频（.wav，约 220MB）不入库——跑一次脚本即可重建。
+FFT_results/sim/eng1/**/*.npy
+FFT_results/sim/eng1/**/*.wav
+# matplotlib 字体缓存（每份 ~848KB，纯缓存）
+FFT_results/sim/eng1/**/mpl/
 /FFT_results/sim/eng1/a_source_audit/
 /FFT_results/sim/eng1/guitar_diagnosis/
 /FFT_results/sim/eng1/guitar_refit/

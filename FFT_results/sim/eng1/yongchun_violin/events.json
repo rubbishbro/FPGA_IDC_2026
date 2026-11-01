@@ -1,0 +1,398 @@
+[
+  {
+    "midi": 67,
+    "time": 0.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 0,
+    "bar": 1,
+    "velocity": 94
+  },
+  {
+    "midi": 69,
+    "time": 0.6000000000000001,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 0.5,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 1.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 1.0,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 67,
+    "time": 1.4,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 1.5,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 1.8,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 2.0,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 2.6,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 3.0,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 3.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 3.5,
+    "bar": 1,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 3.4000000000000004,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 4,
+    "bar": 2,
+    "velocity": 94
+  },
+  {
+    "midi": 62,
+    "time": 4.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 5,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 4.6000000000000005,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 5.5,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 5.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 6.0,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 5.4,
+    "duration": 0.185,
+    "score_beats": 0.25,
+    "beat": 6.5,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 5.6000000000000005,
+    "duration": 0.185,
+    "score_beats": 0.25,
+    "beat": 6.75,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 5.8,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 7.0,
+    "bar": 2,
+    "velocity": 86
+  },
+  {
+    "midi": 57,
+    "time": 7.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 8.5,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 67,
+    "time": 7.4,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 9.0,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 7.8,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 9.5,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 8.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 10.0,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 8.6,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 10.5,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 9.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 11.0,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 67,
+    "time": 9.399999999999999,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 11.5,
+    "bar": 3,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 9.799999999999999,
+    "duration": 2.385,
+    "score_beats": 3,
+    "beat": 12,
+    "bar": 4,
+    "velocity": 94
+  },
+  {
+    "midi": 67,
+    "time": 13.0,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 16,
+    "bar": 5,
+    "velocity": 94
+  },
+  {
+    "midi": 67,
+    "time": 13.799999999999999,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 17,
+    "bar": 5,
+    "velocity": 86
+  },
+  {
+    "midi": 69,
+    "time": 14.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 17.5,
+    "bar": 5,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 14.6,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 18.0,
+    "bar": 5,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 15.399999999999999,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 19.0,
+    "bar": 5,
+    "velocity": 86
+  },
+  {
+    "midi": 67,
+    "time": 15.799999999999999,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 19.5,
+    "bar": 5,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 16.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 20,
+    "bar": 6,
+    "velocity": 94
+  },
+  {
+    "midi": 64,
+    "time": 16.599999999999998,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 20.5,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 67,
+    "time": 17.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 21.0,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 17.4,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 21.5,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 17.8,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 22.0,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 18.2,
+    "duration": 0.185,
+    "score_beats": 0.25,
+    "beat": 22.5,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 18.4,
+    "duration": 0.185,
+    "score_beats": 0.25,
+    "beat": 22.75,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 18.599999999999998,
+    "duration": 0.785,
+    "score_beats": 1,
+    "beat": 23.0,
+    "bar": 6,
+    "velocity": 86
+  },
+  {
+    "midi": 57,
+    "time": 19.8,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 24.5,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 20.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 25.0,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 64,
+    "time": 20.599999999999998,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 25.5,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 21.0,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 26.0,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 21.4,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 26.5,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 21.8,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 27.0,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 62,
+    "time": 22.2,
+    "duration": 0.385,
+    "score_beats": 0.5,
+    "beat": 27.5,
+    "bar": 7,
+    "velocity": 86
+  },
+  {
+    "midi": 60,
+    "time": 22.599999999999998,
+    "duration": 2.385,
+    "score_beats": 3,
+    "beat": 28,
+    "bar": 8,
+    "velocity": 94
+  }
+]

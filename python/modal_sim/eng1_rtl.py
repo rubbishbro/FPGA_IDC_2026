@@ -150,8 +150,9 @@ class Envelope:
     """Current B-class envelope_ADSR, including explicit dead and retrigger."""
     IDLE, ATTACK, DECAY, SUSTAIN, RELEASE = range(5)
 
-    def __init__(self, attack, release):
+    def __init__(self, attack, release, *, sustain_level=0x1fffffff, decay_step=1048576):
         self.attack, self.release = np.array(attack), np.array(release)
+        self.sustain_level,self.decay_step=int(sustain_level),int(decay_step)
         self.slots = len(attack)
         self.reset()
 
@@ -182,10 +183,10 @@ class Envelope:
                     if new >= 1 << 31:
                         self.state[i] = self.DECAY
                 elif state == self.DECAY:
-                    if old <= 0x1fffffff+1048576:
-                        self.level[i], self.state[i] = 0x1fffffff, self.SUSTAIN
+                    if old <= min(0x7fffffff,self.sustain_level+self.decay_step):
+                        self.level[i], self.state[i] = self.sustain_level, self.SUSTAIN
                     else:
-                        self.level[i] = old-1048576
+                        self.level[i] = old-self.decay_step
                 elif state == self.RELEASE:
                     self.state[i] = self.IDLE
         self.previous_gate[:] = gate
@@ -501,6 +502,9 @@ class Eng1Synth:
         self.core = R.Eng1Core(slots=self.slots, n_modes=64)
         self.excitation = Excitation([r.period for r in self.rows])
         self.envelope = Envelope([r.a_step for r in self.rows], [r.r_step for r in self.rows])
+        if instrument=='violin':
+            self.envelope=Envelope([2236963]*self.slots,[559241]*self.slots,
+                                   sustain_level=0x7fffffff,decay_step=0)
         self.pitch = PitchEngine(self.rows)
         self.reverb, self.spatial = Reverb(reverb), Spatializer(max_itd)
         self.stereo, self.headroom = bool(stereo), int(headroom)

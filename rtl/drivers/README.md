@@ -19,10 +19,15 @@
 pkg/clk_rst_pkg.sv      clk / clk_en / rst_n 约定
 pkg/pad_driver_pkg.sv   pixel / mat4x4 / vec2 / input_param 类型
 pad_driver.sv           led8x8 + sense4x4_joystick + shift_timer
+pad_led_effects.sv      明暗行波、左上灯相位锁色、16 条 sinc 波纹、全查表渲染
+pad_led_tables/        9 张同步 ROM（119808 bit），附生成参数及校验摘要
+tools/gen_pad_led_tables.py  离线生成查找表，--check 检查是否可复现
 gowin_adc/gowin_adc.v   Gowin ADC IP 包装（4x4 力敏/摇杆路径使用）
 ```
 
 当前 sense4x4_joystick 已采用泄放→建立→请求→完成锁存→存储 FSM、超时重试及可选 dummy；旧 row_scan 连续轮转的缺陷描述仅适用于历史版本。
+
+高级 LED 灯效的取色、渲染和 ROM 部署说明见 [PAD_LED_EFFECTS.md](PAD_LED_EFFECTS.md)。
 
 注意：
 

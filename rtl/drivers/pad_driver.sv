@@ -17,12 +17,14 @@ module pad_driver(
     // 原始 ADC 坐标；每对 X/Y 到齐后 valid 在 cr.clk 域高一拍。
     output logic            joy_sample_valid,
     output logic [13:0]     joy_raw_x,
-    output logic [13:0]     joy_raw_y
+    output logic [13:0]     joy_raw_y,
+    output logic            led_busy,
+    output logic            led_frame_done
 );
 
 // led矩阵
 led8x8 #(.PIPELINED_READ(1)) led_inst (.cr(cr), .x(led_p.x), .y(led_p.y), .pix(led_p.pix),
-            .wr(led_p.wr), .dat(dat));
+            .wr(led_p.wr), .dat(dat), .busy(led_busy), .frame_done(led_frame_done));
 
 // 压力垫和摇杆的模拟采集器
 sense4x4_joystick input_inst (.cr({cr.clk, cr.clk_en, cr.rst_n}),
@@ -51,7 +53,9 @@ module led8x8 #(parameter bit PIPELINED_READ=0)(
     input  logic [2:0] x, y,
     input  pixel_t     pix,
     input  logic       wr,
-    output logic       dat
+    output logic       dat,
+    output logic       busy,
+    output logic       frame_done
 );
 
 // 联合定义8*8的数组, 用1536位的逻辑向量表示(共享内存)
@@ -61,10 +65,15 @@ typedef enum logic [1:0] {S_PREPARE, S_TX, S_RESET, S_LATCH} led_state_t;
 //由本模块自行复位
 gram_t             gram;  // 显存
 led_state_t        state; // 状态机状态
-
+assign busy = state == S_TX || state == S_RESET;
 logic   [10:0]     idx;   // 索引，范围 0~1535
 logic   [2:0]      trig;  // 触发信号，0表示未触发，1表示高电平触发，2表示低电平触发
 logic   [7:0]      cnt;   // 计数器，范围 0~255
+// One core-clock pulse after the serial image's reset/latch interval.
+always_ff @(posedge cr.clk or negedge cr.rst_n) begin
+    if(!cr.rst_n) frame_done <= 1'b0;
+    else frame_done <= cr.clk_en && state == S_RESET && cnt == 143;
+end
 
 //由定时器复位
 logic   [2:0]      t0_v;
@@ -132,8 +141,7 @@ always_ff @(posedge cr.clk or negedge cr.rst_n) begin
             if(cnt >= 143) begin //此处捕获 cnt 溢出
                 state <= S_LATCH;
                 cnt <= '0;
-            end
-            cnt <= cnt + 1'b1;
+            end else cnt <= cnt + 1'b1;
         end
         S_LATCH: begin
             if(wr) begin

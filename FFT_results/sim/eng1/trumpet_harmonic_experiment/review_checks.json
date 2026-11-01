@@ -1,0 +1,32 @@
+{
+  "upper_6db_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "upper_12db_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "onset_12_to_6db_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "baseline_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "nonlinear_phrase": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "upper_6db_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "upper_12db_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "onset_12_to_6db_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "baseline_single": {
+    "native_mono_pcm_rail_samples": 0
+  },
+  "nonlinear_single": {
+    "native_mono_pcm_rail_samples": 0
+  }
+}
