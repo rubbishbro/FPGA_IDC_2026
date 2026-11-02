@@ -46,7 +46,11 @@ def main():
     hashes = {}
     for name, path in paths.items():
         current = (ROOT / path).read_text()
-        baseline = subprocess.check_output(["git", "show", f"{args.baseline_ref}:{path}"], cwd=ROOT, text=True)
+        # The pinned baseline predates the rtl_FFT/ directory rename, so its
+        # historical path remains FFT_spectrumshow/.
+        baseline_path = path.replace("rtl_FFT/", "FFT_spectrumshow/", 1)
+        baseline = subprocess.check_output(
+            ["git", "show", f"{args.baseline_ref}:{baseline_path}"], cwd=ROOT, text=True)
         hashes[path] = dict(current=hashlib.sha256(current.encode()).hexdigest(),
                             baseline=hashlib.sha256(baseline.encode()).hexdigest())
         if name == "sidebar_system":
