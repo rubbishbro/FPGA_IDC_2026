@@ -34,6 +34,10 @@ class RawPerformance:
             self.exc=A.Strike('piano' if 'piano' in name else 'guitar',self.slots)
             self.exc.rise=self.cfg['rise_sh'];self.exc.width=self.cfg['pw_len']
             self.exc.gap=self.cfg['gap_len'];self.exc.pulses=self.cfg['n_pulse']
+            self.exc.output_shift=self.cfg.get('output_shift',0)
+        elif name=='trumpet':
+            from trumpet_lip import TrumpetExcitation
+            self.exc=TrumpetExcitation([r['period'] for r in self.rows])
         else:self.exc=E.Excitation([r['period'] for r in self.rows])
         self.previous_gate=np.zeros(self.slots,dtype=bool)
         self.previous_dead=np.ones(self.slots,dtype=bool);self.pending_dead=np.zeros(self.slots,dtype=bool)

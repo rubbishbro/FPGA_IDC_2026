@@ -121,13 +121,13 @@ package config_pkg;
     endfunction
     function automatic integer category_count(input integer category);
         case(category)
-            0:category_count=3;1:category_count=1;2:category_count=1;
+            0:category_count=2;1:category_count=2;2:category_count=1;
             3:category_count=5;4:category_count=4;default:category_count=3;
         endcase
     endfunction
     // Stable parameter indices; the input menu appends mode without moving system IDs.
     function automatic integer category_item(input integer category,input integer row_index);
-        if(category==0 && row_index==2)return 21;
+        if(category==1 && row_index==1)return 21;
         if(category==4 && row_index==3)return 20;
         return category_base(category)+row_index;
     endfunction

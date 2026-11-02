@@ -66,8 +66,7 @@ module exc_router #(
                 shift=6'd16;rise_sh=6'd5;pw_len=16'd32;gap_len=16'd0;n_pulse=3'd0;
             end
             router_pkg::INST_FLUTE: begin
-                // Routed to trumpet_excitation below; generic pulse parameters
-                // are inactive for this instrument.
+                // Periodic single-sample impulse; rise/pw/gap/n are inactive.
                 shift = 6'd16;
                 rise_sh = 6'd5;
                 pw_len = 16'd32;
@@ -75,7 +74,7 @@ module exc_router #(
                 n_pulse = 3'd0;
             end
             router_pkg::INST_TRUMPET: begin
-                // TODO: 核定持续激励；当前走周期单采样冲激，rise/pw/gap/n 不参与。
+                // Independent lip/onset/air module below owns this instrument.
                 shift = 6'd16;
                 rise_sh = 6'd5;
                 pw_len = 16'd32;
@@ -199,7 +198,7 @@ module exc_router #(
         .xmap(generic_xmap), .xmap_valid(generic_valid)
     );
 
-    trumpet_excitation #(.SLOTS(SLOTS)) u_trumpet (
+    trumpet_excitation #(.SLOTS(SLOTS),.SR_HZ(SR_HZ)) u_trumpet (
         .clk(clk),.rst_n(rst_n),.clk_en(smp_tick),.enable(trumpet_r),.clear(clear),
         .slot_period(slot_period),.slot_pitch_delta(slot_pitch_delta),
         .strike_level(strike_level),.note_on(note_on),.retrigger(retrigger),.slot_clear(slot_clear),

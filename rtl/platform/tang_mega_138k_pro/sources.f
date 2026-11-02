@@ -7,6 +7,8 @@ rtl/router/pkg/router_pkg.sv
 rtl/router/parts/envelope.sv
 rtl/router/parts/polyphony_gain.sv
 rtl/router/parts/excitation.sv
+rtl/router/pkg/trumpet_excitation_pkg.sv
+rtl/router/parts/trumpet_excitation.sv
 rtl/router/parts/modulation0.sv
 rtl/router/parts/modulation1.sv
 rtl/router/parts/body_biquad.sv

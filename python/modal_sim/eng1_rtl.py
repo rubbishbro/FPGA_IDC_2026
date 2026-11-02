@@ -445,7 +445,11 @@ class Eng1Synth:
             raise ValueError("frame busy window exceeds sample budget")
         self.rows = [self.resources.notes[m] for m in self.note_map]
         self.core = R.Eng1Core(slots=self.slots, n_modes=64)
-        self.excitation = Excitation([r.period for r in self.rows])
+        if instrument == 'trumpet':
+            from trumpet_lip import TrumpetExcitation
+            self.excitation = TrumpetExcitation([r.period for r in self.rows])
+        else:
+            self.excitation = Excitation([r.period for r in self.rows])
         self.envelope = Envelope([r.a_step for r in self.rows], [r.r_step for r in self.rows])
         if instrument=='violin':
             self.envelope=Envelope([2236963]*self.slots,[559241]*self.slots,

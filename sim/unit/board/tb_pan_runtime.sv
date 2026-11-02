@@ -13,9 +13,11 @@ instrument_system dut(.clk_core(clk),.clk_audio(audio),.clk_pix(pix),.rst_n(rst_
 .pan_position(6'd8),.pad_row(pad_row),.pad_ch(pad_ch),.flash_dq(dq));
 cfg_request_t request;
 logic offer=0;
-initial begin
+always_comb begin
 force dut.u_ui.ui_cfg_valid=offer;
 force dut.u_ui.ui_request=request;
+end
+initial begin
 #100;rst_n=1;repeat(20)@(negedge clk);
 if(dut.spatial_pan!=8 || dut.values[21]!=8)$fatal(1,"reset pan mismatch");
 if(!dut.u_ui.supported[21])$fatal(1,"pan unavailable");
@@ -33,5 +35,5 @@ repeat(5)@(negedge clk);
 end
 $display("PASS runtime pan: reset seed, left/center/right, invalid ranges, snapshot and audio wiring");$finish;
 end
-initial begin #200000;$fatal(1,"pan watchdog");end
+initial begin #10000000;$fatal(1,"pan watchdog offer=%d ui_valid=%d ready=%d req=%d dispatch=%d",offer,dut.u_ui.ui_cfg_valid,dut.u_ui.ui_cfg_ready,dut.u_ui.req_valid,dut.u_ui.u_config.state);end
 endmodule

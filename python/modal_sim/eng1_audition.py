@@ -44,6 +44,7 @@ class Strike:
     """Literal current excitation_gen strike branch, at accepted clk_en edges."""
     def __init__(self,instrument,slots=16):
         self.slots=slots
+        self.output_shift=0
         self.rise,self.width,self.gap,self.pulses=(5,32,448,3) if instrument=='piano' else (1,2,0,0)
         self.state=np.zeros(slots,dtype=np.int8)
         self.acc=np.zeros(slots,dtype=np.int64);self.target=self.acc.copy()
@@ -74,7 +75,7 @@ class Strike:
                     else:self.state[s]=0;self.acc[s]=0
                 else:self.count[s]=(n+1)&65535
         self.prev[:]=gate
-        return self.acc.copy()
+        return self.acc.copy() >> self.output_shift
 
 
 def experimental_table(instrument,midi):

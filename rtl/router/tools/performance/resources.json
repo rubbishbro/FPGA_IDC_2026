@@ -18779,9 +18779,9 @@
   "frontends": {
     "piano_abc": {
       "engine": "eng1",
-      "rise_sh": 1,
-      "pw_len": 2,
-      "gap_len": 478,
+      "rise_sh": 2,
+      "pw_len": 4,
+      "gap_len": 476,
       "n_pulse": 3,
       "a_step": 16777216,
       "d_step": 1048576,
@@ -18829,10 +18829,11 @@
     "guitar_abc": {
       "engine": "eng1",
       "selection": "F",
-      "rise_sh": 1,
-      "pw_len": 2,
+      "rise_sh": 5,
+      "pw_len": 32,
       "gap_len": 0,
       "n_pulse": 0,
+      "output_shift": 3,
       "a_step": 89478486,
       "d_step": 0,
       "s_level": 2147483647,
@@ -18889,9 +18890,10 @@
     },
     "trumpet": {
       "engine": "eng1",
-      "excitation": "current periodic impulse",
+      "excitation": "dyadic bipolar lip + onset jitter + band-limited air",
       "envelope": "original per-note A/R; D=1048576,S=536870911",
-      "python_lip_excitation_implemented": false
+      "excitation_module": "trumpet_excitation",
+      "experiment_equivalence": "multiplier-free approximation, not sine/Gaussian bit exact"
     },
     "piano": {
       "engine": "eng0",
@@ -18949,6 +18951,7 @@
       "pw_len": 2,
       "gap_len": 0,
       "n_pulse": 0,
+      "output_shift": 0,
       "a_step": 89478486,
       "d_step": 0,
       "s_level": 2147483647,
@@ -18997,18 +19000,18 @@
   "firmware_flash_address": 0,
   "bulk_erase_between_files": false,
   "source_hashes": {
-    "rtl/router/tools/performance_resources.py": "3c1a8c9b982625d6ed2b44bcc610b8aaad927da31bd04c2b723ebefda4c58bf4",
+    "rtl/router/tools/performance_resources.py": "3254f53512fccb4e92f0f74d8ff0ab5c64f576248a50ee435f16c08505974d32",
     "rtl/router/tools/matrix_resources.py": "60a03b13ee6cb7954960540683e9c48a0c1250c8872e209f1b5ba2669b23c964",
     "rtl/router/tools/pitch_tables.py": "f498aa16e3a68918cda91f9f95df5d4a4109a17285d6626ce291cd9e5a90e2c1",
     "rtl/router/tools/pitch_tables.json": "deaa50281d922db3407422299c1647ba5b58c594cf8e04cd849d491e7469f6eb",
     "rtl/router/tools/sustain_profiles.json": "988a0356e0c5e1152e70ff5621de8e04b4a0bf30079fc5a22ad68b4068eaea45",
-    "python/modal_sim/eng1_audition.py": "f12a657d63824b3644f53d9b428d50ab25ba146cb464a418d58510847fadc0d3",
+    "python/modal_sim/eng1_audition.py": "e00c70c70a1abe38e77f820796ffbc544edf356a0683cfce44a5785f5f297e54",
     "python/modal_sim/guitar_refit_experiments.py": "ef9804c3e6dc2c8ded548f3029cdd64e5a1b5800ee8adc04477b3573d161de1e",
     "rtl/router/tools/sustain_resources.py": "079147068c3935c1c4b2b2825fc6f709ce7a9577eff1f1125dbe424e58eb263c",
     "python/modal_sim/pitch_linear.py": "29a1eea8f4a20077ff393c764e1925796d91a6494d59df36d9c12da30c2cee8a",
     "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d",
     "python/modal_sim/params.py": "bcfe89785290efb28b46073814252e7e6b7dfca9bb2d472ce79655d908930c1a",
-    "python/modal_sim/eng1_rtl.py": "d67f14a18afe703bb2de3961247393b2d4a59d1ab5a995d179813a6919f9d000",
+    "python/modal_sim/eng1_rtl.py": "a11c016916d120d04f1744b3d27fdb4734496673679281608c194c200e1bc5ce",
     "FFT_results/params/guitar_manifest.json": "a214c308710bf7aa3f2d009892042f72aaa1781234b732f0c3f74094e8e99220",
     "rtl/router/tools/coefficients/eng0_piano.bin": "30abd5eb2795267cd6739c70809b9fa872d11153c6347f4b5b2ae3214d1dc2a0",
     "rtl/router/tools/coefficients/eng0_guitar.bin": "a91de305f7be4cb12d040a724cb93b1bca7abac2515d685abc8ec4a4d7de8e21",
@@ -19023,10 +19026,34 @@
     "FFT_results/params/violin_sustain.npz": "f844279a0049bd281885a2ea093d72c3fff3d70d6d1d1b06d3cdd93e97142338",
     "python/fft_analysis/core.py": "e278359737ad69360af79f4335b605924a73ed71419eb06b6c3f102995493725",
     "rtl/router/routers/body_router.sv": "9621cd996f9fc8971a801c457ee2054a278e95ca98cce1d5054c7f22444426dd",
+    "rtl/router/routers/exc_router.sv": "4c5238e2455231bb58e326770bf951bf4f6216f8081d3d7eb8f936e2736278c6",
+    "rtl/router/parts/excitation.sv": "9c23336137ae274806c6f36f66f7f9d27946d896821e992a508f34816c638a33",
+    "rtl/router/parts/trumpet_excitation.sv": "2ca29b0c5a4681353338458a494b044a9c253e2ecb3ee2a9f074f22f14a5d372",
+    "rtl/router/pkg/trumpet_excitation_pkg.sv": "ffb455a8596583947a05d1de7543c166292338d9091edf2a94ad32413ccc2c63",
+    "rtl/router/tools/trumpet_excitation_rom.py": "ca2d449720e491c28fad384c1f293a9b56f45a76340b8882ff88e386aaeb4ad2",
+    "rtl/router/tools/performance/trumpet_excitation.json": "4896456332d2ac71ce35db726b304f8f76a8b07542742ae3eb09fa1082b95e05",
+    "python/modal_sim/trumpet_lip.py": "8c18de37dbf03377f40704ea888ec8364c93aba19ed67a3e8d0d0603e2dc2680",
     "FFT_results/params/guitar_partials.npz": "67a68000b349a5957c0da6dcb8cf2cc80ac2a9f4cdbb75e76fb478cf0591c950",
     "FFT_results/params/guitar_gammascale.npz": "8b4d4c3b2749464f07f27f912a069ea29a03ba5b5f1f76f0a439b1b1c782bd25",
     "FFT_results/params/guitar_body.npz": "2abcc2ebdc87f506ffa8784a4ec32f9540f982df97a7b783281f42de1f0fba2c"
   },
-  "validation_status": "UNTESTED: 32-note banks generated offline; no RTL simulation, synthesis or board programming",
-  "gain_policy": "envelope then sum; count-gated left shift; no per-note gain"
+  "validation_status": "UNTESTED: excitation frontends updated; modal coefficient and Flash image bytes retained; no compile, PNR, RTL or audio simulation",
+  "gain_policy": "envelope then sum; count-gated left shift; no per-note gain",
+  "excitation_update": {
+    "guitar2": {
+      "rise_samples": 32,
+      "internal_output_right_shift": 3
+    },
+    "piano2": {
+      "rise_samples": 4,
+      "width_plus_gap": 480,
+      "existing_subsequent_pulse_count_preserved": true
+    },
+    "trumpet": {
+      "module": "trumpet_excitation",
+      "arithmetic": "shift/add/subtract, LFSR, no runtime multiply/divide",
+      "experiment": "approximate triangular lobes and triangular jitter, not sine/Gaussian bit exact",
+      "calibration": "three dyadic gain terms, 48kHz MIDI51..82"
+    }
+  }
 }

@@ -33,6 +33,10 @@ def main():
             env=E.Envelope([aa],[rr],sustain_level=sustain,decay_step=decay)
             if name in ('piano','guitar','piano_abc','guitar_abc'):
                 exc=A.Strike('piano' if 'piano' in name else 'guitar',1);exc.rise=cfg['rise_sh'];exc.width=cfg['pw_len'];exc.gap=cfg['gap_len'];exc.pulses=cfg['n_pulse']
+                exc.output_shift=cfg.get('output_shift',0)
+            elif name=='trumpet':
+                from trumpet_lip import TrumpetExcitation
+                exc=TrumpetExcitation([row['period']])
             else:exc=E.Excitation([row['period']])
             period=row.get('period',2)
             for n in range(38000):
@@ -44,7 +48,8 @@ def main():
                 f.write(f'{ident} {int(gate[0])} {level[0]} {int(trig[0])} {int(clear[0])} {period} {aa} {rr} {x[0]} {e[0]} {int(env.dead[0])}\n')
                 samples+=1
     files=[ROOT/p for p in ['rtl/router/pkg/router_pkg.sv','rtl/router/parts/envelope.sv',
-        'rtl/router/parts/excitation.sv','rtl/router/routers/env_router.sv','rtl/router/routers/exc_router.sv',
+        'rtl/router/parts/excitation.sv','rtl/router/pkg/trumpet_excitation_pkg.sv',
+        'rtl/router/parts/trumpet_excitation.sv','rtl/router/routers/env_router.sv','rtl/router/routers/exc_router.sv',
         'sim/unit/eng1/tb_performance_frontend.sv']]
     cmd=[exe,'--binary','--timing','--timescale','1ns/1ps','-Wno-fatal','--top-module',
          'tb_performance_frontend','-j','4','--Mdir',str(out/'obj'),'-MAKEFLAGS',

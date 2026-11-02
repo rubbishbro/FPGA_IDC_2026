@@ -78,6 +78,51 @@ def make_note(name, midi):
                 modes=table.n_modes,format='eng1 ABC/P1T1',data=data,coeff_sha256=hashlib.sha256(data).hexdigest())
 
 
+def frontend_configs():
+    frontends=dict(
+        piano_abc=dict(engine='eng1',rise_sh=2,pw_len=4,gap_len=476,n_pulse=3,
+                   a_step=16777216,d_step=1048576,s_level=536870912,r_step=21845,
+                   envelope_output='old level',body_q27=PIANO_BODY),
+        guitar_abc=dict(engine='eng1',selection='F',rise_sh=5,pw_len=32,gap_len=0,n_pulse=0,output_shift=3,
+                    a_step=89478486,d_step=0,s_level=2147483647,r_step=74566,
+                    envelope_output='old level',body_q27=R.body_coeffs('guitar'),
+                    legacy_matrix_modulation=False),
+        violin=dict(engine='eng1',excitation='periodic impulse',a_step=2236963,d_step=0,
+                    s_level=2147483647,r_step=559241,envelope_output='current level',
+                    automatic_legato=False),
+        trumpet=dict(engine='eng1',excitation='dyadic bipolar lip + onset jitter + band-limited air',
+                     envelope='original per-note A/R; D=1048576,S=536870911',
+                     excitation_module='trumpet_excitation',
+                     experiment_equivalence='multiplier-free approximation, not sine/Gaussian bit exact'))
+    frontends['piano']=dict(frontends['piano_abc'],engine='eng0',rise_sh=5,pw_len=32,gap_len=448,
+                            body_q27=R.body_coeffs('piano'))
+    frontends['guitar']=dict(frontends['guitar_abc'],engine='eng0',selection='original matrix',
+                             rise_sh=1,pw_len=2,output_shift=0,legacy_matrix_modulation=True)
+    return frontends
+
+
+def resource_sources():
+    sources=[Path(__file__),Path(__file__).with_name('matrix_resources.py'),Path(__file__).with_name('pitch_tables.py'),Path(__file__).with_name('pitch_tables.json'),Path(__file__).with_name('sustain_profiles.json'),ROOT/'python/modal_sim/eng1_audition.py',
+        ROOT/'python/modal_sim/guitar_refit_experiments.py',
+        ROOT/'rtl/router/tools/sustain_resources.py',ROOT/'python/modal_sim/pitch_linear.py',
+        ROOT/'python/modal_sim/router_eng1.py',ROOT/'python/modal_sim/params.py',
+        ROOT/'python/modal_sim/eng1_rtl.py',ROOT/'FFT_results/params/guitar_manifest.json']
+    sources += [Path(__file__).parent/'coefficients'/f'eng0_{name}.bin' for name in ('piano','guitar')]
+    sources += [ROOT/'sythsound'/name for name in ['piano_coeff_scaled.txt','guitar_coeff_scaled.txt','guitar_param.txt']]
+    sources += [ROOT/f'FFT_results/params/{name}_{suffix}' for name in ('piano','guitar')
+                for suffix in ('coeff.mem','coeffindex.json')]
+    sources += [ROOT/f'FFT_results/params/{name}_sustain.npz' for name in ('trumpet','violin')]
+    sources += [ROOT/'python/fft_analysis/core.py',ROOT/'rtl/router/routers/body_router.sv']
+    sources += [ROOT/'rtl/router/routers/exc_router.sv',ROOT/'rtl/router/parts/excitation.sv',
+                ROOT/'rtl/router/parts/trumpet_excitation.sv',ROOT/'rtl/router/pkg/trumpet_excitation_pkg.sv',
+                Path(__file__).with_name('trumpet_excitation_rom.py'),
+                Path(__file__).parent/'performance/trumpet_excitation.json']
+    sources += [ROOT/'python/modal_sim/trumpet_lip.py']
+    sources += [ROOT/f'FFT_results/params/guitar_{suffix}.npz'
+                for suffix in ('partials','gammascale','body')]
+    return sources
+
+
 def generate(out, notes=None, banked=True):
     out=Path(out);out.mkdir(parents=True,exist_ok=True)
     if notes is not None:raise ValueError('A shared MIDI list cannot represent per-instrument ranges; use NOTE_RANGES')
@@ -114,37 +159,8 @@ def generate(out, notes=None, banked=True):
     if base+len(image)>min(capacity,1<<24):raise ValueError('control page exceeds Flash bounds')
     (out/'resources.bin').write_bytes(image)
     (out/'resources.mem').write_text(''.join(f'{v:02X}\n' for v in image))
-    frontends=dict(
-        piano_abc=dict(engine='eng1',rise_sh=1,pw_len=2,gap_len=478,n_pulse=3,
-                   a_step=16777216,d_step=1048576,s_level=536870912,r_step=21845,
-                   envelope_output='old level',body_q27=PIANO_BODY),
-        guitar_abc=dict(engine='eng1',selection='F',rise_sh=1,pw_len=2,gap_len=0,n_pulse=0,
-                    a_step=89478486,d_step=0,s_level=2147483647,r_step=74566,
-                    envelope_output='old level',body_q27=R.body_coeffs('guitar'),
-                    legacy_matrix_modulation=False),
-        violin=dict(engine='eng1',excitation='periodic impulse',a_step=2236963,d_step=0,
-                    s_level=2147483647,r_step=559241,envelope_output='current level',
-                    automatic_legato=False),
-        trumpet=dict(engine='eng1',excitation='current periodic impulse',
-                     envelope='original per-note A/R; D=1048576,S=536870911',
-                     python_lip_excitation_implemented=False))
-    frontends['piano']=dict(frontends['piano_abc'],engine='eng0',rise_sh=5,pw_len=32,gap_len=448,
-                            body_q27=R.body_coeffs('piano'))
-    frontends['guitar']=dict(frontends['guitar_abc'],engine='eng0',selection='original matrix',
-                             legacy_matrix_modulation=True)
-    sources=[Path(__file__),Path(__file__).with_name('matrix_resources.py'),Path(__file__).with_name('pitch_tables.py'),Path(__file__).with_name('pitch_tables.json'),Path(__file__).with_name('sustain_profiles.json'),ROOT/'python/modal_sim/eng1_audition.py',
-        ROOT/'python/modal_sim/guitar_refit_experiments.py',
-        ROOT/'rtl/router/tools/sustain_resources.py',ROOT/'python/modal_sim/pitch_linear.py',
-        ROOT/'python/modal_sim/router_eng1.py',ROOT/'python/modal_sim/params.py',
-        ROOT/'python/modal_sim/eng1_rtl.py',ROOT/'FFT_results/params/guitar_manifest.json']
-    sources += [Path(__file__).parent/'coefficients'/f'eng0_{name}.bin' for name in ('piano','guitar')]
-    sources += [ROOT/'sythsound'/name for name in ['piano_coeff_scaled.txt','guitar_coeff_scaled.txt','guitar_param.txt']]
-    sources += [ROOT/f'FFT_results/params/{name}_{suffix}' for name in ('piano','guitar')
-                for suffix in ('coeff.mem','coeffindex.json')]
-    sources += [ROOT/f'FFT_results/params/{name}_sustain.npz' for name in ('trumpet','violin')]
-    sources += [ROOT/'python/fft_analysis/core.py',ROOT/'rtl/router/routers/body_router.sv']
-    sources += [ROOT/f'FFT_results/params/guitar_{suffix}.npz'
-                for suffix in ('partials','gammascale','body')]
+    frontends=frontend_configs()
+    sources=resource_sources()
     manifest=dict(schema=5,control_page=dict(offset=control_offset,bytes=4096,ratio_word=0,sine_word=512,depth_word=768),format='instrument-indexed eng0 matrix + eng1 ABC/P1T1',resource_fs=48000,
         flash_base=base,flash_bytes=capacity,image_flash_address=base,image_bytes=len(image),
         image_sha256=hashlib.sha256(image).hexdigest(),notes=note_count,note_maps=note_maps,
