@@ -7,7 +7,7 @@ BOARD=ROOT/'rtl/platform/tang_mega_138k_pro'
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',type=Path,default=ROOT/'build/board_sim')
-    ap.add_argument('--test',action='append',choices=['inputs','lcd','system','clocks','polyphony','audio','pcm','numeric','led','led_effects','led_protocol','stereo_sweep','guide','pt8211','visualizer','polar','polar_render','record','keymap'])
+    ap.add_argument('--test',action='append',choices=['inputs','lcd','system','clocks','polyphony','audio','pcm','numeric','led','led_effects','led_protocol','led_snapshot','stereo_sweep','guide','pt8211','visualizer','polar','polar_render','record','keymap'])
     args=ap.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=True)
     (out/'results.json').unlink(missing_ok=True)
     ini=Path(os.environ.get('QSIM_INI') or str(Path.home()/'gowin/simlib_questa/modelsim.ini'))
@@ -31,13 +31,13 @@ def main():
         if f.startswith(str(BOARD.relative_to(ROOT))+'/ip/') or f in ['rtl_FFT/board/gowin_pll.v','rtl/drivers/gowin_adc/gowin_adc.v']:continue
         src.append(ROOT/f)
     src += [ROOT/f for f in ['sim/unit/board/board_ip_models.sv','sim/unit/midi/w25q64_read_model.sv',
-        'sim/unit/audio/tb_i2s_audio_output.sv','sim/unit/audio/tb_pcm_equivalence.sv','sim/unit/board/tb_board_inputs.sv','sim/unit/board/tb_clock_contracts.sv','sim/unit/board/tb_polyphonic_audio.sv','sim/unit/board/tb_numeric_contracts.sv','sim/unit/board/tb_led_prefetch.sv','sim/unit/audio/tb_i2s_stereo.sv','sim/unit/audio/tb_pt8211_output.sv','sim/unit/board/tb_board_visualizer.sv']]
+        'sim/unit/audio/tb_i2s_audio_output.sv','sim/unit/audio/tb_pcm_equivalence.sv','sim/unit/board/tb_board_inputs.sv','sim/unit/board/tb_clock_contracts.sv','sim/unit/board/tb_polyphonic_audio.sv','sim/unit/board/tb_numeric_contracts.sv','sim/unit/board/tb_led_pixel_ram.sv','sim/unit/board/tb_led_frame_snapshot.sv','sim/unit/audio/tb_i2s_stereo.sv','sim/unit/audio/tb_pt8211_output.sv','sim/unit/board/tb_board_visualizer.sv']]
     if (ROOT/'sim/unit/board/tb_instrument_board.sv').exists():src.append(ROOT/'sim/unit/board/tb_instrument_board.sv')
     src.append(ROOT/'sim/unit/board/tb_stereo_board_sweep.sv')
     src.append(ROOT/'sim/unit/board/tb_pad_led_effects.sv')
     src.append(ROOT/'sim/unit/board/tb_led_protocol.sv')
     run('vlog',['-sv','-work',work,*src],'compile')
-    tops={'inputs':'tb_board_inputs','lcd':'tb_board_lcd_timing','system':'tb_instrument_board','clocks':'tb_clock_contracts','polyphony':'tb_polyphonic_audio','audio':'tb_i2s_audio_output','pcm':'tb_pcm_equivalence','numeric':'tb_numeric_contracts','led':'tb_led_prefetch','stereo_sweep':'tb_stereo_board_sweep','guide':'tb_instrument_board','pt8211':'tb_pt8211_output','visualizer':'tb_board_visualizer','polar':'tb_polar_contracts','polar_render':'tb_polar_page','record':'tb_instrument_board','keymap':'tb_instrument_board'};results=[]
+    tops={'inputs':'tb_board_inputs','lcd':'tb_board_lcd_timing','system':'tb_instrument_board','clocks':'tb_clock_contracts','polyphony':'tb_polyphonic_audio','audio':'tb_i2s_audio_output','pcm':'tb_pcm_equivalence','numeric':'tb_numeric_contracts','led':'tb_led_pixel_ram','led_snapshot':'tb_led_frame_snapshot','stereo_sweep':'tb_stereo_board_sweep','guide':'tb_instrument_board','pt8211':'tb_pt8211_output','visualizer':'tb_board_visualizer','polar':'tb_polar_contracts','polar_render':'tb_polar_page','record':'tb_instrument_board','keymap':'tb_instrument_board'};results=[]
     tops['led_effects']='tb_pad_led_effects'
     tops['led_protocol']='tb_led_protocol'
     for name in args.test or tops:

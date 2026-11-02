@@ -5,10 +5,12 @@ module mod_router #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 64,
     parameter int FS      = 48000,
+    parameter bit SPLIT_RESET=0,
     parameter logic [7:0] PAD_NOTE_ON_TH = 8'd102
 )(
     input  logic                        clk,
     input  logic                        rst_n,
+    input logic rst_mod0_n=1'b1,rst_pitch_n=1'b1,
     input  logic                        start,        // 本声部更新（router 给一拍）
     input  logic [7:0]                  fmap_i,       // 本声部压力
     input  logic [15:0]                 n_modes,
@@ -77,7 +79,7 @@ module mod_router #(
 
     modulation0 #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(FS),
                   .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_mod0 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(SPLIT_RESET ? rst_mod0_n : rst_n),
         .start(start && en), .n_modes(n_modes), .fmap_i(fmap_i),
         .busy(busy), .done(mod_done_i),
         .p_re(p_re), .p_mode(p_mode),
@@ -87,7 +89,7 @@ module mod_router #(
     );
 
     modulation1 #(.SLOTS(SLOTS),.N_MODES(N_MODES),.PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_pitch(
-        .clk(clk),.rst_n(rst_n),.clear(pitch_clear || !router_pkg::is_sustain(inst)),
+        .clk(clk),.rst_n(SPLIT_RESET ? rst_pitch_n : rst_n),.clear(pitch_clear || !router_pkg::is_sustain(inst)),
         .pressure_enable(pressure_enable),.pressure_gate(pressure_gate),.pressure_level(pressure_level),
         .table_we(table_we),.table_addr(table_addr),.table_data(table_data),
         .sample_tick(sample_tick),.commit_ok(pitch_commit_ok),.cleanup(pitch_cleanup),.n_modes(($clog2(N_MODES+1))'(n_modes)),

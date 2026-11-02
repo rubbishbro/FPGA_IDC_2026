@@ -16,10 +16,12 @@
 module exc_router #(
     parameter int CLK_HZ = 100_000_000,
     parameter int SR_HZ  = 48_000,
-    parameter int SLOTS  = 16
+    parameter int SLOTS  = 16,
+    parameter bit SPLIT_RESET=0
 )(
     input  logic                    clk,
     input  logic                    rst_n,
+    input logic rst_gen_n=1'b1,rst_trumpet_n=1'b1,
     input  logic                    smp_tick,
     input logic [SLOTS*16-1:0] slot_period,
     input logic [SLOTS*24-1:0] slot_pitch_delta='0,
@@ -188,7 +190,7 @@ module exc_router #(
     assign xmap_valid=trumpet_r ? trumpet_valid : generic_valid;
 
     excitation_gen #(.CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SLOTS(SLOTS),.SUSTAIN_ENABLE(1)) u_gen (
-        .clk(clk), .rst_n(rst_n), .clk_en(smp_tick),
+        .clk(clk), .rst_n(SPLIT_RESET ? rst_gen_n : rst_n), .clk_en(smp_tick),
         .sustain_mode(sustain_mode_r),.attenuate_by_8(attenuate_r),
         .slot_period(slot_period),.slot_pitch_delta(slot_pitch_delta),
         .SHIFT(shift_r), .RISE_SH(rise_sh_r),
@@ -199,7 +201,7 @@ module exc_router #(
     );
 
     trumpet_excitation #(.SLOTS(SLOTS),.SR_HZ(SR_HZ)) u_trumpet (
-        .clk(clk),.rst_n(rst_n),.clk_en(smp_tick),.enable(trumpet_r),.clear(clear),
+        .clk(clk),.rst_n(SPLIT_RESET ? rst_trumpet_n : rst_n),.clk_en(smp_tick),.enable(trumpet_r),.clear(clear),
         .slot_period(slot_period),.slot_pitch_delta(slot_pitch_delta),
         .strike_level(strike_level),.note_on(note_on),.retrigger(retrigger),.slot_clear(slot_clear),
         .xmap(trumpet_xmap),.xmap_valid(trumpet_valid)

@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
-"""Decode physical LED pulses as GRB/MSB and check renderer/prefetch regressions."""
+"""Exercise the LED wire protocol and the targeted storage/snapshot testbenches.
+
+tb_led_pixel_ram checks the pixel-addressed synchronous RAM read with the
+tightest enable spacing; tb_led_frame_snapshot checks the per-frame snapshot,
+the shared radius subtraction, the framebuffer prefetch and the retirement
+boundary. Both replace the old prefetch-vs-direct comparison, which became
+degenerate once every PIPELINED_READ setting mapped to the same hardware.
+"""
 from pathlib import Path
 import argparse,hashlib,json,subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
-TESTS={'protocol':'tb_led_protocol','prefetch':'tb_led_prefetch','effects':'tb_pad_led_effects'}
+TESTS={'protocol':'tb_led_protocol','pixel_ram':'tb_led_pixel_ram',
+       'snapshot':'tb_led_frame_snapshot','effects':'tb_pad_led_effects'}
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
@@ -20,7 +28,7 @@ def main():
         top=TESTS[name];tb=f'sim/unit/board/{top}.sv';sources.add(tb);obj=out/f'obj_{name}'
         command=[a.verilator,'--binary','--timing','--timescale','1ns/1ps','-Wno-fatal',
                  '--top-module',top,'-j','4','--Mdir',str(obj),
-                 '-MAKEFLAGS','CFG_CXXFLAGS_PCH_I=-include',
+                 '-MAKEFLAGS','CXX=g++ LINK=g++ AR=ar CFG_CXXFLAGS_PCH_I=-include',
                  *[str(ROOT/p) for p in production+[tb]]]
         with (out/f'compile_{name}.log').open('w') as log:
             subprocess.run(command,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,check=True)

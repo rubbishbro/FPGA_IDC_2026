@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Compare LED storage/shared-radius changes to immutable production RTL."""
+"""Compare LED storage/shared-radius changes to immutable production RTL.
+
+Period 1 (one clk_en per core clock) is deliberately excluded: the synchronous
+pixel RAM read in led8x8 needs at least two core clocks per enable, and the
+board pad tick is one enable per 20 core clocks. The targeted tests in
+run_led_protocol.py cover the new mechanics directly.
+"""
 from pathlib import Path
 import argparse, hashlib, json, os, re, shutil, subprocess
 
@@ -47,7 +53,7 @@ def main():
         ROOT/'rtl/drivers/pkg/pad_driver_pkg.sv',generated,ROOT/paths[1],reference,
         ROOT/'sim/unit/board/tb_led_storage_equivalence.sv'],'compile')
     results=[]
-    for period in (1,4,20):
+    for period in (2,4,20):
         text=run('vsim',['-c','-lib',work,'tb_led_storage_equivalence',f'-gCE_PERIOD={period}',
             '-wlf',out/f'ce{period}.wlf','-do','run -all; quit -f'],f'ce{period}')
         summary=[line for line in text.splitlines() if 'PASS tb_led_storage_equivalence' in line]

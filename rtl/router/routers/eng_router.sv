@@ -7,10 +7,12 @@
 //     两个实例的 inst 接同一个乐器号 -> 用的是同一种引擎，时序也完全一致。
 // -----------------------------------------------------------------------------
 module eng_router #(
-    parameter int N_MODES = 64
+    parameter int N_MODES = 64,
+    parameter bit SPLIT_RESET=0
 )(
     input  logic                                     clk,
     input  logic                                     rst_n,
+    input logic rst_eng0_n=1'b1,rst_eng1_n=1'b1,
     input  router_pkg::instrument_e                  inst,
     // ---- 作业口 ----
     input  logic                                     start,
@@ -90,7 +92,7 @@ module eng_router #(
     assign y_data   = sel_alt ? e1_y        : e0_y;
 
     eng0 #(.N_MODES(N_MODES)) u_eng0 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(SPLIT_RESET ? rst_eng0_n : rst_n),
         .start(e0_start), .st_zero(e0_zero), .n_modes(n_modes),
         .y_valid(e0_yv), .y_data(e0_y),
         .co_re(e0_co_re), .co_addr(e0_co_addr), .co_data(co_data),
@@ -102,7 +104,7 @@ module eng_router #(
     );
 
     eng1 #(.N_MODES(N_MODES)) u_eng1 (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(SPLIT_RESET ? rst_eng1_n : rst_n),
         .start(e1_start), .st_zero(e1_zero), .n_modes(n_modes),
         .y_valid(e1_yv), .y_data(e1_y),
         .co_re(e1_co_re), .co_addr(e1_co_addr), .co_data(co_data),

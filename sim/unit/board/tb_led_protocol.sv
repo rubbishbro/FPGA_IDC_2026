@@ -13,7 +13,7 @@ module tb_led_protocol;
     logic [2:0] x=0,y=0;
     pixel_t pixel='0;
     wire dat,busy,done;
-    led8x8 #(.PIPELINED_READ(1)) dut(.cr(cr),.x(x),.y(y),.pix(pixel),
+    led8x8 dut(.cr(cr),.x(x),.y(y),.pix(pixel),
         .wr(wr),.dat(dat),.busy(busy),.frame_done(done));
     logic [23:0] expected [0:63];
     logic [23:0] received=0;

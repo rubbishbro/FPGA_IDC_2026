@@ -23,7 +23,7 @@ module pad_driver(
 );
 
 // led矩阵
-led8x8 #(.PIPELINED_READ(1)) led_inst (.cr(cr), .x(led_p.x), .y(led_p.y), .pix(led_p.pix),
+led8x8 led_inst (.cr(cr), .x(led_p.x), .y(led_p.y), .pix(led_p.pix),
             .wr(led_p.wr), .dat(dat), .busy(led_busy), .frame_done(led_frame_done));
 
 // 压力垫和摇杆的模拟采集器
@@ -48,7 +48,7 @@ wr：高电平写显存，低电平刷新一次屏幕
 
 dat：屏幕串行数据输入
 */
-module led8x8 #(parameter bit PIPELINED_READ=0)(
+module led8x8(
     input  clk_rst     cr,
     input  logic [2:0] x, y,
     input  pixel_t     pix,
@@ -101,9 +101,11 @@ always_ff @(posedge cr.clk) begin
     end
 end
 
-// Keep the legacy parameter for callers. Both settings now use synchronous
-// pixel reads; the protocol leaves multiple clocks between address changes and
-// the next rising bit pulse, even when clk_en is continuously asserted.
+// Synchronous pixel read. The address changes at a bit boundary and pixel_q
+// follows one core clock later; a boundary after a '1' bit leaves only one
+// enable before the next sampled bit. Contract: clk_en must be asserted at most
+// once every two core clocks (board pad_tick is one enable per 20 clocks).
+// Consecutive per-clock enables are not supported by this read path.
 logic led_bit;
 always_ff @(posedge cr.clk) pixel_q <= pixel_ram[tx_pixel];
 assign led_bit = pixel_q[tx_bit];

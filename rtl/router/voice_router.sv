@@ -107,10 +107,13 @@ module voice_router #(
     import router_pkg::*;
     // Local reset leaves: async assertion, two-clock release. Preserve each
     // leaf so synthesis cannot merge the DSP banks back onto one huge reset net.
-    (* ASYNC_REG="TRUE", syn_preserve=1 *) logic [6:0][1:0] child_reset;
+    localparam int MOD_RESET_BASE=9;
+    localparam int ENG_RESET_BASE=11;
+    localparam int CHILD_RESETS=15;
+    (* ASYNC_REG="TRUE", syn_keep=1, syn_preserve=1 *) logic [CHILD_RESETS*2-1:0] child_reset;
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) child_reset<='0;
-        else for(integer i=0;i<7;i++) child_reset[i]<={child_reset[i][0],1'b1};
+        else for(integer i=0;i<CHILD_RESETS;i++) child_reset[2*i +:2]<={child_reset[2*i],1'b1};
     end
     logic input_hold,load_now;
     logic [SLOTS-1:0] note_on,perf_clear,dead_ev;
@@ -239,6 +242,13 @@ module voice_router #(
     logic [SLOTS-1:0] part_clear,part_gate,part_trigger;
     logic [SLOTS*8-1:0] part_strike,part_envelope;
     logic part_tick,part_midi,part_commit;
+    // Parallel copies of the existing snapshot strobe, not an extra pipeline
+    // stage. Keep the physical drivers separate from the protocol-only tick.
+    (* syn_keep=1, syn_preserve=1 *) logic part_tick_exc,part_tick_env;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin part_tick_exc<=0;part_tick_env<=0;end
+        else begin part_tick_exc<=smp_tick_q;part_tick_env<=smp_tick_q;end
+    end
     logic [SLOTS*24-1:0] pitch_delta,part_pitch_delta;
     logic pitch_sources_ready;
     logic [SLOTS-1:0] committed_gate;
@@ -352,8 +362,9 @@ module voice_router #(
         end
     end
 
-    exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_exc (
-        .clk(clk), .rst_n(child_reset[0][1]), .smp_tick(part_tick),
+    exc_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .SPLIT_RESET(1)) u_exc (
+        .clk(clk), .rst_n(child_reset[2*(0)+1]), .smp_tick(part_tick_exc),
+        .rst_gen_n(child_reset[2*(7)+1]),.rst_trumpet_n(child_reset[2*(8)+1]),
         .slot_period(play_period),.slot_pitch_delta(part_pitch_delta),
         .strike_level(part_strike), .retrigger(part_trigger), .slot_clear(part_clear),
         .note_on(part_gate), .inst(inst_lat),
@@ -361,7 +372,7 @@ module voice_router #(
     );
 
     env_router #(.SLOTS(SLOTS), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ)) u_env (
-        .clk(clk), .rst_n(child_reset[1][1]), .smp_tick(part_tick),
+        .clk(clk), .rst_n(child_reset[2*(1)+1]), .smp_tick(part_tick_env),
         .slot_a_step(play_attack),.slot_r_step(play_release),
         .envelope_level(part_envelope), .retrigger(part_trigger),
         .slot_clear(part_clear), .midi_mode(part_midi),
@@ -394,8 +405,9 @@ module voice_router #(
     wire pitch_commit_ok;
 
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(SR_HZ),
-                 .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_modr (
-        .clk(clk), .rst_n(child_reset[2][1]), .start(mod_start),
+                 .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH),.SPLIT_RESET(1)) u_modr (
+        .clk(clk), .rst_n(child_reset[2*(2)+1]), .start(mod_start),
+        .rst_mod0_n(child_reset[2*(MOD_RESET_BASE)+1]),.rst_pitch_n(child_reset[2*(MOD_RESET_BASE+1)+1]),
         .fmap_i(fmap_q.flat_d[mod_slot].val), .n_modes(16'(nm_lat)),
         .inst(inst_lat), .busy(mod_busy), .done(mod_done),
         .p_re(mod_p_re), .p_mode(mod_p_mode),
@@ -497,8 +509,9 @@ module voice_router #(
         co_rb.wo  = co_wo_rb;
     end
 
-    eng_router #(.N_MODES(N_MODES)) u_era (
-        .clk(clk), .rst_n(child_reset[5][1]), .inst(inst_lat),
+    eng_router #(.N_MODES(N_MODES),.SPLIT_RESET(1)) u_era (
+        .clk(clk), .rst_n(child_reset[2*(5)+1]), .inst(inst_lat),
+        .rst_eng0_n(child_reset[2*(ENG_RESET_BASE)+1]),.rst_eng1_n(child_reset[2*(ENG_RESET_BASE+1)+1]),
         .start(eng_start), .st_zero(era_zero), .n_modes(nm_lat),
         .co_re(era_co_re), .co_addr(era_co_addr), .co_data(co_ra),
         .st_re(era_st_re), .st_addr(era_st_addr),
@@ -509,8 +522,9 @@ module voice_router #(
         .y_valid(era_yv), .y_data(era_y)
     );
 
-    eng_router #(.N_MODES(N_MODES)) u_erb (
-        .clk(clk), .rst_n(child_reset[6][1]), .inst(inst_lat),
+    eng_router #(.N_MODES(N_MODES),.SPLIT_RESET(1)) u_erb (
+        .clk(clk), .rst_n(child_reset[2*(6)+1]), .inst(inst_lat),
+        .rst_eng0_n(child_reset[2*(ENG_RESET_BASE+2)+1]),.rst_eng1_n(child_reset[2*(ENG_RESET_BASE+3)+1]),
         .start(eng_start), .st_zero(erb_zero), .n_modes(nm_lat),
         .co_re(erb_co_re), .co_addr(erb_co_addr), .co_data(co_rb),
         .st_re(erb_st_re), .st_addr(erb_st_addr),
@@ -1211,7 +1225,7 @@ module voice_router #(
     body_router #(
         .SLOTS(SLOTS), .NSEC(5), .NTAP(5), .COEFF_FRAC(27), .GUARD_BITS(4)
     ) u_body (
-        .clk(clk), .rst_n(child_reset[3][1]),
+        .clk(clk), .rst_n(child_reset[2*(3)+1]),
         .clear_req(effects_clear), .clear_busy(body_clear_busy),
         .inst(inst_lat),
         .in_valid(mix_v), .in_ready(body_in_ready), .x(mix_q),
@@ -1219,7 +1233,7 @@ module voice_router #(
     );
 
     reverb_router #(.N(2048)) u_rev (
-        .clk(clk), .rst_n(child_reset[4][1]), .clear_req(effects_clear), .preset(reverb_preset),
+        .clk(clk), .rst_n(child_reset[2*(4)+1]), .clear_req(effects_clear), .preset(reverb_preset),
         .in_valid(body_out_valid), .x(body_y),
         .out_valid(rev_out_valid), .y(rev_y)
     );
