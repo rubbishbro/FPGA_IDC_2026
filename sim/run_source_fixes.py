@@ -37,8 +37,8 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     board = (ROOT / "rtl/platform/tang_mega_138k_pro/instrument_system.sv").read_text()
     capture = between(board, "    logic record_snapshot_valid", "    logic event_valid")
-    declarations = between(board, "    typedef enum logic [2:0] {B_IDLE", "    localparam logic [111:0] COMM_NOTE_MAP")
-    bridge = between(board, "    assign cfg_ready=", "    wire [9:0] pix_x,pix_y;")
+    declarations = between(board, "    typedef enum logic [3:0] {B_IDLE", "    localparam logic [111:0] COMM_NOTE_MAP")
+    bridge = between(board, "    assign keymap_valid=", "    wire [9:0] pix_x,pix_y;")
     wrapper = """`timescale 1ns/1ps
 module record_bridge_probe;
     import config_pkg::*;
@@ -54,6 +54,8 @@ module record_bridge_probe;
     logic [6:0] cfg_len;
     logic [511:0] cfg_shadow;
     logic ext_valid,ext_ready=0,ext_rsp_valid=0;
+    logic keymap_valid,keymap_ready=0,keymap_rsp_valid=0;
+    logic [7:0] keymap_result=6;
     cfg_request_t ext_request;
     cfg_response_t ext_response;
 """ + capture + declarations + "\n" + bridge + "\nendmodule\n"

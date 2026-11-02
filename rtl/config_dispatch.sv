@@ -69,9 +69,9 @@ module config_dispatch #(
             // backend accepts, wait for its authoritative completion (no false BUSY).
             if(state!=BACKEND_SEND)remote_wait_ms<=0;
             else if(tick_ms && remote_wait_ms<20)remote_wait_ms<=remote_wait_ms+1'b1;
-            // Initial publication uses the same held snapshot, independent of
-            // upstream backend mux/valid propagation and ordinary requests.
-            if(AUDIO_BACKEND && !audio_synced && state==IDLE && !req_valid &&
+            // Boot and out-of-band key-table commits publish authoritative snapshots.
+            // Never publish an in-progress/failed table, or a draft UI selection.
+            if(AUDIO_BACKEND && (!audio_synced || backend_audio_state!=audio_q) && state==IDLE && !req_valid &&
                !boot_pending && backend_audio_valid)begin
                 audio_q<=backend_audio_state;audio_valid_q<=backend_audio_valid;boot_pending<=1;
             end
@@ -80,7 +80,7 @@ module config_dispatch #(
                 if(audio_valid_q && audio_config_valid(audio_q))begin
                     audio_synced<=1;
                     active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
-                    active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
+                    active_values[5]<=audio_q.custom_keys ? 32'd2 : 32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
                     active_values[12]<=32'(audio_q.channel);active_values[20]<=32'(audio_q.guide);
                 end
             end
@@ -145,7 +145,7 @@ module config_dispatch #(
                     if(commit_audio)begin
                         audio_synced<=1;
                         active_values[0]<=32'(audio_q.instrument);active_values[2]<=32'(audio_q.reverb);
-                        active_values[5]<=32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
+                        active_values[5]<=audio_q.custom_keys ? 32'd2 : 32'(audio_q.bank);active_values[11]<=32'(audio_q.source);
                         active_values[12]<=32'(audio_q.channel);active_values[20]<=32'(audio_q.guide);
                     end
                     if(commit_scalar)active_values[index]<=backend_q.applied_value;

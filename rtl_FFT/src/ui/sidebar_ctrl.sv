@@ -112,7 +112,7 @@ module sidebar_ctrl #(
                     if(action==RIGHT&&!action_repeat)begin
                         armed<=0;
                         if(!supported[item] || (item==20 && active_values[11]==0))begin scene.has_result<=1;scene.result<=CFG_UNSUPPORTED;end
-                        else begin scene.edit_index<=5'(item);scene.draft<=active_values[item];scene.layer<=2;end
+                        else begin scene.edit_index<=5'(item);scene.draft<=(item==5 && active_values[item]==2)?32'd0:active_values[item];scene.layer<=2;end
                     end
                 end else if(scene.layer==2)begin
                     if(action==UP)begin

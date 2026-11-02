@@ -30,6 +30,7 @@ package config_pkg;
         logic bank;
         logic [1:0] reverb;
         logic guide;
+        logic custom_keys; // committed key binding; bank remains the default low/high group
     } audio_config_t;
     function automatic logic [15:0] midi_instrument(input logic [4:0] channel);
         case(channel)
@@ -144,6 +145,9 @@ package config_pkg;
         audio_config_t audio;
         logic [16*7-1:0] note_map;
         logic [15:0] target, glow, pressed;
+        // Display-only, level-sensitive: target's pitch is held on any bound key.
+        // pressed remains physical key state; matched must never drive audio.
+        logic [15:0] matched;
         logic [31:0] outside_count;
         logic [6:0] last_outside;
     } guide_display_t;
