@@ -41,7 +41,7 @@ module modulation1 #(
     logic [24:0] ratio_q0,ratio_q1,ratio_base;
     logic [8:0] ratio_index;
     logic [7:0] ratio_fraction;
-    typedef enum logic [3:0] {IDLE,MAP,RATIO_LD,RATIO_DATA,RATIO_MUL,RATIO_APPLY,
+    typedef enum logic [3:0] {IDLE,MAP,MAP_CENTS,MAP_RATIO,RATIO_LD,RATIO_DATA,RATIO_MUL,RATIO_APPLY,
         RD,WAIT_RD,CO_LD,CO_MUL,CO_APPLY,CO_OUT,COMMIT,ACK} state_t;
     state_t st;
     logic [TW-1:0] tick_count;
@@ -59,14 +59,20 @@ module modulation1 #(
     logic signed [48:0] product;
     logic signed [31:0] lower_q,base_q,upper_q;
     logic signed [63:0] adjusted;
-    logic [31:0] pressure_diff,target_cents,offset;
+    // Split the aftertouch front end: the 16:1 pressure mux/subtract and the
+    // *768/5 cents mapping are registered in separate FSM states, so neither
+    // side of the old MAP combinational path carries the full delay.
+    logic [7:0] pressure_diff;
+    logic [7:0] pressure_diff_q;
+    logic [15:0] target_cents_q;
+    logic [33:0] cents_mul;
     always_comb begin
         pressure_diff=0;
         if(levels_job[slot*8 +:8]>PAD_NOTE_ON_TH)
-            pressure_diff=32'(levels_job[slot*8 +:8])-32'(PAD_NOTE_ON_TH);
-        // 60/100 = 3/5; rounded once into cents Q8 (100 -> exactly 15360).
-        target_cents=(pressure_diff*768+2)/5;
-        offset=target_cents+56320;
+            pressure_diff=8'(levels_job[slot*8 +:8])-8'(PAD_NOTE_ON_TH);
+        // Exact (diff*768+2)/5 for diff<=153: multiply by 768*ceil(2^18/5)
+        // and shift, instead of a wide constant divider in the timing path.
+        cents_mul=34'(pressure_diff_q)*34'd40_265_472+34'd104_858;
         adjusted=64'(base_q)+((64'(product)+64'sd2097152)>>>22);
         if(adjusted>64'(upper_q))co_a1=upper_q;
         else if(adjusted<64'(lower_q))co_a1=lower_q;
@@ -99,6 +105,7 @@ module modulation1 #(
             enabled_q<=0;enabled_job<=0;active_enabled<=0;sources_job<=0;active_sources<=0;
             nm<=0;slot<=0;mode<=0;ratio_base<=0;ratio_index<=0;ratio_fraction<=0;
             mul_a<=0;mul_b<=0;lower_q<=0;base_q<=0;upper_q<=0;
+            pressure_diff_q<=0;target_cents_q<=0;
             for(int s=0;s<SLOTS;s++)begin cents[s]<=0;next_cents[s]<=0;next_delta[s]<=0;end
         end else begin
             commit_pulse<=0;
@@ -130,9 +137,17 @@ module modulation1 #(
                         if(slot==SW'(SLOTS-1))begin slot<=0;if(nm==0)st<=COMMIT;else st<=RD;end
                         else slot<=slot+1'b1;
                     end else begin
-                        next_cents[slot]<=16'(target_cents);
-                        ratio_index<=9'(offset>>8);ratio_fraction<=offset[7:0];st<=RATIO_LD;
+                        pressure_diff_q<=pressure_diff;st<=MAP_CENTS;
                     end
+                end
+                MAP_CENTS:begin
+                    // 60/100 = 3/5; rounded once into cents Q8 (100 -> exactly 15360).
+                    target_cents_q<=16'(cents_mul>>18);st<=MAP_RATIO;
+                end
+                MAP_RATIO:begin
+                    next_cents[slot]<=16'(target_cents_q);
+                    ratio_index<=9'((17'(target_cents_q)+17'd56320)>>8);
+                    ratio_fraction<=8'(17'(target_cents_q)+17'd56320);st<=RATIO_LD;
                 end
                 RATIO_LD:st<=RATIO_DATA;
                 RATIO_DATA:begin
