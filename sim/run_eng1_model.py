@@ -62,7 +62,10 @@ def compare_pitch(out):
     engine=E.PitchEngine(resources);writes=commits=acks=rejects=0
     nominal_words=engine.words.copy()
     for line in (out/'pitch_clock_trace.txt').read_text().splitlines():
-        c,tick,ok,cv,src,data,cancel,cleanup,sources,bad,ready,reject,cw,addr,a1,bank,busy,commit,sready,*delta=map(int,line.split())
+        values=list(map(int,line.split()))
+        c,tick,ok,cv,src,data,cancel,cleanup,sources,bad,ready,reject,cw,addr,a1=values[:15]
+        enabled,gates=values[15:17];levels=values[17:33]
+        bank,busy,commit,sready=values[33:37];delta=values[37:]
         # Decode the physical signed24 lanes. Verilator 5.49's decimal display
         # of a dynamic packed part-select can retain adjacent upper word bits.
         delta=[R.wrap_signed(value,24) for value in delta]
@@ -72,7 +75,7 @@ def compare_pitch(out):
             value=(((data>>10)&127)<<7)|((data>>17)&127) if kind==4 else (data>>10)&127
             control=('bend' if kind==4 else 'cc1',src,value)
         engine.words[:,:,7]=0 if bad else nominal_words[:,:,7]
-        can_write=engine.state=='CO_OUT' and not (engine.control_job and cancel) and cleanup==0
+        can_write=engine.state=='CO_OUT' and cleanup==0
         assert bool(cw)==can_write,(c,'co_we',engine.state,cw)
         if cw:
             value=max(engine.lower,min(engine.upper,engine.base+((engine.product+2097152)>>22)))
@@ -80,7 +83,8 @@ def compare_pitch(out):
             writes+=1
         old_commits=engine.commits
         ack,rejected=engine.clock(sample_tick=bool(tick),commit_ok=bool(ok),sources=bits(sources).astype(np.int8),
-                                  control=control,cancel=bool(cancel),cleanup=bits(cleanup,2))
+                                  control=control,cancel=bool(cancel),cleanup=bits(cleanup,2),
+                                  pressure_enable=bool(enabled),pressure_gate=bits(gates),pressure_level=levels)
         assert (ack,rejected)==(bool(ready),bool(reject)),(c,'control',engine.state,ack,rejected,ready,reject)
         assert engine.bank==bank and (engine.state!='IDLE')==bool(busy),(c,'bank/busy',engine.state)
         assert (engine.commits!=old_commits)==bool(commit),(c,'commit')

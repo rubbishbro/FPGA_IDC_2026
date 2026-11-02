@@ -86,10 +86,8 @@ module tb_performance_flash;
             addr=1572864+k*4;
             control_word={flash.memory[addr],flash.memory[addr+1],flash.memory[addr+2],flash.memory[addr+3]};
             if(k<512)begin
-                if(dut.u_pitch.ratio0[k]!==control_word[24:0] || dut.u_pitch.ratio1[k]!==control_word[24:0])$fatal(1,"FAIL Flash ratio RAM %d",k);
-            end else if(k<768)begin
-                if(dut.u_pitch.sine[k-512]!==control_word[15:0])$fatal(1,"FAIL Flash sine RAM %d",k);
-            end else if(dut.u_pitch.depth[k-768]!==control_word[13:0])$fatal(1,"FAIL Flash depth RAM %d",k);
+                if(dut.u_modr.u_pitch.ratio0[k]!==control_word[24:0] || dut.u_modr.u_pitch.ratio1[k]!==control_word[24:0])$fatal(1,"FAIL Flash ratio RAM %d",k);
+            end // Legacy sine/depth words remain in Flash but aftertouch does not use them.
         end
         for(int slot=0;slot<16;slot++)begin
             profile_word=word(int'(selected),slot,0,7);
@@ -121,6 +119,7 @@ module tb_performance_flash;
     endtask
     task automatic audition(input instrument_e selected,input logic bank=0);
         int before_nonzero;
+        logic [383:0] held_delta;
         @(negedge clk);inst=selected;selected_bank=bank;map_reload=1;
         @(negedge clk);map_reload=0;wait(dut.state==dut.S_LOAD);
         wait(dut.inst_prev==selected && valid && done);@(negedge clk);
@@ -146,10 +145,21 @@ module tb_performance_flash;
         frames(512);
         if(nonzero_outputs<=before_nonzero)$fatal(1,"FAIL no sound inst=%0d",selected);
         if(dut.part_gate!==16'h8181)$fatal(1,"FAIL gate map/bank");
-        fmap.raw[0*8 +:8]=240;frames(16);
+        if(is_sustain(selected))begin
+            if(dut.u_modr.u_pitch.cents[0]!=11981 || dut.u_modr.u_pitch.cents[7]!=11981 ||
+               dut.u_modr.u_pitch.cents[1]!=0)$fatal(1,"FAIL initial aftertouch");
+        end
+        fmap.raw[0*8 +:8]=240;frames(192);
+        if(is_sustain(selected))begin
+            if(dut.u_modr.u_pitch.cents[0]!=21197 || dut.u_modr.u_pitch.cents[7]!=11981)
+                $fatal(1,"FAIL independent aftertouch update");
+        end
+        held_delta=dut.pitch_delta;
         if(eng_sel(selected) && dut.mod_req!=0)$fatal(1,"FAIL pressure invoked matrix modulation");
         fmap='0;frames(8);
         if(dut.voice_idle==16'hffff)$fatal(1,"FAIL release retired prematurely");
+        frames(184);
+        if(is_sustain(selected) && dut.pitch_delta!==held_delta)$fatal(1,"FAIL aftertouch tail hold");
         maintenance=1;wait(maintenance_done);repeat(2)@(negedge clk);
         if(dut.voice_idle!==16'hffff)$fatal(1,"FAIL clear did not retire both banks");
         maintenance=0;frames(4);

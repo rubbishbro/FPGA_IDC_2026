@@ -298,175 +298,117 @@ class Frame:
 
 
 class PitchEngine:
-    """eng1_pitch FSM; clock() is one core edge, including atomic cancellation.
-
-    control=(kind, source, value), kind='bend' or 'cc1', stays valid until ack.
-    prepare writes the shadow buffer; only a qualified committing edge changes
-    active coefficients AND ratios. No waveform state is changed by preparation.
-    """
-    def __init__(self, resources, interval=96):
-        self.resources = tuple(resources)
-        self.slots = len(resources)
-        self.interval = int(interval)
-        if self.interval < 1:
-            raise ValueError("pitch interval must be positive")
-        self.words = np.array([r.pitch_words for r in resources], dtype=np.int64)
-        self.nominal = np.array([r.coeffs.a1 for r in resources], dtype=np.int64)
-        self.ratios, self.sine, self.depth = P.ratio_table(), P.sine_table(), P.depth_table()
-        self.reset()
+    """Clocked per-slot aftertouch, matching modulation1's shadow-bank protocol."""
+    def __init__(self, resources, interval=96, threshold=102):
+        self.resources=tuple(resources);self.slots=len(resources)
+        self.interval=int(interval);self.threshold=int(threshold)
+        if self.interval<1 or not 0<=self.threshold<=255:raise ValueError('invalid aftertouch parameters')
+        self.words=np.array([r.pitch_words for r in resources],dtype=np.int64)
+        self.nominal=np.array([r.coeffs.a1 for r in resources],dtype=np.int64)
+        self.ratios=P.ratio_table();self.reset()
 
     def reset(self):
-        self.state, self.bank, self.enabled = 'IDLE', 0, False
-        self.buffers = [self.nominal.copy(), self.nominal.copy()]
-        self.active_delta = np.zeros(self.slots, dtype=np.int64)
-        self.active_sources = np.zeros(self.slots, dtype=np.int8)
-        self.bend, self.wheel, self.cents, self.current_delta = [8192]*2, [0]*2, [0]*2, [0]*2
-        self.next_cents, self.next_delta = [0]*2, [0]*2
-        self.tick_count, self.phase, self.due, self.cleanup_wait = 0, 0, False, False
-        self.control_job = False
-        self.commits = 0
+        self.state,self.bank='IDLE',0
+        self.buffers=[self.nominal.copy(),self.nominal.copy()]
+        self.active_delta=np.zeros(self.slots,dtype=np.int64)
+        self.active_sources=np.zeros(self.slots,dtype=np.int8)
+        self.cents=[0]*self.slots;self.next_cents=[0]*self.slots;self.next_delta=[0]*self.slots
+        self.levels_q=np.zeros(self.slots,dtype=np.int64);self.gates_q=np.zeros(self.slots,dtype=bool)
+        self.enabled_q=self.active_enabled=self.pressure_requested=False
+        self.tick_count,self.due,self.commits=0,False,0
+        self.slot=self.mode=0
 
-    def sources_ready(self, sources):
-        return not self.enabled or (np.array_equal(sources, self.active_sources) and not self.cleanup_wait)
+    def sources_ready(self,sources):
+        return (np.array_equal(sources,self.active_sources) and self.pressure_requested==self.enabled_q
+                and self.enabled_q==self.active_enabled)
 
     @property
-    def coefficients(self):
-        return self.buffers[self.bank]
+    def coefficients(self):return self.buffers[self.bank]
 
-    def clock(self, *, sample_tick=False, commit_ok=True, sources=None,
-              control=None, cancel=False, cleanup=(False, False), clear=False):
-        sources = _lanes(0 if sources is None else sources, self.slots, np.int8)
-        cleanup = _lanes(cleanup, 2, bool)
-        old_due, old_phase = self.due, self.phase
+    def clock(self,*,sample_tick=False,commit_ok=True,sources=None,pressure_enable=None,
+              pressure_gate=0,pressure_level=0,control=None,cancel=False,cleanup=(False,False),clear=False):
+        sources=_lanes(0 if sources is None else sources,self.slots,np.int8)
+        if pressure_enable is not None:self.pressure_requested=bool(pressure_enable)
+        old_due=self.due;old_enabled=self.enabled_q
+        old_levels=self.levels_q.copy();old_gates=self.gates_q.copy()
+        old_ready=np.array_equal(sources,self.active_sources) and old_enabled==self.active_enabled
+        rejected=control is not None and not cancel and not clear
         if sample_tick:
-            self.tick_count += 1
-            if self.tick_count == self.interval:
-                self.tick_count = 0
-                self.due = True
-                self.phase = (self.phase+P.LFO_STEP) & 0xffffff
+            self.levels_q=_lanes(pressure_level,self.slots)
+            self.gates_q=_lanes(pressure_gate,self.slots,bool)
+            self.enabled_q=self.pressure_requested
+            self.tick_count+=1
+            if self.tick_count==self.interval:self.tick_count,self.due=0,True
         if clear:
-            buffers = self.buffers
-            self.reset()
-            # The RTL block owns bank selection/control, not coefficient RAM.
-            # Its clear pin cannot magically rewrite external a1 memories.
-            self.buffers = buffers
-            return False, False
-        if cleanup.any():
-            self.state, self.due, self.control_job, self.cleanup_wait = 'IDLE', True, False, True
-            for s in range(2):
-                if cleanup[s]:
-                    self.bend[s], self.wheel[s], self.cents[s] = 8192, 0, 0
-            return False, False
-        if self.control_job and cancel:
-            self.state, self.control_job, self.due = 'IDLE', False, True
-            return False, False
-        st = self.state
-        if st == 'IDLE':
-            valid = control is not None and not cancel
-            if valid or (old_due and self.enabled) or not self.sources_ready(sources):
-                self.candidate_bend, self.candidate_wheel = self.bend.copy(), self.wheel.copy()
-                self.control_job = valid
-                if valid:
-                    kind, src, value = control
-                    if kind == 'bend':
-                        self.candidate_bend[src] = value
-                    elif kind == 'cc1':
-                        self.candidate_wheel[src] = value
-                    else:
-                        raise ValueError("pitch engine accepts bend or cc1")
-                self.sources_job = sources.copy()
-                self.phase_job, self.source, self.due, self.state = old_phase, 0, False, 'SETUP'
-                if not valid and not old_due:
-                    self.next_cents, self.next_delta = self.cents.copy(), self.current_delta.copy()
-                    self.slot, self.mode, self.state = 0, 0, 'RD'
-        elif st == 'SETUP':
-            self.state = 'SETUP_DATA'
-        elif st == 'SETUP_DATA':
-            self.mul_a = self.sine[(self.phase_job >> 16) & 255]
-            self.mul_b = self.depth[self.candidate_wheel[self.source]]
-            self.state = 'VIB_MUL'
-        elif st == 'VIB_MUL':
-            self.product, self.state = self.mul_a*self.mul_b, 'VIB_ROUND'
-        elif st == 'VIB_ROUND':
-            self.vibration, self.state = (self.product+16384) >> 15, 'VIB_APPLY'
-        elif st == 'VIB_APPLY':
-            target = (((self.candidate_bend[self.source]-8192)*25) >> 2)+self.vibration
-            target = max(-56320, min(56320, target))
-            c = max(self.cents[self.source]-512, min(self.cents[self.source]+512, target))
-            self.next_cents[self.source] = c
-            self.ratio_index, self.ratio_fraction = divmod(c+56320, 256)
-            self.state = 'RATIO_LD'
-        elif st == 'RATIO_LD':
-            self.state = 'RATIO_DATA'
-        elif st == 'RATIO_DATA':
-            self.ratio_base = self.ratios[self.ratio_index]
-            self.mul_a = self.ratios[self.ratio_index+1]-self.ratio_base
-            self.mul_b = self.ratio_fraction
-            self.state = 'RATIO_MUL'
-        elif st == 'RATIO_MUL':
-            self.product, self.state = self.mul_a*self.mul_b, 'RATIO_APPLY'
-        elif st == 'RATIO_APPLY':
-            self.next_delta[self.source] = self.ratio_base+((self.product+128) >> 8)-(1 << 24)
-            if self.source == 0:
-                self.source, self.state = 1, 'SETUP'
+            buffers=self.buffers;self.reset();self.buffers=buffers
+            return False,False
+        if np.any(cleanup):
+            self.state,self.due='IDLE',True
+            return rejected,rejected
+        st=self.state
+        if st=='IDLE':
+            if old_due or not old_ready:
+                self.levels_job,self.gates_job=old_levels,old_gates
+                self.enabled_job=old_enabled;self.sources_job=sources.copy()
+                self.slot,self.mode,self.due,self.state=0,0,False,'MAP'
+        elif st=='MAP':
+            s=self.slot
+            if not self.enabled_job or self.sources_job[s]!=self.active_sources[s]:
+                self.next_cents[s]=self.next_delta[s]=0
+            elif not self.gates_job[s]:
+                self.next_cents[s]=self.cents[s];self.next_delta[s]=int(self.active_delta[s])
             else:
-                self.slot, self.mode, self.state = 0, 0, 'RD'
-        elif st == 'RD':
-            self.read_words = self.words[self.slot, self.mode].copy()
-            self.state = 'WAIT_RD'
-        elif st == 'WAIT_RD':
-            self.state = 'CO_LD'
-        elif st == 'CO_LD':
-            w = self.read_words
-            if w[7] != P.TAG:
-                rejected = self.control_job and control is not None and not cancel
-                self.state, self.control_job, self.due = 'ACK', False, False
-                return rejected, rejected
-            self.lower, self.base, self.upper = map(int, w[:3])
-            self.mul_a = self.next_delta[self.sources_job[self.slot]]
-            self.mul_b = R.wrap_signed(int(w[5]), 25)
-            self.state = 'CO_MUL'
-        elif st == 'CO_MUL':
-            self.product, self.state = self.mul_a*self.mul_b, 'CO_APPLY'
-        elif st == 'CO_APPLY':
-            self.state = 'CO_OUT'
-        elif st == 'CO_OUT':
-            value = self.base+((self.product+2097152) >> 22)
-            self.buffers[1-self.bank][self.slot, self.mode] = max(self.lower, min(self.upper, value))
-            self.mode += 1
-            if self.mode == ACTIVE_MODES:
-                self.mode, self.slot = 0, self.slot+1
-            if self.slot == self.slots:
-                self.state = 'COMMIT'
+                q=(max(0,int(self.levels_job[s])-self.threshold)*60*256+50)//100
+                self.next_cents[s]=q
+                self.ratio_index,self.ratio_fraction=divmod(q+56320,256)
+                self.state='RATIO_LD'
+            if self.state=='MAP':self._next_slot()
+        elif st=='RATIO_LD':self.state='RATIO_DATA'
+        elif st=='RATIO_DATA':
+            self.ratio_base=self.ratios[self.ratio_index]
+            self.mul_a=self.ratios[self.ratio_index+1]-self.ratio_base
+            self.mul_b=self.ratio_fraction;self.state='RATIO_MUL'
+        elif st=='RATIO_MUL':self.product,self.state=self.mul_a*self.mul_b,'RATIO_APPLY'
+        elif st=='RATIO_APPLY':
+            self.next_delta[self.slot]=self.ratio_base+((self.product+128)>>8)-(1<<24)
+            self._next_slot()
+        elif st=='RD':
+            self.read_words=self.words[self.slot,self.mode].copy();self.state='WAIT_RD'
+        elif st=='WAIT_RD':self.state='CO_LD'
+        elif st=='CO_LD':
+            w=self.read_words
+            if w[7]!=P.TAG:self.state='ACK'
             else:
-                self.state = 'RD'
-        elif st == 'COMMIT':
-            if not np.array_equal(sources, self.sources_job):
-                self.state, self.due = 'IDLE', True
-            elif commit_ok and (not self.control_job or (control is not None and not cancel)):
-                ack = self.control_job and control is not None
-                self.bank, self.enabled, self.cleanup_wait = 1-self.bank, True, False
-                self.active_sources[:] = self.sources_job
-                self.bend, self.wheel = self.candidate_bend.copy(), self.candidate_wheel.copy()
-                self.cents, self.current_delta = self.next_cents.copy(), self.next_delta.copy()
-                self.active_delta[:] = [self.next_delta[s] for s in self.sources_job]
-                self.control_job, self.state = False, 'ACK'
-                self.commits += 1
-                return ack, False
-        elif st == 'ACK':
-            self.state = 'IDLE'
-        return False, False
+                self.lower,self.base,self.upper=map(int,w[:3])
+                self.mul_a=self.next_delta[self.slot];self.mul_b=R.wrap_signed(int(w[5]),25)
+                self.state='CO_MUL'
+        elif st=='CO_MUL':self.product,self.state=self.mul_a*self.mul_b,'CO_APPLY'
+        elif st=='CO_APPLY':self.state='CO_OUT'
+        elif st=='CO_OUT':
+            value=self.base+((self.product+2097152)>>22)
+            self.buffers[1-self.bank][self.slot,self.mode]=max(self.lower,min(self.upper,value))
+            self.mode+=1
+            if self.mode==ACTIVE_MODES:self.mode,self.slot=0,self.slot+1
+            self.state='COMMIT' if self.slot==self.slots else 'RD'
+        elif st=='COMMIT':
+            if not np.array_equal(sources,self.sources_job) or old_enabled!=self.enabled_job or self.pressure_requested!=self.enabled_job:
+                self.state,self.due='IDLE',True
+            elif commit_ok:
+                self.bank=1-self.bank;self.active_sources[:]=self.sources_job
+                self.active_enabled=self.enabled_job;self.cents=self.next_cents.copy()
+                self.active_delta[:]=self.next_delta;self.state='ACK';self.commits+=1
+        elif st=='ACK':self.state='IDLE'
+        return rejected,rejected
 
-    def advance(self, cycles, *, sources, controls, commit_ok):
-        """Advance a tick-free core interval, skipping quiescent IDLE cycles."""
+    def _next_slot(self):
+        if self.slot==self.slots-1:self.slot,self.state=0,'RD'
+        else:self.slot,self.state=self.slot+1,'MAP'
+
+    def advance(self,cycles,*,sources,controls,commit_ok):
         for _ in range(int(cycles)):
-            if self.state == 'IDLE' and not controls and not (self.due and self.enabled) and self.sources_ready(sources):
-                break
-            ack, rejected = self.clock(sources=sources, control=controls[0] if controls else None, commit_ok=commit_ok)
-            if ack:
-                controls.popleft()
-            if rejected:
-                raise ValueError("P1T1 metadata missing; active pitch preserved")
+            if self.state=='IDLE' and not controls and not self.due and self.sources_ready(sources):break
+            ack,_=self.clock(sources=sources,control=controls[0] if controls else None,commit_ok=commit_ok)
+            if ack:controls.popleft()
 
 
 class Eng1Synth:
@@ -496,7 +438,7 @@ class Eng1Synth:
         if int(sample_rate) != self.resources.sample_rate:
             raise ValueError("resource Fs and playback Fs differ; resample explicitly")
         if self.resources.sample_rate != 48000:
-            raise ValueError("current production profile/LFO contract requires Fs=48000")
+            raise ValueError("current production profile contract requires Fs=48000")
         self.sample_rate, self.core_hz = int(sample_rate), int(core_hz)
         self.frame_busy_cycles = int(frame_busy_cycles)
         if not 0 < self.frame_busy_cycles < self.core_hz//self.sample_rate:
@@ -583,8 +525,8 @@ class Eng1Synth:
         flags[source] = True
         self.pitch.clock(sources=self.sources, cleanup=flags)
 
-    def step_pad(self, pressure, *, on_threshold=2, off_threshold=1, **kwargs):
-        """PAD hysteresis at the accepted frame boundary; board uses 64/48.
+    def step_pad(self, pressure, *, on_threshold=102, off_threshold=13, **kwargs):
+        """PAD hysteresis at the accepted frame boundary; aftertouch zero is 102.
 
         Source switching/maintenance is external: reset between input modes.
         """
@@ -594,11 +536,11 @@ class Eng1Synth:
         if not 0 <= off_threshold <= on_threshold <= 255:
             raise ValueError("invalid PAD thresholds")
         self.pad_gate = np.where(self.pad_gate, pressure >= off_threshold, pressure > on_threshold)
-        return self.step(gate=self.pad_gate, level=pressure, retrigger=False, **kwargs)
+        return self.step(gate=self.pad_gate, level=pressure, retrigger=False, pressure_enable=True, **kwargs)
 
     def step(self, *, gate=None, level=None, retrigger=None, clear=None,
              sources=None, committed_delta=None, st_zero=None, pan=16, itd=True,
-             active=True):
+             active=True, pressure_enable=False):
         explicit = gate is not None
         gates = _lanes(self.gate if gate is None else gate, self.slots, bool)
         levels = _lanes(self.level if level is None else level, self.slots)
@@ -613,11 +555,10 @@ class Eng1Synth:
         replay = committed_delta is not None
         if not replay:
             ack, rejected = self.pitch.clock(sample_tick=True, commit_ok=False, sources=self.sources,
-                                            control=self.controls[0] if self.controls else None)
+                                            control=self.controls[0] if self.controls else None,
+                                            pressure_enable=pressure_enable, pressure_gate=gates, pressure_level=levels)
             if ack:
                 self.controls.popleft()
-            if rejected:
-                raise ValueError("P1T1 metadata missing")
             # High-level note helpers wait for an ownership-related pitch rebuild.
             # Explicit snapshots already passed the real performance admission gate.
             if not explicit and triggers.any() and not self.pitch.sources_ready(self.sources):

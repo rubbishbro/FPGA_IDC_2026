@@ -2,13 +2,16 @@
 module tb_eng1_pitch_trace;
     logic clk=0,rst_n=0,tick=0,commit_ok=0,cv=0,cancel=0,source=0;
     logic [1:0] cleanup=0;
-    logic [15:0] sources=16'haaaa;
+    logic pressure_enable=1;
+    logic [15:0] pressure_gate=16'hffff;
+    logic [127:0] pressure_level={16{8'd202}};
+    logic [15:0] sources=16'h0000;
     logic [31:0] data=0;
     logic ready,rejected,bank,busy,commit,pr,cw,sources_ready;
     logic [383:0] delta;
     logic [9:0] pa,ca;
     logic signed [31:0] low,base,high,slope,tag,a1;
-    integer params[1024][5],fd,vf,rc;
+    integer params[1024][5],fd,vf,rc,t0,t1,t2,t3,t4;
     bit bad_tag=0,ack_before;
     always #5 clk=~clk;
     logic table_we=0;
@@ -22,6 +25,7 @@ module tb_eng1_pitch_trace;
         @(negedge clk);table_we=0;
     endtask
     modulation1 dut(.table_we(table_we),.table_addr(table_addr),.table_data(table_data),
+        .pressure_enable(pressure_enable),.pressure_gate(pressure_gate),.pressure_level(pressure_level),
         .clk(clk),.rst_n(rst_n),.clear(1'b0),.sample_tick(tick),.commit_ok(commit_ok),
         .cleanup(cleanup),.n_modes(7'd48),.slot_source(sources),.control_valid(cv),.control_cancel(cancel),
         .control_source(source),.control_data(data),.control_ready(ready),.control_rejected(rejected),
@@ -33,7 +37,10 @@ module tb_eng1_pitch_trace;
     end
     initial begin
         vf=$fopen("pitch_params.txt","r");
-        for(int i=0;i<1024;i++)rc=$fscanf(vf,"%d %d %d %d %d",params[i][0],params[i][1],params[i][2],params[i][3],params[i][4]);
+        for(int i=0;i<1024;i++)begin
+            rc=$fscanf(vf,"%d %d %d %d %d",t0,t1,t2,t3,t4);
+            params[i][0]=t0;params[i][1]=t1;params[i][2]=t2;params[i][3]=t3;params[i][4]=t4;
+        end
         $fclose(vf);fd=$fopen("pitch_clock_trace.txt","w");
         load_tables();repeat(4)@(negedge clk);rst_n=1;
         for(int c=0;c<40000;c++)begin
@@ -42,7 +49,12 @@ module tb_eng1_pitch_trace;
             if(c==20)begin cv=1;source=0;data={4'd4,4'd0,7'd127,7'd127,10'd0};end
             if(c==10000)begin cv=1;source=1;data={4'd2,4'd0,7'd1,7'd127,10'd0};end
             if(c==16000)begin cv=1;source=1;data={4'd4,4'd0,7'd0,7'd0,10'd0};end
+            if(c==6000)pressure_level[7:0]=255;
+            if(c==10000)pressure_level[15:8]=112;
+            if(c==14000)pressure_gate[0]=0;
+            if(c==18000)begin pressure_gate[0]=1;pressure_level[7:0]=103;end
             if(c==21000)sources=~sources;
+            if(c==34000)pressure_enable=0;
             if(c==23000)cleanup=1;
             if(c==26000)begin cv=1;source=0;data={4'd4,4'd0,7'd0,7'd0,10'd0};end
             if(c==27000)cancel=1;
@@ -50,6 +62,8 @@ module tb_eng1_pitch_trace;
             #1;
             ack_before=ready;
             $fwrite(fd,"%0d %0d %0d %0d %0d %0d %0d %0d %0d %0d %0d %0d %0d %0d %0d",c,tick,commit_ok,cv,source,data,cancel,cleanup,sources,bad_tag,ready,rejected,cw,ca,cw?a1:32'sd0);
+            $fwrite(fd," %0d %0d",pressure_enable,pressure_gate);
+            for(int s=0;s<16;s++)$fwrite(fd," %0d",int'(pressure_level[s*8 +:8]));
             @(posedge clk);#1;
             $fwrite(fd," %0d %0d %0d %0d",bank,busy,commit,sources_ready);
             for(int s=0;s<16;s++)$fwrite(fd," %0d",$signed(delta[s*24 +:24]));

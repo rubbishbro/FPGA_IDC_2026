@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""First-order pitch: independent integer vectors, atomic buffers and real MIDI integration."""
+"""ENG1 aftertouch, fractional excitation and real MIDI nominal-pitch integration."""
 from pathlib import Path
 import argparse,os,json,re,shutil,subprocess,sys,struct,random
 ROOT=Path(__file__).resolve().parents[1]
@@ -7,6 +7,8 @@ sys.path.insert(0,str(ROOT/'python/modal_sim'))
 import pitch_linear as P
 
 def vectors(out):
+    from run_aftertouch import vectors as aftertouch_vectors
+    aftertouch_vectors(out)
     tables=json.loads((ROOT/'rtl/router/tools/pitch_tables.json').read_text());words=[0]*1024
     for key,base in [('pitch_ratio',0),('pitch_sine',512),('pitch_depth',768)]:words[base:base+len(tables[key])]=tables[key]
     (out/'pitch_tables.mem').write_text(''.join(f'{word:08x}\n' for word in words))
@@ -16,23 +18,6 @@ def vectors(out):
         table=R.build_b_table(['cello','flute','violin','trumpet'][slot%4],36+slot*2)
         pm.extend(P.modulation_words(table))
     (out/'pitch_params.txt').write_text('\n'.join(' '.join(str(row[i]) for i in [0,1,2,5,7]) for row in pm)+'\n')
-    bend=[8192]*2;wheel=[0]*2;cents=[0]*2;phase=0;sources=0xaaaa
-    commands=[(1,0,16383)]+[(0,0,0)]*105+[(1,1,0)]+[(0,0,0)]*105+[(2,0,127)]+[(0,0,0)]*120+[(3,0,0),(6,0,0),(4,0,0),(5,0,0)]+[(2,1,64)]+[(0,0,0)]*100
-    lines=[]
-    for kind,source,value in commands:
-        if kind in [0,5]:phase=(phase+P.LFO_STEP)&0xffffff
-        if kind==1:bend[source]=value
-        if kind==2:wheel[source]=value
-        if kind==4:bend[0]=8192;wheel[0]=0;cents[0]=0
-        if kind==5:sources^=0xffff
-        delta=[]
-        for s in range(2):
-            cents[s],d=P.trajectory(bend[s],wheel[s],phase,cents[s]);delta.append(d)
-        lines.append(' '.join(map(str,[kind,source,value,*cents,*delta])))
-        for index,row in enumerate(pm):
-            d=delta[(sources>>(index//64))&1]
-            lines.append(str(P.coefficient(row[1],row[5],row[0],row[2],d)))
-    (out/'pitch_jobs.txt').write_text('\n'.join(lines)+'\n')
     periods=[2,3,7,15,109,511,65535,4096,4,12,57,1000,271,8000,900,300]
     rng=random.Random(260630);phase_state=[0]*16;previous=0;deltas=[0]*16
     with (out/'pitch_phase.txt').open('w') as f:

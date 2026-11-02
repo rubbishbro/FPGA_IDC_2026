@@ -170,23 +170,20 @@ module tb_eng1_pitch_system;
         end
         repeat(5)@(negedge clk);rst_n=1;wait(ready);@(negedge clk);verify=1;
         event_send(1,48,100,0);event_send(1,49,100,1);frames(40);
-        // Per-source CC1 and signed pitch bend use the internal consumer even
-        // with CONTROL_SUPPORTED=0 and the external control_ready tied high.
+        // Legacy wheel/bend events retire as rejected; MIDI velocity is not aftertouch.
         event_send(2,1,127,0);event_send(2,1,64,1);
         event_send(4,127,127,0);event_send(4,0,0,1);
-        if(dut.unsupported_count!=0)$fatal(1,"FAIL pitch control was dropped as unsupported");
+        if(dut.unsupported_count!=4)$fatal(1,"FAIL legacy wheel/bend was not rejected");
         for(int s=0;s<16;s++)event_send(1,48+s,64+s*4,s%2);
         base_count=checks;full_hold=1;wait(checks-base_count>=SAMPLES);full_hold=0;
-        if($signed(dut.u_voice.pitch_delta[0 +:24])<=0 || $signed(dut.u_voice.pitch_delta[24 +:24])>=0)
-            $fatal(1,"FAIL independent bend directions");
+        if(dut.u_voice.pitch_delta!=0)$fatal(1,"FAIL MIDI wheel changed aftertouch pitch");
         // Cleanup must retire note clears while restoring controller state;
         // a new source0 note then waits for nominal coefficients before onset.
         @(negedge clk);cleanup=1;wait(cleanup_done[0]);@(negedge clk);cleanup=0;
         event_send(1,48,80,0);frames(8);
-        if($signed(dut.u_voice.pitch_delta[0 +:24])!=0 || $signed(dut.u_voice.pitch_delta[24 +:24])>=0)
-            $fatal(1,"FAIL source controller cleanup isolation");
+        if(dut.u_voice.pitch_delta!=0)$fatal(1,"FAIL source cleanup retained pitch");
         event_send(2,120,0,0);event_send(2,120,0,1);wait(&dut.voice_idle);frames(2);
-        if(pitch_commits<10)$fatal(1,"FAIL insufficient dynamic pitch coverage");
+        if(pitch_commits<10)$fatal(1,"FAIL insufficient nominal pitch commit coverage");
         old_period=dut.u_voice.active_play[0].period;
         // Zero payload is accepted; loader does not classify record contents.
         blank=1;bank=1;wait(busy);wait(failed);

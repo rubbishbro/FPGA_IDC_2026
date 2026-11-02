@@ -386,6 +386,12 @@ module voice_router #(
     logic signed [31:0]      mod_a11_r, mod_a12_r, mod_a22_r, mod_wo_r;
     logic signed [31:0]      mod_s11_r, mod_s12_r, mod_s22_r, mod_swo_r;
 
+    logic pitch_bank,pitch_busy,pitch_commit,pitch_p_re,pitch_co_we;
+    logic [CO_SLOT-1:0] pitch_p_addr,pitch_co_addr;
+    logic signed [31:0] pitch_a1;
+    wire [CO_SLOT-1:0] pm_read_addr;
+    wire pitch_commit_ok;
+
     mod_router #(.SLOTS(SLOTS), .N_MODES(N_MODES), .FS(SR_HZ),
                  .PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_modr (
         .clk(clk), .rst_n(child_reset[2][1]), .start(mod_start),
@@ -394,26 +400,19 @@ module voice_router #(
         .p_re(mod_p_re), .p_mode(mod_p_mode),
         .p_a11(mod_a11_r), .p_a12(mod_a12_r), .p_a22(mod_a22_r), .p_wo(mod_wo_r),
         .p_s11(mod_s11_r), .p_s12(mod_s12_r), .p_s22(mod_s22_r), .p_swo(mod_swo_r),
-        .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata)
+        .co_we(mod_co_we), .co_mode(mod_co_mode), .co_wdata(mod_co_wdata),
+        .pressure_enable(!active_midi), .pressure_gate(note_on), .pressure_level(fmap_q.raw[SLOTS*8-1:0]),
+        .pitch_clear(play_clear), .sample_tick(smp_tick_q), .pitch_commit_ok(pitch_commit_ok),
+        .table_we(ld_control_we), .table_addr(ld_control_addr), .table_data(ld_control_data),
+        .pitch_cleanup(pitch_cleanup), .pitch_slot_source(pitch_slot_source),
+        .pitch_control_valid(pitch_control_valid), .pitch_control_cancel(pitch_control_cancel),
+        .pitch_control_source(pitch_control_source), .pitch_control_data(pitch_control_data),
+        .pitch_control_ready(pitch_control_ready), .pitch_control_rejected(pitch_control_rejected),
+        .pitch_bank(pitch_bank), .pitch_busy(pitch_busy), .pitch_commit(pitch_commit),
+        .pitch_delta(pitch_delta), .pitch_sources_ready(pitch_sources_ready),
+        .pitch_p_re(pitch_p_re), .pitch_p_addr(pitch_p_addr),
+        .pitch_co_we(pitch_co_we), .pitch_co_addr(pitch_co_addr), .pitch_a1(pitch_a1)
     );
-
-    logic pitch_bank,pitch_busy,pitch_commit,pitch_p_re,pitch_co_we;
-    logic [CO_SLOT-1:0] pitch_p_addr,pitch_co_addr;
-    logic signed [31:0] pitch_a1;
-    wire [CO_SLOT-1:0] pm_read_addr;
-    wire pitch_commit_ok;
-    modulation1 #(.SLOTS(SLOTS),.N_MODES(N_MODES)) u_pitch(
-        .clk(clk),.rst_n(child_reset[2][1]),.clear(play_clear || !router_pkg::is_sustain(inst_lat)),
-        .table_we(ld_control_we),.table_addr(ld_control_addr),.table_data(ld_control_data),
-        .sample_tick(smp_tick_q),.commit_ok(pitch_commit_ok),.cleanup(pitch_cleanup),.n_modes(nm_lat),
-        .slot_source(pitch_slot_source),.control_valid(pitch_control_valid),.control_cancel(pitch_control_cancel),
-        .control_source(pitch_control_source),.control_data(pitch_control_data),
-        .control_ready(pitch_control_ready),.control_rejected(pitch_control_rejected),
-        .active_bank(pitch_bank),.busy(pitch_busy),.commit_pulse(pitch_commit),.active_delta(pitch_delta),
-        .sources_ready(pitch_sources_ready),
-        .p_re(pitch_p_re),.p_addr(pitch_p_addr),.p_lower(mod_a11_r),.p_base(mod_a12_r),
-        .p_upper(mod_a22_r),.p_slope(mod_s12_r),.p_tag(mod_swo_r),
-        .co_we(pitch_co_we),.co_addr(pitch_co_addr),.co_a1(pitch_a1));
 
     // =========================================================================
     // 系数加载

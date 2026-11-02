@@ -140,32 +140,25 @@ def test_output_mute_does_not_falsely_retire_held_voice(resources):
     assert not f.idle[0] and s.envelope.level[0]>before
 
 
-def test_cleanup_and_new_on_wait_for_nominal_pitch(resources):
+def test_aftertouch_tail_hold_and_midi_controls_rejected(resources):
     s=synth(resources)
-    s.note_on(64,100)
+    for _ in range(120):s.step_pad([202,102,102,102])
+    assert s.pitch.active_delta[0]>0 and s.pitch.cents[0]==60*256
+    held=s.pitch.active_delta.copy()
+    for _ in range(120):s.step_pad([0,0,0,0])
+    assert np.array_equal(s.pitch.active_delta,held)
     s.control('bend',16383)
-    for _ in range(700):s.step()
-    assert s.pitch.active_delta[0]>0
-    s.cleanup(0)
-    s.note_on(64,100)
-    f=s.step()
-    assert f.x[0]==0 and s.envelope.dead[0]
-    for _ in range(30):
-        f=s.step()
-        if f.x[0]:
-            assert f.delta[0]==0 and f.emap[0]==0
-            break
-    else:
-        pytest.fail('new note never admitted after cleanup')
+    for _ in range(120):s.step()
+    assert not s.pitch.active_delta.any() and not s.controls
 
 
 def test_pitch_clear_preserves_external_ram_and_resets_epoch(resources):
     rows=[resources.notes[m] for m in [64,65,66,67]]
     p=E.PitchEngine(rows)
     p.buffers[0][0,0]=123456
-    p.bank=1;p.enabled=True;p.active_delta[:]=100
+    p.bank=1;p.active_enabled=True;p.active_delta[:]=100
     p.clock(clear=True)
-    assert p.bank==0 and not p.enabled and not p.active_delta.any()
+    assert p.bank==0 and not p.active_enabled and not p.active_delta.any()
     assert p.buffers[0][0,0]==123456  # clear is not a hidden RAM loader
 
 
