@@ -76,17 +76,28 @@ module eng1 #(
     localparam logic signed [63:0] YMAX  =  64'sd2147483647;
     localparam logic signed [63:0] ROUND =  64'sd1 <<< 23;    // 2^23
 
-    function automatic logic signed [63:0] mul64(
-        input logic signed [63:0] a,
-        input logic signed [63:0] b
+    // ABC products keep 32x26 operands (one MULT27X36 slice). Noise products
+    // are time-shared through one 33x32 multiplier (two slices) so the six
+    // noise products no longer cost twelve slices.
+    function automatic logic signed [63:0] mul_s32(
+        input logic signed [31:0] a,
+        input logic signed [31:0] b
     );
-        mul64 = a * b;
+        mul_s32 = 64'(a) * 64'(b);
+    endfunction
+
+    function automatic logic signed [63:0] mul_s33x32(
+        input logic signed [32:0] a,
+        input logic signed [31:0] b
+    );
+        mul_s33x32 = 64'(a) * 64'(b);
     endfunction
 
     typedef enum logic [4:0] {
         S_IDLE, S_X, S_SETUP, S_RUN, S_DONE,
-        N_READ0, N_WAIT0, N_READ1, N_WAIT1, N_FILTER, N_ENV,
-        N_GAIN, N_WRITE0, N_WRITE1, N_NEXT
+        N_READ0, N_WAIT0, N_READ1, N_WAIT1, N_MUL,
+        N_INIT_USE, N_LO_USE, N_HI_USE, N_SHAPE_SET, N_SHAPE_USE,
+        N_GAIN_SET, N_GAIN_USE, N_ENV_USE, N_WRITE0, N_WRITE1, N_NEXT
     } state_t;
     state_t state;
     logic [IW:0] issued, nmod_lat;
@@ -96,6 +107,11 @@ module eng1 #(
     logic noise_disabled;
     logic [31:0] noise_lfsr, noise_env, noise_decay, alpha_lo, alpha_hi;
     logic signed [31:0] noise_gain, noise_lo, noise_hi, noise_shaped, noise_out;
+    logic signed [31:0] noise_env_next, noise_env_seed;
+    logic signed [32:0] nm_a;
+    logic signed [31:0] nm_b;
+    logic signed [63:0] nm_p;
+    state_t mul_ret;
     wire noise_pair = noise_addr + 1'b1 < total_lat;
     wire noise_read = state == N_READ0 || state == N_READ1;
     wire noise_write = state == N_WRITE0 || state == N_WRITE1;
@@ -108,6 +124,8 @@ module eng1 #(
                value < YMIN ? 32'sh80000000 : 32'(value);
     endfunction
     logic signed [31:0] x_lat;
+    wire signed [31:0] x_for_env = x_lat > 0 ?
+        (x_lat > 32'sd16777216 ? 32'sd16777216 : x_lat) : 32'sd0;
     logic signed [63:0] p_g, p_a1, p_a2, acc_q, y_acc;
     logic signed [31:0] y_new;
     logic m_valid, s_valid, n_valid, w_valid;
@@ -115,9 +133,6 @@ module eng1 #(
     logic signed [31:0] s_old_y1, n_old_y1, w_old_y1;
     wire signed [31:0] y1_eff = zero_job ? 32'sd0 : st_q;
     wire signed [31:0] y2_eff = zero_job ? 32'sd0 : st_qdot;
-    wire signed [63:0] x_ext = {{32{x_lat[31]}}, x_lat};
-    wire signed [63:0] y1_ext = {{32{y1_eff[31]}}, y1_eff};
-    wire signed [63:0] y2_ext = {{32{y2_eff[31]}}, y2_eff};
     wire signed [63:0] y_shr = (acc_q + ROUND) >>> 24;
     wire signed [31:0] y_clp = (y_shr > YMAX) ? 32'sh7fffffff :
                                (y_shr < YMIN) ? 32'sh80000000 : 32'(y_shr);
@@ -132,7 +147,7 @@ module eng1 #(
     assign st_q_wdata = state == N_WRITE0 ? (noise_disabled ? 32'd0 : lfsr_next) :
                         state == N_WRITE1 ? noise_lo : y_new;
     assign st_qdot_wdata = state == N_WRITE0 ?
-        (noise_disabled ? 32'd0 : 32'((mul64({32'd0,noise_env}, {32'd0,noise_decay}) + ROUND) >>> 24)) :
+        (noise_disabled ? 32'd0 : noise_env_next) :
         state == N_WRITE1 ? noise_hi : w_old_y1;
     assign y_valid = state == S_DONE;
     assign y_data = y_acc;
@@ -143,7 +158,8 @@ module eng1 #(
             noise_job<=0;noise_restart<=0;total_lat<=0;noise_addr<=0;
             noise_disabled<=1;noise_lfsr<=0;noise_env<=0;noise_decay<=0;
             alpha_lo<=0;alpha_hi<=0;noise_gain<=0;noise_lo<=0;noise_hi<=0;
-            noise_shaped<=0;noise_out<=0;
+            noise_shaped<=0;noise_out<=0;noise_env_next<=0;noise_env_seed<=0;
+            nm_a<=0;nm_b<=0;nm_p<=0;mul_ret<=N_INIT_USE;
             m_valid<=0; s_valid<=0; n_valid<=0; w_valid<=0;
             m_addr<='0; s_addr<='0; n_addr<='0; w_addr<='0;
             s_old_y1<='0; n_old_y1<='0; w_old_y1<='0;
@@ -160,9 +176,9 @@ module eng1 #(
             end
             // M: returned RAM data, NOT a previous mode's state register.
             if (m_valid) begin
-                p_g <= mul64(x_ext, {{38{co_data.a11[25]}},co_data.a11[25:0]});
-                p_a1 <= mul64(y1_ext, {{38{co_data.a12[25]}},co_data.a12[25:0]});
-                p_a2 <= mul64(y2_ext, {40'b0,co_data.a21[23:0]});
+                p_g <= mul_s32(x_lat, {{6{co_data.a11[25]}},co_data.a11[25:0]});
+                p_a1 <= mul_s32(y1_eff, {{6{co_data.a12[25]}},co_data.a12[25:0]});
+                p_a2 <= mul_s32(y2_eff, {8'b0,co_data.a21[23:0]});
                 s_addr <= m_addr;
                 s_old_y1 <= y1_eff;
             end
@@ -216,39 +232,76 @@ module eng1 #(
                         (st_q != 0 && $unsigned(st_qdot) > 32'd16777216);
                     noise_restart <= st_q == 0 && x_lat > 0;
                     noise_lfsr <= st_q == 0 ? co_data.a11 : st_q;
-                    noise_env <= st_q == 0 ?
-                        32'((mul64({32'd0,co_data.a12},
-                            x_lat > 32'sd16777216 ? 64'sd16777216 : 64'(x_lat)) + ROUND) >>> 24) : st_qdot;
+                    // Capture the main-record envelope before N_READ1 replaces
+                    // st_q/st_qdot with the extension-record filter states.
+                    noise_env_seed <= st_qdot;
                     noise_decay <= co_data.a21;
                     alpha_lo <= co_data.a22; alpha_hi <= co_data.gq;
                     noise_gain <= co_data.gv;
                     noise_lo <= 0; noise_hi <= 0;
-                    if (noise_pair) state <= N_READ1; else state <= N_FILTER;
+                    // First shared-multiplier product: initial envelope a12*x.
+                    nm_a <= {1'b0, co_data.a12};
+                    nm_b <= x_for_env;
+                    mul_ret <= N_INIT_USE;
+                    if (noise_pair) state <= N_READ1; else state <= N_MUL;
                 end
                 N_READ1: state <= N_WAIT1;
                 N_WAIT1: begin
                     noise_lo <= noise_restart ? 32'd0 : st_q;
                     noise_hi <= noise_restart ? 32'd0 : st_qdot;
-                    state <= N_FILTER;
+                    state <= N_MUL;
                 end
-                N_FILTER: begin
-                    if (noise_disabled) begin noise_lo<=0; noise_hi<=0; end
-                    else begin
-                        noise_lo <= clamp32(64'(noise_lo) +
-                            ((mul64(noise_bit - 64'(noise_lo), {32'd0,alpha_lo}) + ROUND) >>> 24));
-                        noise_hi <= clamp32(64'(noise_hi) +
-                            ((mul64(noise_bit - 64'(noise_hi), {32'd0,alpha_hi}) + ROUND) >>> 24));
-                    end
-                    state <= N_ENV;
+                N_MUL: begin
+                    nm_p <= mul_s33x32(nm_a, nm_b);
+                    state <= mul_ret;
                 end
-                N_ENV: begin
+                N_INIT_USE: begin
+                    noise_env <= noise_restart ? 32'((nm_p + ROUND) >>> 24) : noise_env_seed;
+                    nm_a <= 33'(noise_bit - 64'(noise_lo));
+                    nm_b <= 32'(alpha_lo);
+                    mul_ret <= N_LO_USE;
+                    state <= N_MUL;
+                end
+                N_LO_USE: begin
+                    noise_lo <= noise_disabled ? 32'd0 : clamp32(64'(noise_lo) +
+                        ((nm_p + ROUND) >>> 24));
+                    nm_a <= 33'(noise_bit - 64'(noise_hi));
+                    nm_b <= 32'(alpha_hi);
+                    mul_ret <= N_HI_USE;
+                    state <= N_MUL;
+                end
+                N_HI_USE: begin
+                    noise_hi <= noise_disabled ? 32'd0 : clamp32(64'(noise_hi) +
+                        ((nm_p + ROUND) >>> 24));
+                    state <= N_SHAPE_SET;
+                end
+                N_SHAPE_SET: begin
+                    nm_a <= 33'(64'(noise_hi) - 64'(noise_lo));
+                    nm_b <= 32'(noise_env);
+                    mul_ret <= N_SHAPE_USE;
+                    state <= N_MUL;
+                end
+                N_SHAPE_USE: begin
                     noise_shaped <= noise_disabled ? 32'd0 : clamp32(
-                        (mul64(64'(noise_hi)-64'(noise_lo), {32'd0,noise_env}) + ROUND) >>> 24);
-                    state <= N_GAIN;
+                        (nm_p + ROUND) >>> 24);
+                    state <= N_GAIN_SET;
                 end
-                N_GAIN: begin
+                N_GAIN_SET: begin
+                    nm_a <= {noise_shaped[31], noise_shaped};
+                    nm_b <= noise_gain;
+                    mul_ret <= N_GAIN_USE;
+                    state <= N_MUL;
+                end
+                N_GAIN_USE: begin
                     noise_out <= noise_disabled ? 32'd0 : clamp32(
-                        (mul64(64'(noise_shaped), 64'(noise_gain)) + 64'sd32768) >>> 16);
+                        (nm_p + 64'sd32768) >>> 16);
+                    nm_a <= {1'b0, noise_env};
+                    nm_b <= 32'(noise_decay);
+                    mul_ret <= N_ENV_USE;
+                    state <= N_MUL;
+                end
+                N_ENV_USE: begin
+                    noise_env_next <= 32'((nm_p + ROUND) >>> 24);
                     state <= N_WRITE0;
                 end
                 N_WRITE0: begin

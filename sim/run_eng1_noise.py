@@ -59,7 +59,8 @@ def vectors():
         nonlocal q,v
         before=(list(q),list(v))
         afterq,afterv,out,writes=oracle(co,q,v,n,clear,x)
-        cases.append((name,(n,clear,x),[list(c) for c in co],before,afterq,afterv,out,writes))
+        cases.append((name,(n,clear,x),[list(c) for c in co],before,
+                      list(afterq),list(afterv),out,writes))
         q,v=afterq,afterv
     q=[rng.getrandbits(32) for _ in range(64)];v=[rng.getrandbits(32) for _ in range(64)]
     add('all_zero_flash_clears_stale_states',x=Q)
@@ -100,6 +101,14 @@ def vectors():
     co[48]=good.copy()
     add('single_tail_slot',n=49,x=Q)
     add('full64_noise_records',n=64,x=Q)
+    # Extension-slot filter states near signed extremes: the shared 33x32
+    # multiplier must keep the full 33-bit (bit-lo)/(hi-lo) difference.
+    co[48]=good.copy();co[49]=[0]*7
+    q[48]=co[48][0];v[48]=Q//2;q[49]=0x80000000;v[49]=0x7fffffff
+    add('extreme_extension_state_low',n=50,x=Q)
+    q[48]=co[48][0];v[48]=Q//2;q[49]=0x7fffffff;v[49]=0x80000000
+    add('extreme_extension_state_high',n=50,x=Q)
+    q[49]=v[49]=0
     add('empty_job',n=0)
     add('48_modes_do_not_read_noise_records',n=48)
     # Current ordinary ENG1 resources have <=48 active modes.
