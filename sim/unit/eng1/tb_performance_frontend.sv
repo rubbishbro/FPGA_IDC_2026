@@ -9,9 +9,10 @@ module tb_performance_frontend;
     logic[31:0] a=1,r=1;
     logic signed[0:0][31:0] x,e;
     logic[0:0] dead;
+    logic excitation_valid;
     exc_router #(.SLOTS(1)) exc(.clk(clk),.rst_n(rst_n),.smp_tick(tick),
         .slot_period(period),.slot_pitch_delta(24'd0),.strike_level(level),
-        .retrigger(trig),.slot_clear(clear),.note_on(gate),.inst(inst),.xmap(x),.xmap_valid());
+        .retrigger(trig),.slot_clear(clear),.note_on(gate),.inst(inst),.xmap(x),.xmap_valid(excitation_valid));
     env_router #(.SLOTS(1)) env(.clk(clk),.rst_n(rst_n),.smp_tick(tick),
         .slot_a_step(a),.slot_r_step(r),.envelope_level(8'hff),.retrigger(trig),
         .slot_clear(clear),.midi_mode(1'b0),.note_on(gate),.note_gate(gate),.inst(inst),
@@ -27,10 +28,18 @@ module tb_performance_frontend;
                 inst=instrument_e'(ident);tick=0;gate=0;trig=0;clear=0;
                 repeat(8)@(negedge clk);
                 clear=1;tick=1;@(negedge clk);clear=0;tick=0;
+                if(ident==3)begin
+                    for(int wait_cycles=0;!excitation_valid && wait_cycles<100;wait_cycles++)@(negedge clk);
+                    if(!excitation_valid)$fatal(1,"trumpet clear timeout");
+                end
                 repeat(2)@(negedge clk);last=ident;
             end
             gate=1'(g);level=8'(l);trig=1'(t);clear=1'(c);period=16'(p);a=32'(aa);r=32'(rr);tick=1;
             @(negedge clk);tick=0;
+            if(ident==3)begin
+                for(int wait_cycles=0;!excitation_valid && wait_cycles<100;wait_cycles++)@(negedge clk);
+                if(!excitation_valid)$fatal(1,"trumpet excitation timeout");
+            end
             if($signed(x[0])!==xx || $signed(e[0])!==ee || dead[0]!==1'(dd))
                 $fatal(1,"FAIL frontend inst=%0d frame=%0d x=%0d/%0d env=%0d/%0d dead=%0d/%0d",ident,checks,x[0],xx,e[0],ee,dead[0],dd);
             checks++;

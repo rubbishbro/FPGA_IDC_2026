@@ -11,7 +11,7 @@ import router_eng1 as R
 
 def bits(value,n=16):return np.array([(value>>s)&1 for s in range(n)],dtype=bool)
 
-def compare_wave(path, bank, min_checks=2000):
+def compare_wave(path, bank, min_checks=2000, reverb='NONE'):
     model=None;epoch=None;pending=None;checks=0;idle_checks=0;last_retired=None
     for line in path.read_text().splitlines():
         kind,*v=line.split();v=list(map(int,v))
@@ -21,7 +21,7 @@ def compare_wave(path, bank, min_checks=2000):
             if ep!=epoch:
                 # Initial observation starts after backend ready; later epochs
                 # include the load's mandatory first clearing frame.
-                model=E.Eng1Synth(bank.instrument,note_map=notes,resources=bank,stereo=False,initialized=seq==1)
+                model=E.Eng1Synth(bank.instrument,note_map=notes,resources=bank,stereo=False,initialized=seq==1,reverb=reverb)
                 epoch=ep
             assert model.note_map==tuple(notes)
             frame=model.step(gate=bits(gate),level=level,retrigger=bits(trigger),clear=bits(clear),

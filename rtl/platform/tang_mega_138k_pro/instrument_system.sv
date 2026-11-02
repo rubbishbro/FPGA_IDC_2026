@@ -48,6 +48,7 @@ module instrument_system #(
     wire spatial_frame_tick;
     wire [5:0] spatial_pan;
     logic [5:0] runtime_pan;
+    logic pan_initialized;
     generate if(STEREO_AUTO_SWEEP)begin:g_sweep
         localparam int CW=(SWEEP_HOLD_FRAMES<2)?1:$clog2(SWEEP_HOLD_FRAMES);
         logic [CW-1:0] count;
@@ -162,12 +163,16 @@ module instrument_system #(
     logic [1:0] remote_permission;
     wire pan_req=backend_request.id==16'h0102;
     wire policy_req=backend_request.id==16'h0502 || pan_req;
-    assign backend_ready=policy_req ? !policy_rsp_valid : voice_ready && !policy_rsp_valid;
+    assign backend_ready=pan_initialized && (policy_req ? !policy_rsp_valid : voice_ready && !policy_rsp_valid);
     assign backend_rsp_valid=policy_rsp_valid || voice_rsp_valid;
     assign backend_response=policy_rsp_valid ? policy_response : voice_response;
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin runtime_pan<=pan_position>32?6'd32:pan_position;remote_permission<=3;policy_rsp_valid<=0;policy_response<='0;end
+        if(!core_n)begin runtime_pan<=6'd16;pan_initialized<=0;remote_permission<=3;policy_rsp_valid<=0;policy_response<='0;end
         else begin
+            // Sample the reset default synchronously; never load an input through async reset.
+            if(!pan_initialized)begin
+                runtime_pan<=pan_position>32?6'd32:pan_position;pan_initialized<=1;
+            end
             if(policy_rsp_valid && backend_rsp_ready)policy_rsp_valid<=0;
             if(backend_valid && backend_ready && policy_req)begin
                 policy_response.tag<=backend_request.tag;policy_response.id<=backend_request.id;
