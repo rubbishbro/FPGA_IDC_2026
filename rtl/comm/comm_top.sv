@@ -74,6 +74,33 @@ module comm_top #(
     logic [1:0] reply_space, eligible;
     logic [1:0] midi_error_sources;
 
+    // USB UART has no connect event. After a physical fault, require 32
+    // consecutive idle bit times before allowing session_ctrl to retire it.
+    // Count only in quarantine; low RX or another RX error restarts the wait.
+    // This exceeds an entire 8N1 character, so a stop bit cannot reopen RX.
+    localparam int WIRED_IDLE_CYCLES = ((CLK_HZ + WIRED_BAUD - 1) / WIRED_BAUD) * 32;
+    localparam int WIRED_IDLE_W = $clog2(WIRED_IDLE_CYCLES + 1);
+    localparam logic [WIRED_IDLE_W-1:0] WIRED_IDLE_LIMIT = WIRED_IDLE_W'(WIRED_IDLE_CYCLES);
+    (* ASYNC_REG = "TRUE" *) logic wired_rx_meta, wired_rx_sync;
+    logic [WIRED_IDLE_W-1:0] wired_idle_count;
+    wire wired_idle_ready = wired_idle_count == WIRED_IDLE_LIMIT &&
+                            wired_rx_sync && !rx_frame_err[0] && !rx_break[0] && !rx_overflow[0];
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            wired_rx_meta <= 1'b1;
+            wired_rx_sync <= 1'b1;
+            wired_idle_count <= '0;
+        end else begin
+            wired_rx_meta <= rx_i[0];
+            wired_rx_sync <= wired_rx_meta;
+            if (!source_quarantine[0] || !wired_rx_sync ||
+                rx_frame_err[0] || rx_break[0] || rx_overflow[0])
+                wired_idle_count <= '0;
+            else if (wired_idle_count != WIRED_IDLE_LIMIT)
+                wired_idle_count <= wired_idle_count + 1'b1;
+        end
+    end
+
     uart_driver #(.CLK_HZ(CLK_HZ), .BAUD(WIRED_BAUD),
         .OVERSAMPLE(WIRED_OVERSAMPLE), .RX_DEPTH(RX_DEPTH)) u_wired (
         .clk(clk), .rst_n(rst_n), .rx_i(rx_i[0]), .tx_o(tx_o[0]),
@@ -139,6 +166,7 @@ module comm_top #(
         .overflow(rx_overflow),
         .protocol_errors(frame_errors), .midi_error(midi_error_sources),
         .source_cleanup_done(source_cleanup_done), .source_ops_idle(source_ops_idle),
+        .idle_recovery_ready({1'b0, wired_idle_ready}),
         .arb_busy(arb_busy), .arb_source(arb_source),
         .parser_busy(dispatch_busy), .parser_source(dispatch_source),
         .event_push(parsed_valid && parsed_ready), .event_push_source(parsed_source),

@@ -10,6 +10,9 @@ module session_ctrl #(
     input logic [15:0] protocol_errors,
     input logic [1:0] midi_error,
     input logic [1:0] source_cleanup_done, source_ops_idle,
+    // Level, qualified by the device layer: faulted links without a connect
+    // signal may reopen after a bounded idle interval and full retirement.
+    input logic [1:0] idle_recovery_ready,
     input logic arb_busy, arb_source, parser_busy, parser_source,
     input logic event_push, event_push_source, event_pop, event_pop_source,
     output logic [1:0] source_quarantine, link_fault_pending,
@@ -58,7 +61,7 @@ module session_ctrl #(
                 if (fault_now[i] || restart_req[i]) begin
                     link_fault_pending[i] <= 1'b1;
                     restart_pending[i] <= restart_req[i];
-                end else if (source_quarantine[i] && restart_pending[i] &&
+                end else if (source_quarantine[i] && (restart_pending[i] || idle_recovery_ready[i]) &&
                     pending_events[i] == 0 && source_ops_idle[i] && source_cleanup_done[i] &&
                     !(arb_busy && arb_source == (i == 1)) &&
                     !(parser_busy && parser_source == (i == 1))) begin

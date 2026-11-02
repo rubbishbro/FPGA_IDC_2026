@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (ROOT / "sim/comm_sources.f").read_text().splitlines()
 # Historical wire-format and pre-migration contract tests are archived;
 # see TEST_AUDIT_2026-11-01.md. This is the remaining regression scope.
-TESTS = ["tb_performance_limits", "tb_comm_fifo", "tb_comm_uart",
+TESTS = ["tb_session_recovery", "tb_comm_recovery", "tb_performance_limits", "tb_comm_fifo", "tb_comm_uart",
          "tb_comm_uart_rates", "tb_comm_hc05_status", "tb_comm_drivers"]
 
 
@@ -35,19 +35,29 @@ def main() -> int:
     ap.add_argument("--test", action="append", choices=TESTS)
     ap.add_argument("--list", action="store_true")
     ap.add_argument("--seed", type=int, help="optional SV +seed value for randomized fixtures")
+    ap.add_argument("--simulator", choices=["iverilog", "verilator"], default="iverilog")
     ap.add_argument("--out", type=Path, default=ROOT / "build/comm")
     args = ap.parse_args()
     if args.list:
         print("\n".join(TESTS))
         return 0
     args.out.mkdir(parents=True, exist_ok=True)
-    iv, vvp = executable("iverilog", "IVERILOG"), executable("vvp", "VVP")
+    if args.simulator == "verilator":
+        compiler = executable("verilator", "VERILATOR")
+    else:
+        compiler, vvp = executable("iverilog", "IVERILOG"), executable("vvp", "VVP")
     results = []
     for test in args.test or TESTS:
-        image = args.out / f"{test}.vvp"
-        command = [iv, "-g2012", "-Wall", "-s", test, "-o", str(image),
-                   *(str(ROOT / x) for x in SOURCES),
+        sources = [*(str(ROOT / x) for x in SOURCES),
                    str(ROOT / "sim/unit/comm" / f"{test}.sv")]
+        image = args.out.resolve() / f"{test}.vvp"
+        if args.simulator == "verilator":
+            image = image.with_suffix("")
+            command = [compiler, "--binary", "--timing", "-Wno-fatal", "-j", "2",
+                       "--top-module", test, "--Mdir", str(image) + ".obj",
+                       "-o", str(image), *sources]
+        else:
+            command = [compiler, "-g2012", "-Wall", "-s", test, "-o", str(image), *sources]
         compiled = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=60)
         compile_log = compiled.stdout + compiled.stderr
         (args.out / f"{test}.compile.log").write_text(compile_log)
@@ -55,10 +65,10 @@ def main() -> int:
         passed = False
         if compiled.returncode == 0:
             try:
-                run_command = [vvp, str(image)]
+                run_command = [str(image)] if args.simulator == "verilator" else [vvp, str(image)]
                 if args.seed is not None:
                     run_command.append(f"+seed={args.seed}")
-                run = subprocess.run(run_command, cwd=ROOT, capture_output=True,
+                run = subprocess.run(run_command, cwd=args.out.resolve(), capture_output=True,
                                      text=True, timeout=120)
                 output = run.stdout + run.stderr
                 passed = (run.returncode == 0 and "PASS" in output and
@@ -72,6 +82,7 @@ def main() -> int:
         if not passed:
             print(output[-6000:])
         results.append({"test": test, "passed": passed,
+                        "simulator": args.simulator,
                         "seed": args.seed,
                         "compile_log": str(args.out / f"{test}.compile.log"),
                         "run_log": str(args.out / f"{test}.run.log")})

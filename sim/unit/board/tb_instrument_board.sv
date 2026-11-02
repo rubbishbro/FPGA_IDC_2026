@@ -1,5 +1,7 @@
 `timescale 1ns/1ps
-module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
+module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
+    parameter int UART_BAUD=1_562_500);
+    localparam int UART_BIT_CYCLES=50_000_000/UART_BAUD;
     logic pad_enabled=1;
     import config_pkg::*;
     logic clk=0,rst_n=0,key0=1,key1=1;
@@ -14,7 +16,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
     tri [3:0] dq;
     logic blank=0;
     wire [3:0] flash_data;
-    instrument_board_top #(.BAUD(1_562_500),.KEY_DEBOUNCE(2),.KEY_LONG(24)) dut(
+    instrument_board_top #(.BAUD(UART_BAUD),.KEY_DEBOUNCE(2),.KEY_LONG(24)) dut(
         .clk(clk),.rst_n(rst_n),.key0(key0),.key1(key1),.uart_rx(rx),.uart_tx(tx),.bt_state(1'b0),
         .pad_row(pad_row),.pad_ch(pad_ch),.led_dat(led),.flash_cs_n(cs),.flash_sck(sck),.flash_dq(dq),
         .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.dac_bck(db),.dac_ws(dw),.dac_din(dd),.dac_pa_en(pa),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
@@ -68,7 +70,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
         return c;
     endfunction
     for(genvar source=0;source<2;source++)begin:g_decode
-        comm_uart_rx #(.CLK_HZ(50_000_000),.BAUD(1_562_500),.OVERSAMPLE(16)) decoder(
+        comm_uart_rx #(.CLK_HZ(50_000_000),.BAUD(UART_BAUD),.OVERSAMPLE(16)) decoder(
             .clk(dut.clk_core),.rst_n(dut.u_system.core_n),.rx_i(tx[source]),.rx_stb(byte_valid[source]),
             .rx_data(byte_data[source*8 +:8]),.framing_err(),.break_detect(),.false_start());
         always @(posedge dut.clk_core)if(dut.u_system.core_n && byte_valid[source])begin
@@ -131,14 +133,14 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
         key0=1;key1=1;clocks(16);
     endtask
     task automatic uart_byte(input int source,input logic [7:0] val);
-        @(negedge dut.clk_core);rx[source]=0;clocks(32);
-        for(int j=0;j<8;j++)begin rx[source]=val[j];clocks(32);end
-        rx[source]=1;clocks(32);
+        @(negedge dut.clk_core);rx[source]=0;clocks(UART_BIT_CYCLES);
+        for(int j=0;j<8;j++)begin rx[source]=val[j];clocks(UART_BIT_CYCLES);end
+        rx[source]=1;clocks(UART_BIT_CYCLES);
     endtask
     task automatic uart_line_fault(input int source);
         // A low stop bit/break is a link fault; CRC errors only discard a frame.
-        @(negedge dut.clk_core);rx[source]=0;clocks(32*14);
-        rx[source]=1;clocks(32*2);
+        @(negedge dut.clk_core);rx[source]=0;clocks(UART_BIT_CYCLES*14);
+        rx[source]=1;clocks(UART_BIT_CYCLES*2);
     endtask
     task automatic escape_byte(input int source,input logic [7:0] val);
         if(val==8'hc0)begin uart_byte(source,8'hdb);uart_byte(source,8'hdc);end
@@ -316,6 +318,18 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0);
     initial if(RECORD_TEST)begin
         for(int i=0;i<2;i++)begin replies[i]=0;nb[i]=0;started[i]=0;escaped[i]=0;end
         pad_enabled=0;#100;rst_n=1;wait(dut.u_system.audio_valid);clocks(2000);
+        // Wired USB has no reconnect input on the production board. A real
+        // break must recover on idle/cleanup before START can work again.
+        uart_line_fault(0);
+        if(!dut.u_system.quarantine[0])$fatal(1,"FAIL wired break did not quarantine");
+        begin : await_wired_recovery
+            repeat(100000)begin
+                if(!dut.u_system.quarantine[0])break;
+                clocks(1);
+            end
+            if(dut.u_system.quarantine[0])$fatal(1,"FAIL wired recording recovery timed out");
+        end
+        clocks(10);
         // Unsupported source/profile and permission are checked by the real bridge.
         config_reply(0,30,5,128'hdbc0123412,0);
         $display("BOARD RECORD START acknowledged t=%t",$time);wait(perf_starts==1);pad_enabled=1;wait(perf_ons==1);wait(nonzero>0);clocks(200000);
