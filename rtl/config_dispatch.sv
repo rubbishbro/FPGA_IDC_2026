@@ -40,7 +40,7 @@ module config_dispatch #(
     integer index;
     logic [$clog2(CAL_TIMEOUT_MS+1)-1:0] cal_age;
     logic [4:0] remote_wait_ms;
-    logic audio_synced;
+    logic audio_synced,pan_initialized;
     cfg_response_t backend_q;
     audio_config_t audio_q;
     logic audio_valid_q,commit_audio,commit_scalar,boot_pending;
@@ -49,7 +49,7 @@ module config_dispatch #(
          (audio_value(audio_q,pending.id)==backend_q.applied_value &&
           backend_q.applied_value==pending.value));
     wire [config_pkg::CFG_COUNT-1:0] supported=backend_supported|LOCAL_SUPPORTED;
-    assign req_ready=(state==IDLE)&&!boot_pending&&rst_n;
+    assign req_ready=(state==IDLE)&&!boot_pending&&pan_initialized&&rst_n;
     assign rsp_valid=(state==REPLY)&&rst_n;
     assign backend_valid=(state==BACKEND_SEND)&&rst_n;
     assign backend_request=pending;
@@ -59,12 +59,15 @@ module config_dispatch #(
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n)begin
             state<=IDLE;pending<='0;response<='0;response_source<=0;remote_wait_ms<=0;
-            active_values<=cfg_defaults();active_values[21]<=32'(initial_pan>32?6'd32:initial_pan);render_config<=display_defaults();render_epoch<=0;
+            active_values<=cfg_defaults();pan_initialized<=0;render_config<=display_defaults();render_epoch<=0;
             index<=0;cal_age<=0;joy_recalibrate<=0;
             audio_synced<=0;backend_q<='0;audio_q<='0;audio_valid_q<=0;
             commit_audio<=0;commit_scalar<=0;boot_pending<=0;
         end else begin
             joy_recalibrate<=0;
+            if(!pan_initialized)begin
+                active_values[21]<=32'(initial_pan>32?6'd32:initial_pan);pan_initialized<=1;
+            end
             // External requests have a bounded PRE-ACCEPT wait. Once the audio
             // backend accepts, wait for its authoritative completion (no false BUSY).
             if(state!=BACKEND_SEND)remote_wait_ms<=0;
