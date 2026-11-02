@@ -19028,7 +19028,7 @@
     "rtl/router/routers/body_router.sv": "9621cd996f9fc8971a801c457ee2054a278e95ca98cce1d5054c7f22444426dd",
     "rtl/router/routers/exc_router.sv": "4c5238e2455231bb58e326770bf951bf4f6216f8081d3d7eb8f936e2736278c6",
     "rtl/router/parts/excitation.sv": "9c23336137ae274806c6f36f66f7f9d27946d896821e992a508f34816c638a33",
-    "rtl/router/parts/trumpet_excitation.sv": "2ca29b0c5a4681353338458a494b044a9c253e2ecb3ee2a9f074f22f14a5d372",
+    "rtl/router/parts/trumpet_excitation.sv": "d108c597db2909ce5994b62b64a2459b15b35a291c9eacb3c8558e0f4ae98981",
     "rtl/router/pkg/trumpet_excitation_pkg.sv": "ffb455a8596583947a05d1de7543c166292338d9091edf2a94ad32413ccc2c63",
     "rtl/router/tools/trumpet_excitation_rom.py": "ca2d449720e491c28fad384c1f293a9b56f45a76340b8882ff88e386aaeb4ad2",
     "rtl/router/tools/performance/trumpet_excitation.json": "4896456332d2ac71ce35db726b304f8f76a8b07542742ae3eb09fa1082b95e05",

@@ -267,7 +267,7 @@ module voice_router #(
     localparam logic [7:0] NOTE_OFF_TH = PAD_NOTE_OFF_TH;
 
     logic [SLOTS-1:0] gate_r, pad_note_on, note_gate;
-    logic active_midi, performance_commit, frame_start, frame_retire;
+    logic active_midi, performance_commit, event_capture, frame_start, frame_retire;
     wire maintain_req = MIDI_ENABLE && maintenance_clear;
     logic maintenance_completed;
     always_ff @(posedge clk or negedge rst_n) begin
@@ -339,7 +339,8 @@ module voice_router #(
             part_clear<='0;part_gate<='0;part_trigger<='0;
             part_strike<='0;part_envelope<='0;part_tick<=0;part_midi<=0;part_commit<=0;committed_gate<='0;part_pitch_delta<='0;
         end else begin
-            part_tick<=smp_tick_q;part_commit<=performance_commit;
+            // Keep the accepted frame pending until serial excitation publishes it.
+            part_tick<=smp_tick_q;part_commit<=performance_commit || (part_commit && !frame_start);
             if(performance_commit)committed_gate<=note_on;
             if(smp_tick_q) begin
                 part_clear<=perf_clear | {SLOTS{play_clear}};
@@ -747,7 +748,7 @@ module voice_router #(
                 else idle_confirmed<=idle_confirmed & ~committed_gate & ~part_trigger;
             end
             if(frame_start)begin
-                zero_mask_f<=dead_pend | dead_ev | clear_f | {SLOTS{init_zero}};
+                zero_mask_f<=(inst_lat==INST_TRUMPET ? dead_f : (dead_pend | dead_ev)) | clear_f | {SLOTS{init_zero}};
                 gate_f<=committed_gate;
             end
         end
@@ -884,16 +885,18 @@ module voice_router #(
     // 不跨帧粘住，也不会跨加载残留。
 
     assign pm_read_addr=pitch_p_re ? pitch_p_addr : pm_idx;
-    assign pitch_commit_ok=(state==S_DONE || (state==S_RUN_X && wait_xmap)) &&
+    assign pitch_commit_ok=(state==S_DONE || (state==S_RUN_X && wait_xmap && !part_commit)) &&
                            !smp_tick_q && !part_tick && table_valid && !load_now;
-    assign performance_commit = (state == S_RUN_X) && wait_xmap && smp_tick_q;
+    assign performance_commit = (state == S_RUN_X) && wait_xmap && !part_commit && smp_tick_q;
+    // TDM freezes events with the input frame; the generic producer keeps its timing.
+    assign event_capture = inst_lat==INST_TRUMPET ? performance_commit : frame_start;
     assign frame_start = (state == S_RUN_X) && wait_xmap && xmap_valid && part_commit;
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             note_f    <= '0;
             note_pend <= '0;
-        end else if (frame_start) begin
+        end else if (event_capture) begin
             note_f    <= note_pend | note_ev;
             note_pend <= '0;
         end else if (|note_ev) begin
@@ -932,7 +935,7 @@ module voice_router #(
         if (!rst_n) begin
             dead_f    <= '0;
             dead_pend <= '0;
-        end else if (frame_start) begin
+        end else if (event_capture) begin
             dead_f    <= dead_pend | dead_ev;
             dead_pend <= '0;
         end else if (|dead_ev) begin
