@@ -92,6 +92,5 @@ rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v
 rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v
 rtl/platform/tang_mega_138k_pro/ip/pll_init.v
 rtl/platform/tang_mega_138k_pro/board_clock_reset.sv
-rtl/platform/tang_mega_138k_pro/temporary_fmap_display.sv
 rtl/platform/tang_mega_138k_pro/instrument_system.sv
 rtl/platform/tang_mega_138k_pro/instrument_board_top.sv

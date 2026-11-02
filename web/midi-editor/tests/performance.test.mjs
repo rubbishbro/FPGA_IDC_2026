@@ -6,7 +6,7 @@ import {FrameReader,encodeFrame} from '../src/protocol.mjs';
 import {SerialLink} from '../src/serial.mjs';
 import {writeMidi,parseMidi} from '../src/midi-file.mjs';
 function event({kind=0,id=42,ordinal=0,tick=0,slot=0,channel=1,flags=0,a=12500000,b=256}={}){
- const p=new Uint8Array(24),v=new DataView(p.buffer);p.set([kind,flags,channel,slot]);for(const [offset,value] of [[4,id],[8,ordinal],[12,tick],[16,a],[20,b]])v.setUint32(offset,value,true);return {type:130,seq:ordinal&65535,payload:p};
+ const p=new Uint8Array(24),v=new DataView(p.buffer);p.set([kind,flags,channel,slot]);for(const [offset,value] of [[4,id],[8,ordinal],[12,tick],[16,a],[20,b]])v.setUint32(offset,value,true);return {type:130,seq:ordinal&255,payload:p};
 }
 function recorder(){const project=blankProject();project.tempoMap=[{beat:0,bpm:120},{beat:4,bpm:60}];return new PerformanceRecorder({id:42,project,insertBeat:2});}
 test('performance stream has fixed LEN24 and survives bytewise SLIP, including IDs and timestamps',()=>{
@@ -35,8 +35,8 @@ test('recorder rejects bad starts, out-of-bounds data and backward device time; 
 function mock(){let readResolve;const wires=[];const port={open:async()=>{},close:async()=>{},readable:{getReader:()=>({read:()=>new Promise(r=>readResolve=r),cancel:async()=>readResolve?.({done:true}),releaseLock(){}})},writable:{getWriter:()=>({write:async wire=>wires.push(wire),ready:Promise.resolve(),releaseLock(){}})}};const link=new SerialLink(()=>{},()=>{},{addEventListener(){},requestPort:async()=>port});return {link,wires};}
 test('v1 CONFIG matches seq/type/command, protects control from panic cancellation, and times out finitely',async()=>{
  const {link,wires}=mock();await link.connect(2000000);const request=link.configure(0x12,recordIdBytes(42));link.cancel();assert.equal(link.pendingConfig.command,0x12);
- link.handleFrame({type:128,seq:0,payload:Uint8Array.from([2,0x13,0])});assert.ok(link.pendingConfig);
- link.handleFrame({type:128,seq:0,payload:Uint8Array.from([2,0x12,0])});await request;assert.equal(link.pendingConfig,null);assert.ok(wires.length);
+ link.handleFrame({type:128,seq:0,payload:Uint8Array.from([0x13,0])});assert.ok(link.pendingConfig);
+ link.handleFrame({type:128,seq:0,payload:Uint8Array.from([0x12,0])});await request;assert.equal(link.pendingConfig,null);assert.ok(wires.length);
  await assert.rejects(link.configure(0x13,recordIdBytes(42),{timeoutMs:10}),/超时/);await link.disconnect();
 });
 test('v1 performance dispatch does not log or update UI per frame, non-OK CONFIG rejects',async()=>{
@@ -64,7 +64,26 @@ test('recording UI locks edits, commits one editable take, closes held keys and 
  }finally{windowEvents.pagehide?.();globalThis.document=originalDocument;globalThis.window=originalWindow;}
 });
 test('performance extension matches independent Python CCITT/struct golden vectors',async()=>{
- const {readFile}=await import('node:fs/promises');const {vectors}=JSON.parse(await readFile(new URL('../../../rtl/drivers/analyzer/performance_vectors.json',import.meta.url)));
+ const {readFile}=await import('node:fs/promises');const {vectors}=JSON.parse(await readFile(new URL('./fixtures/performance_vectors.json',import.meta.url)));
  const bytes=s=>Uint8Array.from(s.split(' ').map(x=>parseInt(x,16)));
  for(const v of vectors)assert.deepEqual(encodeFrame(v.type,v.seq,bytes(v.payload_hex)),bytes(v.wire_hex));
+});
+
+test('recording accepts piano2/guitar2 channels and checks low eight ordinal bits after wrap',()=>{
+ for(const channel of [6,7]){
+  const recorder=new PerformanceRecorder({id:42,project:blankProject()});
+  recorder.push(event({channel}));
+  for(let ordinal=1;ordinal<=258;ordinal++)recorder.push(event({channel,kind:ordinal%2?1:2,ordinal,tick:ordinal*100,a:60|100<<8,b:0}));
+  recorder.push(event({channel,kind:3,ordinal:259,tick:26000,a:0,b:258}));
+  assert.equal(recorder.incomplete,false);assert.equal(recorder.track.channel,channel);assert.equal(recorder.track.notes.length,129);
+ }
+ assert.throws(()=>decodePerformance({...event({ordinal:256}),seq:1}),/序号/);
+});
+
+test('CONFIG retries identical bytes at most three times and wraps request sequence at 255',async()=>{
+ const {link,wires}=mock();await link.connect(2000000);link.cfgSeq=255;
+ await assert.rejects(link.configure(0x12,recordIdBytes(42),{timeoutMs:5}),/结果未知/);
+ assert.equal(wires.length,4);for(const w of wires)assert.deepEqual(w,wires[0]);
+ const request=link.configure(0x13,recordIdBytes(42));assert.equal(link.pendingConfig.seq,0);
+ link.handleFrame({type:128,seq:0,payload:Uint8Array.from([0x13,0])});await request;await link.disconnect();
 });

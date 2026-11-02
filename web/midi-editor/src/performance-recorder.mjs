@@ -5,8 +5,8 @@ export function decodePerformance(frame){
   if(frame.type!==PERFORMANCE_TYPE||frame.payload.length!==24)throw Error('演奏录制帧类型或长度错误');
   const p=frame.payload,v=new DataView(p.buffer,p.byteOffset,p.byteLength);
   const event={kind:p[0],flags:p[1],channel:p[2],slot:p[3],id:v.getUint32(4,true),ordinal:v.getUint32(8,true),tick:v.getUint32(12,true),a:v.getUint32(16,true),b:v.getUint32(20,true)};
-  if(event.kind>3||event.flags>1||event.channel>5||event.slot>15)throw Error('非法演奏录制字段');
-  if((frame.seq&65535)!==(event.ordinal&65535))throw Error('演奏帧序号不一致');
+  if(event.kind>3||event.flags>1||event.channel>15||event.slot>15)throw Error('非法演奏录制字段');
+  if(frame.seq!==(event.ordinal&255))throw Error('演奏帧序号不一致');
   if([1,2].includes(event.kind)&&((event.a&255)>127||(event.a>>>8&255)<1||(event.a>>>8&255)>127||(event.a>>>16)!==0||event.b!==0))throw Error('非法录制音符');
   return event;
 }

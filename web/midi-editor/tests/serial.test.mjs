@@ -24,7 +24,7 @@ test('panic cancels unsent note frames, then queues complete all-sound-off messa
 test('disconnect waits for a current frame and cancels its unsent successors',async()=>{
   const m=mockLink();await m.link.connect(2000000);let release,lockReleased=false;
   m.writer.write=wire=>{m.wires.push(wire);return new Promise(r=>release=r);};m.writer.releaseLock=()=>lockReleased=true;
-  const sent=m.link.send(Array.from({length:20},()=>[0x91,60,90])).catch(e=>e);const disconnect=m.link.disconnect();
+  const sent=m.link.send(Array.from({length:30},()=>[0x91,60,90])).catch(e=>e);const disconnect=m.link.disconnect();
   await Promise.resolve();assert.equal(lockReleased,false);release();await disconnect;assert.equal(lockReleased,true);assert.equal(m.wires.length,1);assert.equal((await sent).name,'AbortError');
 });
 test('write failure cancels the queue and makes the link unavailable without retry',async()=>{

@@ -6,7 +6,7 @@ import {blankProject,demoProject,validateProject,beatToSeconds,secondsToBeat,com
 import {parseMidi,writeMidi} from '../src/midi-file.mjs';
 import {Playback} from '../src/playback.mjs';
 const hex=s=>Uint8Array.from(s.split(' ').map(s=>parseInt(s,16)));
-const fixture=JSON.parse(await readFile(new URL('../../../rtl/drivers/analyzer/frame_vectors.json',import.meta.url)));
+const fixture=JSON.parse(await readFile(new URL('./fixtures/frame_vectors.json',import.meta.url)));
 test('CRC and all six production RTL protocol vectors match byte for byte',()=>{
   assert.equal(crc16(new TextEncoder().encode('123456789')),0x29b1);
   for(const v of fixture.vectors)assert.deepEqual(encodeFrame(v.type,v.seq,hex(v.payload_hex)),hex(v.wire_hex));
@@ -16,14 +16,14 @@ test('SLIP fragmentation, shared delimiters, corruption and resynchronization',(
   const good=hex(fixture.vectors[0].wire_hex),escaped=hex(fixture.vectors[4].wire_hex);
   const wire=Uint8Array.from([14,15,...good,...escaped.slice(1)]);
   for(const byte of wire)reader.feed([byte]);
-  assert.deepEqual(frames.map(f=>f.seq),[0,56256]);
-  const bad=good.slice();bad[7]^=1;reader.feed(bad);reader.feed([0xc0,1,0xdb,0,0xc0]);reader.feed([0xc0,...new Array(45).fill(1),0xc0]);reader.feed(good);
+  assert.deepEqual(frames.map(f=>f.seq),[0,192]);
+  const bad=good.slice();bad[7]^=1;reader.feed(bad);reader.feed([0xc0,1,0xdb,0,0xc0]);reader.feed([0xc0,...new Array(70).fill(1),0xc0]);reader.feed(good);
   assert.equal(errors.length,3);assert.equal(frames.length,3);
 });
-test('MIDI packetizer never splits short messages or exceeds 32 bytes',()=>{
+test('MIDI packetizer never splits short messages or exceeds 64 bytes',()=>{
   const messages=Array.from({length:16},(_,i)=>[0x90,60+i,100]),packets=packMidi(messages);
-  assert.deepEqual(packets.map(p=>p.length),[30,18]);assert.deepEqual(packets.flat(),messages.flat());
-  assert.throws(()=>packMidi([[0x90,60]]));assert.throws(()=>encodeFrame(1,0,new Array(33).fill(0)));
+  assert.deepEqual(packets.map(p=>p.length),[48]);assert.deepEqual(packets.flat(),messages.flat());
+  assert.throws(()=>packMidi([[0x90,60]]));assert.throws(()=>encodeFrame(1,0,new Array(65).fill(0)));
 });
 test('SMF roundtrip preserves notes, channels, Chinese track names, tempo and CC/bend/program',()=>{
   const p=demoProject();p.tempoMap.push({beat:4,bpm:85},{beat:8,bpm:130});

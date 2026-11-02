@@ -76,7 +76,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
         logic allowed;
         begin
             first_v=v>2?v-2:0;option_v=first_v+row_num-1;
-            allowed=option_v<=cfg_max(idx) && (idx!=0||option_v<10) && (idx!=6||option_v<3);
+            allowed=option_v<=cfg_max(idx) && (idx!=0||option_v<=11) && (idx!=6||option_v<3);
             return {allowed,option_v==v,value_label(idx,option_v)};
         end
     endfunction

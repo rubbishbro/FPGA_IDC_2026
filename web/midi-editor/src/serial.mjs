@@ -12,24 +12,32 @@ export class SerialLink {
   }
   handleFrame(frame) {
     this.rxFrames++;
-    if(frame.type===128 && this.pendingConfig && frame.seq===this.pendingConfig.seq && frame.payload[0]===2 && frame.payload[1]===this.pendingConfig.command){
+    if(frame.type===128 && this.pendingConfig && frame.seq===this.pendingConfig.seq && frame.payload.length===2 && frame.payload[0]===this.pendingConfig.command){
       const pending=this.pendingConfig;this.pendingConfig=null;clearTimeout(pending.timer);
-      if(frame.payload[2]===0)pending.resolve(frame);else pending.reject(Error(`设备配置失败：${['OK','UNSUPPORTED','BAD_LENGTH','OUT_OF_RANGE','BUSY','SEQ_CONFLICT','NOT_READY'][frame.payload[2]]??frame.payload[2]}`));
+      if(frame.payload[1]===0)pending.resolve(frame);else pending.reject(Error(`设备配置失败：${['OK','UNSUPPORTED','BAD_LENGTH','OUT_OF_RANGE','BUSY','SEQ_CONFLICT','NOT_READY'][frame.payload[1]]??frame.payload[1]}`));
     }
     if(frame.type!==130){this.onLog('RX',`type ${frame.type.toString(16)} · seq ${frame.seq}`);this.onState();}
     this.onFrame?.(frame);
   }
-  configure(command,data=[],{timeoutMs=2500}={}) {
+  configure(command,data=[],{timeoutMs=500,maxRetries=3}={}) {
     if(!this.connected)return Promise.reject(Error('串口未连接'));
     if(this.pendingConfig)return Promise.reject(Error('已有配置请求在途'));
-    const seq=this.cfgSeq;this.cfgSeq=(seq+1)&65535;
+    const seq=this.cfgSeq;this.cfgSeq=(seq+1)&255;
     return new Promise((resolve,reject)=>{
-      const fail=error=>{if(this.pendingConfig?.seq===seq){clearTimeout(this.pendingConfig.timer);this.pendingConfig=null;reject(error);}};
-      const timer=setTimeout(()=>fail(Error('配置回复超时，设备结果未知')),timeoutMs);
-      this.pendingConfig={seq,command,resolve,reject,timer};
+      const pending={seq,command,resolve,reject,timer:null};
+      const fail=error=>{if(this.pendingConfig===pending){clearTimeout(pending.timer);this.pendingConfig=null;reject(error);}};
+      this.pendingConfig=pending;
       try {
-        this.queue.push({wire:encodeFrame(2,seq,[command,...data]),epoch:this.epoch,control:true,queued:performance.now(),resolve:()=>{},reject:fail});
-        if(!this.pumping)this.pumpTask=this.pump();
+        const wire=encodeFrame(2,seq,[command,...data]);let retries=0;
+        const enqueue=()=>{
+          if(this.pendingConfig!==pending)return;
+          this.queue.push({wire,epoch:this.epoch,control:true,queued:performance.now(),reject:fail,resolve:()=>{
+            if(this.pendingConfig!==pending)return;
+            pending.timer=setTimeout(()=>{if(retries++<maxRetries)enqueue();else fail(Error('配置回复超时，设备结果未知'));},timeoutMs);
+          }});
+          if(!this.pumping)this.pumpTask=this.pump();
+        };
+        enqueue();
       }catch(e){fail(e);}
     });
   }
@@ -58,7 +66,7 @@ export class SerialLink {
     const packets=packMidi(messages);
     if(this.queue.length+packets.length>64) {const error=Error('串口发送积压，已停止播放');this.onFault?.(error);return Promise.reject(error);}
     return Promise.all(packets.map(payload=>new Promise((resolve,reject)=>{
-      this.queue.push({wire:encodeFrame(1,this.seq,payload),epoch:this.epoch,queued:performance.now(),resolve,reject});this.seq=(this.seq+1)&65535;
+      this.queue.push({wire:encodeFrame(1,this.seq,payload),epoch:this.epoch,queued:performance.now(),resolve,reject});this.seq=(this.seq+1)&255;
       if(!this.pumping)this.pumpTask=this.pump();
     })));
   }

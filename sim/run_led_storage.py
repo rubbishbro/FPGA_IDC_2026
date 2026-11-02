@@ -4,7 +4,9 @@ from pathlib import Path
 import argparse, hashlib, json, os, re, shutil, subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-BASELINE = "99762fbef7eec1fdce90fa52971379ddeadc7e80"
+# LED source hashes match the archived, programmed led_joy_board build.
+# This predates reset removal and pixel-RAM changes, but already fixes bit order.
+BASELINE = "1da4a41afd176599dd50edaea64f1a33dea36288"
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)

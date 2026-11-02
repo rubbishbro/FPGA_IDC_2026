@@ -1,0 +1,73 @@
+{
+  "protocol": "unversioned-seq8",
+  "status": "Independent Python binascii.crc_hqx vectors for docs/通信协议约定.md",
+  "date": "2026-10-26",
+  "byte_order": "little-endian",
+  "crc": {
+    "name": "CRC-16/CCITT-FALSE (CRC-16/IBM-3740)",
+    "poly": "1021",
+    "init": "FFFF",
+    "refin": false,
+    "refout": false,
+    "xorout": "0000",
+    "check_input_ascii": "123456789",
+    "check_hex": "29B1"
+  },
+  "vectors": [
+    {
+      "name": "note_on",
+      "type": 1,
+      "seq": 0,
+      "payload_hex": "90 3C 64",
+      "crc_hex": "C48F",
+      "body_hex": "01 00 03 90 3C 64 8F C4",
+      "wire_hex": "C0 01 00 03 90 3C 64 8F C4 C0"
+    },
+    {
+      "name": "program_change_escape",
+      "type": 1,
+      "seq": 1,
+      "payload_hex": "C0 01",
+      "crc_hex": "A5FC",
+      "body_hex": "01 01 02 C0 01 FC A5",
+      "wire_hex": "C0 01 01 02 DB DC 01 FC A5 C0"
+    },
+    {
+      "name": "reverb_hall",
+      "type": 2,
+      "seq": 1,
+      "payload_hex": "02 01",
+      "crc_hex": "3B18",
+      "body_hex": "02 01 02 02 01 18 3B",
+      "wire_hex": "C0 02 01 02 02 01 18 3B C0"
+    },
+    {
+      "name": "eq_band0",
+      "type": 2,
+      "seq": 2,
+      "description": "band 0 启用，peaking，1000 Hz，-6 dB，Q=1",
+      "payload_hex": "01 00 01 00 E8 03 00 FA 00 01",
+      "crc_hex": "D291",
+      "body_hex": "02 02 0A 01 00 01 00 E8 03 00 FA 00 01 91 D2",
+      "wire_hex": "C0 02 02 0A 01 00 01 00 E8 03 00 FA 00 01 91 D2 C0"
+    },
+    {
+      "name": "reverb_bathroom_header_escape",
+      "type": 2,
+      "seq": 192,
+      "payload_hex": "02 02",
+      "crc_hex": "CE6B",
+      "body_hex": "02 C0 02 02 02 6B CE",
+      "wire_hex": "C0 02 DB DC 02 02 02 6B CE C0"
+    },
+    {
+      "name": "config_ack",
+      "type": 128,
+      "seq": 1,
+      "payload_hex": "02 00",
+      "crc_hex": "4D6A",
+      "body_hex": "80 01 02 02 00 6A 4D",
+      "wire_hex": "C0 80 01 02 02 00 6A 4D C0"
+    }
+  ]
+}

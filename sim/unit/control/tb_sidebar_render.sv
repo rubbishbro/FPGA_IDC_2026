@@ -49,6 +49,19 @@ module tb_sidebar_render;
         if(bright<500||panel!=288*480+512*48)$fatal(1,"missing font/panel pixels");
         view.scene.layer=2;view.scene.edit_index=6;view.scene.draft=1;
         capture({filename,".dropdown.ppm"});
+        view.scene.edit_index=0;view.scene.draft=10;
+        frame();repeat(4)@(negedge clk);
+        // At draft 10, rows 3/4 are the two engine-1 instruments. Verify
+        // the prepared descriptors consumed by the actual dropdown renderer.
+        if(dut.options[3]!=={1'b1,1'b1,8'd124} ||
+           dut.options[4]!=={1'b1,1'b0,8'd125} || dut.options[5][9])
+            $fatal(1,"missing piano2/guitar2 dropdown entries or ID12 visible");
+        capture({filename,".piano2.ppm"});
+        view.scene.draft=11;
+        frame();repeat(4)@(negedge clk);
+        if(dut.options[2]!=={1'b1,1'b0,8'd124} ||
+           dut.options[3]!=={1'b1,1'b1,8'd125} || dut.options[4][9])
+            $fatal(1,"guitar2 selection missing or out-of-range entry visible");
         view.scene.open=0;
         for(integer i=0;i<12;i=i+1)frame();
         if(width!=0)$fatal(1,"close easing endpoint");

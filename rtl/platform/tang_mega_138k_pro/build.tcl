@@ -16,11 +16,12 @@ set_option -top_module instrument_board_top
 set_option -opt_goal timing
 set_option -map_option 1
 set_option -replicate_resources 1
-# Congested whole-board design: prioritize routability over routing speed.
-# SUG1220: placement 1 prioritizes routability; routing 1 attempts better routes,
-# while routing 2 prioritizes speed. Keep isolated strategy comparisons possible.
-set board_place_option 1
-set board_route_option 1
+# Default: place 3 / route 2, the last configuration that fully routed the board.
+# 2026-11-02 A/B on one fixed netlist: route 1 stalls in Routing Phase 1
+# (>11 min at 60%), route 2 completes Phase 1 in 2m40s and passes timing.
+# Env overrides remain for isolated strategy experiments.
+set board_place_option 3
+set board_route_option 2
 if {[info exists ::env(BOARD_PLACE_OPTION)]} {
     if {$::env(BOARD_PLACE_OPTION) ni {0 1 2 3 4}} {error "BOARD_PLACE_OPTION must be 0, 1, 2, 3 or 4"}
     set board_place_option $::env(BOARD_PLACE_OPTION)

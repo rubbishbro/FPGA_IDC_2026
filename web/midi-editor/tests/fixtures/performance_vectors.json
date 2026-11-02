@@ -1,0 +1,60 @@
+{
+  "protocol": "unversioned-seq8",
+  "vectors": [
+    {
+      "name": "start_request",
+      "type": 2,
+      "seq": 10,
+      "payload_hex": "12 DB C0 DB C0",
+      "wire_hex": "C0 02 0A 05 12 DB DD DB DC DB DD DB DC 74 CE C0",
+      "body_hex": "02 0A 05 12 DB C0 DB C0 74 CE",
+      "crc_hex": "CE74"
+    },
+    {
+      "name": "stop_request",
+      "type": 2,
+      "seq": 11,
+      "payload_hex": "13 DB C0 DB C0",
+      "wire_hex": "C0 02 0B 05 13 DB DD DB DC DB DD DB DC 44 DC C0",
+      "body_hex": "02 0B 05 13 DB C0 DB C0 44 DC",
+      "crc_hex": "DC44"
+    },
+    {
+      "name": "started",
+      "type": 130,
+      "seq": 0,
+      "payload_hex": "00 00 01 00 DB C0 DB C0 00 00 00 00 00 00 00 00 20 BC BE 00 00 01 00 00",
+      "wire_hex": "C0 82 00 18 00 00 01 00 DB DD DB DC DB DD DB DC 00 00 00 00 00 00 00 00 20 BC BE 00 00 01 00 00 19 37 C0",
+      "body_hex": "82 00 18 00 00 01 00 DB C0 DB C0 00 00 00 00 00 00 00 00 20 BC BE 00 00 01 00 00 19 37",
+      "crc_hex": "3719"
+    },
+    {
+      "name": "note_on",
+      "type": 130,
+      "seq": 1,
+      "payload_hex": "01 00 01 00 DB C0 DB C0 01 00 00 00 BC BE 00 00 3C 5A 00 00 00 00 00 00",
+      "wire_hex": "C0 82 01 18 01 00 01 00 DB DD DB DC DB DD DB DC 01 00 00 00 BC BE 00 00 3C 5A 00 00 00 00 00 00 1F 1D C0",
+      "body_hex": "82 01 18 01 00 01 00 DB C0 DB C0 01 00 00 00 BC BE 00 00 3C 5A 00 00 00 00 00 00 1F 1D",
+      "crc_hex": "1D1F"
+    },
+    {
+      "name": "note_off",
+      "type": 130,
+      "seq": 2,
+      "payload_hex": "02 00 01 00 DB C0 DB C0 02 00 00 00 78 7D 01 00 3C 01 00 00 00 00 00 00",
+      "wire_hex": "C0 82 02 18 02 00 01 00 DB DD DB DC DB DD DB DC 02 00 00 00 78 7D 01 00 3C 01 00 00 00 00 00 00 98 49 C0",
+      "body_hex": "82 02 18 02 00 01 00 DB C0 DB C0 02 00 00 00 78 7D 01 00 3C 01 00 00 00 00 00 00 98 49",
+      "crc_hex": "4998"
+    },
+    {
+      "name": "end",
+      "type": 130,
+      "seq": 3,
+      "payload_hex": "03 00 01 00 DB C0 DB C0 03 00 00 00 A0 86 01 00 00 00 00 00 02 00 00 00",
+      "wire_hex": "C0 82 03 18 03 00 01 00 DB DD DB DC DB DD DB DC 03 00 00 00 A0 86 01 00 00 00 00 00 02 00 00 00 E9 CB C0",
+      "body_hex": "82 03 18 03 00 01 00 DB C0 DB C0 03 00 00 00 A0 86 01 00 00 00 00 00 02 00 00 00 E9 CB",
+      "crc_hex": "CBE9"
+    }
+  ],
+  "status": "Independent Python binascii.crc_hqx vectors for docs/通信协议约定.md"
+}
