@@ -21,11 +21,11 @@ def main():
              'rtl/audio/i2s_audio_output.sv']
     cases = [
         ('tb_board_inputs', ui+['sim/unit/board/tb_board_inputs.sv']),
-        ('tb_board_lcd_timing', ['FFT_spectrumshow/src/display/lcd_timing.v', 'sim/unit/board/tb_board_inputs.sv']),
-        ('tb_board_display_orientation', ui+['FFT_spectrumshow/src/display/lcd_timing.v', 'sim/unit/board/tb_board_display_orientation.sv']),
+        ('tb_board_lcd_timing', ['rtl_FFT/src/display/lcd_timing.v', 'sim/unit/board/tb_board_inputs.sv']),
+        ('tb_board_display_orientation', ui+['rtl_FFT/src/display/lcd_timing.v', 'sim/unit/board/tb_board_display_orientation.sv']),
         ('tb_pcm_equivalence', audio+['sim/unit/audio/tb_pcm_equivalence.sv']),
-        ('tb_polar_reverse_scan', ['FFT_spectrumshow/src/display/cordic_polar.sv',
-             'FFT_spectrumshow/src/display/lcd_polar_curve.sv', 'sim/unit/board/tb_polar_reverse_scan.sv']),
+        ('tb_polar_reverse_scan', ['rtl_FFT/src/display/cordic_polar.sv',
+             'rtl_FFT/src/display/lcd_polar_curve.sv', 'sim/unit/board/tb_polar_reverse_scan.sv']),
     ]
     results = []
     for top, sources in cases:
@@ -39,7 +39,7 @@ def main():
         (OUT/(top+'.compile.log')).write_text(compile_run.stdout+compile_run.stderr)
         if compile_run.returncode:
             raise RuntimeError((compile_run.stdout+compile_run.stderr)[-4000:])
-        run = subprocess.run([vvp,str(image)],cwd=ROOT/'FFT_spectrumshow/board',
+        run = subprocess.run([vvp,str(image)],cwd=ROOT/'rtl_FFT/board',
                              capture_output=True,text=True,timeout=90)
         output=run.stdout+run.stderr
         (OUT/(top+'.run.log')).write_text(output)

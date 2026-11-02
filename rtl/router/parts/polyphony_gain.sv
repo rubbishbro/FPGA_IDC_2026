@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // Common post-reverb gain before stereo; count includes release voices.
-// Fixed wiring shifts only: 1 voice x4, 2..7 voices x2, otherwise unity.
+// Fixed wiring shifts only: 4 voices x4, 2..7 voices x2, otherwise unity.
 // Preserve the two-register valid/data pipeline; no multiplier or gain slew.
 module polyphony_gain #(
     parameter bit ENABLE=1
@@ -20,7 +20,7 @@ module polyphony_gain #(
         else begin
             shifted_valid<=in_valid;out_valid<=shifted_valid;
             if(in_valid)begin
-                if(ENABLE && voices==1)begin
+                if(ENABLE && voices==4)begin
                     shifted<={in_data[61:0],2'b00};gain_q12<=15'd16384;
                 end else if(ENABLE && voices>=2 && voices<=7)begin
                     shifted<={in_data[62:0],1'b0};gain_q12<=15'd8192;

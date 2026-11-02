@@ -13,8 +13,8 @@ def main():
     ini=Path(os.environ.get('QSIM_INI') or str(Path.home()/'gowin/simlib_questa/modelsim.ini'))
     work=out/'work';txt=re.sub(r'^work\s*=.*$','work = '+str(work),ini.read_text(),flags=re.M)
     (out/'modelsim.ini').write_text(txt);env=os.environ.copy();env['QSIM_INI']=str(out/'modelsim.ini');env['MODELSIM']=env['QSIM_INI']
-    for src,name in [('FFT_spectrumshow/board/sidebar_font.mem','sidebar_font.mem'),('FFT_spectrumshow/board/sidebar_labels.mem','sidebar_labels.mem'),('rtl/router/tools/performance/resources.mem','performance_resources.mem')]:shutil.copyfile(ROOT/src,out/name)
-    for memory in (ROOT / "FFT_spectrumshow/board").glob("*.mem"):
+    for src,name in [('rtl_FFT/board/sidebar_font.mem','sidebar_font.mem'),('rtl_FFT/board/sidebar_labels.mem','sidebar_labels.mem'),('rtl/router/tools/performance/resources.mem','performance_resources.mem')]:shutil.copyfile(ROOT/src,out/name)
+    for memory in (ROOT / "rtl_FFT/board").glob("*.mem"):
         shutil.copyfile(memory, out / memory.name)
     led_tables=out/'rtl/drivers/pad_led_tables';led_tables.mkdir(parents=True,exist_ok=True)
     for memory in (ROOT/'rtl/drivers/pad_led_tables').glob('*.mem'):
@@ -28,7 +28,7 @@ def main():
     run('vlib',[work],'vlib')
     src=[]
     for f in (BOARD/'sources.f').read_text().splitlines():
-        if f.startswith(str(BOARD.relative_to(ROOT))+'/ip/') or f in ['FFT_spectrumshow/board/gowin_pll.v','rtl/drivers/gowin_adc/gowin_adc.v']:continue
+        if f.startswith(str(BOARD.relative_to(ROOT))+'/ip/') or f in ['rtl_FFT/board/gowin_pll.v','rtl/drivers/gowin_adc/gowin_adc.v']:continue
         src.append(ROOT/f)
     src += [ROOT/f for f in ['sim/unit/board/board_ip_models.sv','sim/unit/midi/w25q64_read_model.sv',
         'sim/unit/audio/tb_i2s_audio_output.sv','sim/unit/audio/tb_pcm_equivalence.sv','sim/unit/board/tb_board_inputs.sv','sim/unit/board/tb_clock_contracts.sv','sim/unit/board/tb_polyphonic_audio.sv','sim/unit/board/tb_numeric_contracts.sv','sim/unit/board/tb_led_prefetch.sv','sim/unit/audio/tb_i2s_stereo.sv','sim/unit/audio/tb_pt8211_output.sv','sim/unit/board/tb_board_visualizer.sv']]

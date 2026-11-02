@@ -2,7 +2,7 @@
 
 面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；录音用于离线提取参数，模型与 RTL WAV 用于试听验证。
 
-更新：**2026-11-01**。本地已合入整理后的main。当前源码尚未重新编译；板上为已校验3ED7六音色固件，本轮不编译、不烧录。
+更新：**2026-11-02**。本地已合入整理后的main。当前源码尚未重新编译；板上固件身份见[烧录记录](docs/烧录_20261102_0613.md)（2026-11-02 06:53 为 0BFE，但资源窗口回读仍是旧 768KiB，见问题 I05），本轮不编译、不烧录。
 
 ## 当前实现
 
@@ -42,7 +42,7 @@
 | `rtl/drivers/`、`rtl/comm/` | 压力/摇杆、UART/HC-05、传输/解析/来源会话 |
 | `rtl/config_pkg.sv`、`config_dispatch.sv`、`control_loop.sv` | 统一配置类型、真实结果提交与轮询 |
 | `sim/` | 各模块与系统回归入口 |
-| `FFT_spectrumshow/` | 独立FFT/LCD/侧栏demo，50MHz控制、约33.333MHz像素域 |
+| `rtl_FFT/` | 独立FFT/LCD/侧栏demo，50MHz控制、约33.333MHz像素域 |
 | `python/`、`FFT_results/` | 提取、模型、参数/图/试听 |
 | `sythsound/` | 独立Python实验库及router钢琴/吉他资源生成 |
 | `web/midi-editor/` | 本地MIDI编辑与UART上位机 |

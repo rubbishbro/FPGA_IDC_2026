@@ -18,15 +18,16 @@ def main():
     args = ap.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
-    source = ROOT / "FFT_spectrumshow/src/display/lcd_fft.v"
-    baseline = subprocess.check_output(["git", "show", f"{BASELINE}:{source.relative_to(ROOT)}"], cwd=ROOT, text=True)
+    source = ROOT / "rtl_FFT/src/display/lcd_fft.v"
+    # The pinned baseline predates the directory rename, so its historical path remains FFT_spectrumshow/.
+    baseline = subprocess.check_output(["git", "show", f"{BASELINE}:FFT_spectrumshow/src/display/lcd_fft.v"], cwd=ROOT, text=True)
     reference = out / "lcd_fft_reset_reference.v"
     reference.write_text(re.sub(r"\blcd_fft\b", "lcd_fft_reset_reference", baseline))
     results = []
     for name, fixture in [
         ("tb_peak_table_init", "sim/unit/board/tb_peak_table_init.sv"),
-        ("lcd_fft_tb", "FFT_spectrumshow/sim/lcd_fft_tb.sv"),
-        ("lcd_fft_align_tb", "FFT_spectrumshow/sim/lcd_fft_align_tb.sv"),
+        ("lcd_fft_tb", "rtl_FFT/sim/lcd_fft_tb.sv"),
+        ("lcd_fft_align_tb", "rtl_FFT/sim/lcd_fft_align_tb.sv"),
     ]:
         image = out / f"{name}.vvp"
         compile_run = subprocess.run([executable("iverilog"), "-g2012", "-s", name, "-o", str(image),

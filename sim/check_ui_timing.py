@@ -33,11 +33,11 @@ def main():
         if not values:raise RuntimeError(f'missing {kind} path slacks')
         slacks[kind.lower()]=min(map(float,values))
     files=set((ROOT/'sim/ui_sources.f').read_text().splitlines())
-    files.update(str(p.relative_to(ROOT)) for p in (ROOT/'FFT_spectrumshow/src').rglob('*') if p.suffix in ('.v','.sv'))
-    files.update(str(p.relative_to(ROOT)) for p in (ROOT/'FFT_spectrumshow/board').glob('*.mem'))
-    files.update(['FFT_spectrumshow/board/ui_demo_top.v','FFT_spectrumshow/board/ui_demo.gprj',
-                  'FFT_spectrumshow/board/timing.sdc','FFT_spectrumshow/board/ui_demo.cst',
-                  'FFT_spectrumshow/board/gowin_pll.v'])
+    files.update(str(p.relative_to(ROOT)) for p in (ROOT/'rtl_FFT/src').rglob('*') if p.suffix in ('.v','.sv'))
+    files.update(str(p.relative_to(ROOT)) for p in (ROOT/'rtl_FFT/board').glob('*.mem'))
+    files.update(['rtl_FFT/board/ui_demo_top.v','rtl_FFT/board/ui_demo.gprj',
+                  'rtl_FFT/board/timing.sdc','rtl_FFT/board/ui_demo.cst',
+                  'rtl_FFT/board/gowin_pll.v'])
     head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     result={'scope':'independent LCD sidebar demo; 50MHz control / 33.333MHz pixel; not audio system signoff',
             'head':head,'violations':counts,'worst_slack_ns':slacks,

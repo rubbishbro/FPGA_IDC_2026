@@ -23,8 +23,8 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     for name in ["sidebar_font.mem","sidebar_labels.mem"]:
-        shutil.copyfile(ROOT / "FFT_spectrumshow/board" / name, out / name)
-    for memory in (ROOT / "FFT_spectrumshow/board").glob("*.mem"):
+        shutil.copyfile(ROOT / "rtl_FFT/board" / name, out / name)
+    for memory in (ROOT / "rtl_FFT/board").glob("*.mem"):
         shutil.copyfile(memory, out / memory.name)
     (out / "results.json").unlink(missing_ok=True)
     ini = args.ini or Path(os.environ.get("QSIM_INI") or os.environ.get("MODELSIM") or

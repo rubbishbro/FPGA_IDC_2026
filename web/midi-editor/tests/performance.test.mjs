@@ -68,6 +68,15 @@ test('performance extension matches independent Python CCITT/struct golden vecto
  const bytes=s=>Uint8Array.from(s.split(' ').map(x=>parseInt(x,16)));
  for(const v of vectors)assert.deepEqual(encodeFrame(v.type,v.seq,bytes(v.payload_hex)),bytes(v.wire_hex));
 });
+test('production RTL TX frame decodes with the documented TYPE82 layout',async()=>{
+ // Captured from rtl/comm/performance_frame_tx.sv by build/web_protocol_alignment/tb.sv.
+ const {readFile}=await import('node:fs/promises');
+ const wire=Uint8Array.from((await readFile(new URL('./fixtures/rtl_tx_start.hex',import.meta.url),'utf8')).trim().split(/\s+/).map(x=>parseInt(x,16)));
+ const frames=[];const reader=new FrameReader(f=>frames.push(f),e=>{throw e});reader.feed(wire);
+ assert.equal(frames.length,2);
+ assert.deepEqual([...frames[0].payload],[0x20,0]);
+ assert.deepEqual(decodePerformance(frames[1]),{kind:0,flags:0,channel:7,slot:0,id:42,ordinal:256,tick:0,a:0,b:0});
+});
 
 test('recording accepts piano2/guitar2 channels and checks low eight ordinal bits after wrap',()=>{
  for(const channel of [6,7]){

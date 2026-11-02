@@ -10,7 +10,7 @@ from run_control_loop import executable
 
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'build/sidebar'
-BOARD=ROOT/'FFT_spectrumshow/board'
+BOARD=ROOT/'rtl_FFT/board'
 BASE=(ROOT/'sim/ui_sources.f').read_text().splitlines()
 
 
@@ -47,16 +47,16 @@ def main():
     results.append(run('guide_render','tb_guide_render',BASE+['sim/unit/control/tb_guide_render.sv'],args=[f'+image={OUT}/guide.ppm']))
     if args.legacy:
         packages=[s for s in BASE if s.endswith('pkg.sv')]
-        src=packages+[str(path.relative_to(ROOT)) for path in sorted((ROOT/'FFT_spectrumshow/src').rglob('*'))
+        src=packages+[str(path.relative_to(ROOT)) for path in sorted((ROOT/'rtl_FFT/src').rglob('*'))
                       if path.suffix in ('.v','.sv') and not path.name.endswith('pkg.sv')]
         src+=['rtl/control_loop.sv','rtl/config_dispatch.sv','rtl/drivers/joystick_adapter.sv']
         tests=['sweep_source_tb','spectrum_map_tb','wave_capture_tb','waterfall_tb','trail_calc_tb','curve_calc_tb',
                'lcd_curve_spectrum_tb','lcd_ui_tb','lcd_effects_tb','ui_key_ctrl_tb','ui_dual_key_tb',
                'lcd_fft_tb','lcd_fft_align_tb','chain_tb']
         for top in tests:
-            tb=ROOT/'FFT_spectrumshow/sim'/f'{top}.sv'
+            tb=ROOT/'rtl_FFT/sim'/f'{top}.sv'
             if not tb.exists():tb=tb.with_suffix('.v')
-            results.append(run(top,top,src+[str(tb.relative_to(ROOT))],cwd=ROOT/'FFT_spectrumshow/sim'))
+            results.append(run(top,top,src+[str(tb.relative_to(ROOT))],cwd=ROOT/'rtl_FFT/sim'))
     (OUT/'results.json').write_text(json.dumps(results,indent=2)+'\n')
     print(f'PASS {len(results)} UI/visualization cases')
 

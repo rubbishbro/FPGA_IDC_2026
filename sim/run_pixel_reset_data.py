@@ -37,10 +37,10 @@ def main():
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=True)
     paths = {
-        "cordic_polar": "FFT_spectrumshow/src/display/cordic_polar.sv",
-        "lcd_polar_curve": "FFT_spectrumshow/src/display/lcd_polar_curve.sv",
-        "sidebar_mailbox": "FFT_spectrumshow/src/ui/sidebar_mailbox.sv",
-        "sidebar_system": "FFT_spectrumshow/src/ui/sidebar_system.sv",
+        "cordic_polar": "rtl_FFT/src/display/cordic_polar.sv",
+        "lcd_polar_curve": "rtl_FFT/src/display/lcd_polar_curve.sv",
+        "sidebar_mailbox": "rtl_FFT/src/ui/sidebar_mailbox.sv",
+        "sidebar_system": "rtl_FFT/src/ui/sidebar_system.sv",
     }
     sources = []
     hashes = {}

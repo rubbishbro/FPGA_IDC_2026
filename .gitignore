@@ -52,20 +52,20 @@ vivado_pid*.str
 # 本地脚本/临时产物（可复用 RTL、TB、约束、黄金向量都在上一级，已跟踪）
 rtl/simsynth/local/
 
-# FFT_spectrumshow 的 Gowin/ModelSim 生成物（可重新生成，不入库）
-FFT_spectrumshow/impl/
-FFT_spectrumshow/archive/debug_board/impl/
-FFT_spectrumshow/*.gprj.user
-FFT_spectrumshow/archive/debug_board/*.gprj.user
-FFT_spectrumshow/archive/logs/
-FFT_spectrumshow/sim/work/
-FFT_spectrumshow/sim/transcript
-FFT_spectrumshow/sim/archive/legacy/transcript
-FFT_spectrumshow/sim/**/*.wlf
-FFT_spectrumshow/sim/**/*.log
-FFT_spectrumshow/sim/archive/legacy/diag/*.csv
-FFT_spectrumshow/sim/archive/legacy/diag/*.svg
-FFT_spectrumshow/sim/archive/legacy/diag/*.txt
+# rtl_FFT 的 Gowin/ModelSim 生成物（可重新生成，不入库）
+rtl_FFT/impl/
+rtl_FFT/archive/debug_board/impl/
+rtl_FFT/*.gprj.user
+rtl_FFT/archive/debug_board/*.gprj.user
+rtl_FFT/archive/logs/
+rtl_FFT/sim/work/
+rtl_FFT/sim/transcript
+rtl_FFT/sim/archive/legacy/transcript
+rtl_FFT/sim/**/*.wlf
+rtl_FFT/sim/**/*.log
+rtl_FFT/sim/archive/legacy/diag/*.csv
+rtl_FFT/sim/archive/legacy/diag/*.svg
+rtl_FFT/sim/archive/legacy/diag/*.txt
 
 # flash 模型的存储镜像（由 tools/gen_mem.py 每次生成）
 MEM.TXT

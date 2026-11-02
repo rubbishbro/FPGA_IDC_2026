@@ -49,7 +49,7 @@ foreach path [split [read $fh] "\n"] {
     } elseif {[string trim $path] ne ""} {add_file "$root/$path"}
 }
 close $fh
-foreach m [glob -nocomplain "$root/FFT_spectrumshow/board/*.mem"] {
+foreach m [glob -nocomplain "$root/rtl_FFT/board/*.mem"] {
     file copy -force $m "$out/instrument_board/[file tail $m]"
 }
 set led_tables "$out/instrument_board/rtl/drivers/pad_led_tables"

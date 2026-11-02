@@ -27,6 +27,7 @@ package router_pkg;
     } instrument_e;
 
     typedef enum logic [1:0] {
+        REVERB_CHAMBER,
         REVERB_BATHROOM,
         REVERB_HALL,
         REVERB_NONE

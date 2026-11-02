@@ -1,7 +1,7 @@
 # 从仓库根目录执行；BOARD_PNR=1 时继续 PnR，产物与旧 demo 分开。
 set root [file normalize [pwd]]
 set out "$root/build/sidebar_board"
-set board "$root/FFT_spectrumshow/board"
+set board "$root/rtl_FFT/board"
 file mkdir $out
 create_project -name sidebar_board -dir $out -pn GW5AST-LV138FPG676AES -device_version B -force
 set_option -verilog_std sysv2017
