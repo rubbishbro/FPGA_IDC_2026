@@ -1,0 +1,718 @@
+{
+  "sample_rate": 48000,
+  "widths": [
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "resource_sha256": "e9de9737735eda50f03853c959d162868949b2a80ec202dce992d3924c3ca900",
+  "coefficient_policy": "Final production bytes frozen; no modal gain recalibration",
+  "experiment": "Equal force target; rise duration changes, not sample rate; existing subsequent-pulse counting preserved",
+  "excitation_audit": {
+    "guitar_abc": [
+      {
+        "width": 2,
+        "positive_pulse_starts": [
+          1
+        ],
+        "pulse_start_intervals": [],
+        "actual_peaks_over_target": [
+          1.0
+        ],
+        "excitation_area_over_target": 1.5
+      },
+      {
+        "width": 4,
+        "positive_pulse_starts": [
+          1
+        ],
+        "pulse_start_intervals": [],
+        "actual_peaks_over_target": [
+          1.0
+        ],
+        "excitation_area_over_target": 2.5
+      },
+      {
+        "width": 8,
+        "positive_pulse_starts": [
+          1
+        ],
+        "pulse_start_intervals": [],
+        "actual_peaks_over_target": [
+          1.0
+        ],
+        "excitation_area_over_target": 4.5
+      },
+      {
+        "width": 16,
+        "positive_pulse_starts": [
+          1
+        ],
+        "pulse_start_intervals": [],
+        "actual_peaks_over_target": [
+          1.0
+        ],
+        "excitation_area_over_target": 8.5
+      },
+      {
+        "width": 32,
+        "positive_pulse_starts": [
+          1
+        ],
+        "pulse_start_intervals": [],
+        "actual_peaks_over_target": [
+          1.0
+        ],
+        "excitation_area_over_target": 16.5
+      }
+    ],
+    "piano_abc": [
+      {
+        "width": 2,
+        "positive_pulse_starts": [
+          1,
+          482,
+          964,
+          1446
+        ],
+        "pulse_start_intervals": [
+          481,
+          482,
+          482
+        ],
+        "actual_peaks_over_target": [
+          1.0,
+          1.03125,
+          0.708984375,
+          0.4874267578125
+        ],
+        "excitation_area_over_target": 160.12159287929535
+      },
+      {
+        "width": 4,
+        "positive_pulse_starts": [
+          1,
+          482,
+          964,
+          1446
+        ],
+        "pulse_start_intervals": [
+          481,
+          482,
+          482
+        ],
+        "actual_peaks_over_target": [
+          1.0,
+          0.859375,
+          0.5908203125,
+          0.40618896484375
+        ],
+        "excitation_area_over_target": 144.50332868099213
+      },
+      {
+        "width": 8,
+        "positive_pulse_starts": [
+          1,
+          482,
+          964,
+          1446
+        ],
+        "pulse_start_intervals": [
+          481,
+          482,
+          482
+        ],
+        "actual_peaks_over_target": [
+          1.0,
+          0.7734375,
+          0.53173828125,
+          0.365570068359375
+        ],
+        "excitation_area_over_target": 140.42107570171356
+      },
+      {
+        "width": 16,
+        "positive_pulse_starts": [
+          1,
+          482,
+          964,
+          1446
+        ],
+        "pulse_start_intervals": [
+          481,
+          482,
+          482
+        ],
+        "actual_peaks_over_target": [
+          1.0,
+          0.73046875,
+          0.502197265625,
+          0.3452606201171875
+        ],
+        "excitation_area_over_target": 145.83427894115448
+      },
+      {
+        "width": 32,
+        "positive_pulse_starts": [
+          1,
+          482,
+          964,
+          1446
+        ],
+        "pulse_start_intervals": [
+          481,
+          482,
+          482
+        ],
+        "actual_peaks_over_target": [
+          1.0,
+          0.708984375,
+          0.4874267578125,
+          0.33510589599609375
+        ],
+        "excitation_area_over_target": 163.44832682609558
+      }
+    ]
+  },
+  "output": "Integer sample model, no reverb/ITD, center unity, headroom3, current voice-count gain",
+  "source_hashes": {
+    "python/modal_sim/final_excitation_width_experiment.py": "8f72286906896d2b518323ed52f39ab29a8b86f78ca88485fdbb6334ce701940",
+    "python/modal_sim/eng1_audition.py": "f12a657d63824b3644f53d9b428d50ab25ba146cb464a418d58510847fadc0d3",
+    "python/modal_sim/eng1_rtl.py": "74191bd7b9005c22efae77357f1274ecdf8ecba0fad3302a80410d31b7ccb286",
+    "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d",
+    "python/modal_sim/body_fixed_point.py": "0dcdcd5af88a9e920521ac8281fbbc5a2cca62bc10a4987c66fb1578f6a57342",
+    "python/modal_sim/performance_chain.py": "53666472f0012b5661c308fb280706e431ed30826be9e6a84f862b914ade7a2e",
+    "rtl/router/routers/exc_router.sv": "e51796b6f3721b631d7e7d6bd47fae7593d2d0ffdd0634013f37bee766cb3a06",
+    "rtl/router/routers/env_router.sv": "399508212977526b3a32fecdefc250050571e2bcaef444d13ef47623c1ff6c80",
+    "rtl/router/routers/body_router.sv": "9621cd996f9fc8971a801c457ee2054a278e95ca98cce1d5054c7f22444426dd",
+    "rtl/router/parts/polyphony_gain.sv": "83e988d7f446d33f3842ce59eef077ea6edaadbd466cc71d7f21db03a1129e3c",
+    "rtl/router/tools/performance/resources.json": "a838ac0955eb8a7d44a03f414201803404b8a0d7a8ee7a79d7b665011911462d",
+    "rtl/router/tools/performance/resources.bin": "e9de9737735eda50f03853c959d162868949b2a80ec202dce992d3924c3ca900"
+  },
+  "renders": [
+    {
+      "instrument": "guitar_abc",
+      "scene": "phrase",
+      "events": [
+        {
+          "time": 0.12,
+          "midi": 57,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 0.44,
+          "midi": 60,
+          "duration": 0.26,
+          "velocity": 88
+        },
+        {
+          "time": 0.76,
+          "midi": 64,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 1.08,
+          "midi": 62,
+          "duration": 0.26,
+          "velocity": 92
+        },
+        {
+          "time": 1.4,
+          "midi": 60,
+          "duration": 0.26,
+          "velocity": 88
+        },
+        {
+          "time": 1.7200000000000002,
+          "midi": 59,
+          "duration": 0.26,
+          "velocity": 94
+        },
+        {
+          "time": 2.04,
+          "midi": 57,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 2.3600000000000003,
+          "midi": 57,
+          "duration": 0.26,
+          "velocity": 85
+        }
+      ],
+      "frames": 173760,
+      "seconds": 3.62,
+      "baseline_reference_frames_checked": 12000,
+      "variants": [
+        {
+          "width": 2,
+          "rise_us": 41.666666666666664,
+          "file": "guitar_abc/phrase_rise2.wav",
+          "native_file": "guitar_abc/native/phrase_rise2.wav",
+          "native_active_rms_dbfs": -19.41569826318699,
+          "native_peak_dbfs": -7.506582475812154,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -3.083076468979007,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.399029934120435e-08,
+          "onset_spectral_centroid_hz": 283.5179802821718,
+          "sha256": "4d221969738eb040cb193dea69b494bd66e88fba2feb74a7a4aaa4ac8111b133",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 4,
+          "rise_us": 83.33333333333333,
+          "file": "guitar_abc/phrase_rise4.wav",
+          "native_file": "guitar_abc/native/phrase_rise4.wav",
+          "native_active_rms_dbfs": -14.987214551389275,
+          "native_peak_dbfs": -3.1041489203688366,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -7.511560180776723,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 7.64062168890005e-09,
+          "onset_spectral_centroid_hz": 283.19718652196036,
+          "sha256": "9a1659699008bc7390eee6ed408ec65edb98ad64a8e3eb47234a8e77864cfe64",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 8,
+          "rise_us": 166.66666666666666,
+          "file": "guitar_abc/phrase_rise8.wav",
+          "native_file": "guitar_abc/native/phrase_rise8.wav",
+          "native_active_rms_dbfs": -9.913971446031091,
+          "native_peak_dbfs": 1.8975325733837936,
+          "native_clipped_samples": 359,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -12.584803286134907,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.631446244411262e-09,
+          "onset_spectral_centroid_hz": 282.06752171218466,
+          "sha256": "6c38e4529dba94fdc8af125bfa29605668e414701bba46297a15e5329fad244d",
+          "native_rail_samples": 359
+        },
+        {
+          "width": 16,
+          "rise_us": 333.3333333333333,
+          "file": "guitar_abc/phrase_rise16.wav",
+          "native_file": "guitar_abc/native/phrase_rise16.wav",
+          "native_active_rms_dbfs": -4.510427477039263,
+          "native_peak_dbfs": 7.197693339277618,
+          "native_clipped_samples": 10485,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -17.988347255126737,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 4.216690146463914e-10,
+          "onset_spectral_centroid_hz": 278.37314759724967,
+          "sha256": "93c44bf9bb7db8f8f9cd7a737f2d69c1964501a26b8a0ca22310af657f69139e",
+          "native_rail_samples": 10487
+        },
+        {
+          "width": 32,
+          "rise_us": 666.6666666666666,
+          "file": "guitar_abc/phrase_rise32.wav",
+          "native_file": "guitar_abc/native/phrase_rise32.wav",
+          "native_active_rms_dbfs": 0.8241071233408348,
+          "native_peak_dbfs": 12.453379824761672,
+          "native_clipped_samples": 43795,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -23.322881855506836,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.1793268662159928e-10,
+          "onset_spectral_centroid_hz": 269.31118024017496,
+          "sha256": "2ae8348341ce71f8d9c12d7b98bfe39505149379acea4be1923eccf0fa7f4e15",
+          "native_rail_samples": 43797
+        }
+      ]
+    },
+    {
+      "instrument": "guitar_abc",
+      "scene": "single",
+      "events": [
+        {
+          "time": 0.12,
+          "midi": 57,
+          "duration": 0.45,
+          "velocity": 100
+        },
+        {
+          "time": 1.7200000000000002,
+          "midi": 64,
+          "duration": 0.45,
+          "velocity": 100
+        },
+        {
+          "time": 3.3200000000000003,
+          "midi": 70,
+          "duration": 0.45,
+          "velocity": 100
+        }
+      ],
+      "frames": 228960,
+      "seconds": 4.77,
+      "baseline_reference_frames_checked": 12000,
+      "variants": [
+        {
+          "width": 2,
+          "rise_us": 41.666666666666664,
+          "file": "guitar_abc/single_rise2.wav",
+          "native_file": "guitar_abc/native/single_rise2.wav",
+          "native_active_rms_dbfs": -30.317547934099945,
+          "native_peak_dbfs": -15.14923283730634,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 7.818773201933945,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.399029934120435e-08,
+          "onset_spectral_centroid_hz": 283.5179802821718,
+          "sha256": "bd520a229b60492664d87ad5264602c04335aa50f76a033d06a363e4d8ec1158",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 4,
+          "rise_us": 83.33333333333333,
+          "file": "guitar_abc/single_rise4.wav",
+          "native_file": "guitar_abc/native/single_rise4.wav",
+          "native_active_rms_dbfs": -25.89583595398264,
+          "native_peak_dbfs": -11.05698910628297,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 3.397061221816642,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 7.64062168890005e-09,
+          "onset_spectral_centroid_hz": 283.19718652196036,
+          "sha256": "83eaa35fd8755cfbdd3d7c70a8c5ae1e497608b41bca6b0f7451c31468804d2e",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 8,
+          "rise_us": 166.66666666666666,
+          "file": "guitar_abc/single_rise8.wav",
+          "native_file": "guitar_abc/native/single_rise8.wav",
+          "native_active_rms_dbfs": -20.84332607043757,
+          "native_peak_dbfs": -6.272919537558611,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -1.6554486617284305,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.631446244411262e-09,
+          "onset_spectral_centroid_hz": 282.06752171218466,
+          "sha256": "6f8592199273887af004848b260b5000e7d68cb01f572fdfab0ffd6dbd5fb6d5",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 16,
+          "rise_us": 333.3333333333333,
+          "file": "guitar_abc/single_rise16.wav",
+          "native_file": "guitar_abc/native/single_rise16.wav",
+          "native_active_rms_dbfs": -15.484258416977607,
+          "native_peak_dbfs": -1.1656367424377285,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -7.014516315188393,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 4.216690146463914e-10,
+          "onset_spectral_centroid_hz": 278.37314759724967,
+          "sha256": "003750166f6272d1319df46e769225d5451e4d571e230c2e4c702b72906af7bc",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 32,
+          "rise_us": 666.6666666666666,
+          "file": "guitar_abc/single_rise32.wav",
+          "native_file": "guitar_abc/native/single_rise32.wav",
+          "native_active_rms_dbfs": -10.240221171199675,
+          "native_peak_dbfs": 4.169544511777945,
+          "native_clipped_samples": 2524,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": -12.258553560966323,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.1793268662159928e-10,
+          "onset_spectral_centroid_hz": 269.31118024017496,
+          "sha256": "d52925608baed2d5713401b4f4cc84e6d2b00b464d14ca43f8726c617b602840",
+          "native_rail_samples": 2525
+        }
+      ]
+    },
+    {
+      "instrument": "piano_abc",
+      "scene": "phrase",
+      "events": [
+        {
+          "time": 0.12,
+          "midi": 45,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 0.44,
+          "midi": 48,
+          "duration": 0.26,
+          "velocity": 88
+        },
+        {
+          "time": 0.76,
+          "midi": 52,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 1.08,
+          "midi": 50,
+          "duration": 0.26,
+          "velocity": 92
+        },
+        {
+          "time": 1.4,
+          "midi": 48,
+          "duration": 0.26,
+          "velocity": 88
+        },
+        {
+          "time": 1.7200000000000002,
+          "midi": 47,
+          "duration": 0.26,
+          "velocity": 94
+        },
+        {
+          "time": 2.04,
+          "midi": 45,
+          "duration": 0.26,
+          "velocity": 100
+        },
+        {
+          "time": 2.3600000000000003,
+          "midi": 45,
+          "duration": 0.26,
+          "velocity": 85
+        }
+      ],
+      "frames": 173760,
+      "seconds": 3.62,
+      "baseline_reference_frames_checked": 12000,
+      "variants": [
+        {
+          "width": 2,
+          "rise_us": 41.666666666666664,
+          "file": "piano_abc/phrase_rise2.wav",
+          "native_file": "piano_abc/native/phrase_rise2.wav",
+          "native_active_rms_dbfs": -42.25188599049461,
+          "native_peak_dbfs": -25.370154999273808,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 19.75311125832861,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 1.3298911393025904e-06,
+          "onset_spectral_centroid_hz": 485.53375777238955,
+          "sha256": "8d39d58e099c2b54c7ad58d38b84937b1908c87da1d76012336fd499e3154405",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 4,
+          "rise_us": 83.33333333333333,
+          "file": "piano_abc/phrase_rise4.wav",
+          "native_file": "piano_abc/native/phrase_rise4.wav",
+          "native_active_rms_dbfs": -42.89888583213079,
+          "native_peak_dbfs": -25.44513617584149,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 20.400111099964793,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 7.319660333277594e-07,
+          "onset_spectral_centroid_hz": 463.89556470663473,
+          "sha256": "a7c9e9df042cd0ed363340b78e1f27d5479945597d72ffe37acaeed7d61da310",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 8,
+          "rise_us": 166.66666666666666,
+          "file": "piano_abc/phrase_rise8.wav",
+          "native_file": "piano_abc/native/phrase_rise8.wav",
+          "native_active_rms_dbfs": -43.105124828657054,
+          "native_peak_dbfs": -25.426825696103805,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 20.606350096491056,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 9.139147123230286e-08,
+          "onset_spectral_centroid_hz": 402.72452887333174,
+          "sha256": "4ea105401812c01cba1c9874cd7c47f32d0d18aa8ae3859af1575be11af2794e",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 16,
+          "rise_us": 333.3333333333333,
+          "file": "piano_abc/phrase_rise16.wav",
+          "native_file": "piano_abc/native/phrase_rise16.wav",
+          "native_active_rms_dbfs": -43.061547604284804,
+          "native_peak_dbfs": -25.221001988647682,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 20.562772872118806,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 6.055034534310785e-08,
+          "onset_spectral_centroid_hz": 309.7573697512896,
+          "sha256": "e01d7e7564b63bc8163a4cf19d7ffed3f5661abb97f56b37345c5506767604ad",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 32,
+          "rise_us": 666.6666666666666,
+          "file": "piano_abc/phrase_rise32.wav",
+          "native_file": "piano_abc/native/phrase_rise32.wav",
+          "native_active_rms_dbfs": -42.93224473604666,
+          "native_peak_dbfs": -25.469420850039533,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 20.433470003880664,
+          "listening_active_rms_dbfs": -22.498774732165998,
+          "onset_power_above_4khz_fraction": 7.535671328490694e-09,
+          "onset_spectral_centroid_hz": 215.78658028230274,
+          "sha256": "0c1553a991ea2efb8b89455135a195a520e9693e7db8c1e5ed31e35449a15340",
+          "native_rail_samples": 0
+        }
+      ]
+    },
+    {
+      "instrument": "piano_abc",
+      "scene": "single",
+      "events": [
+        {
+          "time": 0.12,
+          "midi": 40,
+          "duration": 0.45,
+          "velocity": 100
+        },
+        {
+          "time": 1.7200000000000002,
+          "midi": 45,
+          "duration": 0.45,
+          "velocity": 100
+        },
+        {
+          "time": 3.3200000000000003,
+          "midi": 52,
+          "duration": 0.45,
+          "velocity": 100
+        }
+      ],
+      "frames": 228960,
+      "seconds": 4.77,
+      "baseline_reference_frames_checked": 12000,
+      "variants": [
+        {
+          "width": 2,
+          "rise_us": 41.666666666666664,
+          "file": "piano_abc/single_rise2.wav",
+          "native_file": "piano_abc/native/single_rise2.wav",
+          "native_active_rms_dbfs": -53.55492237226613,
+          "native_peak_dbfs": -31.396987493771952,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 29.528076760022746,
+          "listening_active_rms_dbfs": -24.026845612243378,
+          "onset_power_above_4khz_fraction": 5.149561823767917e-10,
+          "onset_spectral_centroid_hz": 437.63992206532834,
+          "sha256": "627034a33a1aff42767fa1a0128fc5d6c27c9b40ee84bad5359cda47c7812148",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 4,
+          "rise_us": 83.33333333333333,
+          "file": "piano_abc/single_rise4.wav",
+          "native_file": "piano_abc/native/single_rise4.wav",
+          "native_active_rms_dbfs": -54.15585793898005,
+          "native_peak_dbfs": -31.37743977365877,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 30.12901232673667,
+          "listening_active_rms_dbfs": -24.026845612243378,
+          "onset_power_above_4khz_fraction": 2.9374781737887154e-10,
+          "onset_spectral_centroid_hz": 425.8114460671291,
+          "sha256": "fd12ca050b666999893bd36966b69cbd249c9b1b6fd2275b361c5b658307a2d9",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 8,
+          "rise_us": 166.66666666666666,
+          "file": "piano_abc/single_rise8.wav",
+          "native_file": "piano_abc/native/single_rise8.wav",
+          "native_active_rms_dbfs": -54.31900205160484,
+          "native_peak_dbfs": -31.40250299635809,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 30.29215643936146,
+          "listening_active_rms_dbfs": -24.026845612243378,
+          "onset_power_above_4khz_fraction": 6.940014238477924e-11,
+          "onset_spectral_centroid_hz": 400.5363764692129,
+          "sha256": "63496672657965c9c32ac74997694a710d82e91974ff8447ba30a0504f985f48",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 16,
+          "rise_us": 333.3333333333333,
+          "file": "piano_abc/single_rise16.wav",
+          "native_file": "piano_abc/native/single_rise16.wav",
+          "native_active_rms_dbfs": -54.25323482493923,
+          "native_peak_dbfs": -31.58295867572846,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 30.22638921269585,
+          "listening_active_rms_dbfs": -24.026845612243378,
+          "onset_power_above_4khz_fraction": 3.996590703388085e-11,
+          "onset_spectral_centroid_hz": 342.48144696704446,
+          "sha256": "fda4b23013c35ed53950583c797f1e65355295da605b846569082d3b867b63e1",
+          "native_rail_samples": 0
+        },
+        {
+          "width": 32,
+          "rise_us": 666.6666666666666,
+          "file": "piano_abc/single_rise32.wav",
+          "native_file": "piano_abc/native/single_rise32.wav",
+          "native_active_rms_dbfs": -54.078276279367614,
+          "native_peak_dbfs": -31.580240784765206,
+          "native_clipped_samples": 0,
+          "modal_state_rail_samples": 0,
+          "body_saturations": 0,
+          "listening_gain_db": 30.05143066712424,
+          "listening_active_rms_dbfs": -24.026845612243378,
+          "onset_power_above_4khz_fraction": 3.1219081375664485e-11,
+          "onset_spectral_centroid_hz": 264.0022216199061,
+          "sha256": "65867e8079391f12189c0ba5df5667c1c757f6bf4380dc20a95df75e23ce6c55",
+          "native_rail_samples": 0
+        }
+      ]
+    }
+  ],
+  "production_files_modified": false,
+  "rtl_simulation": false,
+  "synthesis": false,
+  "pnr": false,
+  "render_script_sha256": "36ad62925de77c784a57686fb055e41fe544f0a208974ca4237209ecf1575488",
+  "postprocessing_note": "Report-only correction: distinguish actual PCM saturation from samples exactly at the rails; rendered raw arrays and audio unchanged."
+}

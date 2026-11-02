@@ -86,6 +86,7 @@ FFT_results/sim/eng1/**/*.npy
 FFT_results/sim/eng1/**/*.wav
 # matplotlib 字体缓存（每份 ~848KB，纯缓存）
 FFT_results/sim/eng1/**/mpl/
+FFT_results/sim/eng1/final_excitation_width/source_snapshot/
 /FFT_results/sim/eng1/a_source_audit/
 /FFT_results/sim/eng1/guitar_diagnosis/
 /FFT_results/sim/eng1/guitar_refit/

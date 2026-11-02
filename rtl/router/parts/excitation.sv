@@ -38,6 +38,7 @@ module excitation_gen #(
     input  logic                          rst_n,
     input  logic                          clk_en,        // 采样节拍：当**时钟使能**用（不是数据）
     input logic sustain_mode,
+    input logic attenuate_by_8 = 1'b0, // wide-pluck gain stays inside excitation
     input logic [SLOTS*16-1:0] slot_period,
     input logic [SLOTS*24-1:0] slot_pitch_delta='0, // signed Q24, rho-1; frame snapshot
     input  logic [5:0]                    SHIFT,      // 8 位力值 -> 32 位定点的左移量
@@ -70,7 +71,9 @@ module excitation_gen #(
 
     // xmap 直接跟随累加器（组合），时序和原来一致（router 那边按 xmap_valid 采）
     for (genvar gi = 0; gi < SLOTS; gi++) begin : g_xmap
-        assign xmap[gi] = acc[gi];
+        // Fixed wiring shift, no multiplier/barrel shifter. The 32-sample
+        // guitar pluck is attenuated before it reaches the modal/mix chain.
+        assign xmap[gi] = attenuate_by_8 ? (acc[gi] >>> 3) : acc[gi];
         assign pitch_sum[gi]={1'b0,pitch_phase[gi]}+
                             41'(32'sd16777216+32'($signed(slot_pitch_delta[gi*24 +:24])));
     end

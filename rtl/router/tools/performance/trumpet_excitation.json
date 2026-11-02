@@ -1,0 +1,583 @@
+{
+  "sample_rate": 48000,
+  "method": "zero-area bipolar triangles; three signed power-of-two gain terms",
+  "opening_to_closing_duration": 4,
+  "entries": [
+    {
+      "midi": 51,
+      "period": 309,
+      "half_shift": 4,
+      "gap": 6,
+      "shifts": [
+        7,
+        12,
+        14
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 13,
+      "fundamental_gain_error_db": -0.0023424513432071283
+    },
+    {
+      "midi": 52,
+      "period": 291,
+      "half_shift": 4,
+      "gap": 6,
+      "shifts": [
+        7,
+        10,
+        12
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 13,
+      "fundamental_gain_error_db": -0.007959851521492659
+    },
+    {
+      "midi": 53,
+      "period": 275,
+      "half_shift": 4,
+      "gap": 6,
+      "shifts": [
+        7,
+        10,
+        13
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.0028911834860524117
+    },
+    {
+      "midi": 54,
+      "period": 259,
+      "half_shift": 4,
+      "gap": 5,
+      "shifts": [
+        7,
+        10,
+        12
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.0118617899480525
+    },
+    {
+      "midi": 55,
+      "period": 245,
+      "half_shift": 4,
+      "gap": 5,
+      "shifts": [
+        7,
+        9,
+        11
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.14440508108134623
+    },
+    {
+      "midi": 56,
+      "period": 231,
+      "half_shift": 4,
+      "gap": 5,
+      "shifts": [
+        7,
+        9,
+        14
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.023737358586607395
+    },
+    {
+      "midi": 57,
+      "period": 218,
+      "half_shift": 4,
+      "gap": 4,
+      "shifts": [
+        7,
+        9,
+        14
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.022994623573771723
+    },
+    {
+      "midi": 58,
+      "period": 206,
+      "half_shift": 4,
+      "gap": 4,
+      "shifts": [
+        8,
+        9,
+        11
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.22640660020958442
+    },
+    {
+      "midi": 59,
+      "period": 194,
+      "half_shift": 4,
+      "gap": 4,
+      "shifts": [
+        8,
+        10,
+        12
+      ],
+      "negative": [
+        false,
+        false,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.145380634997247
+    },
+    {
+      "midi": 60,
+      "period": 183,
+      "half_shift": 3,
+      "gap": 4,
+      "shifts": [
+        5,
+        9,
+        12
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.00892047307066571
+    },
+    {
+      "midi": 61,
+      "period": 173,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        9,
+        12
+      ],
+      "negative": [
+        false,
+        false,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.01913917475177606
+    },
+    {
+      "midi": 62,
+      "period": 163,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        11,
+        13
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.005107103032468398
+    },
+    {
+      "midi": 63,
+      "period": 154,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        10,
+        12
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.025799519681417103
+    },
+    {
+      "midi": 64,
+      "period": 146,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        8,
+        10
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.03566425450807067
+    },
+    {
+      "midi": 65,
+      "period": 137,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        8,
+        11
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.03437283078636769
+    },
+    {
+      "midi": 66,
+      "period": 130,
+      "half_shift": 3,
+      "gap": 3,
+      "shifts": [
+        5,
+        7,
+        9
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.01699650067499599
+    },
+    {
+      "midi": 67,
+      "period": 122,
+      "half_shift": 3,
+      "gap": 2,
+      "shifts": [
+        5,
+        8,
+        9
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.16295355635056902
+    },
+    {
+      "midi": 68,
+      "period": 116,
+      "half_shift": 3,
+      "gap": 2,
+      "shifts": [
+        5,
+        7,
+        10
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.08686730811651919
+    },
+    {
+      "midi": 69,
+      "period": 109,
+      "half_shift": 3,
+      "gap": 2,
+      "shifts": [
+        5,
+        7,
+        12
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.021190708457573114
+    },
+    {
+      "midi": 70,
+      "period": 103,
+      "half_shift": 3,
+      "gap": 2,
+      "shifts": [
+        6,
+        7,
+        9
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.22438639053411677
+    },
+    {
+      "midi": 71,
+      "period": 97,
+      "half_shift": 3,
+      "gap": 2,
+      "shifts": [
+        6,
+        8,
+        10
+      ],
+      "negative": [
+        false,
+        false,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.14310276164064573
+    },
+    {
+      "midi": 72,
+      "period": 92,
+      "half_shift": 2,
+      "gap": 2,
+      "shifts": [
+        3,
+        7,
+        11
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.0025632671590504036
+    },
+    {
+      "midi": 73,
+      "period": 87,
+      "half_shift": 2,
+      "gap": 2,
+      "shifts": [
+        3,
+        11,
+        13
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": 0.0008925676584508699
+    },
+    {
+      "midi": 74,
+      "period": 82,
+      "half_shift": 2,
+      "gap": 2,
+      "shifts": [
+        3,
+        7,
+        10
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.01404662325349234
+    },
+    {
+      "midi": 75,
+      "period": 77,
+      "half_shift": 2,
+      "gap": 2,
+      "shifts": [
+        3,
+        6,
+        9
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.0033936930486467625
+    },
+    {
+      "midi": 76,
+      "period": 73,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        9,
+        13
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 12,
+      "fundamental_gain_error_db": -0.0002090793653474303
+    },
+    {
+      "midi": 77,
+      "period": 69,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        7,
+        10
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.014787252477468121
+    },
+    {
+      "midi": 78,
+      "period": 65,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        6,
+        11
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.003255325188593296
+    },
+    {
+      "midi": 79,
+      "period": 61,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        6,
+        7
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.15719329227624262
+    },
+    {
+      "midi": 80,
+      "period": 58,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        5,
+        8
+      ],
+      "negative": [
+        false,
+        true,
+        false
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.0804956689745487
+    },
+    {
+      "midi": 81,
+      "period": 55,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        3,
+        5,
+        15
+      ],
+      "negative": [
+        false,
+        true,
+        true
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.000752669672073113
+    },
+    {
+      "midi": 82,
+      "period": 51,
+      "half_shift": 2,
+      "gap": 1,
+      "shifts": [
+        4,
+        5,
+        7
+      ],
+      "negative": [
+        false,
+        false,
+        true
+      ],
+      "air_shift": 11,
+      "fundamental_gain_error_db": -0.13695776114087213
+    }
+  ]
+}
