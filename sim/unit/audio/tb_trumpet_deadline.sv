@@ -3,6 +3,8 @@
 module tb_trumpet_deadline;
 import router_pkg::*;
 logic clk=0,rst_n=0,tick=0,maintenance=0;
+logic valid,done,err,yv,maintenance_done;
+
 always #10 clk=~clk;
 integer divider=0,cycles=0,last_tick=0,outputs=0,max_latency=0,nonzero=0;
 logic monitor=0,seen=0;
@@ -46,7 +48,6 @@ end
 pad_driver_pkg::mat4x4 fmap='0;
 logic [111:0] notes;
 logic [511:0] offsets;
-logic valid,done,err,yv,maintenance_done;
 logic signed [63:0] y;
 logic [3:0] dqi;
 for(genvar s=0;s<16;s++)begin

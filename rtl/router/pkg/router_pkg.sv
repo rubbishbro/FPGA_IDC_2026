@@ -27,11 +27,20 @@ package router_pkg;
     } instrument_e;
 
     typedef enum logic [1:0] {
-        REVERB_CHAMBER,
-        REVERB_BATHROOM,
-        REVERB_HALL,
-        REVERB_NONE
+        REVERB_NONE     = 2'd0,
+        REVERB_HALL     = 2'd1,
+        REVERB_BATHROOM = 2'd2,
+        REVERB_CHAMBER  = 2'd3
     } reverb_preset;
+
+    // Validate the full transport/config value BEFORE narrowing to the enum.
+    function automatic logic reverb_value_valid(input logic [31:0] value);
+        case (value)
+            32'(REVERB_NONE), 32'(REVERB_HALL),
+            32'(REVERB_BATHROOM), 32'(REVERB_CHAMBER): return 1'b1;
+            default: return 1'b0;
+        endcase
+    endfunction
 
     typedef struct packed {
         logic valid;
@@ -40,7 +49,8 @@ package router_pkg;
         logic [31:0] r_step;
     } sustain_cfg_t;
     function automatic logic is_sustain(input instrument_e inst);
-        return inst inside {INST_FLUTE,INST_TRUMPET,INST_CELLO,INST_VIOLIN};
+        return inst==INST_FLUTE || inst==INST_TRUMPET ||
+               inst==INST_CELLO || inst==INST_VIOLIN;
     endfunction
     // Frozen per-instrument 32-note windows (通信协议约定 §3.2.1).
     // Slot index is relative to this first MIDI; it is never sent as the MIDI note.

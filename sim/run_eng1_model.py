@@ -65,7 +65,7 @@ def compare_pitch(out):
         values=list(map(int,line.split()))
         c,tick,ok,cv,src,data,cancel,cleanup,sources,bad,ready,reject,cw,addr,a1=values[:15]
         enabled,gates=values[15:17];levels=values[17:33]
-        bank,busy,commit,sready=values[33:37];delta=values[37:]
+        bank,busy,commit,sready=values[33:37];delta=values[37:53];job_start,job_slot=values[53:55]
         # Decode the physical signed24 lanes. Verilator 5.49's decimal display
         # of a dynamic packed part-select can retain adjacent upper word bits.
         delta=[R.wrap_signed(value,24) for value in delta]
@@ -82,7 +82,7 @@ def compare_pitch(out):
             assert addr==engine.slot*64+engine.mode and a1==value,(c,'coefficient',addr,a1,value)
             writes+=1
         old_commits=engine.commits
-        ack,rejected=engine.clock(sample_tick=bool(tick),commit_ok=bool(ok),sources=bits(sources).astype(np.int8),
+        ack,rejected=engine.clock(start=bool(job_start),job_slot=job_slot,sample_tick=bool(tick),commit_ok=bool(ok),sources=bits(sources).astype(np.int8),
                                   control=control,cancel=bool(cancel),cleanup=bits(cleanup,2),
                                   pressure_enable=bool(enabled),pressure_gate=bits(gates),pressure_level=levels)
         assert (ack,rejected)==(bool(ready),bool(reject)),(c,'control',engine.state,ack,rejected,ready,reject)

@@ -32,7 +32,13 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
     function automatic logic[7:0] value_label(input integer index,input integer value);
         case(index)
             0:value_label=config_pkg::instrument_label(16'(value));
-            2:value_label=value==0?50:(value==1?52:53);
+            2:case(value)
+                integer'(router_pkg::REVERB_NONE):value_label=50;
+                integer'(router_pkg::REVERB_HALL):value_label=52;
+                integer'(router_pkg::REVERB_BATHROOM):value_label=53;
+                integer'(router_pkg::REVERB_CHAMBER):value_label=127;
+                default:value_label=72;
+            endcase
             8,9,10:value_label=value==0?50:51;
             5:value_label=value==2?126:(value==0?59:60);
             6:value_label=8'(54+value);

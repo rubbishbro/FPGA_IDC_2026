@@ -238,7 +238,12 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
         join
         if(sd || !dut.u_system.audio_fault || dut.u_system.values[2]!=0)$fatal(1,"FAIL bad load/UI/amplifier mute");
         // Fault holds the MIDI barrier; recover through the local clear action.
-        key(4);key(1);key(2);repeat(3)key(1);key(2);key(2);
+        // System menu now starts at index 16: calibrate, clear, reset comm.
+        // Select clear (row 1); the old three DOWNs selected reset comm instead.
+        key(4);key(1);key(2);key(1);key(2);
+        if(dut.u_system.scene.layer!=2 || dut.u_system.scene.edit_index!=17)
+            $fatal(1,"FAIL recovery menu must select local clear 8001");
+        key(2);
         wait(!dut.u_system.scene.busy);wait(dut.u_system.audio_valid);
         config_reply(1,5,2,128'h0002,0);
         if(!sd || dut.u_system.audio_fault)$fatal(1,"FAIL explicit menu recovery");

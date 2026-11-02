@@ -8,6 +8,7 @@ module tb_eng1_pitch_trace;
     logic [15:0] sources=16'h0000;
     logic [31:0] data=0;
     logic ready,rejected,bank,busy,commit,pr,cw,sources_ready;
+    logic job_start=0,job_done;logic[3:0] job_slot=0,rr=0;
     logic [383:0] delta;
     logic [9:0] pa,ca;
     logic signed [31:0] low,base,high,slope,tag,a1;
@@ -26,7 +27,7 @@ module tb_eng1_pitch_trace;
     endtask
     modulation1 dut(.table_we(table_we),.table_addr(table_addr),.table_data(table_data),
         .pressure_enable(pressure_enable),.pressure_gate(pressure_gate),.pressure_level(pressure_level),
-        .clk(clk),.rst_n(rst_n),.clear(1'b0),.sample_tick(tick),.commit_ok(commit_ok),
+        .clk(clk),.rst_n(rst_n),.clear(1'b0),.start(job_start),.job_slot(job_slot),.done(job_done),
         .cleanup(cleanup),.n_modes(7'd48),.slot_source(sources),.control_valid(cv),.control_cancel(cancel),
         .control_source(source),.control_data(data),.control_ready(ready),.control_rejected(rejected),
         .active_bank(bank),.busy(busy),.commit_pulse(commit),.active_delta(delta),.sources_ready(sources_ready),
@@ -45,6 +46,7 @@ module tb_eng1_pitch_trace;
         load_tables();repeat(4)@(negedge clk);rst_n=1;
         for(int c=0;c<40000;c++)begin
             @(negedge clk);
+            job_start=!busy;job_slot=rr;if(job_start)rr=rr+1'b1;
             tick=c%100==0;commit_ok=c%100>=60;cleanup=0;cancel=0;
             if(c==20)begin cv=1;source=0;data={4'd4,4'd0,7'd127,7'd127,10'd0};end
             if(c==10000)begin cv=1;source=1;data={4'd2,4'd0,7'd1,7'd127,10'd0};end
@@ -67,7 +69,7 @@ module tb_eng1_pitch_trace;
             @(posedge clk);#1;
             $fwrite(fd," %0d %0d %0d %0d",bank,busy,commit,sources_ready);
             for(int s=0;s<16;s++)$fwrite(fd," %0d",$signed(delta[s*24 +:24]));
-            $fwrite(fd,"\n");
+            $fwrite(fd," %0d %0d\n",job_start,job_slot);
             if(ack_before || cancel)cv=0;
         end
         $fclose(fd);$display("PASS tb_eng1_pitch_trace cycles=40000");$finish;
