@@ -8,13 +8,14 @@ import sys,math,json,hashlib,os,argparse
 from functools import lru_cache
 import numpy as np
 import soundfile as sf
-from scipy.signal import resample_poly,lfilter,sosfreqz,welch
+from scipy.signal import lfilter,sosfreqz,welch
 from scipy.stats import theilslopes
 import eng1_audition as A
 import eng1_rtl as E
 import router_eng1 as R
 import guitar_diagnose as GD
 import params as P
+from fft_analysis import core as FFT
 ROOT=Path(__file__).resolve().parents[2]
 OUT=ROOT/'FFT_results/sim/eng1/guitar_refit'
 CONFIGS={
@@ -52,11 +53,12 @@ def source_data(midi,dyn):
   if 'music_resources' in parts:path=ROOT.joinpath(*parts[parts.index('music_resources'):])
  if not path.is_file():raise FileNotFoundError(path)
  row=dict(row,path=str(path))
- x,fs=sf.read(path,always_2d=True);x=x[:,0].astype(float)
- if fs!=48000:
-  gcd=math.gcd(fs,48000);x=resample_poly(x,48000//gcd,fs//gcd)
- win=np.ones(480)/480;env=np.sqrt(np.convolve(x*x,win,mode='same'))
- onset=int(np.flatnonzero(env>.1*env.max())[0])
+ # Match the NPZ extractor's channel/resampling and onset convention. A first
+ # threshold crossing can be a lead-in click, seconds before the actual pluck.
+ x=FFT.load_audio(str(path),sr=48000)
+ onset=FFT.detect_onset(x,sr=48000)
+ row.update(onset_sample=onset,onset_seconds=onset/48000,
+            onset_method='fft_analysis.core.detect_onset')
  return x,onset,row
 
 @lru_cache(maxsize=None)
@@ -95,6 +97,8 @@ def fit_source(midi,dyn):
   records.append(dict(k=float(k),source_hz=float(fk),original_gamma=float(old),gamma=gamma,
                       amplitude_t0=float(math.exp(intercept)),fit_accepted=accepted,fit_r2=r2,
                       fit_points=int(use.sum()),floor_amplitude=noise))
+ if not records or not any(f['fit_accepted'] for f in records):
+  raise ValueError(f'guitar {midi} {dyn}: no accepted decay fits after onset alignment')
  return records,manifest
 
 @lru_cache(maxsize=None)
@@ -111,24 +115,28 @@ def table_for(midi,gamma_kind,gain_kind):
  sos=np.array([[*np.array(c[:3])/(1<<27),1.,*np.array(c[3:])/(1<<27)] for c in R.body_coeffs('guitar')])
  _,h=sosfreqz(sos,worN=theta)
  targets=np.array([f['amplitude_t0'] for f in fits]);targets/=max(targets.max(),1e-20)
- gain=[];peak_errors=[]
+ gain=[];unit_peaks=[];target_peaks=[]
  for i in range(old.n_modes):
   unit=lfilter([1.],[1.,aa1[i]/(1<<24),aa2[i]/(1<<24)],pulse)
   prev=lfilter([old.G[i]/(1<<24)],[1.,old.a1[i]/(1<<24),old.a2[i]/(1<<24)],pulse)
   target=float(np.max(abs(prev))) if gain_kind=='preserve_peak' else float(targets[i]/max(abs(h[i]),.126))
-  g=target/max(np.max(abs(unit)),1e-20);gain.append(g)
-  q=round(g*(1<<24));achieved=q/(1<<24)*np.max(abs(unit))
-  peak_errors.append(float(20*np.log10(max(achieved,1e-20)/max(target,1e-20))))
+  unit_peak=float(np.max(abs(unit)))
+  g=target/max(unit_peak,1e-20);gain.append(g)
+  unit_peaks.append(unit_peak);target_peaks.append(target)
  # Absolute source normalization is arbitrary; keep the relative modal shape
  # and use one common per-note gain if it exceeds signed26 Q2.24 headroom.
  # Never clamp individual modal gains, which would silently change timbre.
  common_scale=min(1.,1.8/max(max(gain),1e-20))
  if gain_kind=='preserve_peak':assert common_scale==1.
  G=R.quant(np.array(gain)*common_scale,24,26)
+ achieved=G.astype(float)/(1<<24)*np.array(unit_peaks)
+ peak_errors=(20*np.log10(np.maximum(achieved,1e-20)/np.maximum(target_peaks,1e-20))).tolist()
  assert np.all((G>-(1<<25))&(G<(1<<25)-1))
  table=R.Eng1Coeffs(G,aa1,aa2,old.n_modes,label=f'guitar:{midi}:{gamma_kind}:{gain_kind}')
  return table,dict(**row,old_gamma_scale=scale,gamma_method=gamma_kind,gain_method=gain_kind,
                    fits=fits,source_file=str(Path(manifest['path']).relative_to(ROOT)),gamma_used=gamma.tolist(),
+                   source_onset_sample=manifest['onset_sample'],source_onset_seconds=manifest['onset_seconds'],
+                   source_onset_method=manifest['onset_method'],accepted_decay_fits=sum(f['fit_accepted'] for f in fits),
                    peak_calibration_errors_db=peak_errors,common_per_note_gain_scale=common_scale,
                    source_body_inverse_boost_cap_db=18.0 if gain_kind=='source_amplitude' else None)
 

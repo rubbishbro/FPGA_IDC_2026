@@ -142,6 +142,9 @@ def generate(out, notes=None, banked=True):
     sources += [ROOT/f'FFT_results/params/{name}_{suffix}' for name in ('piano','guitar')
                 for suffix in ('coeff.mem','coeffindex.json')]
     sources += [ROOT/f'FFT_results/params/{name}_sustain.npz' for name in ('trumpet','violin')]
+    sources += [ROOT/'python/fft_analysis/core.py',ROOT/'rtl/router/routers/body_router.sv']
+    sources += [ROOT/f'FFT_results/params/guitar_{suffix}.npz'
+                for suffix in ('partials','gammascale','body')]
     manifest=dict(schema=5,control_page=dict(offset=control_offset,bytes=4096,ratio_word=0,sine_word=512,depth_word=768),format='instrument-indexed eng0 matrix + eng1 ABC/P1T1',resource_fs=48000,
         flash_base=base,flash_bytes=capacity,image_flash_address=base,image_bytes=len(image),
         image_sha256=hashlib.sha256(image).hexdigest(),notes=note_count,note_maps=note_maps,
