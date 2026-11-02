@@ -150,14 +150,19 @@ function toggleChannelPicker(trigger,current,onPick){
 function renderSelection(){const notes=roll.selected(),n=notes[0];$('selection-count').textContent=notes.length?`${notes.length} 个音符`:'未选择';$('selection-fields').hidden=!n;$('selection-empty').hidden=!!n;if(n){$('note-pitch').value=n.pitch;$('note-name').textContent=noteName(n.pitch);$('note-velocity').value=n.velocity;$('note-beat').value=Number((n.beat+1).toFixed(6));$('note-duration').value=Number(n.duration.toFixed(6));}}
 function renderPosition(){const b=Math.max(0,playback.position);$('position').textContent=`${String(Math.floor(b/4)+1).padStart(3,'0')} : ${Math.floor(b%4)+1} : ${String(Math.floor((b%1)*480)).padStart(3,'0')}`;}
 function renderTransport(){$('play').classList.toggle('playing',playback.playing);$('play').querySelector('span').textContent=playback.playing?'暂停':'播放';$('play').setAttribute('aria-label',playback.playing?'暂停':'播放');}
+function renderSerialCounters(){
+  $('tx-frames').textContent=serial.txFrames;$('tx-bytes').textContent=serial.txBytes;$('rx-frames').textContent=serial.rxFrames;
+  $('rx-frames').title=serial===serialV1?`收到 ${serial.rxBytes} 字节 · ${serial.performanceFrames} 个录制帧 · ${serial.rxErrors} 个解码错误`:'';
+}
 function renderSerial(){
   const v2=serial===serialV2;
   const phases={idle:'未握手',hello_sent:'正在请求会话',welcome:'设备清理完成',confirm_sent:'正在确认会话',active:'会话已就绪',resync:'正在恢复演奏',resume_sent:'等待恢复确认',fault:'会话已失效'};
   const phase=v2?(phases[serial.phase]||serial.phase||'未握手'):(serial.connected?'串口已连接':'未连接');
   $('connection-badge').textContent=phase;$('connection-badge').classList.toggle('connected',serial.connected);
   $('connect').querySelector('span').textContent=serial.port?'断开串口':'连接串口';
-  $('baud').disabled=!!serial.port||connecting;$('protocol').disabled=!!serial.port||connecting;
-  $('tx-frames').textContent=serial.txFrames;$('tx-bytes').textContent=serial.txBytes;$('rx-frames').textContent=serial.rxFrames;
+  if(!v2)$('baud').value='115200';
+  $('baud').disabled=!v2||!!serial.port||connecting;$('protocol').disabled=!!serial.port||connecting;
+  renderSerialCounters();$('export-link-diagnostics').disabled=v2;
   $('v2-tools').hidden=!v2;$('protocol-status').textContent=v2?'UART v2':'UART v1';
   $('v2-phase').textContent=phase;
   $('v2-context').textContent=v2&&serial.sessionId?`会话 ${serial.sessionId.toString(16).padStart(8,'0')} · 演奏代次 ${serial.playbackEpoch}`:'等待连接';
@@ -191,6 +196,15 @@ $('panic').onclick=async()=>{stopPlayback();if(serial.connected){try{await seria
 $('loop-toggle').onclick=()=>edit(p=>p.loop.enabled=!p.loop.enabled);
 $('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 串口':'参考试听 · 三角波';status(output==='uart'?'已选择串口，播放前将核对硬件配置':'已选择电脑参考试听');};
 $('protocol').onchange=()=>{stopPlayback();serial=$('protocol').value==='v2'?serialV2:serialV1;renderSerial();};
+// TYPE82 may be frequent: refresh counters at a bounded rate even when no
+// CONFIG replies arrive, without rendering the connection UI for every note.
+const serialCounterTimer=setInterval(renderSerialCounters,250);
+window.addEventListener('pagehide',()=>clearInterval(serialCounterTimer));
+$('export-link-diagnostics').onclick=()=>{
+  const report={format:'fpga-midi-link-diagnostic-v1',exportedAt:new Date().toISOString(),link:serialV1.diagnostics(),recording:recording?.diagnostics,log:Array.from($('link-log').children,p=>p.textContent)};
+  download(JSON.stringify(report,null,2),'application/json','midi-link-diagnostic.json');
+  toast('已导出串口原始收发与录制诊断');
+};
 $('connect').onclick=async()=>{const b=$('connect');b.disabled=true;connecting=true;renderSerial();try{stopPlayback();if(serial.port){if(serial.connected)await serial.panic();await serial.disconnect();}else await serial.connect(Number($('baud').value));}catch(e){if(e.name!=='NotFoundError')toast(e.message,true);}finally{connecting=false;b.disabled=false;renderSerial();}};
 $('v2-status').onclick=async()=>{try{const s=await serialV2.requestStatus();log('设备状态',JSON.stringify(s));toast('已收到设备会话状态；音色和通道仍以板端设置为准');}catch(e){toast(e.message,true);}renderSerial();};
 $('v2-configure').onclick=async()=>{
@@ -253,7 +267,7 @@ log('就绪','v1 有线演奏 / v2 会话插件 · 本地编辑');render();rende
 requestAnimationFrame(()=>requestAnimationFrame(()=>roll.fit()));
 
 recording=setupRecording({getLink:()=>serial,supportsRecording:()=>serial===serialV1,
- getProject:()=>history.current,getPosition:()=>playback.position,stopPlayback,toast,status,
+ getProject:()=>history.current,getPosition:()=>playback.position,stopPlayback,toast,status,log,
  commitTrack:(track,incomplete)=>{
   const next=structuredClone(history.current);if(incomplete)track.name+='（不完整）';
   const takeEnd=Math.max(...track.notes.map(n=>n.beat+n.duration),4);

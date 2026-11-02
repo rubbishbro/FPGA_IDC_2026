@@ -63,6 +63,47 @@ test('recording UI locks edits, commits one editable take, closes held keys and 
   ui.onFrame(event({id:currentId,kind:3,ordinal:2,tick:48000,a:0,b:1}));assert.equal(commits.length,1);
  }finally{windowEvents.pagehide?.();globalThis.document=originalDocument;globalThis.window=originalWindow;}
 });
+async function recordingFixture(options={}){
+ const {setupRecording}=await import('../src/recording-ui.mjs');
+ const previousDocument=globalThis.document,previousWindow=globalThis.window;
+ const nodes=new Map(),handlers={},messages=[],commands=[];
+ const doc={hidden:false,getElementById(id){if(!nodes.has(id))nodes.set(id,{textContent:'',disabled:false,inert:false,classList:{toggle(){}},setAttribute(){}});return nodes.get(id);},querySelector(){return doc.getElementById('workspace');},addEventListener(){}};
+ globalThis.document=doc;globalThis.window={addEventListener(k,fn){handlers[k]=fn;}};
+ let id;const link={connected:true,configure:async(cmd,bytes)=>{id=(bytes[0]|bytes[1]<<8|bytes[2]<<16|bytes[3]<<24)>>>0;commands.push(cmd);return options.configure?.(cmd,id);}};
+ const ui=setupRecording({getLink:()=>link,supportsRecording:()=>true,getProject:blankProject,getPosition:()=>0,stopPlayback(){},commitTrack(){},toast:m=>messages.push(m),status(){},startFrameTimeoutMs:20});
+ return {ui,nodes,messages,commands,get id(){return id;},cleanup(){handlers.pagehide?.();globalThis.document=previousDocument;globalThis.window=previousWindow;}};
+}
+test('START ACK alone and frames for another take never report recording; missing TYPE82 times out',async()=>{
+ for(const foreign of [false,true]){
+  const f=await recordingFixture();
+  try{
+   await f.nodes.get('record-performance').onclick();
+   assert.match(f.nodes.get('record-performance').textContent,/准备/);
+   assert.match(f.nodes.get('record-status').textContent,/等待回传起点/);
+   if(foreign)f.ui.onFrame(event({id:(f.id+1)>>>0}));
+   await new Promise(resolve=>setTimeout(resolve,35));
+   assert.equal(f.ui.busy,false);assert.equal(f.ui.diagnostics.acknowledged,true);
+   assert.equal(f.ui.diagnostics.started,false);assert.equal(f.ui.diagnostics.ended,false);
+   assert.equal(f.ui.diagnostics.failure,'missing_start_frame');
+   assert.equal(f.ui.diagnostics.ignoredFrames,Number(foreign));
+   assert.deepEqual(f.commands,[0x12,0x13]);
+   assert.match(f.messages.at(-1),/已确认 START.*未收到录制起点帧/);
+   assert.equal(f.nodes.get('workspace').inert,false);
+  }finally{f.cleanup();}
+ }
+});
+test('TYPE82 START may precede CONFIG ACK; empty confirmed takes are diagnosed as missing note events',async()=>{
+ let acknowledge;const f=await recordingFixture({configure:cmd=>cmd===0x12?new Promise(resolve=>acknowledge=resolve):undefined});
+ try{
+  const starting=f.nodes.get('record-performance').onclick();
+  f.ui.onFrame(event({id:f.id}));assert.match(f.nodes.get('record-performance').textContent,/准备/);
+  acknowledge();await starting;assert.match(f.nodes.get('record-performance').textContent,/停止/);
+  await f.ui.stop();f.ui.onFrame(event({id:f.id,kind:3,ordinal:1,tick:100,a:0,b:0}));
+  assert.equal(f.ui.diagnostics.frames,2);assert.equal(f.ui.diagnostics.noteOns,0);
+  assert.equal(f.ui.diagnostics.started,true);assert.equal(f.ui.diagnostics.ended,true);
+  assert.match(f.messages.at(-1),/收到录制起点.*没有收到音符事件/);
+ }finally{f.cleanup();}
+});
 test('performance extension matches independent Python CCITT/struct golden vectors',async()=>{
  const {readFile}=await import('node:fs/promises');const {vectors}=JSON.parse(await readFile(new URL('./fixtures/performance_vectors.json',import.meta.url)));
  const bytes=s=>Uint8Array.from(s.split(' ').map(x=>parseInt(x,16)));

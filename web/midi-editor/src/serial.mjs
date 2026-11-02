@@ -5,18 +5,20 @@ const cancelled=()=>Object.assign(Error('发送已取消'),{name:'AbortError'});
 export class SerialLink {
   constructor(onState=()=>{},onLog=()=>{},serialApi=globalThis.navigator?.serial) {
     this.serialApi=serialApi;
-    Object.assign(this,{onState,onLog,port:null,writer:null,reader:null,queue:[],pumping:false,epoch:0,seq:0,txBytes:0,txFrames:0,rxFrames:0,baud:115200,closing:false,failed:false});
+    Object.assign(this,{onState,onLog,port:null,writer:null,reader:null,queue:[],pumping:false,epoch:0,seq:0,txBytes:0,txFrames:0,rxBytes:0,rxFrames:0,rxErrors:0,performanceFrames:0,baud:115200,closing:false,failed:false});
+    this.wireTrace=[];this.traceBytes=0;this.traceOrigin=performance.now();this.lastRxError=null;
     this.cfgSeq=0;this.pendingConfig=null;
-    this.decoder=new FrameReader(frame=>this.handleFrame(frame),e=>this.onLog('RX 错误',e.message));
+    this.decoder=new FrameReader(frame=>this.handleFrame(frame),e=>{this.rxErrors++;this.lastRxError=e.message;this.onLog('RX 错误',e.message);});
     this.serialApi?.addEventListener('disconnect',e=>{if(e.target===this.port||e.port===this.port){this.failed=true;this.failConfig(Error('串口已断开'));this.cancel();this.onLog('断线','串口已断开；板端清音状态未知');this.onFault?.(Error('串口已断开'));this.disconnect().catch(()=>{});}});
   }
   handleFrame(frame) {
     this.rxFrames++;
+    if(frame.type===130)this.performanceFrames++;
     if(frame.type===128 && this.pendingConfig && frame.seq===this.pendingConfig.seq && frame.payload.length===2 && frame.payload[0]===this.pendingConfig.command){
       const pending=this.pendingConfig;this.pendingConfig=null;clearTimeout(pending.timer);
       if(frame.payload[1]===0)pending.resolve(frame);else pending.reject(Error(`设备配置失败：${['OK','UNSUPPORTED','BAD_LENGTH','OUT_OF_RANGE','BUSY','SEQ_CONFLICT','NOT_READY'][frame.payload[1]]??frame.payload[1]}`));
     }
-    if(frame.type!==130){this.onLog('RX',`type ${frame.type.toString(16)} · seq ${frame.seq}`);this.onState();}
+    if(frame.type!==130){this.onLog('RX',`type ${frame.type.toString(16)} · seq ${frame.seq} · payload ${Array.from(frame.payload,b=>b.toString(16).padStart(2,'0')).join(' ')}`);this.onState();}
     this.onFrame?.(frame);
   }
   configure(command,data=[],{timeoutMs=500,maxRetries=3}={}) {
@@ -42,6 +44,15 @@ export class SerialLink {
     });
   }
   failConfig(error){if(this.pendingConfig){clearTimeout(this.pendingConfig.timer);this.pendingConfig.reject(error);this.pendingConfig=null;}}
+  // A bounded local trace retains the actual wire format, including rejected
+  // RX frames. Decoded-frame counters alone cannot distinguish silence/CRC loss.
+  traceWire(direction,bytes){
+    const kept=Uint8Array.from(bytes).slice(-8192);
+    this.wireTrace.push({direction,ms:Math.round(performance.now()-this.traceOrigin),bytes:kept.length,hex:Array.from(kept,b=>b.toString(16).padStart(2,'0')).join(' ')});
+    this.traceBytes+=kept.length;
+    while(this.wireTrace.length>128 || (this.traceBytes>8192 && this.wireTrace.length>1))this.traceBytes-=this.wireTrace.shift().bytes;
+  }
+  diagnostics(){return {protocol:'v1',baud:this.baud,connected:this.connected,txBytes:this.txBytes,txFrames:this.txFrames,rxBytes:this.rxBytes,rxFrames:this.rxFrames,rxErrors:this.rxErrors,performanceFrames:this.performanceFrames,lastRxError:this.lastRxError,trace:this.wireTrace.map(x=>({...x}))};}
   get connected(){return !!this.writer&&!this.closing&&!this.failed;}
   async connect(baud) {
     if(!this.serialApi)throw Error('此浏览器没有 Web Serial，请在 Chrome / Edge 打开 localhost');
@@ -55,7 +66,7 @@ export class SerialLink {
   async readLoop() {
     try {
       this.reader=this.port.readable.getReader();
-      while(!this.closing) {const {value,done}=await this.reader.read();if(done)break;this.decoder.feed(value);}
+      while(!this.closing) {const {value,done}=await this.reader.read();if(done)break;this.rxBytes+=value.length;this.traceWire('RX',value);this.decoder.feed(value);}
       if(!this.closing)throw Error('串口接收流结束');
     } catch(e){if(!this.closing){this.failed=true;this.failConfig(Error('串口已断开'));this.cancel();this.onLog('串口错误',e.message);this.onFault?.(e);}}
     finally{this.reader?.releaseLock();this.reader=null;this.onState();}
@@ -79,7 +90,7 @@ export class SerialLink {
         if(performance.now()-entry.queued>200){entry.reject(Error('串口队列延迟超过 200ms'));this.cancel();this.onFault?.(Error('UART 吞吐不足，已停止播放'));break;}
         try {
           // A write resolving only means browser acceptance, not FPGA application.
-          await this.writer.write(entry.wire);this.txBytes+=entry.wire.length;this.txFrames++;
+          await this.writer.write(entry.wire);this.traceWire('TX',entry.wire);this.txBytes+=entry.wire.length;this.txFrames++;
           await sleep(entry.wire.length*10000/this.baud);
           entry.resolve();this.onState();
         } catch(e) {entry.reject(e);this.failed=true;this.failConfig(Error('串口已断开'));this.cancel();this.onFault?.(e);break;}

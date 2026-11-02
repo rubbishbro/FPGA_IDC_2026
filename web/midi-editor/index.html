@@ -62,8 +62,9 @@
       <section class="inspector-section"><div class="section-label">片段与循环 <span class="quiet">4/4</span></div><div class="field-row"><label>起始拍<input id="loop-start" type="number" min="1" step=".25"></label><label>结束拍<input id="loop-end" type="number" min="1.25" step=".25"></label></div><label class="inline-field">工程长度 / 小节<input id="bars" type="number" min="1" max="10000"></label></section>
       <section class="inspector-section hardware"><div class="section-label">设备连接 <span id="connection-badge" class="connection-badge">未连接</span></div>
         <label class="serial-select">通信协议<select id="protocol"><option value="v1">v1 · 板载有线 UART</option><option value="v2">v2 · 蓝牙 UART / 测试串口</option></select></label>
-        <label class="serial-select">波特率<select id="baud"><option>115200</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
+        <label class="serial-select">波特率<select id="baud" disabled><option>115200</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
         <button id="connect" class="connect-button"><svg><use href="#i-plug"/></svg><span>连接串口</span></button>
+        <button id="export-link-diagnostics" class="connect-button">导出通信诊断</button>
         <p id="serial-support" class="hint">USB 转 UART · 8N1 · SLIP / CRC16</p>
         <p id="protocol-hint" class="hint">板载 USB 串口选择 v1；v2 使用 HC-05 对应串口，或 USB-TTL 接蓝牙 RX/TX。</p>
         <div id="v2-tools" hidden>
