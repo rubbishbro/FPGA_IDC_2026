@@ -38,8 +38,11 @@ module spectrum_map #(
     reg [17:0] frame_peak;
     reg        eoud_r;
 
-    reg [17:0] bin_mag [0:511];
-    reg [19:0] bar_range [0:N_BARS-1];
+    // 512x18 的 bin_mag 和 128x20 的 bar_range 是顺序扫描表，读地址已经
+    // 是寄存器输出（S_RANGE/S_SCAN 各等一拍），显式映射到 BSRAM，避免综合
+    // 退化成 512:1/128:1 的大选择树。
+    (* syn_ramstyle="block_ram" *) reg [17:0] bin_mag [0:511];
+    (* syn_ramstyle="block_ram" *) reg [19:0] bar_range [0:N_BARS-1];
     // 小型平滑表固定用寄存器，避免当前 Gowin 将互斥读/写映射成该器件
     // 不支持 WRITE_MODE=2'b10 的单口 BSRAM。保留原有读写时序/数值。
     (* syn_ramstyle="registers" *) reg [9:0] smooth_ram [0:N_BARS-1];

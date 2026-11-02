@@ -106,206 +106,92 @@ module lcd_fft #(parameter REVERSE_SCAN=1'b0) (
     wire [9:0]  idx_sum  = {1'b0, bar_idx} + {1'b0, hue_use};   // 0..191+127
     wire [8:0]  color_idx = (idx_sum >= 9'd192) ? (idx_sum - 9'd192) : idx_sum[8:0];
 
-    // ===== color lookup: 128-bar rainbow (red->blue-cyan) =====
-        reg  [5:0] c_r, c_g, c_b;
-    always @(*) begin
-        case (color_idx)
-9'd0: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
-9'd1: begin c_r = 6'h33; c_g = 6'h04; c_b = 6'h05; end
-9'd2: begin c_r = 6'h32; c_g = 6'h04; c_b = 6'h06; end
-9'd3: begin c_r = 6'h32; c_g = 6'h04; c_b = 6'h06; end
-9'd4: begin c_r = 6'h31; c_g = 6'h04; c_b = 6'h07; end
-9'd5: begin c_r = 6'h30; c_g = 6'h04; c_b = 6'h08; end
-9'd6: begin c_r = 6'h2F; c_g = 6'h04; c_b = 6'h09; end
-9'd7: begin c_r = 6'h2F; c_g = 6'h04; c_b = 6'h09; end
-9'd8: begin c_r = 6'h2E; c_g = 6'h04; c_b = 6'h0A; end
-9'd9: begin c_r = 6'h2D; c_g = 6'h04; c_b = 6'h0B; end
-9'd10: begin c_r = 6'h2C; c_g = 6'h04; c_b = 6'h0C; end
-9'd11: begin c_r = 6'h2C; c_g = 6'h04; c_b = 6'h0C; end
-9'd12: begin c_r = 6'h2B; c_g = 6'h04; c_b = 6'h0D; end
-9'd13: begin c_r = 6'h2A; c_g = 6'h04; c_b = 6'h0E; end
-9'd14: begin c_r = 6'h29; c_g = 6'h04; c_b = 6'h0F; end
-9'd15: begin c_r = 6'h29; c_g = 6'h04; c_b = 6'h0F; end
-9'd16: begin c_r = 6'h28; c_g = 6'h04; c_b = 6'h10; end
-9'd17: begin c_r = 6'h27; c_g = 6'h04; c_b = 6'h11; end
-9'd18: begin c_r = 6'h26; c_g = 6'h04; c_b = 6'h12; end
-9'd19: begin c_r = 6'h26; c_g = 6'h04; c_b = 6'h12; end
-9'd20: begin c_r = 6'h25; c_g = 6'h04; c_b = 6'h13; end
-9'd21: begin c_r = 6'h24; c_g = 6'h04; c_b = 6'h14; end
-9'd22: begin c_r = 6'h23; c_g = 6'h04; c_b = 6'h15; end
-9'd23: begin c_r = 6'h22; c_g = 6'h04; c_b = 6'h16; end
-9'd24: begin c_r = 6'h22; c_g = 6'h04; c_b = 6'h16; end
-9'd25: begin c_r = 6'h21; c_g = 6'h04; c_b = 6'h17; end
-9'd26: begin c_r = 6'h20; c_g = 6'h04; c_b = 6'h18; end
-9'd27: begin c_r = 6'h1F; c_g = 6'h04; c_b = 6'h19; end
-9'd28: begin c_r = 6'h1F; c_g = 6'h04; c_b = 6'h19; end
-9'd29: begin c_r = 6'h1E; c_g = 6'h04; c_b = 6'h1A; end
-9'd30: begin c_r = 6'h1D; c_g = 6'h04; c_b = 6'h1B; end
-9'd31: begin c_r = 6'h1C; c_g = 6'h04; c_b = 6'h1C; end
-9'd32: begin c_r = 6'h1C; c_g = 6'h04; c_b = 6'h1C; end
-9'd33: begin c_r = 6'h1B; c_g = 6'h04; c_b = 6'h1D; end
-9'd34: begin c_r = 6'h1A; c_g = 6'h04; c_b = 6'h1E; end
-9'd35: begin c_r = 6'h19; c_g = 6'h04; c_b = 6'h1F; end
-9'd36: begin c_r = 6'h19; c_g = 6'h04; c_b = 6'h1F; end
-9'd37: begin c_r = 6'h18; c_g = 6'h04; c_b = 6'h20; end
-9'd38: begin c_r = 6'h17; c_g = 6'h04; c_b = 6'h21; end
-9'd39: begin c_r = 6'h16; c_g = 6'h04; c_b = 6'h22; end
-9'd40: begin c_r = 6'h16; c_g = 6'h04; c_b = 6'h22; end
-9'd41: begin c_r = 6'h15; c_g = 6'h04; c_b = 6'h23; end
-9'd42: begin c_r = 6'h14; c_g = 6'h04; c_b = 6'h24; end
-9'd43: begin c_r = 6'h13; c_g = 6'h04; c_b = 6'h25; end
-9'd44: begin c_r = 6'h12; c_g = 6'h04; c_b = 6'h26; end
-9'd45: begin c_r = 6'h12; c_g = 6'h04; c_b = 6'h26; end
-9'd46: begin c_r = 6'h11; c_g = 6'h04; c_b = 6'h27; end
-9'd47: begin c_r = 6'h10; c_g = 6'h04; c_b = 6'h28; end
-9'd48: begin c_r = 6'h0F; c_g = 6'h04; c_b = 6'h29; end
-9'd49: begin c_r = 6'h0F; c_g = 6'h04; c_b = 6'h29; end
-9'd50: begin c_r = 6'h0E; c_g = 6'h04; c_b = 6'h2A; end
-9'd51: begin c_r = 6'h0D; c_g = 6'h04; c_b = 6'h2B; end
-9'd52: begin c_r = 6'h0C; c_g = 6'h04; c_b = 6'h2C; end
-9'd53: begin c_r = 6'h0C; c_g = 6'h04; c_b = 6'h2C; end
-9'd54: begin c_r = 6'h0B; c_g = 6'h04; c_b = 6'h2D; end
-9'd55: begin c_r = 6'h0A; c_g = 6'h04; c_b = 6'h2E; end
-9'd56: begin c_r = 6'h09; c_g = 6'h04; c_b = 6'h2F; end
-9'd57: begin c_r = 6'h09; c_g = 6'h04; c_b = 6'h2F; end
-9'd58: begin c_r = 6'h08; c_g = 6'h04; c_b = 6'h30; end
-9'd59: begin c_r = 6'h07; c_g = 6'h04; c_b = 6'h31; end
-9'd60: begin c_r = 6'h06; c_g = 6'h04; c_b = 6'h32; end
-9'd61: begin c_r = 6'h06; c_g = 6'h04; c_b = 6'h32; end
-9'd62: begin c_r = 6'h05; c_g = 6'h04; c_b = 6'h33; end
-9'd63: begin c_r = 6'h04; c_g = 6'h04; c_b = 6'h34; end
-9'd64: begin c_r = 6'h04; c_g = 6'h04; c_b = 6'h34; end
-9'd65: begin c_r = 6'h05; c_g = 6'h05; c_b = 6'h33; end
-9'd66: begin c_r = 6'h06; c_g = 6'h06; c_b = 6'h32; end
-9'd67: begin c_r = 6'h06; c_g = 6'h06; c_b = 6'h32; end
-9'd68: begin c_r = 6'h07; c_g = 6'h07; c_b = 6'h31; end
-9'd69: begin c_r = 6'h08; c_g = 6'h08; c_b = 6'h30; end
-9'd70: begin c_r = 6'h09; c_g = 6'h09; c_b = 6'h2F; end
-9'd71: begin c_r = 6'h09; c_g = 6'h09; c_b = 6'h2F; end
-9'd72: begin c_r = 6'h0A; c_g = 6'h0A; c_b = 6'h2E; end
-9'd73: begin c_r = 6'h0B; c_g = 6'h0B; c_b = 6'h2D; end
-9'd74: begin c_r = 6'h0C; c_g = 6'h0C; c_b = 6'h2C; end
-9'd75: begin c_r = 6'h0C; c_g = 6'h0C; c_b = 6'h2C; end
-9'd76: begin c_r = 6'h0D; c_g = 6'h0D; c_b = 6'h2B; end
-9'd77: begin c_r = 6'h0E; c_g = 6'h0E; c_b = 6'h2A; end
-9'd78: begin c_r = 6'h0F; c_g = 6'h0F; c_b = 6'h29; end
-9'd79: begin c_r = 6'h0F; c_g = 6'h0F; c_b = 6'h29; end
-9'd80: begin c_r = 6'h10; c_g = 6'h10; c_b = 6'h28; end
-9'd81: begin c_r = 6'h11; c_g = 6'h11; c_b = 6'h27; end
-9'd82: begin c_r = 6'h12; c_g = 6'h12; c_b = 6'h26; end
-9'd83: begin c_r = 6'h12; c_g = 6'h12; c_b = 6'h26; end
-9'd84: begin c_r = 6'h13; c_g = 6'h13; c_b = 6'h25; end
-9'd85: begin c_r = 6'h14; c_g = 6'h14; c_b = 6'h24; end
-9'd86: begin c_r = 6'h15; c_g = 6'h15; c_b = 6'h23; end
-9'd87: begin c_r = 6'h16; c_g = 6'h16; c_b = 6'h22; end
-9'd88: begin c_r = 6'h16; c_g = 6'h16; c_b = 6'h22; end
-9'd89: begin c_r = 6'h17; c_g = 6'h17; c_b = 6'h21; end
-9'd90: begin c_r = 6'h18; c_g = 6'h18; c_b = 6'h20; end
-9'd91: begin c_r = 6'h19; c_g = 6'h19; c_b = 6'h1F; end
-9'd92: begin c_r = 6'h19; c_g = 6'h19; c_b = 6'h1F; end
-9'd93: begin c_r = 6'h1A; c_g = 6'h1A; c_b = 6'h1E; end
-9'd94: begin c_r = 6'h1B; c_g = 6'h1B; c_b = 6'h1D; end
-9'd95: begin c_r = 6'h1C; c_g = 6'h1C; c_b = 6'h1C; end
-9'd96: begin c_r = 6'h1C; c_g = 6'h1C; c_b = 6'h1C; end
-9'd97: begin c_r = 6'h1D; c_g = 6'h1D; c_b = 6'h1B; end
-9'd98: begin c_r = 6'h1E; c_g = 6'h1E; c_b = 6'h1A; end
-9'd99: begin c_r = 6'h1F; c_g = 6'h1F; c_b = 6'h19; end
-9'd100: begin c_r = 6'h1F; c_g = 6'h1F; c_b = 6'h19; end
-9'd101: begin c_r = 6'h20; c_g = 6'h20; c_b = 6'h18; end
-9'd102: begin c_r = 6'h21; c_g = 6'h21; c_b = 6'h17; end
-9'd103: begin c_r = 6'h22; c_g = 6'h22; c_b = 6'h16; end
-9'd104: begin c_r = 6'h22; c_g = 6'h22; c_b = 6'h16; end
-9'd105: begin c_r = 6'h23; c_g = 6'h23; c_b = 6'h15; end
-9'd106: begin c_r = 6'h24; c_g = 6'h24; c_b = 6'h14; end
-9'd107: begin c_r = 6'h25; c_g = 6'h25; c_b = 6'h13; end
-9'd108: begin c_r = 6'h26; c_g = 6'h26; c_b = 6'h12; end
-9'd109: begin c_r = 6'h26; c_g = 6'h26; c_b = 6'h12; end
-9'd110: begin c_r = 6'h27; c_g = 6'h27; c_b = 6'h11; end
-9'd111: begin c_r = 6'h28; c_g = 6'h28; c_b = 6'h10; end
-9'd112: begin c_r = 6'h29; c_g = 6'h29; c_b = 6'h0F; end
-9'd113: begin c_r = 6'h29; c_g = 6'h29; c_b = 6'h0F; end
-9'd114: begin c_r = 6'h2A; c_g = 6'h2A; c_b = 6'h0E; end
-9'd115: begin c_r = 6'h2B; c_g = 6'h2B; c_b = 6'h0D; end
-9'd116: begin c_r = 6'h2C; c_g = 6'h2C; c_b = 6'h0C; end
-9'd117: begin c_r = 6'h2C; c_g = 6'h2C; c_b = 6'h0C; end
-9'd118: begin c_r = 6'h2D; c_g = 6'h2D; c_b = 6'h0B; end
-9'd119: begin c_r = 6'h2E; c_g = 6'h2E; c_b = 6'h0A; end
-9'd120: begin c_r = 6'h2F; c_g = 6'h2F; c_b = 6'h09; end
-9'd121: begin c_r = 6'h2F; c_g = 6'h2F; c_b = 6'h09; end
-9'd122: begin c_r = 6'h30; c_g = 6'h30; c_b = 6'h08; end
-9'd123: begin c_r = 6'h31; c_g = 6'h31; c_b = 6'h07; end
-9'd124: begin c_r = 6'h32; c_g = 6'h32; c_b = 6'h06; end
-9'd125: begin c_r = 6'h32; c_g = 6'h32; c_b = 6'h06; end
-9'd126: begin c_r = 6'h33; c_g = 6'h33; c_b = 6'h05; end
-9'd127: begin c_r = 6'h34; c_g = 6'h34; c_b = 6'h04; end
-9'd128: begin c_r = 6'h34; c_g = 6'h34; c_b = 6'h04; end
-9'd129: begin c_r = 6'h34; c_g = 6'h33; c_b = 6'h04; end
-9'd130: begin c_r = 6'h34; c_g = 6'h32; c_b = 6'h04; end
-9'd131: begin c_r = 6'h34; c_g = 6'h32; c_b = 6'h04; end
-9'd132: begin c_r = 6'h34; c_g = 6'h31; c_b = 6'h04; end
-9'd133: begin c_r = 6'h34; c_g = 6'h30; c_b = 6'h04; end
-9'd134: begin c_r = 6'h34; c_g = 6'h2F; c_b = 6'h04; end
-9'd135: begin c_r = 6'h34; c_g = 6'h2F; c_b = 6'h04; end
-9'd136: begin c_r = 6'h34; c_g = 6'h2E; c_b = 6'h04; end
-9'd137: begin c_r = 6'h34; c_g = 6'h2D; c_b = 6'h04; end
-9'd138: begin c_r = 6'h34; c_g = 6'h2C; c_b = 6'h04; end
-9'd139: begin c_r = 6'h34; c_g = 6'h2C; c_b = 6'h04; end
-9'd140: begin c_r = 6'h34; c_g = 6'h2B; c_b = 6'h04; end
-9'd141: begin c_r = 6'h34; c_g = 6'h2A; c_b = 6'h04; end
-9'd142: begin c_r = 6'h34; c_g = 6'h29; c_b = 6'h04; end
-9'd143: begin c_r = 6'h34; c_g = 6'h29; c_b = 6'h04; end
-9'd144: begin c_r = 6'h34; c_g = 6'h28; c_b = 6'h04; end
-9'd145: begin c_r = 6'h34; c_g = 6'h27; c_b = 6'h04; end
-9'd146: begin c_r = 6'h34; c_g = 6'h26; c_b = 6'h04; end
-9'd147: begin c_r = 6'h34; c_g = 6'h26; c_b = 6'h04; end
-9'd148: begin c_r = 6'h34; c_g = 6'h25; c_b = 6'h04; end
-9'd149: begin c_r = 6'h34; c_g = 6'h24; c_b = 6'h04; end
-9'd150: begin c_r = 6'h34; c_g = 6'h23; c_b = 6'h04; end
-9'd151: begin c_r = 6'h34; c_g = 6'h22; c_b = 6'h04; end
-9'd152: begin c_r = 6'h34; c_g = 6'h22; c_b = 6'h04; end
-9'd153: begin c_r = 6'h34; c_g = 6'h21; c_b = 6'h04; end
-9'd154: begin c_r = 6'h34; c_g = 6'h20; c_b = 6'h04; end
-9'd155: begin c_r = 6'h34; c_g = 6'h1F; c_b = 6'h04; end
-9'd156: begin c_r = 6'h34; c_g = 6'h1F; c_b = 6'h04; end
-9'd157: begin c_r = 6'h34; c_g = 6'h1E; c_b = 6'h04; end
-9'd158: begin c_r = 6'h34; c_g = 6'h1D; c_b = 6'h04; end
-9'd159: begin c_r = 6'h34; c_g = 6'h1C; c_b = 6'h04; end
-9'd160: begin c_r = 6'h34; c_g = 6'h1C; c_b = 6'h04; end
-9'd161: begin c_r = 6'h34; c_g = 6'h1B; c_b = 6'h04; end
-9'd162: begin c_r = 6'h34; c_g = 6'h1A; c_b = 6'h04; end
-9'd163: begin c_r = 6'h34; c_g = 6'h19; c_b = 6'h04; end
-9'd164: begin c_r = 6'h34; c_g = 6'h19; c_b = 6'h04; end
-9'd165: begin c_r = 6'h34; c_g = 6'h18; c_b = 6'h04; end
-9'd166: begin c_r = 6'h34; c_g = 6'h17; c_b = 6'h04; end
-9'd167: begin c_r = 6'h34; c_g = 6'h16; c_b = 6'h04; end
-9'd168: begin c_r = 6'h34; c_g = 6'h16; c_b = 6'h04; end
-9'd169: begin c_r = 6'h34; c_g = 6'h15; c_b = 6'h04; end
-9'd170: begin c_r = 6'h34; c_g = 6'h14; c_b = 6'h04; end
-9'd171: begin c_r = 6'h34; c_g = 6'h13; c_b = 6'h04; end
-9'd172: begin c_r = 6'h34; c_g = 6'h12; c_b = 6'h04; end
-9'd173: begin c_r = 6'h34; c_g = 6'h12; c_b = 6'h04; end
-9'd174: begin c_r = 6'h34; c_g = 6'h11; c_b = 6'h04; end
-9'd175: begin c_r = 6'h34; c_g = 6'h10; c_b = 6'h04; end
-9'd176: begin c_r = 6'h34; c_g = 6'h0F; c_b = 6'h04; end
-9'd177: begin c_r = 6'h34; c_g = 6'h0F; c_b = 6'h04; end
-9'd178: begin c_r = 6'h34; c_g = 6'h0E; c_b = 6'h04; end
-9'd179: begin c_r = 6'h34; c_g = 6'h0D; c_b = 6'h04; end
-9'd180: begin c_r = 6'h34; c_g = 6'h0C; c_b = 6'h04; end
-9'd181: begin c_r = 6'h34; c_g = 6'h0C; c_b = 6'h04; end
-9'd182: begin c_r = 6'h34; c_g = 6'h0B; c_b = 6'h04; end
-9'd183: begin c_r = 6'h34; c_g = 6'h0A; c_b = 6'h04; end
-9'd184: begin c_r = 6'h34; c_g = 6'h09; c_b = 6'h04; end
-9'd185: begin c_r = 6'h34; c_g = 6'h09; c_b = 6'h04; end
-9'd186: begin c_r = 6'h34; c_g = 6'h08; c_b = 6'h04; end
-9'd187: begin c_r = 6'h34; c_g = 6'h07; c_b = 6'h04; end
-9'd188: begin c_r = 6'h34; c_g = 6'h06; c_b = 6'h04; end
-9'd189: begin c_r = 6'h34; c_g = 6'h06; c_b = 6'h04; end
-9'd190: begin c_r = 6'h34; c_g = 6'h05; c_b = 6'h04; end
-9'd191: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
-
-default: begin c_r = 6'h34; c_g = 6'h04; c_b = 6'h04; end
+    // ===== color lookup: exact 3-segment rainbow =====
+    // The 192-entry case was the sampled form of:
+    //   v(x) = (48*x + 31) / 63, x = color_idx % 64
+    //   seg 0: (52-v, 4, 4+v)   seg 1: (4+v, 4+v, 52-v)
+    //   seg 2: (52, 52-v, 4)
+    // Keeping the 64-entry generator removes the 192-way 18-bit mux while
+    // producing the identical RGB values (checked against all 192 entries).
+    function automatic [5:0] tri_v(input [5:0] x);
+        case (x)
+            6'd0: tri_v = 6'd0;
+            6'd1: tri_v = 6'd1;
+            6'd2: tri_v = 6'd2;
+            6'd3: tri_v = 6'd2;
+            6'd4: tri_v = 6'd3;
+            6'd5: tri_v = 6'd4;
+            6'd6: tri_v = 6'd5;
+            6'd7: tri_v = 6'd5;
+            6'd8: tri_v = 6'd6;
+            6'd9: tri_v = 6'd7;
+            6'd10: tri_v = 6'd8;
+            6'd11: tri_v = 6'd8;
+            6'd12: tri_v = 6'd9;
+            6'd13: tri_v = 6'd10;
+            6'd14: tri_v = 6'd11;
+            6'd15: tri_v = 6'd11;
+            6'd16: tri_v = 6'd12;
+            6'd17: tri_v = 6'd13;
+            6'd18: tri_v = 6'd14;
+            6'd19: tri_v = 6'd14;
+            6'd20: tri_v = 6'd15;
+            6'd21: tri_v = 6'd16;
+            6'd22: tri_v = 6'd17;
+            6'd23: tri_v = 6'd18;
+            6'd24: tri_v = 6'd18;
+            6'd25: tri_v = 6'd19;
+            6'd26: tri_v = 6'd20;
+            6'd27: tri_v = 6'd21;
+            6'd28: tri_v = 6'd21;
+            6'd29: tri_v = 6'd22;
+            6'd30: tri_v = 6'd23;
+            6'd31: tri_v = 6'd24;
+            6'd32: tri_v = 6'd24;
+            6'd33: tri_v = 6'd25;
+            6'd34: tri_v = 6'd26;
+            6'd35: tri_v = 6'd27;
+            6'd36: tri_v = 6'd27;
+            6'd37: tri_v = 6'd28;
+            6'd38: tri_v = 6'd29;
+            6'd39: tri_v = 6'd30;
+            6'd40: tri_v = 6'd30;
+            6'd41: tri_v = 6'd31;
+            6'd42: tri_v = 6'd32;
+            6'd43: tri_v = 6'd33;
+            6'd44: tri_v = 6'd34;
+            6'd45: tri_v = 6'd34;
+            6'd46: tri_v = 6'd35;
+            6'd47: tri_v = 6'd36;
+            6'd48: tri_v = 6'd37;
+            6'd49: tri_v = 6'd37;
+            6'd50: tri_v = 6'd38;
+            6'd51: tri_v = 6'd39;
+            6'd52: tri_v = 6'd40;
+            6'd53: tri_v = 6'd40;
+            6'd54: tri_v = 6'd41;
+            6'd55: tri_v = 6'd42;
+            6'd56: tri_v = 6'd43;
+            6'd57: tri_v = 6'd43;
+            6'd58: tri_v = 6'd44;
+            6'd59: tri_v = 6'd45;
+            6'd60: tri_v = 6'd46;
+            6'd61: tri_v = 6'd46;
+            6'd62: tri_v = 6'd47;
+            6'd63: tri_v = 6'd48;
+            default: tri_v = 6'd48;
         endcase
+    endfunction
 
+    wire [5:0] c_v   = tri_v(color_idx[5:0]);
+    wire [1:0] c_seg = color_idx[7:6];
+    reg  [5:0] c_r, c_g, c_b;
+    always @(*) begin
+        case (c_seg)
+            2'd0: begin c_r = 6'd52 - c_v; c_g = 6'd4;       c_b = 6'd4 + c_v; end
+            2'd1: begin c_r = 6'd4 + c_v;  c_g = 6'd4 + c_v; c_b = 6'd52 - c_v; end
+            default: begin c_r = 6'd52;    c_g = 6'd52 - c_v;c_b = 6'd4; end
+        endcase
         if (theme) begin
             c_r = {color_idx[7:3], 1'b0};
             c_g = {color_idx[7:3], 1'b0};
