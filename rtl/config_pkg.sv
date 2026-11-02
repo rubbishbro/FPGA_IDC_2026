@@ -14,7 +14,8 @@ package config_pkg;
         logic [7:0] result;
         logic signed [31:0] applied_value;
     } cfg_response_t;
-    localparam integer CFG_COUNT=21;
+    // Stable slots: removed parameters 3/4/14/15/19 stay reserved.
+    localparam integer CFG_COUNT=22;
     typedef logic [CFG_COUNT-1:0] cfg_supported_t;
     localparam cfg_supported_t DISPLAY_MASK=20'h007c0;
     localparam cfg_supported_t LOCAL_MASK=DISPLAY_MASK | 20'h10000;
@@ -100,37 +101,38 @@ package config_pkg;
     function automatic logic [15:0] cfg_id(input integer index);
         case(index)
             0:cfg_id=16'h0100; 1:cfg_id=16'h0101; 2:cfg_id=16'h0200;
-            3:cfg_id=16'h0210; 4:cfg_id=16'h0211; 5:cfg_id=16'h0300;
+            5:cfg_id=16'h0300;
             6:cfg_id=16'h0400; 7:cfg_id=16'h0401; 8:cfg_id=16'h0402;
             9:cfg_id=16'h0403;10:cfg_id=16'h0404;11:cfg_id=16'h0500;
-           12:cfg_id=16'h0501;13:cfg_id=16'h0502;14:cfg_id=16'h0600;
-           15:cfg_id=16'h0601;16:cfg_id=16'h8000;17:cfg_id=16'h8001;
-           18:cfg_id=16'h8002;19:cfg_id=16'h8003;20:cfg_id=16'h0503;default:cfg_id=16'hffff;
+           12:cfg_id=16'h0501;13:cfg_id=16'h0502;
+           16:cfg_id=16'h8000;17:cfg_id=16'h8001;
+           18:cfg_id=16'h8002;20:cfg_id=16'h0503;21:cfg_id=16'h0102;default:cfg_id=16'hffff;
         endcase
     endfunction
     function automatic integer cfg_index(input logic [15:0] id);
         cfg_index=-1;
-        for(integer i=0;i<CFG_COUNT;i=i+1) if(cfg_id(i)==id)cfg_index=i;
+        for(integer i=0;i<CFG_COUNT;i=i+1) if(cfg_id(i)!=16'hffff && cfg_id(i)==id)cfg_index=i;
     endfunction
     function automatic integer category_base(input integer category);
         case(category)
             0:category_base=0;1:category_base=2;2:category_base=5;
-            3:category_base=6;4:category_base=11;default:category_base=14;
+            3:category_base=6;4:category_base=11;default:category_base=16;
         endcase
     endfunction
     function automatic integer category_count(input integer category);
         case(category)
-            0:category_count=2;1:category_count=3;2:category_count=1;
-            3:category_count=5;4:category_count=4;default:category_count=6;
+            0:category_count=3;1:category_count=1;2:category_count=1;
+            3:category_count=5;4:category_count=4;default:category_count=3;
         endcase
     endfunction
     // Stable parameter indices; the input menu appends mode without moving system IDs.
     function automatic integer category_item(input integer category,input integer row_index);
+        if(category==0 && row_index==2)return 21;
         if(category==4 && row_index==3)return 20;
         return category_base(category)+row_index;
     endfunction
     function automatic logic cfg_action(input integer index);
-        return index>=16 && index<=19 && index!=18;
+        return index==16 || index==17;
     endfunction
     // Screen orientation is explicit. Default matches slot/row order; verify on hardware.
     function automatic logic[3:0] guide_cell_slot(input logic[3:0] cell_index);
@@ -147,8 +149,8 @@ package config_pkg;
     } guide_display_t;
     function automatic integer cfg_max(input integer index);
         case(index)
-            0,6:cfg_max=65534;1,4:cfg_max=1000;2,11,14,15:cfg_max=2;
-            12:cfg_max=16;13:cfg_max=3;16,17,19:cfg_max=0;
+            0,6:cfg_max=65534;1:cfg_max=1000;2,11:cfg_max=2;
+            21:cfg_max=32;12:cfg_max=16;13:cfg_max=3;16,17:cfg_max=0;
             default:cfg_max=1;
         endcase
     endfunction
@@ -156,20 +158,22 @@ package config_pkg;
         // Same ranges as cfg_max; bound the high bits separately so narrow
         // configuration values never require a cascaded signed 32-bit compare.
         if(index<0 || index>=CFG_COUNT || value[31]) return 1'b0;
+        if(cfg_id(index)==16'hffff) return 1'b0;
         case(index)
             0,6:return value[31:16]==0 && value[15:0]<=16'hfffe;
-            1,4:return value[31:10]==0 && value[9:0]<=10'd1000;
-            2,11,14,15:return value[31:2]==0 && value[1:0]<=2;
+            1:return value[31:10]==0 && value[9:0]<=10'd1000;
+            2,11:return value[31:2]==0 && value[1:0]<=2;
+            21:return value[31:6]==0 && value[5:0]<=6'd32;
             12:return value[31:5]==0 && value[4:0]<=5'd16;
             13:return value[31:2]==0;
-            16,17,19:return value==0;
+            16,17:return value==0;
             default:return value[31:1]==0;
         endcase
     endfunction
     function automatic cfg_values_t cfg_defaults();
         cfg_values_t v;
-        v='0;v[1]=1000;v[4]=650;v[8]=1;v[9]=1;v[10]=1;
-        v[13]=3;v[14]=1;v[15]=1;
+        v='0;v[1]=1000;v[8]=1;v[9]=1;v[10]=1;
+        v[13]=3;v[21]=16;
         return v;
     endfunction
     function automatic display_config_t display_defaults();

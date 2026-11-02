@@ -6,6 +6,7 @@ module config_dispatch #(
     parameter bit AUDIO_BACKEND=1'b0
 )(
     input logic clk,rst_n,tick_ms,
+    input logic [5:0] initial_pan=6'd16,
     input logic req_valid,
     output logic req_ready,
     input config_pkg::cfg_request_t request,
@@ -58,7 +59,7 @@ module config_dispatch #(
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n)begin
             state<=IDLE;pending<='0;response<='0;response_source<=0;remote_wait_ms<=0;
-            active_values<=cfg_defaults();render_config<=display_defaults();render_epoch<=0;
+            active_values<=cfg_defaults();active_values[21]<=32'(initial_pan>32?6'd32:initial_pan);render_config<=display_defaults();render_epoch<=0;
             index<=0;cal_age<=0;joy_recalibrate<=0;
             audio_synced<=0;backend_q<='0;audio_q<='0;audio_valid_q<=0;
             commit_audio<=0;commit_scalar<=0;boot_pending<=0;

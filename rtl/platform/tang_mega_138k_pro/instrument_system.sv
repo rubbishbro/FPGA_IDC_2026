@@ -47,6 +47,7 @@ module instrument_system #(
     // Optional demonstration moves the same mono mix; it does not synthesize audio.
     wire spatial_frame_tick;
     wire [5:0] spatial_pan;
+    logic [5:0] runtime_pan;
     generate if(STEREO_AUTO_SWEEP)begin:g_sweep
         localparam int CW=(SWEEP_HOLD_FRAMES<2)?1:$clog2(SWEEP_HOLD_FRAMES);
         logic [CW-1:0] count;
@@ -66,7 +67,7 @@ module instrument_system #(
         end
         assign spatial_pan=position;
     end else begin:g_fixed_pan
-        assign spatial_pan=pan_position;
+        assign spatial_pan=runtime_pan;
     end endgenerate
     localparam int PAD_DIV=CLK_HZ/2_500_000;
     logic [$clog2(PAD_DIV+1)-1:0] pad_div;
@@ -139,18 +140,26 @@ module instrument_system #(
     sidebar_scene_t scene;
     guide_display_t guide_display;
     logic [1:0] remote_permission;
-    wire policy_req=backend_request.id==16'h0502;
+    wire pan_req=backend_request.id==16'h0102;
+    wire policy_req=backend_request.id==16'h0502 || pan_req;
     assign backend_ready=policy_req ? !policy_rsp_valid : voice_ready && !policy_rsp_valid;
     assign backend_rsp_valid=policy_rsp_valid || voice_rsp_valid;
     assign backend_response=policy_rsp_valid ? policy_response : voice_response;
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin remote_permission<=3;policy_rsp_valid<=0;policy_response<='0;end
+        if(!core_n)begin runtime_pan<=pan_position>32?6'd32:pan_position;remote_permission<=3;policy_rsp_valid<=0;policy_response<='0;end
         else begin
             if(policy_rsp_valid && backend_rsp_ready)policy_rsp_valid<=0;
             if(backend_valid && backend_ready && policy_req)begin
                 policy_response.tag<=backend_request.tag;policy_response.id<=backend_request.id;
-                policy_response.applied_value<=32'(remote_permission);policy_rsp_valid<=1;
-                if(backend_source)policy_response.result<=CFG_DENIED;
+                policy_response.applied_value<=pan_req?32'(runtime_pan):32'(remote_permission);policy_rsp_valid<=1;
+                if(pan_req)begin
+                    if(!STEREO_ENABLE || STEREO_AUTO_SWEEP)policy_response.result<=CFG_UNSUPPORTED;
+                    else if(backend_request.value<0 || backend_request.value>32)policy_response.result<=CFG_OUT_OF_RANGE;
+                    else begin
+                        runtime_pan<=6'(backend_request.value);
+                        policy_response.applied_value<=backend_request.value;policy_response.result<=CFG_OK;
+                    end
+                end else if(backend_source)policy_response.result<=CFG_DENIED;
                 else if(backend_request.value<0 || backend_request.value>3)policy_response.result<=CFG_OUT_OF_RANGE;
                 else begin
                     remote_permission<=2'(backend_request.value);policy_response.applied_value<=backend_request.value;
@@ -387,11 +396,11 @@ module instrument_system #(
                      .JOY_SWAP_XY(1),.JOY_INVERT_X(1),.JOY_INVERT_Y(0),
                      .REVERSE_SCAN(LCD_ROTATE_180),.FONT_FILE(FONT_FILE),
                      .JOY_DEADZONE_ON(200),.JOY_DEADZONE_OFF(100)) u_ui(
-        .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
+        .rst_n(rst_n),.ctrl_clk(clk_core),.pix_clk(clk_pix),.initial_pan(pan_position),.joy_sample_valid(joy_valid),.joy_raw_x(joy_x),.joy_raw_y(joy_y),
         .key_valid(key0_valid || key1_valid),.key_event(key0_valid ? key0_event : key1_event),
         .ext_cfg_valid(ext_valid),.ext_cfg_ready(ext_ready),.ext_cfg_request(ext_request),
         .ext_rsp_valid(ext_rsp_valid),.ext_rsp_ready(bridge_state==B_WAIT),.ext_cfg_response(ext_response),
-        .backend_supported(voice_supported | 20'h02000),.backend_valid(backend_valid),.backend_ready(backend_ready),
+        .backend_supported(voice_supported | 22'h002000 | ((STEREO_ENABLE && !STEREO_AUTO_SWEEP)?22'h200000:22'd0)),.backend_valid(backend_valid),.backend_ready(backend_ready),
         .backend_request(backend_request),.backend_source(backend_source),.backend_rsp_valid(backend_rsp_valid),
         .backend_rsp_ready(backend_rsp_ready),.backend_response(backend_response),
         .backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),

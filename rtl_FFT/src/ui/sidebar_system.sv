@@ -15,6 +15,7 @@ module sidebar_system #(
     parameter LABEL_FILE="sidebar_labels.mem"
 )(
     input logic rst_n,ctrl_clk,pix_clk,
+    input logic [5:0] initial_pan=6'd16,
     input logic joy_sample_valid,
     input logic[13:0] joy_raw_x,joy_raw_y,
     input logic key_valid,
@@ -103,7 +104,7 @@ module sidebar_system #(
     logic view_done;
     sidebar_snapshot_t current_view,sent_view,done_view,wire_view,pixel_view;
     config_dispatch #(.LOCAL_SUPPORTED(LOCAL_SUPPORTED),.AUDIO_BACKEND(AUDIO_BACKEND)) u_config(
-        .clk(ctrl_clk),.rst_n(ctrl_n),.tick_ms(tick_ms),.req_valid(req_valid),.req_ready(req_ready),
+        .clk(ctrl_clk),.rst_n(ctrl_n),.tick_ms(tick_ms),.initial_pan(initial_pan),.req_valid(req_valid),.req_ready(req_ready),
         .request(request),.request_source(req_source),.rsp_valid(rsp_valid),.rsp_ready(rsp_ready),
         .response(response),.response_source(rsp_source),.backend_supported(backend_supported),
         .backend_valid(backend_valid),.backend_ready(backend_ready),.backend_request(backend_request),

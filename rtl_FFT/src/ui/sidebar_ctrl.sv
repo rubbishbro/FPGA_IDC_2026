@@ -66,7 +66,7 @@ module sidebar_ctrl #(
         if(scene.edit_index==5)limit=1; // low/high 16-note group, committed by audio backend
         if(scene.edit_index==0)limit=11; // Legacy IDs preserved; ABC piano/guitar at10/11
         if(scene.edit_index==6)limit=2; // 当前实际绘制目录：0/1/2
-        change=(scene.edit_index==1 || scene.edit_index==4)?10:1;
+        change=scene.edit_index==1?10:1;
     end
 
     always_ff @(posedge clk or negedge rst_n)begin
@@ -116,12 +116,12 @@ module sidebar_ctrl #(
                     end
                 end else if(scene.layer==2)begin
                     if(action==UP)begin
-                        if(scene.edit_index==1||scene.edit_index==4)begin
+                        if(scene.edit_index==1||scene.edit_index==21)begin
                             if(scene.draft<limit)scene.draft<=scene.draft+change>limit?limit:scene.draft+change;
                         end else if(scene.draft>0)scene.draft<=scene.draft-1;
                     end
                     if(action==DOWN)begin
-                        if(scene.edit_index==1||scene.edit_index==4)begin
+                        if(scene.edit_index==1||scene.edit_index==21)begin
                             if(scene.draft>0)scene.draft<=scene.draft<change?0:scene.draft-change;
                         end else if(scene.draft<limit)scene.draft<=scene.draft+1;
                     end

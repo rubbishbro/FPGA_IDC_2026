@@ -33,15 +33,13 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
         case(index)
             0:value_label=config_pkg::instrument_label(16'(value));
             2:value_label=value==0?50:(value==1?52:53);
-            3,8,9,10:value_label=value==0?50:51;
+            8,9,10:value_label=value==0?50:51;
             5:value_label=value==0?59:60;
             6:value_label=8'(54+value);
             7:value_label=value==0?57:58;
             11:value_label=8'(61+value);
             12:value_label=64;
             13:case(value)0:value_label=50;1:value_label=91;2:value_label=92;default:value_label=93;endcase
-            14:value_label=value==0?68:(value==1?66:69);
-            15:value_label=value==0?65:(value==1?66:67);
             18:value_label=value==0?62:63;
             20:value_label=value==0?94:95;
             default:value_label=70;
@@ -92,11 +90,11 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
     logic channel_nonzero;
     logic[12:0] slider_target;
     logic[9:0] slider_end;
-    assign numeric_values={view.scene.draft[9:0],10'(values[12]),10'(values[4]),10'(values[1])};
+    assign numeric_values={view.scene.draft[9:0],10'(values[12]),10'(values[21]),10'(values[1])};
     always_comb begin
         value_digits='0;
         value_digits[1]=number_glyphs(bcd_done[0],1'b1);
-        value_digits[4]=number_glyphs(bcd_done[1],1'b1);
+        value_digits[21]=number_glyphs(bcd_done[1],1'b0);
         value_digits[12]=number_glyphs(bcd_done[2],1'b0);
         draft_digits=number_glyphs(bcd_done[3],draft_percent_b);
     end
@@ -116,7 +114,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
                     bcd_first[i]<=bcd_five(16'd0,5'(numeric_values[i]>>5));
                     bcd_low[i]<=5'(numeric_values[i]);
                 end
-                draft_percent_a<=view.scene.edit_index==1||view.scene.edit_index==4;
+                draft_percent_a<=view.scene.edit_index==1;
                 channel_nonzero<=values[12]!=0;
                 // floor(draft*240/1000) == floor(draft*6/25), once per view.
                 slider_target<=13'(view.scene.draft[9:0])*13'd6;
@@ -183,14 +181,14 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
                         if(x>=184)begin
                             text_x=184;
                             if(!enabled)label_id=72;
-                            else if(index==1||index==4|| (index==12&&channel_nonzero))number_text=1;
+                            else if(index==1||index==21|| (index==12&&channel_nonzero))number_text=1;
                             else label_id=value_labels[index];
                         end
                     end
                 end else begin
                     index=view.scene.edit_index;digits=draft_digits;
                     if(row==0)label_id=8'(20+index);
-                    else if(index==1||index==4||index==12)begin
+                    else if(index==1||index==21||index==12)begin
                         if(row==1)begin number_text=1;text_x=80;text_y=148;end
                         if(row==3)begin label_id=81;text_x=80;end
                     end else if(cfg_action(index))begin
@@ -210,7 +208,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
                 end
                 if(!enabled)text_color={6'h16,6'h20,6'h22};
             end
-            if(view.scene.layer==2 && (view.scene.edit_index==1||view.scene.edit_index==4) &&
+            if(view.scene.layer==2 && (view.scene.edit_index==1) &&
                y>=222&&y<232 && x>=24&&x<264)begin
                 background=x<={1'b0,slider_end}?{6'h0c,6'h38,6'h2c}:{6'h0c,6'h14,6'h18};
             end

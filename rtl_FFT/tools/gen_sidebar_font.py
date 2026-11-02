@@ -15,13 +15,14 @@ LABELS={0:"",1:"设置",2:"声音",3:"效果",4:"音域",5:"显示",6:"输入",7
         86:"请松手",87:"菜单",88:"低频",89:"高频",90:"静音",91:"仅有线",92:"仅蓝牙",93:"有线与蓝牙",40:"演奏方式",94:"自动演奏",95:"引导演奏",
         110:"应按",111:"按中",112:"已按",113:"余辉",114:"当前音组",115:"超出音区",
         116:"通信异常",117:"准备中",118:"等待音符",119:"键",120:"通道",121:"仅提示",122:"MIDI",123:"演奏中"}
-for index,label in enumerate(["乐器音色","主音量","混响预设","力度线性调制","调制深度","键位音区",
+for index,label in enumerate(["乐器音色","主音量","混响预设","","","键位音区",
                               "频谱样式","视觉主题","峰值标记","显示平滑","背景网格","演奏来源",
-                              "MIDI通道","远程配置","摇杆死区","菜单连发","重新校准","立即清音",
-                              "重置通信","恢复默认"]):
+                              "MIDI通道","远程配置","","","重新校准","立即清音",
+                              "重置通信",""]):
     LABELS[20+index]=label
 for index,label in enumerate(["钢琴1","吉他1","长笛","小号","大提琴","小提琴","双簧管","鼓组","班卓","曼陀林"]):
     LABELS[100+index]=label
+LABELS[41]='声像'
 LABELS[124]='钢琴2'
 LABELS[125]='吉他2'
 
@@ -37,9 +38,20 @@ def main():
     rows=[]
     if args.reuse_bitmap:
         ids=json.loads((ROOT/'board/sidebar_glyphs.json').read_text())
-        if not set(''.join(LABELS.values())+'0123456789%#<>')<=ids.keys():
-            raise ValueError('new labels need glyphs absent from existing bitmap')
         rows=[int(row,16) for row in (ROOT/'board/sidebar_font.mem').read_text().split()]
+        missing=sorted(set(chars)-ids.keys())
+        if missing:
+            font=ImageFont.truetype(str(args.font),15,index=2)
+            for ch in missing:
+                glyph_id=max(ids.values())+1
+                if glyph_id>=256:raise ValueError('glyph ROM full')
+                ids[ch]=glyph_id
+                image=Image.new('L',(16,16),0)
+                draw=ImageDraw.Draw(image)
+                box=draw.textbbox((0,0),ch,font=font)
+                draw.text(((16-(box[2]-box[0]))//2-box[0],(16-(box[3]-box[1]))//2-box[1]),ch,font=font,fill=255)
+                rows[glyph_id*16:glyph_id*16+16]=[
+                    sum((image.getpixel((x,y))>=96)<<(15-x) for x in range(16)) for y in range(16)]
     else:
         font=ImageFont.truetype(str(args.font),15,index=2)  # Noto CJK SC
         for ch in chars:

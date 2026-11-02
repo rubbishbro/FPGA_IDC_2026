@@ -1,4 +1,4 @@
-// Generated glyph constants only; label text lives in sidebar_labels.mem.
+// Generated glyph constants; label text lives in sidebar_labels.mem.
 // Bitmap source: Noto Sans CJK SC (OFL-1.1).
 package sidebar_font_pkg;
     function automatic logic[7:0] digit_glyph(input logic[3:0] digit);
