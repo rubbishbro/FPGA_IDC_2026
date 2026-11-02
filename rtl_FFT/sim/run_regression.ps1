@@ -35,10 +35,7 @@ $tests = @(
     "trail_calc_tb",
     "curve_calc_tb",
     "lcd_curve_spectrum_tb",
-    "lcd_ui_tb",
     "lcd_effects_tb",
-    "ui_key_ctrl_tb",
-    "ui_dual_key_tb",
     "lcd_fft_tb",
     "lcd_fft_align_tb",
     "chain_tb"

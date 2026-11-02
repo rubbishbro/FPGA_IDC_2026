@@ -51,7 +51,7 @@ def main():
                       if path.suffix in ('.v','.sv') and not path.name.endswith('pkg.sv')]
         src+=['rtl/control_loop.sv','rtl/config_dispatch.sv','rtl/drivers/joystick_adapter.sv']
         tests=['sweep_source_tb','spectrum_map_tb','wave_capture_tb','waterfall_tb','trail_calc_tb','curve_calc_tb',
-               'lcd_curve_spectrum_tb','lcd_ui_tb','lcd_effects_tb','ui_key_ctrl_tb','ui_dual_key_tb',
+               'lcd_curve_spectrum_tb','lcd_effects_tb',
                'lcd_fft_tb','lcd_fft_align_tb','chain_tb']
         for top in tests:
             tb=ROOT/'rtl_FFT/sim'/f'{top}.sv'

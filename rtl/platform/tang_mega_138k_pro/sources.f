@@ -68,7 +68,6 @@ rtl_FFT/src/ui/sidebar_system.sv
 rtl_FFT/src/display/lcd_sidebar.sv
 rtl_FFT/src/display/lcd_pad_guide.sv
 rtl_FFT/src/display/lcd_draw.v
-rtl_FFT/src/display/lcd_ui.sv
 rtl_FFT/src/display/lcd_fft.v
 rtl_FFT/src/display/lcd_wave.v
 rtl_FFT/src/display/lcd_curve_spectrum.sv
