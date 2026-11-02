@@ -183,9 +183,9 @@ module sidebar_system #(
     logic[2:0] de_q;
     wire overlay_hit,guide_hit;
     wire [5:0] guide_r,guide_g,guide_b;
-    lcd_draw #(.LEGACY_UI(1'b0),.REVERSE_SCAN(REVERSE_SCAN)) u_spectrum(
+    lcd_draw #(.REVERSE_SCAN(REVERSE_SCAN)) u_spectrum(
         .clk(pix_clk),.rst_n(pix_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
-        .pix_x(pix_x),.pix_y(pix_y),.page_sel(page),.ui_setting_sel(2'd0),.effects(effects),
+        .pix_x(pix_x),.pix_y(pix_y),.page_sel(page),.effects(effects),
         .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
         .curve_rd_data(curve_rd_data),.curve_rd_addr(curve_rd_addr),
         .lcd_r(base_r),.lcd_g(base_g),.lcd_b(base_b));

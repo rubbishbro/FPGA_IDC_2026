@@ -62,6 +62,11 @@ module tb_sidebar_render;
         if(dut.options[2]!=={1'b1,1'b0,8'd124} ||
            dut.options[3]!=={1'b1,1'b1,8'd125} || dut.options[4][9])
             $fatal(1,"guitar2 selection missing or out-of-range entry visible");
+        view.scene.layer=1;view.scene.category=2;view.scene.selection=0;
+        view.values[5]=2;view.supported[5]=1;
+        frame();repeat(4)@(negedge clk);
+        if(dut.value_labels[5]!=126)$fatal(1,"custom binding label not prepared");
+        capture({filename,".custom.ppm"});
         view.scene.open=0;
         for(integer i=0;i<12;i=i+1)frame();
         if(width!=0)$fatal(1,"close easing endpoint");

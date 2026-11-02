@@ -13,3 +13,5 @@
 | [赛题要求](../reference_agent_readfirst/competition_requements_most_important.md) | IDC 赛题原文（agent 阅读依据） |
 
 架构示意图资产保留在 `diagrams/`。不要再引用已删除的 `音频设计.md`、`工程验证.md`、`赛题验收.md`、`控制设计.md`、`MIDI接入.md` 等旧文件。
+
+- [自定义键位与演奏指引](自定义键位与演奏指引.md)：同一乐器16键绑定、蓝牙提交、UI状态及指引设计（2026-11-03源码/仿真，未烧录）。

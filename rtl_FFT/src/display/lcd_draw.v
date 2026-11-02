@@ -1,4 +1,4 @@
-module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
+module lcd_draw #(parameter REVERSE_SCAN=1'b0) (
     // 33.333 MHz 像素时钟与低有效复位
     input               clk,
     input               rst_n,
@@ -13,9 +13,8 @@ module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
     input       [9:0]   pix_y,
 
     // page_sel：页面选择
-    //   00 = 柱状图，01 = 波形，10 = 瀑布图，11 = 设置
+    //   00 = 柱状图，01 = 波形，10 = 极坐标，11 = 无基础图层
     input       [1:0]   page_sel,
-    input       [1:0]   ui_setting_sel,
     input       [3:0]   effects,
 
     // ---------------- 柱状图参数 ----------------
@@ -45,9 +44,6 @@ module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
     wire [5:0]  fft_r, fft_g, fft_b;
     wire [5:0]  wave_r, wave_g, wave_b;
     wire [5:0]  curve_r, curve_g, curve_b;
-    wire        ui_hit;
-    wire [5:0]  ui_r, ui_g, ui_b;
-
     lcd_background u_bg(
         .pix_x(pix_x), .pix_y(pix_y), .grid_en(effects[3]),
         .grid_hit(bg_hit), .grid_r(bg_r), .grid_g(bg_g), .grid_b(bg_b)
@@ -76,14 +72,7 @@ module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
         .hit(curve_hit), .r(curve_r), .g(curve_g), .b(curve_b)
     );
 
-    lcd_ui u_ui(
-        .lcd_valid(lcd_valid),
-        .pix_x(pix_x), .pix_y(pix_y),
-        .page(page_sel), .setting_sel(ui_setting_sel), .effects(effects),
-        .ui_hit(ui_hit), .ui_r(ui_r), .ui_g(ui_g), .ui_b(ui_b)
-    );
-
-    // ===== page selection: 00=BARS, 01=WAVE, 10=FALL, 11=SETTINGS =====
+    // Base visualization selection: 00=BARS, 01=WAVE, 10=POLAR.
     wire        page_hit;
     wire [5:0]  page_r, page_g, page_b;
 
@@ -100,18 +89,14 @@ module lcd_draw #(parameter LEGACY_UI=1'b1, parameter REVERSE_SCAN=1'b0) (
                       (page_sel == 2'b01) ? wave_b   :
                       (page_sel == 2'b10) ? curve_b   : 6'h00;
 
-    // ===== priority: UI > page content > grid > background =====
+    // ===== priority: page content > grid > background =====
     // The polar page owns the whole screen; hide the global grid there.
     wire bg_hit_eff = (page_sel == 2'b10) ? 1'b0 : bg_hit;
     wire [5:0] base_r = page_hit ? page_r : bg_hit_eff ? bg_r : 6'h00;
     wire [5:0] base_g = page_hit ? page_g : bg_hit_eff ? bg_g : 6'h00;
     wire [5:0] base_b = page_hit ? page_b : bg_hit_eff ? bg_b : 6'h00;
-    wire [5:0] draw_r = (LEGACY_UI && ui_hit) ? ui_r : base_r;
-    wire [5:0] draw_g = (LEGACY_UI && ui_hit) ? ui_g : base_g;
-    wire [5:0] draw_b = (LEGACY_UI && ui_hit) ? ui_b : base_b;
-
-    assign lcd_r = lcd_valid ? draw_r : 6'b0;
-    assign lcd_g = lcd_valid ? draw_g : 6'b0;
-    assign lcd_b = lcd_valid ? draw_b : 6'b0;
+    assign lcd_r = lcd_valid ? base_r : 6'b0;
+    assign lcd_g = lcd_valid ? base_g : 6'b0;
+    assign lcd_b = lcd_valid ? base_b : 6'b0;
 
 endmodule

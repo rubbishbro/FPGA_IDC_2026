@@ -41,8 +41,8 @@ module tb_midi_guide;
         .frame_pulse(frame_pulse),.lcd_valid(1'b0),.pix_x(10'd0),.pix_y(10'd0),.q_y(10'd0),.q_ov(10'd0),
         .wave_rd_data(10'd0),.wave_rd_addr(),.curve_rd_data(40'd0),.curve_rd_addr(),
         .lcd_r(),.lcd_g(),.lcd_b(),.lcd_valid_out(),.active_values(values),.ui_scene(scene),.sidebar_width());
-    midi_voice_top #(.SLOTS(16),.N_MODES(4),.CLK_HZ(10_000_000),.SR_HZ(1000),
-        .NOTE_BANKS(1),.CONFIG_BACKEND(1),.SINGLE_SOURCE(0),.CONFIG_TIMEOUT_CYCLES(3_000_000)) sound(
+    midi_voice_top #(.SLOTS(16),.N_MODES(4),.CLK_HZ(1_000_000),.SR_HZ(48000),
+        .NOTE_BANKS(1),.CONFIG_BACKEND(1),.SINGLE_SOURCE(0),.CONFIG_TIMEOUT_CYCLES(300_000)) sound(
         .clk(clk),.rst_n(rst_n),.audio_clk(clk),.run(1'b1),.fmap(fmap),
         .pan_position(6'd16),.itd_enable(1'b0),.amp_bclk(),.amp_ws(),.amp_din(),
         .audio_sample_tick(),.audio_deadline_miss(),.audio_overflow(),.audio_underflow(),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
@@ -138,7 +138,9 @@ module tb_midi_guide;
         config_set(16'h0503,0);send(1,1,1,64,100);wait(idle);samples(3);
         ck(sound.u_notes.slot_gate[0] && sound.u_voice.note_on[0],"auto MIDI performance restored");
         config_set(16'h0503,1);ck(sound.u_notes.slot_gate==0 && guide.target==0,"auto to guide clears old MIDI ownership");
-        blank=1;config_send(16'h0300,0);config_result(CFG_FAILED);
+        config_send(16'h0300,0);
+        wait(sound.load_complete);force sound.load_err=1'b1;
+        config_result(CFG_FAILED);release sound.load_err;
         ck(audio_fault && !guide.enabled && values[5]==1 && values[20]==1,"failed load never publishes target map/mode");
         blank=0;config_set(16'h8001,0);ck(!audio_fault && guide.enabled && guide.target==0,"explicit clear recovers guide after real reload");
         config_set(16'h0500,0);ck(values[20]==0 && audio_state.source==0,"return to PAD resets guide in joint snapshot");

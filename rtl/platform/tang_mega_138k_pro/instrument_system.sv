@@ -132,6 +132,26 @@ module instrument_system #(
         .cfg_valid(cfg_valid),.cfg_ready(cfg_ready),.cfg_source_id(cfg_source),.cfg_seq(cfg_seq),.cfg_command(cfg_cmd),
         .cfg_payload_len(cfg_len),.cfg_shadow(cfg_shadow),.cfg_done_valid(cfg_done),.cfg_done_ready(cfg_done_ready),.cfg_result(cfg_result),.perf_valid(perf_valid),.perf_ready(perf_ready),.perf_seq(perf_seq),.perf_payload(perf_payload));
 
+    logic ext_valid,ext_ready,ext_rsp_valid;
+    cfg_request_t ext_request;
+    cfg_response_t ext_response;
+    typedef enum logic [3:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN,B_REC_START,B_REC_STOP,B_KEY_SEND,B_KEY_WAIT} bridge_t;
+    // Finish within the 500ms host deadline, reserving 100ms for the reply.
+    localparam int REC_WAIT_CYCLES=(CLK_HZ/5)*2;
+    bridge_t bridge_state;
+    logic ctx_source;
+    logic [15:0] ctx_seq;
+    logic [7:0] ctx_cmd;
+    logic [6:0] ctx_len;
+    logic [511:0] ctx_shadow;
+    logic [$clog2(CLK_HZ/50+1)-1:0] remote_admit_age;
+    logic [3:0] key_scan_slot;
+    logic key_note_supported;
+    localparam logic [111:0] COMM_NOTE_MAP=router_pkg::default_note_map();
+    wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
+
+    logic keymap_valid,keymap_ready,keymap_rsp_valid;
+    logic [7:0] keymap_result;
     logic backend_valid,backend_ready,backend_source,backend_rsp_valid,backend_rsp_ready;
     cfg_request_t backend_request;
     cfg_response_t backend_response,voice_response,policy_response;
@@ -190,6 +210,8 @@ module instrument_system #(
         .backend_ready(voice_ready),.backend_request(backend_request),.backend_rsp_valid(voice_rsp_valid),
         .backend_rsp_ready(backend_rsp_ready && !policy_rsp_valid),.backend_response(voice_response),
         .backend_supported(voice_supported),.backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
+        .keymap_valid(keymap_valid),.keymap_ready(keymap_ready),.keymap_entries(ctx_shadow[263:8]),
+        .keymap_rsp_valid(keymap_rsp_valid),.keymap_rsp_ready(bridge_state==B_KEY_WAIT),.keymap_result(keymap_result),
         .event_valid(event_valid),.event_ready(event_ready),.event_data(event_data),.event_source_id(event_source),
         .source_cleanup_req(quarantine),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),.midi_ops_idle(midi_idle),
         .control_valid(),.control_cancel(),.control_ready(1'b0),.control_data(),.control_source_id(),
@@ -203,23 +225,6 @@ module instrument_system #(
     assign dac_pa_en=amp_sd; // XPT4809 active-high enable, board H17.
     assign amp_sd=rst_n && audio_reset[2] && audio_valid && !audio_fault;
 
-    logic ext_valid,ext_ready,ext_rsp_valid;
-    cfg_request_t ext_request;
-    cfg_response_t ext_response;
-    typedef enum logic [2:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN,B_REC_START,B_REC_STOP} bridge_t;
-    // Finish within the 500ms host deadline, reserving 100ms for the reply.
-    localparam int REC_WAIT_CYCLES=(CLK_HZ/5)*2;
-    bridge_t bridge_state;
-    logic ctx_source;
-    logic [15:0] ctx_seq;
-    logic [7:0] ctx_cmd;
-    logic [6:0] ctx_len;
-    logic [511:0] ctx_shadow;
-    logic [$clog2(CLK_HZ/50+1)-1:0] remote_admit_age;
-    logic [3:0] key_scan_slot;
-    logic key_note_supported;
-    localparam logic [111:0] COMM_NOTE_MAP=router_pkg::default_note_map();
-    wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
     always_comb begin
         key_note_supported=0;
         if(NOTE_BANKS)key_note_supported=router_pkg::note_in_range(
@@ -227,6 +232,7 @@ module instrument_system #(
         else for(int slot=0;slot<16;slot++)
             if(key_scan_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
     end
+    assign keymap_valid=bridge_state==B_KEY_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
     assign cfg_ready=bridge_state==B_IDLE && core_n;
     assign cfg_done=bridge_state==B_DONE && core_n;
     assign ext_valid=bridge_state==B_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
@@ -238,7 +244,7 @@ module instrument_system #(
         rec_start<=0;rec_stop<=0;rec_abort<=0;
         // A local permission change also cancels a take between CONFIG requests.
         if(!remote_permission[0] && (rec_active || rec_draining))rec_abort<=1;
-        if(bridge_state!=B_SEND)remote_admit_age<=0;
+        if(bridge_state!=B_SEND && bridge_state!=B_KEY_SEND)remote_admit_age<=0;
         else if(remote_admit_age<CLK_HZ/50)remote_admit_age<=remote_admit_age+1'b1;
         if(bridge_state==B_REC_START || bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
         else rec_wait_timer<=0;
@@ -267,8 +273,7 @@ module instrument_system #(
                 end
                 else if(ctx_cmd==2 && ctx_len==2 && ctx_shadow[15:8]<=2)bridge_state<=B_SEND;
                 else if(ctx_cmd==8'h20 && ctx_len==33)begin
-                    // Protocol supports the atomic table descriptor, but this backend
-                    // cannot route a different instrument for every pad. No partial write.
+                    // Same-instrument tables: validate the whole table, then load/commit atomically.
                     key_scan_slot<=0;bridge_state<=B_KEY_SCAN;
                 end else begin cfg_result<=1;bridge_state<=B_DONE;end
             end
@@ -283,10 +288,16 @@ module instrument_system #(
                 bridge_state<=B_DONE;
             end
             B_KEY_SCAN:begin
-                if(!key_note_supported)begin cfg_result<=3;bridge_state<=B_DONE;end
-                else if(key_scan_slot==15)begin cfg_result<=6;bridge_state<=B_DONE;end
+                if(!key_note_supported || ctx_shadow[(1+2*key_scan_slot)*8 +:8]!=ctx_shadow[15:8])begin cfg_result<=3;bridge_state<=B_DONE;end
+                else if(key_scan_slot==15)begin bridge_state<=B_KEY_SEND;end
                 else key_scan_slot<=key_scan_slot+1'b1;
             end
+            B_KEY_SEND:begin
+                if(quarantine[ctx_source] || !remote_permission[ctx_source])begin cfg_result<=6;bridge_state<=B_DONE;end
+                else if(keymap_ready)bridge_state<=B_KEY_WAIT;
+                else if(remote_admit_age>=CLK_HZ/50)begin cfg_result<=4;bridge_state<=B_DONE;end
+            end
+            B_KEY_WAIT:if(keymap_rsp_valid)begin cfg_result<=keymap_result;bridge_state<=B_DONE;end
             B_REC_START:begin
                 if(quarantine[0] || !remote_permission[0] || !rec_eligible)begin
                     rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;

@@ -144,10 +144,15 @@ module tb_sidebar_system #(parameter integer PIX_HALF=7);
         if(active_values[0]!=5)$fatal(1,"mismatched completion adopted");
         send(16'h109,16'h8000,0);result(16'h109,16'h8000,CFG_OK);
         if(!dut.joy_calibrated)$fatal(1,"calibration prematurely completed");
-        // 配置结果反压期间，可在 loop 暂存下一条，但不能覆盖正在返回的结果。
+        // Current admission waits for the outstanding reply to retire. Drive
+        // the next request concurrently with consuming that reply, rather than
+        // waiting for its acceptance before making the old reply ready.
         send(16'h10a,16'h0402,0);wait(ext_rsp_valid);
-        send(16'h10b,16'h0404,0);clocks(80);
-        result(16'h10a,16'h0402,CFG_OK);result(16'h10b,16'h0404,CFG_OK);
+        fork
+            send(16'h10b,16'h0404,0);
+            begin clocks(80);result(16'h10a,16'h0402,CFG_OK);end
+        join
+        result(16'h10b,16'h0404,CFG_OK);
         if(active_values[8]!=0||active_values[10]!=0)$fatal(1,"buffered config lost");
         if(requests!=results)$fatal(1,"request/result accounting %0d/%0d",requests,results);
         frames_enabled=0;clocks(100);send(16'h200,16'h0400,0);clocks(100);

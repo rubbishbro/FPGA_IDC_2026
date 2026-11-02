@@ -1,0 +1,1260 @@
+{
+  "sample_rate": 48828,
+  "source_sha256": "f13bac50a3c02f48c041d83a61ede05418f10da81ae32577e73fbe60cbaf13ec",
+  "source": "/home/rubbishbro/Desktop/FPGA_IDC_2026/FFT_results/params/drums.npz",
+  "lfsr": {
+    "mask": "0x80200003",
+    "period": 4294967295,
+    "period_proven": true,
+    "mean": 0.00331,
+    "lag1": 0.0019450097250486252,
+    "output": "one bipolar bit per audio sample; one Galois right-shift per sample"
+  },
+  "shared_output_gain": 0.44059271968973995,
+  "files": {
+    "full_dry.wav": {
+      "seconds": 40.277770951093636,
+      "peak": 0.668914794921875,
+      "rms": 0.04300619160778196,
+      "clipped": 0
+    },
+    "groove_dry.wav": {
+      "seconds": 21.077762759072662,
+      "peak": 0.668914794921875,
+      "rms": 0.05639485477921592,
+      "clipped": 0
+    },
+    "full_fir.wav": {
+      "seconds": 40.277770951093636,
+      "peak": 0.665924072265625,
+      "rms": 0.04472292850063094,
+      "clipped": 0
+    },
+    "groove_fir.wav": {
+      "seconds": 21.077762759072662,
+      "peak": 0.665924072265625,
+      "rms": 0.058416479388672504,
+      "clipped": 0
+    },
+    "full_compact.wav": {
+      "seconds": 40.277770951093636,
+      "peak": 0.8499755859375,
+      "rms": 0.04512193917131813,
+      "clipped": 0
+    },
+    "groove_compact.wav": {
+      "seconds": 21.077762759072662,
+      "peak": 0.8499755859375,
+      "rms": 0.05901508639299897,
+      "clipped": 0
+    },
+    "groove_AB_dry_compact.wav": {
+      "seconds": 43.155525518145325,
+      "peak": 0.8499755859375,
+      "rms": 0.05704717914733918,
+      "clipped": 0
+    }
+  },
+  "events": [
+    {
+      "time": 0.3,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 1.95,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 3.5999999999999996,
+      "key": "tom",
+      "velocity": 0.9,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 5.249999999999999,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 6.8999999999999995,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 8.55,
+      "key": "crash",
+      "velocity": 0.9,
+      "pad": "crash",
+      "hold_s": 0.06
+    },
+    {
+      "time": 10.4,
+      "key": "snare",
+      "velocity": 0.35,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 11.1,
+      "key": "snare",
+      "velocity": 0.65,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 11.8,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 12.7,
+      "key": "crash",
+      "velocity": 0.65,
+      "pad": "crash",
+      "hold_s": 0.04
+    },
+    {
+      "time": 15.9,
+      "key": "crash",
+      "velocity": 0.65,
+      "pad": "crash",
+      "hold_s": 1.4
+    },
+    {
+      "time": 19.2,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 19.2,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 19.2,
+      "key": "crash",
+      "velocity": 0.65,
+      "pad": "crash",
+      "hold_s": 0.06
+    },
+    {
+      "time": 19.477777777777778,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 19.755555555555556,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 19.755555555555556,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.03333333333333,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.31111111111111,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.31111111111111,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.58888888888889,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.58888888888889,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.866666666666667,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 20.866666666666667,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.144444444444446,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.42222222222222,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.42222222222222,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.7,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.977777777777778,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 21.977777777777778,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 22.255555555555553,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 22.53333333333333,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 22.53333333333333,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 22.81111111111111,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 22.81111111111111,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.08888888888889,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.08888888888889,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.366666666666667,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.644444444444446,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.644444444444446,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 23.922222222222224,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 24.200000000000003,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 24.200000000000003,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 24.477777777777778,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 24.755555555555556,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 24.755555555555556,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.033333333333335,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.033333333333335,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.311111111111114,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.311111111111114,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.58888888888889,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.866666666666667,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 25.866666666666667,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.144444444444446,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.422222222222224,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.422222222222224,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.7,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.977777777777778,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.977777777777778,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 26.977777777777778,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.116666666666667,
+      "key": "snare",
+      "velocity": 0.65,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.255555555555556,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.255555555555556,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.255555555555556,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.394444444444446,
+      "key": "snare",
+      "velocity": 0.65,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.533333333333335,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.533333333333335,
+      "key": "tom",
+      "velocity": 0.9,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.533333333333335,
+      "key": "hat",
+      "velocity": 0.9,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.672222222222224,
+      "key": "tom",
+      "velocity": 0.65,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.81111111111111,
+      "key": "tom",
+      "velocity": 0.9,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.81111111111111,
+      "key": "hat",
+      "velocity": 0.65,
+      "pad": "hat",
+      "hold_s": 0.06
+    },
+    {
+      "time": 27.95,
+      "key": "tom",
+      "velocity": 0.65,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.08888888888889,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.08888888888889,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.08888888888889,
+      "key": "crash",
+      "velocity": 0.65,
+      "pad": "crash",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.366666666666667,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.644444444444446,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.644444444444446,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 28.92222222222222,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.2,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.2,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.477777777777778,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.477777777777778,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.755555555555556,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 29.755555555555556,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.03333333333333,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.31111111111111,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.31111111111111,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.58888888888889,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.866666666666667,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 30.866666666666667,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.144444444444442,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.42222222222222,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.42222222222222,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.7,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.7,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.977777777777778,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 31.977777777777778,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 32.25555555555555,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 32.53333333333333,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 32.53333333333333,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 32.81111111111111,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.08888888888889,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.08888888888889,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.36666666666667,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.644444444444446,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.644444444444446,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.92222222222222,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 33.92222222222222,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 34.199999999999996,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 34.199999999999996,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 34.477777777777774,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 34.75555555555556,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 34.75555555555556,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.03333333333334,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.31111111111112,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.31111111111112,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.588888888888896,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.866666666666674,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.866666666666674,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 35.866666666666674,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.00555555555556,
+      "key": "snare",
+      "velocity": 0.65,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.144444444444446,
+      "key": "kick",
+      "velocity": 0.65,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.144444444444446,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.144444444444446,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.28333333333334,
+      "key": "snare",
+      "velocity": 0.65,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.422222222222224,
+      "key": "snare",
+      "velocity": 0.9,
+      "pad": "snare",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.422222222222224,
+      "key": "tom",
+      "velocity": 0.9,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.422222222222224,
+      "key": "ride",
+      "velocity": 0.9,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.56111111111112,
+      "key": "tom",
+      "velocity": 0.65,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.7,
+      "key": "tom",
+      "velocity": 0.9,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.7,
+      "key": "ride",
+      "velocity": 0.65,
+      "pad": "ride",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.838888888888896,
+      "key": "tom",
+      "velocity": 0.65,
+      "pad": "tom",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.977777777777774,
+      "key": "kick",
+      "velocity": 0.9,
+      "pad": "kick",
+      "hold_s": 0.06
+    },
+    {
+      "time": 36.977777777777774,
+      "key": "crash",
+      "velocity": 0.9,
+      "pad": "crash",
+      "hold_s": 0.06
+    }
+  ],
+  "compact_tables": {
+    "kick": [
+      {
+        "name": "tail",
+        "seed": 2568278720,
+        "decay_q": 16776863,
+        "initial_envelope_q": 16777216,
+        "gain": 0.005274380781451588,
+        "band": {
+          "low_hz": 30,
+          "high_hz": 60,
+          "lo_q": 64642,
+          "hi_q": 129035,
+          "inverse_rms": 39.42409998122514,
+          "shape_fit_loss": 0.18145274899932426
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ],
+    "snare": [
+      {
+        "name": "tail",
+        "seed": 3812112499,
+        "decay_q": 16766716,
+        "initial_envelope_q": 16777216,
+        "gain": 0.28635575329598545,
+        "band": {
+          "low_hz": 100,
+          "high_hz": 180,
+          "lo_q": 214506,
+          "hi_q": 384135,
+          "inverse_rms": 26.078121621909364,
+          "shape_fit_loss": 0.6343955394590749
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ],
+    "tom": [
+      {
+        "name": "tail",
+        "seed": 844016621,
+        "decay_q": 16775673,
+        "initial_envelope_q": 16777216,
+        "gain": 0.12063086531065711,
+        "band": {
+          "low_hz": 30,
+          "high_hz": 60,
+          "lo_q": 64642,
+          "hi_q": 129035,
+          "inverse_rms": 39.42409998122514,
+          "shape_fit_loss": 0.2822827396197385
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ],
+    "hat": [
+      {
+        "name": "tail",
+        "seed": 1841080199,
+        "decay_q": 16763235,
+        "initial_envelope_q": 16777216,
+        "gain": 0.20162688842945256,
+        "band": {
+          "low_hz": 12000,
+          "high_hz": 18000,
+          "lo_q": 13195428,
+          "hi_q": 15122247,
+          "inverse_rms": 7.033781675441182,
+          "shape_fit_loss": 0.19376333867427917
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ],
+    "ride": [
+      {
+        "name": "tail",
+        "seed": 1725593876,
+        "decay_q": 16776967,
+        "initial_envelope_q": 16777216,
+        "gain": 0.010257906157304599,
+        "band": {
+          "low_hz": 500,
+          "high_hz": 8000,
+          "lo_q": 1045453,
+          "hi_q": 10784276,
+          "inverse_rms": 1.61098302058732,
+          "shape_fit_loss": 0.7549444889417581
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      },
+      {
+        "name": "attack",
+        "seed": 2209250711,
+        "decay_q": 16747935,
+        "initial_envelope_q": 16777216,
+        "gain": 0.09053117171871763,
+        "band": {
+          "low_hz": 12000,
+          "high_hz": 18000,
+          "lo_q": 13195428,
+          "hi_q": 15122247,
+          "inverse_rms": 7.033781675441182,
+          "shape_fit_loss": 0.5604624750106363
+        },
+        "slots": [
+          50,
+          51
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ],
+    "crash": [
+      {
+        "name": "tail",
+        "seed": 2492141716,
+        "decay_q": 16776810,
+        "initial_envelope_q": 16777216,
+        "gain": 0.137464335772827,
+        "band": {
+          "low_hz": 3800,
+          "high_hz": 5500,
+          "lo_q": 6488601,
+          "hi_q": 8510131,
+          "inverse_rms": 7.607480238427469,
+          "shape_fit_loss": 1.365737620363213
+        },
+        "slots": [
+          48,
+          49
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      },
+      {
+        "name": "attack",
+        "seed": 2353254001,
+        "decay_q": 16765135,
+        "initial_envelope_q": 16777216,
+        "gain": 0.05445565295984845,
+        "band": {
+          "low_hz": 500,
+          "high_hz": 1200,
+          "lo_q": 1045453,
+          "hi_q": 2400559,
+          "inverse_rms": 7.360901422261663,
+          "shape_fit_loss": 1.0259575027381325
+        },
+        "slots": [
+          50,
+          51
+        ],
+        "state_words": [
+          "lfsr_u32",
+          "envelope_uq24",
+          "lowpass_lo_q24",
+          "lowpass_hi_q24"
+        ]
+      }
+    ]
+  },
+  "modal_metrics": {
+    "kick": {
+      "modes": 48,
+      "length_s": 1.8291030962051567,
+      "saturated_states": 0
+    },
+    "snare": {
+      "modes": 48,
+      "length_s": 0.5762910936248248,
+      "saturated_states": 0
+    },
+    "tom": {
+      "modes": 27,
+      "length_s": 3.0,
+      "saturated_states": 0
+    },
+    "hat": {
+      "modes": 48,
+      "length_s": 0.39217628114876146,
+      "saturated_states": 0
+    },
+    "ride": {
+      "modes": 48,
+      "length_s": 3.0,
+      "saturated_states": 0
+    },
+    "crash": {
+      "modes": 48,
+      "length_s": 3.0,
+      "saturated_states": 0
+    }
+  },
+  "scope": "Proposal Python audition, not production RTL. Same modal waveforms/events/gains across variants.",
+  "fir_reference": "Old 257-tap frequency-sampled Hamming shape, unit-RMS filter; bipolar LFSR instead of Gaussian, causal delay 128 samples.",
+  "compact": "Q24 two-lowpass difference approximates each old spectral curve; Q24 exponential envelope. Floating branch gain/output mix. Max 4 spare slots for current NPZ.",
+  "limitations": [
+    "No noise-shape equivalence claim for compact vs FIR",
+    "No body/reverb/ADC/scheduling or board gain",
+    "5ms retrigger overlap retains old tail outside one lane; RTL needs temporary fade state or a non-overlap fade/restart",
+    "Resetting branch seed per hit makes identical hits repeat; continuous or varying nonzero seeds can be added later"
+  ]
+}

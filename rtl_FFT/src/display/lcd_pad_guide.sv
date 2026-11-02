@@ -21,7 +21,7 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FI
         end
     endfunction
     wire [111:0] note_map=view.note_map;
-    wire [15:0] targets=view.target,presses=view.pressed,glows=view.glow;
+    wire [15:0] targets=view.target,presses=view.pressed,glows=view.glow,matched=view.matched;
     logic [15:0][23:0] note_digits;
     logic [23:0] channel_digits,outside_digits;
     logic prep;
@@ -59,7 +59,7 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FI
             else if(pix_x<688)begin
                 if(pix_x<608)begin text_x=552;label_id=120;end
                 else begin text_x=608;digits={channel_digits[15:0],8'd0};end
-            end else begin text_x=704;label_id=view.banked?(view.audio.bank?60:59):114;end
+            end else begin text_x=704;label_id=view.audio.custom_keys?126:(view.banked?(view.audio.bank?60:59):114);end
         end else if(pix_y<80)begin
             text_y=56;
             if(pix_x<400)begin text_x=80;label_id=121;end
@@ -77,11 +77,11 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FI
                 cell_border=lx<8 || lx>=152 || ly<8 || ly>=72;
                 background={6'h07,6'h0e,6'h13};
                 if(targets[slot_index])begin
-                    background=presses[slot_index]?{6'h08,6'h27,6'h1b}:{6'h2d,6'h23,6'h07};
+                    background=matched[slot_index]?{6'h08,6'h27,6'h1b}:{6'h2d,6'h23,6'h07};
                 end else if(glows[slot_index])background={6'h16,6'h13,6'h08};
                 if(cell_border)begin
                     if(presses[slot_index] && !targets[slot_index])background={6'h0c,6'h28,6'h3e};
-                    else if(targets[slot_index])background=presses[slot_index]?{6'h13,6'h38,6'h27}:{6'h3c,6'h30,6'h0b};
+                    else if(targets[slot_index])background=matched[slot_index]?{6'h13,6'h38,6'h27}:{6'h3c,6'h30,6'h0b};
                 end
                 if(ly<36)begin
                     text_y=10'd88+{row,6'd0}+{row,4'd0}+10'd14;
@@ -96,7 +96,7 @@ module lcd_pad_guide #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FI
                         endcase
                     end else begin
                         text_x=10'd80+{col,7'd0}+{col,5'd0}+10'd104;
-                        label_id=targets[slot_index]?(presses[slot_index]?111:110):
+                        label_id=targets[slot_index]?(matched[slot_index]?111:110):
                                  presses[slot_index]?112:glows[slot_index]?113:0;
                     end
                 end else begin

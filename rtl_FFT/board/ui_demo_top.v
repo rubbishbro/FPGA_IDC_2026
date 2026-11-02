@@ -1,6 +1,5 @@
 module ui_demo_top #(
-    parameter       SWEEP_MODE = 1'b0,
-    parameter       SIDEBAR_UI = 1'b1
+    parameter       SWEEP_MODE = 1'b0
 ) (
     input           clk,
     input           rst_n,
@@ -21,16 +20,6 @@ module ui_demo_top #(
     wire        frame_pulse;
     wire [9:0]  pix_x;
     wire [9:0]  pix_y;
-
-    wire        ev_valid;
-    wire [2:0]  ev;
-    wire        ev0_valid;
-    wire [2:0]  ev0;
-    wire        ev1_valid;
-    wire [2:0]  ev1;
-    wire [1:0]  page;
-    wire [1:0]  setting_sel;
-    wire [3:0]  effects;
 
     wire [9:0]  q_y;
     wire [9:0]  q_ov;
@@ -75,46 +64,7 @@ module ui_demo_top #(
     always @(posedge pix_clk or negedge rst_pix_n)
         if(!rst_pix_n)sidebar_de_q<=1'b0;
         else sidebar_de_q<=sidebar_de;
-    assign lcd_en = SIDEBAR_UI ? sidebar_de_q : lcd_en_w;
-
-    key_ui_event #(
-        .DEBOUNCE_CNT (660_000),
-        .LONG_CNT     (26_666_667),
-        .SHORT_EVENT  (UI_EV_NEXT),
-        .LONG_EVENT   (UI_EV_OK)
-    ) u_key0 (
-        .clk      (pix_clk),
-        .rst_n    (rst_pix_n),
-        .key_in   (key0),
-        .ev_valid (ev0_valid),
-        .ev       (ev0)
-    );
-
-    key_ui_event #(
-        .DEBOUNCE_CNT (660_000),
-        .LONG_CNT     (26_666_667),
-        .SHORT_EVENT  (UI_EV_PREV),
-        .LONG_EVENT   (UI_EV_BACK)
-    ) u_key1 (
-        .clk      (pix_clk),
-        .rst_n    (rst_pix_n),
-        .key_in   (key1),
-        .ev_valid (ev1_valid),
-        .ev       (ev1)
-    );
-
-    assign ev_valid = ev0_valid | ev1_valid;
-    assign ev       = ev0_valid ? ev0 : ev1;
-
-    ui_ctrl u_ctrl (
-        .clk         (pix_clk),
-        .rst_n       (rst_pix_n),
-        .ev_valid    (ev_valid),
-        .ev          (ev),
-        .page        (page),
-        .setting_sel (setting_sel),
-        .effects     (effects)
-    );
+    assign lcd_en = sidebar_de_q;
 
     reg [15:0] div48k;
     reg        samp_en;
@@ -223,55 +173,32 @@ module ui_demo_top #(
         .wave_rd_data(wave_rd_data)
     );
 
-    generate if(SIDEBAR_UI)begin:g_sidebar
-        wire key0_valid_ctrl,key1_valid_ctrl;
-        wire[2:0] key0_ctrl,key1_ctrl;
-        reg[2:0] ctrl_reset;
-        always @(posedge clk or negedge rst_sys_n)
-            if(!rst_sys_n)ctrl_reset<=0;else ctrl_reset<={ctrl_reset[1:0],1'b1};
-        key_ui_event #(.DEBOUNCE_CNT(1_000_000),.LONG_CNT(40_000_000),
-                       .SHORT_EVENT(UI_EV_NEXT),.LONG_EVENT(UI_EV_OK)) u_ctrl_key0(
-            .clk(clk),.rst_n(ctrl_reset[2]),.key_in(key0),.ev_valid(key0_valid_ctrl),.ev(key0_ctrl));
-        key_ui_event #(.DEBOUNCE_CNT(1_000_000),.LONG_CNT(40_000_000),
-                       .SHORT_EVENT(UI_EV_PREV),.LONG_EVENT(UI_EV_BACK)) u_ctrl_key1(
-            .clk(clk),.rst_n(ctrl_reset[2]),.key_in(key1),.ev_valid(key1_valid_ctrl),.ev(key1_ctrl));
-        // 独立 LCD demo 仍用测试音源/两按键。整机用 sidebar_system 原始坐标及后端口。
-        sidebar_system #(.CTRL_HZ(50_000_000),.HAS_JOYSTICK(1'b0)) u_system(
-            .rst_n(rst_sys_n),.ctrl_clk(clk),.pix_clk(pix_clk),
-            .joy_sample_valid(1'b0),.joy_raw_x(14'd0),.joy_raw_y(14'd0),
-            .key_valid(key0_valid_ctrl|key1_valid_ctrl),.key_event(key0_valid_ctrl?key0_ctrl:key1_ctrl),
-            .ext_cfg_valid(1'b0),.ext_cfg_ready(),.ext_cfg_request(64'd0),
-            .ext_rsp_valid(),.ext_rsp_ready(1'b1),.ext_cfg_response(),
-            .backend_supported(20'd0),.backend_valid(),.backend_ready(1'b0),.backend_request(),
-            .backend_source(),.backend_rsp_valid(1'b0),.backend_rsp_ready(),.backend_response(72'd0),
-            .frame_pulse(frame_pulse),.lcd_valid(lcd_en_w),.pix_x(pix_x),.pix_y(pix_y),
-            .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
-            .curve_rd_data(curve_rd_data),.curve_rd_addr(curve_rd_addr),
-            .lcd_r(lcd_r_w),.lcd_g(lcd_g_w),.lcd_b(lcd_b_w),.lcd_valid_out(sidebar_de),
-            .active_values(),.ui_scene(),.sidebar_width());
-    end else begin:g_legacy
-    assign sidebar_de=lcd_en_w;
-    lcd_draw u_draw (
-        .clk             (pix_clk),
-        .rst_n           (rst_pix_n),
-        .frame_pulse     (frame_pulse),
-        .lcd_valid       (lcd_en_w),
-        .pix_x           (pix_x),
-        .pix_y           (pix_y),
-        .page_sel        (page),
-        .ui_setting_sel  (setting_sel),
-        .effects         (effects),
-        .q_y             (q_y),
-        .q_ov            (q_ov),
-        .curve_rd_data   (curve_rd_data),
-        .curve_rd_addr   (curve_rd_addr),
-        .wave_rd_data    (wave_rd_data),
-        .wave_rd_addr    (wave_rd_addr),
-        .lcd_r           (lcd_r_w),
-        .lcd_g           (lcd_g_w),
-        .lcd_b           (lcd_b_w)
-    );
-    end endgenerate
+    // The Chinese sidebar is the only UI path.
+    wire key0_valid_ctrl,key1_valid_ctrl;
+    wire[2:0] key0_ctrl,key1_ctrl;
+    reg[2:0] ctrl_reset;
+    always @(posedge clk or negedge rst_sys_n)
+        if(!rst_sys_n)ctrl_reset<=0;else ctrl_reset<={ctrl_reset[1:0],1'b1};
+    key_ui_event #(.DEBOUNCE_CNT(1_000_000),.LONG_CNT(40_000_000),
+                   .SHORT_EVENT(UI_EV_NEXT),.LONG_EVENT(UI_EV_OK)) u_ctrl_key0(
+        .clk(clk),.rst_n(ctrl_reset[2]),.key_in(key0),.ev_valid(key0_valid_ctrl),.ev(key0_ctrl));
+    key_ui_event #(.DEBOUNCE_CNT(1_000_000),.LONG_CNT(40_000_000),
+                   .SHORT_EVENT(UI_EV_PREV),.LONG_EVENT(UI_EV_BACK)) u_ctrl_key1(
+        .clk(clk),.rst_n(ctrl_reset[2]),.key_in(key1),.ev_valid(key1_valid_ctrl),.ev(key1_ctrl));
+    // 独立 LCD demo 仍用测试音源/两按键。整机用 sidebar_system 原始坐标及后端口。
+    sidebar_system #(.CTRL_HZ(50_000_000),.HAS_JOYSTICK(1'b0)) u_system(
+        .rst_n(rst_sys_n),.ctrl_clk(clk),.pix_clk(pix_clk),
+        .joy_sample_valid(1'b0),.joy_raw_x(14'd0),.joy_raw_y(14'd0),
+        .key_valid(key0_valid_ctrl|key1_valid_ctrl),.key_event(key0_valid_ctrl?key0_ctrl:key1_ctrl),
+        .ext_cfg_valid(1'b0),.ext_cfg_ready(),.ext_cfg_request(64'd0),
+        .ext_rsp_valid(),.ext_rsp_ready(1'b1),.ext_cfg_response(),
+        .backend_supported(20'd0),.backend_valid(),.backend_ready(1'b0),.backend_request(),
+        .backend_source(),.backend_rsp_valid(1'b0),.backend_rsp_ready(),.backend_response(72'd0),
+        .frame_pulse(frame_pulse),.lcd_valid(lcd_en_w),.pix_x(pix_x),.pix_y(pix_y),
+        .q_y(q_y),.q_ov(q_ov),.wave_rd_data(wave_rd_data),.wave_rd_addr(wave_rd_addr),
+        .curve_rd_data(curve_rd_data),.curve_rd_addr(curve_rd_addr),
+        .lcd_r(lcd_r_w),.lcd_g(lcd_g_w),.lcd_b(lcd_b_w),.lcd_valid_out(sidebar_de),
+        .active_values(),.ui_scene(),.sidebar_width());
 
     reg [5:0] lcd_r_r, lcd_g_r, lcd_b_r;
     always @(posedge pix_clk or negedge rst_pix_n) begin

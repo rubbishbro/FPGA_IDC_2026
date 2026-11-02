@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
+module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_TEST=0,
     parameter int UART_BAUD=1_562_500);
     localparam int UART_BIT_CYCLES=50_000_000/UART_BAUD;
     logic pad_enabled=1;
@@ -147,15 +147,15 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
         else if(val==8'hdb)begin uart_byte(source,8'hdb);uart_byte(source,8'hdd);end
         else uart_byte(source,val);
     endtask
-    task automatic frame(input int source,kind,seq,len,input logic [127:0] payload,input bit corrupt=0);
-        logic [7:0] bytes[24];logic [15:0] check;
+    task automatic frame(input int source,kind,seq,len,input logic [511:0] payload,input bit corrupt=0);
+        logic [7:0] bytes[80];logic [15:0] check;
         bytes[0]=8'(kind);bytes[1]=8'(seq);bytes[2]=8'(len);
         for(int j=0;j<len;j++)bytes[j+3]=payload[j*8 +:8];
         check=16'hffff;for(int j=0;j<len+3;j++)check=crc(check,bytes[j]);
         if(corrupt)check^=1;bytes[len+3]=check[7:0];bytes[len+4]=check[15:8];
         uart_byte(source,8'hc0);for(int j=0;j<len+5;j++)escape_byte(source,bytes[j]);uart_byte(source,8'hc0);
     endtask
-    task automatic config_reply(input int source,seq,len,input logic [127:0] payload,input int result);
+    task automatic config_reply(input int source,seq,len,input logic [511:0] payload,input int result);
         int old;old=replies[source];frame(source,2,seq,len,payload);
         begin:await_reply
             repeat(5_000_000)begin
@@ -182,7 +182,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
     endtask
     integer before_cfg;
     logic [31:0] before_crc_errors;
-    initial if(!GUIDE_TEST && !RECORD_TEST)begin
+    initial if(!GUIDE_TEST && !RECORD_TEST && !KEYMAP_TEST)begin
         for(int s=0;s<2;s++)begin replies[s]=0;nb[s]=0;started[s]=0;escaped[s]=0;end
         #100;rst_n=1;
         wait(dut.u_system.audio_valid);wait(nonzero>600);clocks(10);
@@ -315,6 +315,44 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
             $fatal(1,"FAIL Bluetooth quarantine interrupted manual guide performance");
         $display("PASS tb_instrument_board GUIDE UART/BT/menu/ADC/LCD/engine samples=%0d nonzero=%0d",samples,nonzero);$finish;
     end
+    // Phone/BT serial bytes -> SLIP/CRC -> CONFIG parser -> table loader -> UI.
+    initial if(KEYMAP_TEST)begin : keymap_board_test
+        logic [511:0] table_payload;
+        integer transactions_before,old_replies;
+        logic [111:0] applied_map;
+        pad_enabled=0;
+        for(int i=0;i<2;i++)begin replies[i]=0;nb[i]=0;started[i]=0;escaped[i]=0;end
+        #100;rst_n=1;wait(dut.u_system.audio_valid);clocks(20);
+        table_payload=0;table_payload[7:0]=8'h20;
+        for(int i=0;i<16;i++)begin
+            table_payload[(1+2*i)*8 +:8]=0;
+            table_payload[(2+2*i)*8 +:8]=8'(21+((63-i*3)%32));
+        end
+        table_payload[39:32]=52; // duplicate bindings for keys0/1
+        config_reply(1,40,33,table_payload,0);
+        wait(dut.u_system.values[5]==2);
+        if(!dut.u_system.audio_state.custom_keys || dut.u_system.u_sound.note_map[6:0]!=52 ||
+           dut.u_system.u_sound.note_map[13:7]!=52 || !dut.u_system.audio_valid)
+            $fatal(1,"FAIL Bluetooth custom table not applied");
+        if(dut.u_system.u_sound.offsets[31:0]!=31*4096)
+            $fatal(1,"FAIL board custom resource offset");
+        applied_map=dut.u_system.u_sound.note_map;
+        transactions_before=flash.transactions;
+        config_reply(1,40,33,table_payload,0);
+        if(flash.transactions!=transactions_before)$fatal(1,"FAIL CONFIG retry reloaded table");
+        table_payload[15:8]=1; // a supported but mixed instrument
+        config_reply(1,41,33,table_payload,3);
+        if(dut.u_system.u_sound.note_map!=applied_map || dut.u_system.values[5]!=2)
+            $fatal(1,"FAIL mixed table changed active bindings");
+        table_payload[15:8]=0;old_replies=replies[1];
+        frame(1,2,42,33,table_payload,1);clocks(5000);
+        if(replies[1]!=old_replies || dut.u_system.u_sound.note_map!=applied_map)
+            $fatal(1,"FAIL corrupt CONFIG modified bindings/replied");
+        pad_enabled=1;wait(nonzero>10);
+        if(dut.u_system.record_snapshot_notes[6:0]!=52)
+            $fatal(1,"FAIL custom PAD recording note map");
+        $display("PASS tb_instrument_board KEYMAP Bluetooth CRC/parser/cache/loader/UI/PAD");$finish;
+    end
     initial if(RECORD_TEST)begin
         for(int i=0;i<2;i++)begin replies[i]=0;nb[i]=0;started[i]=0;escaped[i]=0;end
         pad_enabled=0;#100;rst_n=1;wait(dut.u_system.audio_valid);clocks(2000);
@@ -352,7 +390,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0,
         // Guide mode may already be reconfiguring its source at this instant.
         if(RECORD_TEST && (!dut.u_system.audio_valid || dut.u_system.audio_fault || samples==0))
             $fatal(1,"FAIL board audio boot valid=%b fault=%b samples=%d",dut.u_system.audio_valid,dut.u_system.audio_fault,samples);
-        if(!GUIDE_TEST && !RECORD_TEST && nonzero==0)
+        if(!GUIDE_TEST && !RECORD_TEST && !KEYMAP_TEST && nonzero==0)
             $fatal(1,"FAIL ADC/PAD boot watchdog raw=%h normalized=%h",dut.u_system.pad.fmap.raw,dut.u_system.force_map.raw);
     end
 endmodule

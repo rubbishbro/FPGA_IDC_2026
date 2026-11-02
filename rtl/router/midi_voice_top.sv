@@ -55,6 +55,13 @@ module midi_voice_top #(
     output logic backend_audio_valid,backend_audio_fault,
     output config_pkg::guide_display_t guide_display,
     output config_pkg::audio_config_t backend_audio_state,
+    // Atomic 16-entry CONFIG 20 table, bytes {instrument,note} in key order.
+    input logic keymap_valid=1'b0,
+    output logic keymap_ready,
+    input logic [255:0] keymap_entries='0,
+    output logic keymap_rsp_valid,
+    input logic keymap_rsp_ready=1'b1,
+    output logic [7:0] keymap_result,
     input logic event_valid,
     output logic event_ready,
     input logic [31:0] event_data,
@@ -82,6 +89,14 @@ module midi_voice_top #(
     logic [3:0] channel_q,target_channel;
     logic bank_q,target_bank,mode_q,target_mode,source_q,target_source;
     logic guide_q,target_guide,arm_pad;
+    logic custom_q,target_custom,keymap_inflight,keymap_validating,keymap_rollback;
+    logic [255:0] keymap_hold;
+    logic [3:0] keymap_scan;
+    logic [SLOTS*7-1:0] committed_map;
+    wire [7:0] key_inst=keymap_hold[keymap_scan*16 +:8];
+    wire [7:0] key_note=keymap_hold[keymap_scan*16+8 +:8];
+    wire key_entry_ok=key_inst<12 && key_inst==keymap_hold[7:0] &&
+        RESOURCE_MASK[key_inst[3:0]] && router_pkg::note_in_range(router_pkg::instrument_e'(key_inst[3:0]),key_note);
     logic [15:0] guide_revision;
     logic [6:0] first_q,target_first;
     router_pkg::instrument_e mapped_inst,inst_use,pad_q,target_pad;
@@ -169,8 +184,9 @@ module midi_voice_top #(
     midi_instrument_map u_map(.channel(channel_q),.mapped(channel_mapped),.instrument(mapped_inst));
     // Decode before the existing C_APPLY commit, alongside channel/mode.
     // The router sees a register, not channel decode + selection + its own FSM.
-    assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && backend_stage==0 && !backend_rsp_valid &&
+    assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && backend_stage==0 && !backend_rsp_valid && !keymap_inflight && !keymap_rsp_valid &&
                          (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !reload;
+    assign keymap_ready=backend_ready && !backend_valid && NOTE_BANKS && INSTRUMENT_NOTE_RANGES && SLOTS==16 && have_commit;
     assign backend_audio_valid=CONFIG_BACKEND && have_commit && cfg_state==C_RUN && !config_failed;
     assign backend_audio_fault=CONFIG_BACKEND && config_failed;
     // 当前只开放有真实提交路径的参数。资源是否存在由集成者给出，不凭枚举猜测。
@@ -186,7 +202,7 @@ module midi_voice_top #(
             backend_supported[20]=1;
         end
         candidate=have_commit ? backend_audio_state :
-                  config_pkg::audio_config_t'({16'd0,5'd2,2'd0,1'b0,2'd0,1'b0});
+                  config_pkg::audio_config_t'({16'd0,5'd2,2'd0,1'b0,2'd0,1'b0,1'b0});
         candidate_pad=have_commit ? committed_pad : router_pkg::INST_PIANO;
         candidate_result=config_pkg::CFG_OK;
         candidate_supported=1;
@@ -243,8 +259,10 @@ module midi_voice_top #(
         note_map=slot_map_q;
         offsets='0;
         for(integer i=0;i<SLOTS;i++) begin
-            if(NOTE_BANKS) note_map[i*7 +: 7]=7'(first_q+(bank_q?SLOTS:0)+i);
-            offsets[i*32 +: 32]=32'(((NOTE_BANKS && bank_q)?SLOTS+i:i)*N_MODES*64);
+            if(NOTE_BANKS && !custom_q) note_map[i*7 +: 7]=7'(first_q+(bank_q?SLOTS:0)+i);
+            offsets[i*32 +: 32]=custom_q ?
+                32'(32'(slot_map_q[i*7 +:7])-32'(router_pkg::note_first(inst_use)))*32'(N_MODES*64) :
+                32'(((NOTE_BANKS && bank_q)?SLOTS+i:i)*N_MODES*64);
         end
         pad_use=maintain_req || config_busy || config_failed || panic ? '0 : fmap;
         guide_display='0;
@@ -260,6 +278,16 @@ module midi_voice_top #(
             guide_display.note_map[i*7 +:7]=note_map[i*7 +:7];
             guide_display.target[i]=guide_target[i];guide_display.glow[i]=guide_glow[i];
             guide_display.pressed[i]=cfg_state==C_RUN && pad_keys_down[i];
+        end
+        // Same-note alternatives share only guide feedback. No hit latch: the
+        // last matching physical release immediately removes matched, while
+        // target still follows MIDI On/Off. Keep real pressed/voice gates intact.
+        // Compute in core domain, then cross with the whole guide snapshot.
+        for(integer i=0;i<SLOTS;i++)begin
+            for(integer j=0;j<SLOTS;j++)begin
+                guide_display.matched[i] |= cfg_state==C_RUN && guide_target[i] &&
+                    pad_keys_down[j] && note_map[i*7 +:7]==note_map[j*7 +:7];
+            end
         end
     end
     assign config_busy=cfg_state!=C_RUN && cfg_state!=C_FAULT;
@@ -287,6 +315,9 @@ module midi_voice_top #(
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             slot_map_q<=router_pkg::default_note_map();target_slot_map<=router_pkg::default_note_map();
+            committed_map<=router_pkg::default_note_map();custom_q<=0;target_custom<=0;
+            keymap_inflight<=0;keymap_validating<=0;keymap_rollback<=0;keymap_hold<=0;keymap_scan<=0;
+            keymap_rsp_valid<=0;keymap_result<=6;
             guide_q<=0;target_guide<=0;guide_revision<=0;arm_pad<=0;
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
@@ -302,6 +333,7 @@ module midi_voice_top #(
         end else begin
             reload_q<=reload;panic_q<=panic;map_reload<=0;
             if(backend_rsp_valid && backend_rsp_ready)backend_rsp_valid<=0;
+            if(keymap_rsp_valid && keymap_rsp_ready)keymap_rsp_valid<=0;
             if(CONFIG_BACKEND && backend_inflight && backend_stage==0 && cfg_state==C_FAULT)begin
                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
                 backend_response.result<=config_pkg::CFG_FAILED;backend_response.applied_value<=0;
@@ -328,7 +360,8 @@ module midi_voice_top #(
                 C_INIT,C_RUN,C_FAULT: if(cfg_state==C_INIT ||
                     (cfg_state==C_RUN && config_request) ||
                     (cfg_state==C_FAULT && ((reload && !reload_q) || (panic && !panic_q)))) begin
-                    target_slot_map<=slot_note_map;
+                    target_slot_map<=CONFIG_BACKEND && have_commit ? committed_map : slot_note_map;
+                    target_custom<=CONFIG_BACKEND && have_commit && backend_audio_state.custom_keys;
                     target_guide<=CONFIG_BACKEND && have_commit && backend_audio_state.guide;
                     target_channel<=CONFIG_BACKEND ? (have_commit ? 4'(backend_audio_state.channel-1'b1) : 4'd1) : selected_channel;
                     target_mode<=CONFIG_BACKEND ? (have_commit && backend_audio_state.source!=0) : midi_select;
@@ -342,16 +375,16 @@ module midi_voice_top #(
                 end
                 C_CLEAN: if((&state_cleanup_done) && (&guide_cleanup_done) && (maint_seen || maintenance_done)) cfg_state<=C_APPLY;
                 C_APPLY: begin
-                    if((target_mode && target_channel>5) ||
+                    if((target_mode && target_channel>7) ||
                        (CONFIG_BACKEND && !RESOURCE_MASK[target_mode ?
                          4'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : 4'(target_pad)]) ||
                        (NOTE_BANKS && (32'(target_first)+2*SLOTS>128))) begin
                         config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
                     end else begin
-                        slot_map_q<=target_slot_map;
-                        arm_pad<=CONFIG_BACKEND && backend_inflight && pending_request.id!=16'h8001 &&
+                        slot_map_q<=target_slot_map;custom_q<=target_custom;
+                        arm_pad<=CONFIG_BACKEND && (keymap_inflight || (backend_inflight && pending_request.id!=16'h8001)) &&
                             (!target_mode || target_guide) &&
-                            (target_mode!=mode_q || target_guide!=guide_q || target_source!=source_q ||
+                            (target_custom!=custom_q || keymap_inflight || target_mode!=mode_q || target_guide!=guide_q || target_source!=source_q ||
                              target_channel!=channel_q || target_bank!=bank_q || target_pad!=pad_q);
                         channel_q<=target_channel;mode_q<=target_mode;source_q<=target_source;guide_q<=target_guide;
                         inst_use<=target_mode ? router_pkg::instrument_e'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : target_pad;
@@ -381,8 +414,13 @@ module midi_voice_top #(
                             backend_audio_state.channel<={1'b0,channel_q}+5'd1;
                             backend_audio_state.source<=mode_q ? (source_q ? 2'd2 : 2'd1) : 2'd0;
                             backend_audio_state.bank<=bank_q;backend_audio_state.reverb<=target_reverb;
-                            backend_audio_state.guide<=guide_q;guide_revision<=guide_revision+1'b1;
+                            backend_audio_state.guide<=guide_q;backend_audio_state.custom_keys<=custom_q;
+                            committed_map<=slot_map_q;guide_revision<=guide_revision+1'b1;
                             committed_pad<=pad_q;have_commit<=1;
+                            if(keymap_inflight)begin
+                                keymap_result<=keymap_rollback ? 8'd6 : 8'd0;
+                                keymap_rsp_valid<=1;keymap_inflight<=0;keymap_rollback<=0;
+                            end
                             if(backend_inflight)begin
                                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
                                 backend_response.result<=config_pkg::CFG_OK;
@@ -414,12 +452,51 @@ module midi_voice_top #(
                     backend_response.applied_value<=0;
                     backend_rsp_valid<=1;backend_inflight<=0;
                 end else begin
-                    target_slot_map<=slot_note_map;target_guide<=candidate_q.guide;
+                    target_slot_map<=committed_map;target_guide<=candidate_q.guide;
+                    target_custom<=backend_audio_state.custom_keys &&
+                        pending_request.id!=16'h0300 && pending_request.id!=16'h0100 &&
+                        candidate_q.instrument==backend_audio_state.instrument;
                     target_channel<=4'(candidate_q.channel-1'b1);target_mode<=candidate_q.source!=0;
                     target_source<=candidate_q.source==2;target_bank<=candidate_q.bank;
                     target_first<=NOTE_BANKS?first_midi_note:7'd0;target_pad<=candidate_pad_q;
                     target_reverb<=candidate_q.reverb;
                     config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                end
+            end
+            // The table is staged and validated before touching live resources.
+            // Scalar config and the table share the same cleanup/load/commit owner.
+            if(keymap_valid && keymap_ready)begin
+                keymap_hold<=keymap_entries;keymap_scan<=0;
+                keymap_inflight<=1;keymap_validating<=1;keymap_rollback<=0;
+            end
+            if(keymap_validating)begin
+                if(!key_entry_ok)begin
+                    keymap_result<=3;keymap_rsp_valid<=1;keymap_inflight<=0;keymap_validating<=0;
+                end else begin
+                    target_slot_map[keymap_scan*7 +:7]<=key_note[6:0];
+                    if(keymap_scan==15)begin
+                        keymap_validating<=0;target_custom<=1;
+                        target_pad<=router_pkg::instrument_e'(keymap_hold[3:0]);
+                        target_channel<=4'(config_pkg::instrument_channel({8'd0,keymap_hold[7:0]})-1'b1);
+                        target_mode<=mode_q;target_source<=source_q;target_guide<=guide_q;
+                        target_bank<=bank_q;target_first<=0;target_reverb<=backend_audio_state.reverb;
+                        config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                    end else keymap_scan<=keymap_scan+1'b1;
+                end
+            end
+            // A failed custom load restores the previous committed resource/map.
+            // If restoration also fails, stay muted/faulted and report failure.
+            if(cfg_state==C_FAULT && keymap_inflight && !keymap_validating)begin
+                if(!keymap_rollback && have_commit)begin
+                    keymap_rollback<=1;target_slot_map<=committed_map;
+                    target_custom<=backend_audio_state.custom_keys;
+                    target_pad<=committed_pad;target_channel<=4'(backend_audio_state.channel-1'b1);
+                    target_mode<=backend_audio_state.source!=0;target_source<=backend_audio_state.source==2;
+                    target_guide<=backend_audio_state.guide;target_bank<=backend_audio_state.bank;
+                    target_reverb<=backend_audio_state.reverb;target_first<=0;
+                    config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                end else begin
+                    keymap_result<=6;keymap_rsp_valid<=1;keymap_inflight<=0;
                 end
             end
             if((config_busy && cfg_state!=C_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||

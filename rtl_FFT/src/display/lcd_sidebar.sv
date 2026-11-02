@@ -34,7 +34,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
             0:value_label=config_pkg::instrument_label(16'(value));
             2:value_label=value==0?50:(value==1?52:53);
             8,9,10:value_label=value==0?50:51;
-            5:value_label=value==0?59:60;
+            5:value_label=value==2?126:(value==0?59:60);
             6:value_label=8'(54+value);
             7:value_label=value==0?57:58;
             11:value_label=8'(61+value);
