@@ -401,7 +401,7 @@ module voice_router #(
     wire mod1_path=is_sustain(inst_lat);
     wire [SLOTS-1:0] mod_eligible=mod1_path ? (mod_req & mod_safe & ~mod_serviced) : mod_req;
     wire [VWID-1:0] mod_candidate=mod1_path ? next_mod_req(mod_eligible,mod_rr) : first_req(mod_eligible);
-    wire [31:0] mod_job_bound=6*(nm_lat<MOD1_MODES_PER_JOB ? 32'(nm_lat) : MOD1_MODES_PER_JOB)+20;
+    wire [31:0] mod_job_bound=6*(nm_lat<MOD1_MODES_PER_JOB ? 32'(nm_lat) : MOD1_MODES_PER_JOB)+22;
     wire mod_window_ok=!mod1_path || (table_valid && !smp_tick_q &&
         mod_frame_age+mod_job_bound<mod_frame_span);
     logic [7:0]              fmap_prev [0:SLOTS-1];   // 上次调制用的力度（变了才重新调制）
