@@ -2,17 +2,17 @@
 """Exercise the LED wire protocol and the targeted storage/snapshot testbenches.
 
 tb_led_pixel_ram checks the pixel-addressed synchronous RAM read with the
-tightest enable spacing; tb_led_frame_snapshot checks the per-frame snapshot,
-the shared radius subtraction, the framebuffer prefetch and the retirement
-boundary. Both replace the old prefetch-vs-direct comparison, which became
-degenerate once every PIPELINED_READ setting mapped to the same hardware.
+tightest enable spacing; tb_led_ram_scan checks the BSRAM wave-record write/read/scan path and the
+framebuffer prefetch. Both replace the old prefetch-vs-direct comparison,
+which became degenerate once every PIPELINED_READ setting mapped to the same
+hardware.
 """
 from pathlib import Path
 import argparse,hashlib,json,subprocess
 
 ROOT=Path(__file__).resolve().parents[1]
 TESTS={'protocol':'tb_led_protocol','pixel_ram':'tb_led_pixel_ram',
-       'snapshot':'tb_led_frame_snapshot','effects':'tb_pad_led_effects'}
+       'ram':'tb_led_ram_scan','effects':'tb_pad_led_effects'}
 
 def main():
     ap=argparse.ArgumentParser(description=__doc__)
