@@ -102,10 +102,12 @@ module pad_led_effects #(
     end
 
     logic [15:0] wave_valid;
-    logic [3:0] wave_pad [0:15];
-    logic [5:0] wave_colour [0:15];
     logic [15:0] wave_birth_age [0:15];
-    logic [23:0] wave_birth_travel [0:15];
+    // 16 条 wave 记录的顺序扫描表：命中时按 next_slot 写入，渲染时按 wave_idx
+    // 读出。RAM 读延迟藏在现有 R_WAVE_ADDR->R_DISTANCE 状态边界里，不增加拍数。
+    (* syn_ramstyle="block_ram" *) logic [53:0] wave_ram [0:15];
+    logic [53:0] wave_q;
+    logic [15:0] frame_age;
     logic [3:0] next_slot,event_pad;
     logic [15:0] event_phase,event_age,event_colour_phase;
     logic [23:0] event_travel;
@@ -121,9 +123,9 @@ module pad_led_effects #(
     // as valid render snapshots. Birth timestamps are data, not live counters.
     always_ff @(posedge cr.clk) begin
         if(event_state==E_COMMIT) begin
-            wave_pad[next_slot]<=event_pad;
-            wave_colour[next_slot]<=palette_q; wave_birth_age[next_slot]<=event_age;
-            wave_birth_travel[next_slot]<=event_travel;
+            wave_birth_age[next_slot]<=event_age;
+            // {4'b0, birth_travel[23:0], birth_age[15:0], colour[5:0], pad[3:0]}
+            wave_ram[next_slot] <= {4'b0,event_travel,event_age,palette_q,event_pad};
         end
     end
     always_ff @(posedge cr.clk or negedge cr.rst_n) begin
@@ -153,10 +155,6 @@ module pad_led_effects #(
         end
     end
 
-    logic [15:0] snap_valid;
-    logic [3:0] snap_pad [0:15];
-    logic [5:0] snap_colour [0:15],snap_age [0:15];
-    logic [23:0] snap_birth_travel [0:15];
     logic [23:0] frame_travel;
     logic [15:0] frame_phase;
     (* syn_ramstyle="block_ram" *) pixel_t framebuffer [0:63];
@@ -179,16 +177,18 @@ module pad_led_effects #(
     // Absolute odd differences 1..13 map to a symmetric 8x8 distance ROM.
     wire [4:0] px2={1'b0,pixel_idx[2:0],1'b0};
     wire [4:0] py2={1'b0,pixel_idx[5:3],1'b0};
-    wire [4:0] cx2={1'b0,snap_pad[wave_idx][1:0],2'b01};
-    wire [4:0] cy2={1'b0,snap_pad[wave_idx][3:2],2'b01};
+    wire [4:0] cx2={1'b0,wave_q[1:0],2'b01};
+    wire [4:0] cy2={1'b0,wave_q[3:2],2'b01};
     wire [4:0] dx=px2>=cx2 ? px2-cx2 : cx2-px2;
     wire [4:0] dy=py2>=cy2 ? py2-cy2 : cy2-py2;
     wire [5:0] distance_addr={dy[3:1],dx[3:1]};
     wire [23:0] distance_q16={4'b0,distance_q,8'b0};
     // Snapshot the origin and common frame time, then share one subtraction
     // across the already serialized wave scan. Never use the live travel_acc.
-    logic [23:0] radius;
-    wire [23:0] lag=radius-distance_q16;
+    wire [15:0] cur_age    = frame_age - wave_q[25:10];
+    wire [5:0]  cur_age6   = cur_age[5:0];
+    wire [23:0] cur_radius = frame_travel - wave_q[49:26];
+    wire [23:0] cur_lag    = cur_radius - distance_q16;
     always_ff @(posedge cr.clk) begin
         phase_q<=phase_rom[pixel_idx];
         breath_q<=breath_rom[pixel_phase[15:8]];
@@ -204,23 +204,6 @@ module pad_led_effects #(
         R_COLOUR_ADDR,R_COLOUR,R_READY,R_FILL
     } render_state_t;
     render_state_t state;
-    // The existing address state supplies a free pipeline boundary before
-    // R_DISTANCE: do not put radius and lag subtraction on the same path.
-    always_ff @(posedge cr.clk)
-        if(state==R_WAVE_ADDR) radius<=frame_travel-snap_birth_travel[wave_idx];
-    // Capture every payload slot together with snap_valid before rendering.
-    // R_WAVE_ADDR skips invalid slots before their payload affects the image.
-    // Keep snap_valid, renderer FSM, addresses and scan counters resettable.
-    always_ff @(posedge cr.clk) begin
-        if(state==R_IDLE && frame_tick) begin
-            frame_travel<=travel_acc;
-            for(int i=0;i<16;i++) begin
-                snap_pad[i]<=wave_pad[i]; snap_colour[i]<=wave_colour[i];
-                snap_age[i]<=6'(age_clock-wave_birth_age[i]);
-                snap_birth_travel[i]<=wave_birth_travel[i];
-            end
-        end
-    end
     // Prefetch pixel zero while waiting for TX, and the next pixel on every
     // accepted fill tick. This also works with consecutive clk_en pulses.
     wire [5:0] framebuffer_read_addr = state==R_READY ? 6'd0 :
@@ -241,7 +224,7 @@ module pad_led_effects #(
         if(!cr.rst_n) begin
             state<=R_BOOT_FILL; pixel_idx<=0; fill_idx<=0; wave_idx<=0;
             tx_phase<=0; frame_phase<=0; pixel_phase<=0; background<=0;
-            best_amplitude<=0; best_colour<=0; snap_valid<=0;
+            best_amplitude<=0; best_colour<=0; wave_q<=0; frame_age<=0;
             shape_addr<=0; age_addr<=0; radial_addr<=0; combine_addr<=0;
         end else case(state)
             // wr stays high until a full black image has been written.
@@ -251,21 +234,23 @@ module pad_led_effects #(
             end
             R_IDLE: if(frame_tick) begin
                 frame_phase<=phase_acc[31:16]; pixel_idx<=0;
-                for(int i=0;i<16;i++) begin
-                    snap_valid[i]<=wave_valid[i] && 16'(age_clock-wave_birth_age[i])<16'd64;
-                end
+                frame_travel<=travel_acc; frame_age<=age_clock;
                 state<=R_PIXEL_ADDR;
             end
             R_PIXEL_ADDR: state<=R_PHASE;
             R_PHASE: begin pixel_phase<=frame_phase+phase_q; state<=R_BG_WAIT; end
             R_BG_WAIT: state<=R_BG;
             R_BG: begin background<=breath_q; best_amplitude<=0; best_colour<=0; wave_idx<=0; state<=R_WAVE_ADDR; end
-            R_WAVE_ADDR: state<=snap_valid[wave_idx] ? R_DISTANCE : R_NEXT_WAVE;
+            R_WAVE_ADDR: begin
+                if(!wave_valid[wave_idx]) state<=R_NEXT_WAVE;
+                else begin wave_q<=wave_ram[wave_idx]; state<=R_DISTANCE; end
+            end
             R_DISTANCE: begin
-                if(radius<distance_q16 || lag>=24'd524288) state<=R_NEXT_WAVE;
+                if(cur_age>=16'd64 || cur_radius<distance_q16 ||
+                   cur_lag>=24'd524288) state<=R_NEXT_WAVE;
                 else begin
-                    shape_addr<=lag[18:10]; // 1/64-cell bins
-                    age_addr<=snap_age[wave_idx]; radial_addr<=distance_q[11:6];
+                    shape_addr<=cur_lag[18:10]; // 1/64-cell bins
+                    age_addr<=cur_age6; radial_addr<=distance_q[11:6];
                     state<=R_SHAPE_WAIT;
                 end
             end
@@ -275,7 +260,7 @@ module pad_led_effects #(
             R_MIX1: begin combine_addr<={combined_q,(RADIAL_DECAY ? radial_q : 6'd63)}; state<=R_MIX2_WAIT; end
             R_MIX2_WAIT: state<=R_COMPARE;
             R_COMPARE: begin
-                if(combined_q>best_amplitude) begin best_amplitude<=combined_q; best_colour<=snap_colour[wave_idx]; end
+                if(combined_q>best_amplitude) begin best_amplitude<=combined_q; best_colour<=wave_q[9:4]; end
                 state<=R_NEXT_WAVE;
             end
             R_NEXT_WAVE: begin

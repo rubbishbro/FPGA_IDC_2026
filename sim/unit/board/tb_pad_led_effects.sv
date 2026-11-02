@@ -16,7 +16,7 @@ module tb_pad_led_effects #(parameter int CE_PERIOD=4);
     led_param leds;
     wire dat,busy,frame_done;
     pad_led_effects dut(.cr(cr),.force_map(force_map),.led_busy(busy),.led_frame_done(frame_done),.leds(leds));
-    led8x8 #(.PIPELINED_READ(1)) driver(.cr(cr),.x(leds.x),.y(leds.y),
+    led8x8 driver(.cr(cr),.x(leds.x),.y(leds.y),
         .pix(leds.pix),.wr(leds.wr),.dat(dat),.busy(busy),.frame_done(frame_done));
 
     // Independent clock/publication model: do not use dut.phase_for_hit to
@@ -104,7 +104,7 @@ module tb_pad_led_effects #(parameter int CE_PERIOD=4);
         phase=(frame_done?model_tx_phase:model_displayed_phase)+16'(offset_word);
         expected_colour=6'(int'(phase[15:8])*56/256);
         pressure(id,160); // Board raw ADC byte40 after the x4 force mapping.
-        if(!dut.wave_valid[slot] || dut.wave_pad[slot]!=4'(id) || dut.wave_colour[slot]!=expected_colour)
+        if(!dut.wave_valid[slot] || dut.wave_ram[slot][3:0]!=4'(id) || dut.wave_ram[slot][9:4]!=expected_colour)
             $fatal(1,"FAIL strike top-left phase/colour lock id=%0d",id);
     endtask
     logic [5:0] locked_colour;
@@ -126,9 +126,9 @@ module tb_pad_led_effects #(parameter int CE_PERIOD=4);
         end
         pressure(5,64);
         if(dut.pressed[5] || dut.wave_valid!=0) $fatal(1,"FAIL strict on threshold");
-        strike(5,0); locked_colour=dut.wave_colour[0]; old_origin=dut.wave_birth_travel[0];
+        strike(5,0); locked_colour=dut.wave_ram[0][9:4]; old_origin=dut.wave_ram[0][49:26];
         pressure(5,48); next_frames(10);
-        if(!dut.pressed[5] || dut.next_slot!=1 || dut.wave_colour[0]!=locked_colour)
+        if(!dut.pressed[5] || dut.next_slot!=1 || dut.wave_ram[0][9:4]!=locked_colour)
             $fatal(1,"FAIL hold/hysteresis/colour lifetime");
         // The front takes about 120ms to reach the nearest LED. Check visible
         // colour, not only that an internal wave record was allocated.
@@ -147,7 +147,7 @@ module tb_pad_led_effects #(parameter int CE_PERIOD=4);
         pressure(5,47);
         if(dut.pressed[5] || !dut.wave_valid[0]) $fatal(1,"FAIL release cut off tail");
         strike(5,1);
-        if(dut.wave_birth_travel[0]!=old_origin || !dut.wave_valid[0]) $fatal(1,"FAIL retrigger overwrote tail");
+        if(dut.wave_ram[0][49:26]!=old_origin || !dut.wave_valid[0]) $fatal(1,"FAIL retrigger overwrote tail");
         @(negedge clk); force_values=0; clocks(40);
         @(negedge clk); force_values={16{8'd68}}; clocks(160);
         if(dut.wave_valid!==16'hffff || dut.pending!=0) $fatal(1,"FAIL simultaneous strikes/pool");

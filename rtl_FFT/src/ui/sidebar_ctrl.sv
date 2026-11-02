@@ -33,6 +33,34 @@ module sidebar_ctrl #(
     logic[3:0] step_x,step_y;
     logic signed[10:0] next_x,next_y;
     integer item,count,limit,change;
+    // count/limit/change 只在 category/selection/edit_index 变化时锁存；item
+    // 保持组合，因为 selection 变化后下一拍就可能用于进入 edit，锁存会落后一拍。
+    logic [3:0]  count_q;
+    logic [15:0] limit_q;
+    logic [4:0]  change_q;
+    logic [2:0]  cat_q;
+    logic [4:0]  sel_q;
+    logic [4:0]  edit_q;
+    logic        changed_q;
+    wire scene_changed = cat_q!=scene.category || sel_q!=5'(scene.selection) ||
+                         edit_q!=scene.edit_index;
+    // 变化后的两个周期用组合值旁路，避免进入新 category/edit 页时 count_q/
+    // limit_q 还停在上一个 scene 的锁存值。
+    wire [3:0]  count_use  = (scene_changed || changed_q) ? 4'(count)  : count_q;
+    wire [15:0] limit_use  = (scene_changed || changed_q) ? 16'(limit) : limit_q;
+    wire [4:0]  change_use = (scene_changed || changed_q) ? 5'(change) : change_q;
+    always_ff @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin
+            count_q<=0;limit_q<=0;change_q<=5'd1;
+            cat_q<=0;sel_q<=0;edit_q<=0;changed_q<=0;
+        end else begin
+            changed_q<=scene_changed;
+            if(scene_changed || changed_q) begin
+                count_q<=4'(count);limit_q<=16'(limit);change_q<=5'(change);
+                cat_q<=scene.category;sel_q<=5'(scene.selection);edit_q<=scene.edit_index;
+            end
+        end
+    end
     assign nav_ready=1'b1;
     assign rsp_ready=1'b1;
     always_comb begin
@@ -108,7 +136,7 @@ module sidebar_ctrl #(
                     end
                 end else if(scene.layer==1)begin
                     if(action==UP && scene.selection!=0)scene.selection<=scene.selection-1'b1;
-                    if(action==DOWN && int'(scene.selection)<count-1)scene.selection<=scene.selection+1'b1;
+                    if(action==DOWN && int'(scene.selection)<int'(count_use)-1)scene.selection<=scene.selection+1'b1;
                     if(action==RIGHT&&!action_repeat)begin
                         armed<=0;
                         if(!supported[item] || (item==20 && active_values[11]==0))begin scene.has_result<=1;scene.result<=CFG_UNSUPPORTED;end
@@ -117,13 +145,13 @@ module sidebar_ctrl #(
                 end else if(scene.layer==2)begin
                     if(action==UP)begin
                         if(scene.edit_index==1||scene.edit_index==21)begin
-                            if(scene.draft<limit)scene.draft<=scene.draft+change>limit?limit:scene.draft+change;
+                            if(scene.draft<limit_use)scene.draft<=scene.draft+change_use>limit_use?limit_use:scene.draft+change_use;
                         end else if(scene.draft>0)scene.draft<=scene.draft-1;
                     end
                     if(action==DOWN)begin
                         if(scene.edit_index==1||scene.edit_index==21)begin
-                            if(scene.draft>0)scene.draft<=scene.draft<change?0:scene.draft-change;
-                        end else if(scene.draft<limit)scene.draft<=scene.draft+1;
+                            if(scene.draft>0)scene.draft<=scene.draft<change_use?0:scene.draft-change_use;
+                        end else if(scene.draft<limit_use)scene.draft<=scene.draft+1;
                     end
                     if(action==RIGHT&&!action_repeat&&!scene.busy)begin
                         cfg_request.tag<=tag;cfg_request.id<=cfg_id(scene.edit_index);
