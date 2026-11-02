@@ -22,7 +22,7 @@ module tb_numeric_contracts;
     logic[31:0] a,b;
     task automatic range_check(input integer index,input logic signed[31:0] value);
         logic expected;
-        expected=index>=0 && index<CFG_COUNT && value>=0 && value<=cfg_max(index);
+        expected=index>=0 && index<CFG_COUNT && cfg_id(index)!=16'hffff && value>=0 && value<=cfg_max(index);
         if(cfg_value_valid(index,value)!==expected)$fatal(1,"FAIL config range equivalence %d/%d",index,value);
         checks++;
     endtask

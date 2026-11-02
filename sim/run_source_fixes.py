@@ -67,7 +67,7 @@ module sample_tick_probe #(parameter bit EXTERNAL_SAMPLE_TICK=0,
     parameter int CLK_HZ=100,SR_HZ=10)(input logic clk,rst_n,sample_tick);
 """ + ticks + "\nendmodule\n")
     tests = {
-        "tb_record_control": ["rtl/config_pkg.sv", "rtl/drivers/common/comm_fifo.sv",
+        "tb_record_control": ["rtl/router/pkg/router_pkg.sv", "rtl/config_pkg.sv", "rtl/drivers/common/comm_fifo.sv",
             "rtl/comm/performance_capture.sv", "rtl/drivers/analyzer/config_analyzer.sv",
             out / "record_bridge_probe.sv", "sim/unit/comm/tb_record_control.sv"],
         "tb_sample_tick_modes": [out / "sample_tick_probe.sv", "sim/unit/board/tb_sample_tick_modes.sv"],

@@ -78,7 +78,7 @@ module tb_performance_flash;
     task automatic verify_table(input instrument_e selected);
         logic[223:0] got_co,want_co;
         logic[255:0] got_pm,want_pm;
-        logic[31:0] shadow_a1,control_word,profile_word;
+        logic[31:0] control_word,profile_word;
         logic[80:0] profile_expected;
         int addr;
         // Verify the wire-loaded public RAM contents, not just modal coefficients.
@@ -108,8 +108,6 @@ module tb_performance_flash;
             want_pm={word(int'(selected),slot,mode,8),word(int'(selected),slot,mode,9),word(int'(selected),slot,mode,10),word(int'(selected),slot,mode,11),
                 word(int'(selected),slot,mode,12),word(int'(selected),slot,mode,13),word(int'(selected),slot,mode,14),word(int'(selected),slot,mode,15)};
             if(got_pm!==want_pm)$fatal(1,"FAIL modulation fields inst=%0d slot=%0d mode=%0d",selected,slot,mode);
-            shadow_a1=slot<8 ? dut.pitch_a12_a[addr] : dut.pitch_a12_b[addr];
-            if(shadow_a1!==word(int'(selected),slot,mode,1))$fatal(1,"FAIL initial shadow a1");
             checked++;
         end
     endtask

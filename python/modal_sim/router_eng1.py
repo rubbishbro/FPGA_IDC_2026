@@ -785,6 +785,9 @@ _REV_Q_ONE = 1 << REV_FRAC
 REVERB_PRESETS: dict[str, ReverbPreset] = {
     "NONE": ReverbPreset((1, 1, 1, 1), (0, 0, 0, 0), (0, 0, 0, 0),
                          _REV_Q_ONE, 0),
+    # TODO: tune CHAMBER; mirrors the RTL NONE-parameter placeholder.
+    "CHAMBER": ReverbPreset((1, 1, 1, 1), (0, 0, 0, 0), (0, 0, 0, 0),
+                            _REV_Q_ONE, 0),
     "HALL": ReverbPreset(
         (1214, 1293, 1390, 1476), (120795955,) * 4, (33554432,) * 4,
         93952410, 67108864),

@@ -271,7 +271,7 @@ module instrument_system #(
                     end else if(rec_completed)begin cfg_result<=rec_failed?6:0;bridge_state<=B_DONE;end
                     else begin rec_stop<=1;bridge_state<=B_REC_STOP;end
                 end
-                else if(ctx_cmd==2 && ctx_len==2 && ctx_shadow[15:8]<=2)bridge_state<=B_SEND;
+                else if(ctx_cmd==2 && ctx_len==2 && router_pkg::reverb_value_valid({24'd0,ctx_shadow[15:8]}))bridge_state<=B_SEND;
                 else if(ctx_cmd==8'h20 && ctx_len==33)begin
                     // Same-instrument tables: validate the whole table, then load/commit atomically.
                     key_scan_slot<=0;bridge_state<=B_KEY_SCAN;

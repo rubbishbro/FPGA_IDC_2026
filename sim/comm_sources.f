@@ -1,3 +1,4 @@
+rtl/router/pkg/router_pkg.sv
 rtl/comm/comm_pkg.sv
 rtl/drivers/common/comm_fifo.sv
 rtl/drivers/uart/comm_uart_rx.sv

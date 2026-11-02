@@ -196,7 +196,7 @@ module config_analyzer #(
                 CMD_REVERB_SET: begin
                     if (ctx_declared_len != 7'd2) begin
                         sem_result = RESULT_BAD_LENGTH;
-                    end else if (v_preset > 8'd2) begin
+                    end else if (!router_pkg::reverb_value_valid({24'd0,v_preset})) begin
                         sem_result = RESULT_OUT_OF_RANGE;
                     end else begin
                         sem_result = RESULT_OK;

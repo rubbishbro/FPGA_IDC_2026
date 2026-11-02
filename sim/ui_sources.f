@@ -1,3 +1,4 @@
+rtl/router/pkg/router_pkg.sv
 rtl/config_pkg.sv
 rtl/drivers/pkg/joystick_pkg.sv
 rtl_FFT/src/ui/ui_pkg.sv

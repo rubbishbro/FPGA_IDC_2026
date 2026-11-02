@@ -156,9 +156,9 @@ def test_pitch_clear_preserves_external_ram_and_resets_epoch(resources):
     rows=[resources.notes[m] for m in [64,65,66,67]]
     p=E.PitchEngine(rows)
     p.buffers[0][0,0]=123456
-    p.bank=1;p.active_enabled=True;p.active_delta[:]=100
+    p.active_enabled[:]=True;p.active_delta[:]=100
     p.clock(clear=True)
-    assert p.bank==0 and not p.active_enabled and not p.active_delta.any()
+    assert p.bank==0 and not p.active_enabled.any() and not p.active_delta.any()
     assert p.buffers[0][0,0]==123456  # clear is not a hidden RAM loader
 
 

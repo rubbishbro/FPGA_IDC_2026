@@ -109,7 +109,7 @@ module midi_voice_top #(
     logic [15:0] candidate_inst;
     logic candidate_supported;
     router_pkg::reverb_preset reverb_q;
-    logic [1:0] target_reverb;
+    router_pkg::reverb_preset target_reverb;
     logic [31:0] cfg_timer,op_timer,ctrl_timer,cleanup_timer;
     logic state_idle,state_ready,state_valid,op_valid,op_ready;
     logic [1:0] backend_stage;
@@ -213,7 +213,8 @@ module midi_voice_top #(
                 if(candidate.source==0)candidate_pad=router_pkg::instrument_e'(pending_request.value);
                 else candidate.channel=config_pkg::instrument_channel(16'(pending_request.value));
             end
-            16'h0200:candidate.reverb=2'(pending_request.value);
+            16'h0200:if(router_pkg::reverb_value_valid(pending_request.value))
+                candidate.reverb=router_pkg::reverb_preset'(pending_request.value);
             16'h0300:begin
                 candidate.bank=1'(pending_request.value);
                 if(!NOTE_BANKS)candidate_supported=0;
@@ -327,7 +328,7 @@ module midi_voice_top #(
             backend_stage<=0;candidate_q<='0;candidate_pad_q<=router_pkg::INST_PIANO;candidate_result_q<=0;
             backend_inflight<=0;backend_rsp_valid<=0;backend_response<='0;pending_request<='0;
             backend_audio_state<='0;have_commit<=0;committed_pad<=router_pkg::INST_PIANO;
-            reverb_q<=router_pkg::REVERB_NONE;target_reverb<=0;
+            reverb_q<=router_pkg::REVERB_NONE;target_reverb<=router_pkg::REVERB_NONE;
             cfg_timer<=0;op_timer<=0;ctrl_timer<=0;cleanup_timer<=0;config_failed<=0;active_channel<=0;active_bank<=0;
             unsupported_count<=0;control_timeout_count<=0;dropped_count<=0;error_sticky<=0;
         end else begin
@@ -369,7 +370,7 @@ module midi_voice_top #(
                     target_bank<=CONFIG_BACKEND ? (have_commit && backend_audio_state.bank) : (NOTE_BANKS?note_bank:1'b0);
                     target_first<=NOTE_BANKS?first_midi_note:7'd0;
                     target_pad<=CONFIG_BACKEND ? committed_pad : pad_instrument;
-                    target_reverb<=CONFIG_BACKEND && have_commit ? backend_audio_state.reverb : 2'd0;
+                    target_reverb<=CONFIG_BACKEND && have_commit ? backend_audio_state.reverb : router_pkg::REVERB_NONE;
                     cfg_timer<=0;cfg_state<=C_CLEAN;
                     config_failed<=0;
                 end
@@ -392,11 +393,7 @@ module midi_voice_top #(
                         first_q<=INSTRUMENT_NOTE_RANGES ? router_pkg::note_first(target_mode ?
                             router_pkg::instrument_e'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : target_pad) : target_first;
                         pad_q<=target_pad;
-                        case(target_reverb)
-                            0:reverb_q<=router_pkg::REVERB_NONE;
-                            1:reverb_q<=router_pkg::REVERB_HALL;
-                            default:reverb_q<=router_pkg::REVERB_BATHROOM;
-                        endcase
+                        reverb_q<=target_reverb;
                         map_reload<=1;cfg_state<=C_WAIT;
                     end
                 end

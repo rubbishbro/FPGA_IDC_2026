@@ -28,7 +28,7 @@ package config_pkg;
         logic [4:0] channel;
         logic [1:0] source;
         logic bank;
-        logic [1:0] reverb;
+        router_pkg::reverb_preset reverb;
         logic guide;
         logic custom_keys; // committed key binding; bank remains the default low/high group
     } audio_config_t;
@@ -56,7 +56,7 @@ package config_pkg;
         endcase
     endfunction
     function automatic logic audio_config_valid(input audio_config_t a);
-        return !(a.source==0 && a.guide) && a.source<=2 && a.reverb<=2 && a.instrument<=11 &&
+        return !(a.source==0 && a.guide) && a.source<=2 && router_pkg::reverb_value_valid(32'(a.reverb)) && a.instrument<=11 &&
                a.channel>=1 && a.channel<=8 &&
                (a.source==0 || midi_instrument(a.channel)==a.instrument);
     endfunction
@@ -153,7 +153,7 @@ package config_pkg;
     } guide_display_t;
     function automatic integer cfg_max(input integer index);
         case(index)
-            0,6:cfg_max=65534;1:cfg_max=1000;2,11:cfg_max=2;
+            0,6:cfg_max=65534;1:cfg_max=1000;11:cfg_max=2;2:cfg_max=integer'(router_pkg::REVERB_CHAMBER);
             21:cfg_max=32;12:cfg_max=16;13:cfg_max=3;16,17:cfg_max=0;
             default:cfg_max=1;
         endcase
@@ -166,7 +166,8 @@ package config_pkg;
         case(index)
             0,6:return value[31:16]==0 && value[15:0]<=16'hfffe;
             1:return value[31:10]==0 && value[9:0]<=10'd1000;
-            2,11:return value[31:2]==0 && value[1:0]<=2;
+            2:return router_pkg::reverb_value_valid(value);
+            11:return value[31:2]==0 && value[1:0]<=2;
             21:return value[31:6]==0 && value[5:0]<=6'd32;
             12:return value[31:5]==0 && value[4:0]<=5'd16;
             13:return value[31:2]==0;
@@ -176,7 +177,7 @@ package config_pkg;
     endfunction
     function automatic cfg_values_t cfg_defaults();
         cfg_values_t v;
-        v='0;v[1]=1000;v[8]=1;v[9]=1;v[10]=1;
+        v='0;v[2]=32'(router_pkg::REVERB_NONE);v[1]=1000;v[8]=1;v[9]=1;v[10]=1;
         v[13]=3;v[21]=16;
         return v;
     endfunction

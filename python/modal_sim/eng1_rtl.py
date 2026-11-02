@@ -298,71 +298,69 @@ class Frame:
 
 
 class PitchEngine:
-    """Clocked per-slot aftertouch, matching modulation1's shadow-bank protocol."""
-    def __init__(self, resources, interval=96, threshold=102):
+    """Core-clock single-slot modulation1 FSM; start/job_slot are scheduler inputs.
+
+    advance() is only a high-level round-robin driver. Production retirement/window
+    admission is verified separately against voice_router by run_mod1_budget.py.
+    """
+    def __init__(self, resources, interval=None, threshold=102, modes_per_job=6):
         self.resources=tuple(resources);self.slots=len(resources)
-        self.interval=int(interval);self.threshold=int(threshold)
-        if self.interval<1 or not 0<=self.threshold<=255:raise ValueError('invalid aftertouch parameters')
+        self.threshold=int(threshold);self.modes_per_job=int(modes_per_job)
+        if not 1<=self.modes_per_job<=64:raise ValueError('invalid mode cap')
         self.words=np.array([r.pitch_words for r in resources],dtype=np.int64)
         self.nominal=np.array([r.coeffs.a1 for r in resources],dtype=np.int64)
         self.ratios=P.ratio_table();self.reset()
 
     def reset(self):
         self.state,self.bank='IDLE',0
-        self.buffers=[self.nominal.copy(),self.nominal.copy()]
+        self.buffers=[self.nominal.copy()]
         self.active_delta=np.zeros(self.slots,dtype=np.int64)
         self.active_sources=np.zeros(self.slots,dtype=np.int8)
+        self.active_enabled=np.zeros(self.slots,dtype=bool)
+        self.valid_slots=np.ones(self.slots,dtype=bool)
         self.cents=[0]*self.slots;self.next_cents=[0]*self.slots;self.next_delta=[0]*self.slots
         self.levels_q=np.zeros(self.slots,dtype=np.int64);self.gates_q=np.zeros(self.slots,dtype=bool)
-        self.enabled_q=self.active_enabled=self.pressure_requested=False
-        self.tick_count,self.due,self.commits=0,False,0
-        self.slot=self.mode=0
+        self.pressure_requested=False;self.commits=0;self.slot=self.mode=self.rr=0
 
     def sources_ready(self,sources):
-        return (np.array_equal(sources,self.active_sources) and self.pressure_requested==self.enabled_q
-                and self.enabled_q==self.active_enabled)
+        return bool(np.all(self.valid_slots) and np.array_equal(sources,self.active_sources)
+                    and np.all(self.active_enabled==self.pressure_requested))
 
     @property
-    def coefficients(self):return self.buffers[self.bank]
+    def coefficients(self):return self.buffers[0]
 
-    def clock(self,*,sample_tick=False,commit_ok=True,sources=None,pressure_enable=None,
-              pressure_gate=0,pressure_level=0,control=None,cancel=False,cleanup=(False,False),clear=False):
+    def clock(self,*,start=False,job_slot=0,n_modes=48,sample_tick=False,commit_ok=True,
+              sources=None,pressure_enable=None,pressure_gate=0,pressure_level=0,
+              control=None,cancel=False,cleanup=(False,False),clear=False):
         sources=_lanes(0 if sources is None else sources,self.slots,np.int8)
         if pressure_enable is not None:self.pressure_requested=bool(pressure_enable)
-        old_due=self.due;old_enabled=self.enabled_q
-        old_levels=self.levels_q.copy();old_gates=self.gates_q.copy()
-        old_ready=np.array_equal(sources,self.active_sources) and old_enabled==self.active_enabled
+        levels=_lanes(pressure_level,self.slots);gates=_lanes(pressure_gate,self.slots,bool)
+        if sample_tick:self.levels_q,self.gates_q=levels.copy(),gates.copy()
         rejected=control is not None and not cancel and not clear
-        if sample_tick:
-            self.levels_q=_lanes(pressure_level,self.slots)
-            self.gates_q=_lanes(pressure_gate,self.slots,bool)
-            self.enabled_q=self.pressure_requested
-            self.tick_count+=1
-            if self.tick_count==self.interval:self.tick_count,self.due=0,True
         if clear:
             buffers=self.buffers;self.reset();self.buffers=buffers
             return False,False
         if np.any(cleanup):
-            self.state,self.due='IDLE',True
+            self.state='IDLE';self.valid_slots[:]=False
             return rejected,rejected
-        st=self.state
+        st=self.state;s=self.slot
         if st=='IDLE':
-            if old_due or not old_ready:
-                self.levels_job,self.gates_job=old_levels,old_gates
-                self.enabled_job=old_enabled;self.sources_job=sources.copy()
-                self.slot,self.mode,self.due,self.state=0,0,False,'MAP'
+            if start:
+                self.slot=int(job_slot);self.mode=0;self.nm=min(int(n_modes),self.modes_per_job)
+                self.level_job=int(levels[self.slot]);self.gate_job=bool(gates[self.slot])
+                self.source_job=int(sources[self.slot]);self.enabled_job=self.pressure_requested
+                self.state='MAP'
         elif st=='MAP':
-            s=self.slot
-            if not self.enabled_job or self.sources_job[s]!=self.active_sources[s]:
+            if not self.enabled_job or self.source_job!=self.active_sources[s]:
                 self.next_cents[s]=self.next_delta[s]=0
-            elif not self.gates_job[s]:
+                self.state='COMMIT' if self.nm==0 else 'RD'
+            elif not self.gate_job:
                 self.next_cents[s]=self.cents[s];self.next_delta[s]=int(self.active_delta[s])
+                self.state='COMMIT' if self.nm==0 else 'RD'
             else:
-                q=(max(0,int(self.levels_job[s])-self.threshold)*60*256+50)//100
-                self.next_cents[s]=q
-                self.ratio_index,self.ratio_fraction=divmod(q+56320,256)
+                q=(max(0,self.level_job-self.threshold)*768+2)//5
+                self.next_cents[s]=q;self.ratio_index,self.ratio_fraction=divmod(q+56320,256)
                 self.state='RATIO_LD'
-            if self.state=='MAP':self._next_slot()
         elif st=='RATIO_LD':self.state='RATIO_DATA'
         elif st=='RATIO_DATA':
             self.ratio_base=self.ratios[self.ratio_index]
@@ -370,44 +368,39 @@ class PitchEngine:
             self.mul_b=self.ratio_fraction;self.state='RATIO_MUL'
         elif st=='RATIO_MUL':self.product,self.state=self.mul_a*self.mul_b,'RATIO_APPLY'
         elif st=='RATIO_APPLY':
-            self.next_delta[self.slot]=self.ratio_base+((self.product+128)>>8)-(1<<24)
-            self._next_slot()
-        elif st=='RD':
-            self.read_words=self.words[self.slot,self.mode].copy();self.state='WAIT_RD'
+            self.next_delta[s]=self.ratio_base+((self.product+128)>>8)-(1<<24)
+            self.state='COMMIT' if self.nm==0 else 'RD'
+        elif st=='RD':self.read_words=self.words[s,self.mode].copy();self.state='WAIT_RD'
         elif st=='WAIT_RD':self.state='CO_LD'
         elif st=='CO_LD':
             w=self.read_words
-            if w[7]!=P.TAG:self.state='ACK'
+            if w[7]!=P.TAG:self.valid_slots[s]=False;self.state='ACK'
             else:
                 self.lower,self.base,self.upper=map(int,w[:3])
-                self.mul_a=self.next_delta[self.slot];self.mul_b=R.wrap_signed(int(w[5]),25)
-                self.state='CO_MUL'
+                self.mul_a=self.next_delta[s];self.mul_b=R.wrap_signed(int(w[5]),25);self.state='CO_MUL'
         elif st=='CO_MUL':self.product,self.state=self.mul_a*self.mul_b,'CO_APPLY'
         elif st=='CO_APPLY':self.state='CO_OUT'
         elif st=='CO_OUT':
             value=self.base+((self.product+2097152)>>22)
-            self.buffers[1-self.bank][self.slot,self.mode]=max(self.lower,min(self.upper,value))
+            self.buffers[0][s,self.mode]=max(self.lower,min(self.upper,value))
             self.mode+=1
-            if self.mode==ACTIVE_MODES:self.mode,self.slot=0,self.slot+1
-            self.state='COMMIT' if self.slot==self.slots else 'RD'
+            if self.mode>=self.nm:self.state='COMMIT'
+            else:self.state='RD'
         elif st=='COMMIT':
-            if not np.array_equal(sources,self.sources_job) or old_enabled!=self.enabled_job or self.pressure_requested!=self.enabled_job:
-                self.state,self.due='IDLE',True
-            elif commit_ok:
-                self.bank=1-self.bank;self.active_sources[:]=self.sources_job
-                self.active_enabled=self.enabled_job;self.cents=self.next_cents.copy()
-                self.active_delta[:]=self.next_delta;self.state='ACK';self.commits+=1
+            self.active_sources[s]=self.source_job;self.active_enabled[s]=self.enabled_job
+            self.valid_slots[s]=True;self.cents[s]=self.next_cents[s]
+            self.active_delta[s]=self.next_delta[s];self.state='ACK';self.commits+=1
         elif st=='ACK':self.state='IDLE'
         return rejected,rejected
 
-    def _next_slot(self):
-        if self.slot==self.slots-1:self.slot,self.state=0,'RD'
-        else:self.slot,self.state=self.slot+1,'MAP'
-
     def advance(self,cycles,*,sources,controls,commit_ok):
         for _ in range(int(cycles)):
-            if self.state=='IDLE' and not controls and not self.due and self.sources_ready(sources):break
-            ack,_=self.clock(sources=sources,control=controls[0] if controls else None,commit_ok=commit_ok)
+            start=self.state=='IDLE'
+            slot=self.rr
+            if start:self.rr=(self.rr+1)%self.slots
+            ack,_=self.clock(start=start,job_slot=slot,sources=sources,
+                control=controls[0] if controls else None,
+                pressure_enable=self.pressure_requested,pressure_gate=self.gates_q,pressure_level=self.levels_q)
             if ack:controls.popleft()
 
 
@@ -416,8 +409,8 @@ class Eng1Synth:
 
     step() returns the result for the input frame, without serializer/FIFO delay.
     Retired idle is published after that frame's state writes. For trace replay,
-    committed_delta bypasses the control scheduler and applies the actual atomic
-    RTL commit; it does not bypass excitation, ADSR, arithmetic or postprocessing.
+    committed_delta bypasses the control scheduler and applies the actual per-slot
+    RTL frame snapshot; it does not bypass excitation, ADSR, arithmetic or postprocessing.
     Automatic controls use PitchEngine with a configurable frame busy window;
     raw MIDI parser/queue/configuration cycle timing is intentionally external.
     """
@@ -579,8 +572,10 @@ class Eng1Synth:
             words = self.pitch.words
             if np.any(words[:, :48, 7] != P.TAG):
                 raise ValueError("atomic pitch replay requires P1T1 metadata")
-            self.core.a1[:] = np.clip(words[:, :, 1]+((words[:, :, 5]*delta[:, None]+2097152) >> 22),
-                                     words[:, :, 0], words[:, :, 2])
+            self.core.a1[:] = self.pitch.nominal
+            cap=self.pitch.modes_per_job
+            self.core.a1[:, :cap] = np.clip(words[:, :cap, 1]+((words[:, :cap, 5]*delta[:, None]+2097152) >> 22),
+                                          words[:, :cap, 0], words[:, :cap, 2])
         x = self.excitation.step(gates, levels, triggers, clears, delta)
         e = self.envelope.step(gates, triggers, clears)
         dead = self.envelope.dead.copy()
@@ -610,8 +605,8 @@ class Eng1Synth:
         self.init_zero = False
         self.clear[:] = False
         if not replay:
-            # One tick per frame; preparation is clocked while the DSP is busy,
-            # but committing is allowed only in the tick-free frame gap.
+            # High-level round-robin approximation. Exact retirement/window admission
+            # is checked with production voice_router by run_mod1_budget.py.
             n = self.sample_index
             clocks = ((n+1)*self.core_hz)//self.sample_rate-(n*self.core_hz)//self.sample_rate
             self.pitch.advance(self.frame_busy_cycles-1, sources=self.sources, controls=self.controls, commit_ok=False)

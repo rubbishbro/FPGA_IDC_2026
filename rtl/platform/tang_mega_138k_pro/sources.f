@@ -1,9 +1,9 @@
+rtl/router/pkg/router_pkg.sv
 rtl/config_pkg.sv
 rtl/math/pkg/fxp_pkg.sv
 rtl/drivers/pkg/clk_rst_pkg.sv
 rtl/drivers/pkg/pad_driver_pkg.sv
 rtl/router/pkg/modal_step_pkg.sv
-rtl/router/pkg/router_pkg.sv
 rtl/router/parts/envelope.sv
 rtl/router/parts/polyphony_gain.sv
 rtl/router/parts/excitation.sv

@@ -223,6 +223,13 @@ module tb_comm_recovery;
         rec_stop=1;clocks(1);rec_stop=0;boundary();wait(ends==1);wait(rec_complete);
         if(rec_active || starts!=1 || ons!=2 || offs!=1 || caches[0]!=3)
             $fatal(1,"FAIL post-recovery take");
+        // Full bytes are validated before enum narrowing on both UART sources.
+        for(int source=0;source<2;source++)begin
+            for(int preset=0;preset<4;preset++)config_reply(source,20+preset,preset,0);
+            before_commits=commits;
+            config_reply(source,30,4,3);config_reply(source,31,255,3);
+            if(commits!=before_commits)$fatal(1,"FAIL invalid preset reached backend");
+        end
         $fclose(wire_file);
         $display("PASS tb_comm_recovery framing_break_overflow_cleanup_cache_peer_full_take");
         $finish;

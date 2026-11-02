@@ -71,6 +71,20 @@ module reverb_router #(
         gw = 32'sd0;
 
         case (preset)
+            router_pkg::REVERB_NONE: begin
+                // The defaults above are the bit-exact dry passthrough preset.
+            end
+            router_pkg::REVERB_CHAMBER: begin
+                // TODO: tune CHAMBER delay/feedback/weights and dry/wet gains.
+                // Placeholder: explicitly use the same parameters as NONE.
+                for (int k = 0; k < 4; k++) begin
+                    len[k] = (AW+1)'(1);
+                    gc[k] = 32'sd0;
+                    wc[k] = 32'sd0;
+                end
+                gd = Q_ONE;
+                gw = 32'sd0;
+            end
             router_pkg::REVERB_HALL: begin
                 len[0] = (AW+1)'(1214); len[1] = (AW+1)'(1293);
                 len[2] = (AW+1)'(1390); len[3] = (AW+1)'(1476);
@@ -91,7 +105,7 @@ module reverb_router #(
                 gd = Q_0_80;
                 gw = Q_0_40;
             end
-            default: ;                    // REVERB_NONE / 非法值：直通
+            default: ;                    // 非法值：直通
         endcase
     end
 
