@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// Per-slot PAD aftertouch. 100 pressure counts = 60 cents, referenced to
+// Per-slot PAD aftertouch. 100 pressure counts = 75 cents, referenced to
 // PAD_NOTE_ON_TH. Released voices retain their last committed pitch.
 // One start/busy/done job updates one slot's first MODES_PER_JOB modes.
 // Immutable P1T1 metadata stays in pm_*; results write the existing ca_a12 RAM.
@@ -65,16 +65,16 @@ module modulation1 #(
     logic signed [63:0] adjusted;
     // Split the aftertouch front end into MAP (register diff), MAP_CENTS
     // (exact constant multiply) and MAP_RATIO (index/fraction), so the
-    // *768/5 path is no longer one combinational hop into the ratio tables.
+    // pressure-to-cents path is registered before indexing the ratio tables.
     logic [7:0] pressure_diff,pressure_diff_q;
     logic [15:0] target_cents_q;
-    logic [33:0] cents_mul;
+    logic [15:0] cents_mul;
     always_comb begin
         pressure_diff=0;
         if(level_job>PAD_NOTE_ON_TH)
             pressure_diff=8'(level_job)-8'(PAD_NOTE_ON_TH);
-        // Exact (diff*768+2)/5 for diff<=153 (threshold 102, level 0..255).
-        cents_mul=34'(pressure_diff_q)*34'd40_265_472+34'd104_858;
+        // 0.75 cents/count = exactly 192 in cents Q8; shift/add, no divider.
+        cents_mul=(16'(pressure_diff_q)<<7)+(16'(pressure_diff_q)<<6);
         adjusted=64'(base_q)+((64'(product)+64'sd2097152)>>>22);
         if(adjusted>64'(upper_q))co_a1=upper_q;
         else if(adjusted<64'(lower_q))co_a1=lower_q;
@@ -140,7 +140,7 @@ module modulation1 #(
                     end
                 end
                 MAP_CENTS:begin
-                    target_cents_q<=16'(cents_mul>>18);st<=MAP_RATIO;
+                    target_cents_q<=cents_mul;st<=MAP_RATIO;
                 end
                 MAP_RATIO:begin
                     next_cents[slot]<=target_cents_q;

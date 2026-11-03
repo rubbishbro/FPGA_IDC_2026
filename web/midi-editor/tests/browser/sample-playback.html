@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Recorded instrument playback regression</title>
+<button id="run">运行采样演奏回归</button><pre id="results">等待运行</pre>
+<script type="module">
+import {SampleSynth} from '../../src/sample-synth.mjs';
+import {compileEvents,validateProject} from '../../src/model.mjs';
+const result=document.querySelector('#results');
+document.querySelector('#run').onclick=async()=>{
+ try{
+  const project=validateProject(await(await fetch('/assets/demos/bach-ensemble.json')).json());
+  const rate=44100,context=new OfflineAudioContext(2,Math.ceil(36.3*rate),rate);
+  let sources=0;const makeSource=context.createBufferSource.bind(context);
+  context.createBufferSource=()=>{sources++;return makeSource();};
+  context.createOscillator=()=>{throw Error('A sampled performance must not use an oscillator');};
+  const synth=new SampleSynth({context});
+  await synth.prepare(project,(done,total)=>result.textContent=`加载录音 ${done}/${total}`);
+  const events=compileEvents(project),groups=new Map();
+  for(const event of events){const frame=Math.floor(event.time*rate/128)*128;if(!groups.has(frame))groups.set(frame,[]);groups.get(frame).push(event);}
+  const pending=[...groups].map(([frame,events])=>context.suspend(frame/rate).then(async()=>{synth.send(events);await context.resume();}));
+  const audio=await context.startRendering();await Promise.all(pending);
+  let peak=0,square=0;
+  for(let ch=0;ch<audio.numberOfChannels;ch++)for(const x of audio.getChannelData(ch)){peak=Math.max(peak,Math.abs(x));square+=x*x;}
+  const rms=Math.sqrt(square/(audio.length*audio.numberOfChannels));
+  const checks={everyNoteUsesRecordedAudio:sources===1239,noStuckNotes:synth.voices.size===0,nonSilent:rms>.01,withinFullScale:peak<1,sevenInstrumentFamilies:new Set(events.filter(e=>e.instrument).map(e=>e.instrument)).size===7};
+  result.textContent=JSON.stringify({sources,decodedSamples:synth.buffers.size,rms,peak,checks,pass:Object.values(checks).every(Boolean)},null,2);
+ }catch(e){result.textContent=e.stack;}
+};
+</script>

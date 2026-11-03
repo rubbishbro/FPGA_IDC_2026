@@ -1,4 +1,5 @@
 import {PPQ,COLORS,uid,validateProject,blankProject} from './model.mjs';
+import {SAMPLE_PROGRAMS} from './sample-instruments.mjs';
 const decoder=new TextDecoder();
 export function parseMidi(input) {
   const bytes=new Uint8Array(input);let pos=0,eventsSeen=0;
@@ -80,7 +81,8 @@ export function writeMidi(project) {
       const start=Math.round(n.beat*PPQ),end=Math.max(start+1,Math.round((n.beat+n.duration)*PPQ));
       events.push({tick:start,order:2,data:[0x90|t.channel,n.pitch,n.velocity]},{tick:end,order:0,data:[0x80|t.channel,n.pitch,0]});
     }
-    for(const e of t.events)events.push({tick:Math.round(e.beat*PPQ),order:1,data:[(e.data[0]&0xf0)|t.channel,...e.data.slice(1)]});
+    if(t.previewInstrument&&SAMPLE_PROGRAMS[t.previewInstrument]!==undefined)events.push({tick:0,order:1,data:[0xc0|t.channel,SAMPLE_PROGRAMS[t.previewInstrument]]});
+    for(const e of t.events){if(t.previewInstrument&&(e.data[0]&0xf0)===0xc0)continue;events.push({tick:Math.round(e.beat*PPQ),order:1,data:[(e.data[0]&0xf0)|t.channel,...e.data.slice(1)]});}
     append(trackChunk(events,project.bars*4*PPQ));
   }
   return Uint8Array.from(result);

@@ -24,7 +24,6 @@ class ReferencePerformance(RawPerformance):
   if name in ('flute','cello','oboe'):
    cfg.update(a_step=row['a_step'],r_step=row['r_step'],s_level=0x1fffffff,d_step=1048576)
   if name in ('banjo','mandolin'):
-   cfg.update(a_step=1,r_step=1,s_level=0x7fffffff,d_step=0)
    # Initialize through a plucked branch with the same copied coefficients;
    # the original six-timbre model assumes all other names have a period.
    row['period']=2
@@ -37,7 +36,6 @@ class ReferencePerformance(RawPerformance):
   gate=np.array([n<hold]);level=np.array([255]);trigger=np.array([n==0]);clear=np.array([False])
   old=self.env.level.copy();env=self.env.step(gate,trigger,clear)
   if self.name in STRIKES:env=np.where(trigger,0,old)
-  if self.name in ('banjo','mandolin'):env=np.array([0x7fffffff]) # PAD bypass envelope
   zero=trigger|(gate&~self.previous_gate)|self.pending_dead
   if self.name in STRIKES:x=self.exc.step(level,gate,trigger,clear)
   else:x=self.exc.step(gate,level,trigger,clear,np.zeros(1,dtype=np.int64))
@@ -50,7 +48,7 @@ class ReferencePerformance(RawPerformance):
    y=np.sum(term(q,w[:,:,6],29),axis=1);self.q[:,:nm]=np.clip(qn,-(1<<31),(1<<31)-1);self.v[:,:nm]=np.clip(vn,-(1<<31),(1<<31)-1)
   else:
    y,yn=self.core.step(x,zero,active_modes=48);self.rails+=int(np.count_nonzero((yn==-(1<<31))|(yn==(1<<31)-1)))
-  dead=np.zeros(1,dtype=bool) if self.name in ('banjo','mandolin') else self.env.dead.copy()
+  dead=self.env.dead.copy()
   self.pending_dead=dead&~self.previous_dead;self.previous_dead=dead;self.previous_gate=gate.copy()
   return self.body.step((int(y[0])*int(env[0]))>>31)[0]
 
@@ -81,19 +79,13 @@ def main():
   for job in as_completed(jobs):
    name,r=job.result();r.update(old_q12=old[name],old_linear=old[name]/4096,delta_db=20*math.log10(r['gain_linear']/(old[name]/4096)));results[name]=r
    print(name,json.dumps(r),flush=True)
- # Full-force accepted drum method, recomputed at1.0 (not scaled from0.8).
- import render_drum_full_compare as D
- D.VELOCITY=1.0
- report=json.loads((ROOT/'build/drum_full_compare/report.json').read_text())
- u=np.array([int(v,16) for v in (ROOT/'build/drum_full_compare/coefficients.mem').read_text().split()],dtype=np.uint32).reshape(6,64,7)
- for i,row in enumerate(report['drums']):
-  co=u[i].astype(np.int64);co[:48]=u[i,:48].view(np.int32).astype(np.int64)
-  table=R.Eng1Coeffs(co[:,0][:48],co[:,1][:48],co[:,2][:48],row['modal_count'])
-  raw,clips=D.integer_render(table,co)
-  # Piece balance belongs to the accepted method; no shared listening gain.
-  balanced=raw.astype(float)*row['reference_balance'];r=metrics(balanced)
-  key='drum_'+row['drum'];r.update(reference_drum=row['drum'],old_q12=4096,old_linear=1.,delta_db=r['gain_db'],noise_saturations=clips,reference_balance=row['reference_balance'])
-  results[key]=r;np.save(a.out/(key+'_raw_q24.npy'),balanced);print(key,json.dumps(r),flush=True)
+ # Full-force production strike/ADSR and actual Flash records. Piece balance
+ # is already embedded in modal/noise gains; do not apply it a second time.
+ from render_drum_excitation_compare import production_bank
+ for row,engine,raw,drive,levels,stats in production_bank(m,image):
+  r=metrics(raw);old_drum=values.get('DRUMS',4096)
+  key='drum_'+row['drum'];r.update(stats,reference_drum=row['drum'],old_q12=old_drum,old_linear=old_drum/4096,delta_db=20*math.log10(r['gain_linear']/(old_drum/4096)),reference_balance=row['reference_balance'])
+  results[key]=r;np.save(a.out/(key+'_raw_q24.npy'),raw);print(key,json.dumps(r),flush=True)
  reference=max((k for k in results if k.startswith('drum_')),key=lambda k:results[k]['max20ms_rms'])
  result=dict(drum_group_reference=reference,drum_group_gain_q12=results[reference]['gain_q12'],drum_group_gain_linear=results[reference]['gain_linear'],target_dbfs=-12,full_scale_q24=1.,fs=48000,window='960-sample sliding window, one-sample hop',hold_s='8s sustained /4s struck-plucked',render_s='hold+1s',drum_render_s=3,trim_removed=True,modulation='disabled baseline',reverb='NONE',polyphony=1,results=results,
   gain_config_modified=False,production_image_sha256=hashlib.sha256(image).hexdigest())

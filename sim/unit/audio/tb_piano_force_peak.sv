@@ -12,7 +12,8 @@ module tb_piano_force_peak;
  voice_router #(.CLK_HZ(50000000),.SR_HZ(48000),.SLOTS(16),.N_MODES(64),
   .PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48),.EXTERNAL_SAMPLE_TICK(1),
   .FLASH_BASE(32'h00800000),.FLASH_BYTES(16777216)) dut(
-  .clk(clk),.rst_n(rst_n),.sample_tick(tick),.start(1'b1),.fmap(fmap),.inst(INST_PIANO),
+  .slot_note_map(112'(router_pkg::default_note_map())),
+        .clk(clk),.rst_n(rst_n),.sample_tick(tick),.start(1'b1),.fmap(fmap),.inst(INST_PIANO),
   .reverb_preset(REVERB_NONE),.reload(1'b0),.ready(ready),.done(),.load_err(err),.table_valid(valid),
   .load_complete(),.voice_idle(),.y_valid(yv),.y_data(y),
   .qspi_cs_n(cs),.qspi_sck(sck),.qspi_dq_o(dqo),.qspi_dq_oe(oe),.qspi_dq_i(dqi),

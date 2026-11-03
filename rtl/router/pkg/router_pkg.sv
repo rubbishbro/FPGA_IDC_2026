@@ -178,6 +178,8 @@ package router_pkg;
     // single voice, modulation off, body enabled, reverb NONE; sliding20ms
     // max RMS=-12dBFS, full scale=1.0 Q24, PCM_HEADROOM_BITS=0.
     // Drums use rise3/pw8, loudest of six accepted-method hits (kick), one common trim.
+    // Added instruments: current ADSR, MIDI69 peak <= -1dBFS;
+    // drum trim uses actual production coefficients/excitation, balance applied once.
     // Reference-note calibration does not guarantee full-range/polyphonic peaks.
     // Calculation artifact: build/reference_gain_calibration/results.json.
     function automatic logic signed [15:0] gain_q12_of(input instrument_e inst);
@@ -190,11 +192,9 @@ package router_pkg;
             INST_VIOLIN:     return 16'sd1390;
             INST_OBOE:       return 16'sd3321;
             INST_DRUMS:      return 16'sd453; // rise3/pw8; kick=max20ms reference; production drum group trim.
-            INST_BANJO:      return 16'sd1097;
-            // TODO: MIDI69 calibrated peak is about +0.69dBFS at headroom0.
-            // Accepted temporary overshoot; retain the requested RMS target.
-            INST_MANDOLIN:   return 16'sd1543;
-            INST_PIANO_ABC:  return 16'sd10992;
+            INST_BANJO:      return 16'sd1025;
+            INST_MANDOLIN:   return 16'sd1244;
+            INST_PIANO_ABC:  return 16'sd10159;
             INST_GUITAR_ABC: return 16'sd1165;
             default:         return 16'sd4096;
         endcase

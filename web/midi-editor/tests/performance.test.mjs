@@ -9,6 +9,19 @@ function event({kind=0,id=42,ordinal=0,tick=0,slot=0,channel=1,flags=0,a=1250000
  const p=new Uint8Array(24),v=new DataView(p.buffer);p.set([kind,flags,channel,slot]);for(const [offset,value] of [[4,id],[8,ordinal],[12,tick],[16,a],[20,b]])v.setUint32(offset,value,true);return {type:130,seq:ordinal&255,payload:p};
 }
 function recorder(){const project=blankProject();project.tempoMap=[{beat:0,bpm:120},{beat:4,bpm:60}];return new PerformanceRecorder({id:42,project,insertBeat:2});}
+test('all 16 PAD pitches survive fragmented wire decoding and MIDI roundtrip',()=>{
+ const r=recorder(),errors=[],reader=new FrameReader(f=>r.push(f),e=>errors.push(e));
+ const send=e=>{for(const byte of encodeFrame(e.type,e.seq,e.payload))reader.feed([byte]);};
+ send(event());
+ for(let slot=0;slot<16;slot++)send(event({kind:1,ordinal:slot+1,slot,tick:100,a:(44+slot)|(64<<8),b:0}));
+ for(let slot=0;slot<16;slot++)send(event({kind:2,ordinal:slot+17,slot,tick:10000,a:(44+slot)|(64<<8),b:0}));
+ send(event({kind:3,ordinal:33,tick:10000,a:0,b:32}));
+ const pitches=Array.from({length:16},(_,i)=>44+i);
+ assert.deepEqual(errors,[]);assert.equal(r.incomplete,false);assert.equal(r.ended,true);
+ assert.deepEqual(r.track.notes.map(n=>n.pitch),pitches);
+ const p=blankProject();p.tempoMap=r.tempoMap;p.tracks=[r.track];
+ assert.deepEqual(parseMidi(writeMidi(p)).project.tracks[0].notes.map(n=>n.pitch),pitches);
+});
 test('performance stream has fixed LEN24 and survives bytewise SLIP, including IDs and timestamps',()=>{
  const input=event({id:0xdbc0dbc0,tick:0}),frames=[];const reader=new FrameReader(f=>frames.push(f));for(const b of encodeFrame(130,input.seq,input.payload))reader.feed([b]);assert.equal(frames.length,1);assert.equal(decodePerformance(frames[0]).id,0xdbc0dbc0);assert.deepEqual(recordIdBytes(0xdbc0dbc0),[192,219,192,219]);assert.throws(()=>encodeFrame(130,0,new Uint8Array(23)));
 });

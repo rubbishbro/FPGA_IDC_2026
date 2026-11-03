@@ -60,7 +60,7 @@ Node.js 20+，无需安装依赖：
 npm --prefix web/midi-editor run dev
 ```
 
-在Chrome/Edge打开 `http://127.0.0.1:5173`。电脑参考试听使用三角波；UART按v1 SLIP/CRC发送当前音乐时间的演奏事件，播放前校验板端通道与已加载16音清单。板端音色/来源/音组仍需本地设置，操作与边界见 `web/midi-editor/` 源码。
+在Chrome/Edge打开 `http://127.0.0.1:5173`。电脑播放按轨道的 MIDI 音色调用本地乐器录音，首次播放前自动预加载所需采样。左侧“加载巴赫合奏示例”可载入九声部演示。录音资源已在本地生成；如需重建，运行 `npm --prefix web/midi-editor run build:samples`（需要 Python 3 和 libsndfile）。资源与验证说明见 [Web 采样演奏](docs/web采样演奏.md)。UART按v1 SLIP/CRC发送当前音乐时间的演奏事件，播放前校验板端通道与已加载16音清单；板端音色/来源/音组仍需本地设置。
 
 ## Python 与验证入口
 

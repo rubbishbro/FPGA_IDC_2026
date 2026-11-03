@@ -1,0 +1,35 @@
+<!doctype html><meta charset="utf-8"><title>Reference synth audio regression</title>
+<button id="run">运行音频回归</button><pre id="results">等待运行</pre>
+<script type="module">
+import {ReferenceSynth} from '../../src/playback.mjs';
+import {compileEvents,validateProject} from '../../src/model.mjs';
+const pitches=[18,27,28,30,36,48,60,72,84,96];
+function rms(data,start,end){let sum=0;for(let i=start;i<end;i++)sum+=data[i]*data[i];return Math.sqrt(sum/(end-start));}
+async function render(pitch,proxy,voices=1,legacy=false){
+ const context=new OfflineAudioContext(1,48000*2,48000),synth=new ReferenceSynth({context});
+ if(proxy){synth.output.disconnect();const hp=context.createBiquadFilter(),lp=context.createBiquadFilter();hp.type='highpass';hp.frequency.value=150;hp.Q.value=-3.0103;lp.type='lowpass';lp.frequency.value=5000;lp.Q.value=-3.0103;synth.output.connect(hp).connect(lp).connect(context.destination);}
+ if(legacy){const osc=context.createOscillator(),gain=context.createGain();osc.type='triangle';osc.frequency.value=440*2**((pitch-69)/12);gain.gain.setValueAtTime(0,0);gain.gain.linearRampToValueAtTime(96/127*.165,.008);gain.gain.exponentialRampToValueAtTime(96/127*.078,.25);osc.connect(gain).connect(synth.input);osc.start();}
+ else synth.send(Array.from({length:voices},(_,i)=>({key:`note-${i}`,data:[0x90,pitch,96]})));
+ const buffer=await context.startRendering(),data=buffer.getChannelData(0);let peak=0;for(const x of data)peak=Math.max(peak,Math.abs(x));
+ return {rms:rms(data,24000,72000),peak};
+}
+async function renderReportedProject(){
+ const project=validateProject(await (await fetch('../fixtures/low-register-project.json')).json());
+ const context=new OfflineAudioContext(1,48000*6,48000),synth=new ReferenceSynth({context});
+ const groups=new Map();for(const event of compileEvents(project)){if(!groups.has(event.time))groups.set(event.time,[]);groups.get(event.time).push(event);}
+ const stops=[...groups].map(([time,events])=>context.suspend(time).then(async()=>{synth.send(events);await context.resume();}));
+ const buffer=await context.startRendering();await Promise.all(stops);const data=buffer.getChannelData(0);
+ let peak=0;for(const x of data)peak=Math.max(peak,Math.abs(x));
+ return {silenceBeforeFirstNote:rms(data,0,43200),noteRms:rms(data,52800,256800),peak,attacks:compileEvents(project).filter(e=>(e.data[0]&240)===144).length};
+}
+document.querySelector('#run').onclick=async()=>{try{
+ const rows=[];for(const pitch of pitches){const direct=await render(pitch,false),proxy=await render(pitch,true);rows.push({pitch,hz:+(440*2**((pitch-69)/12)).toFixed(2),rmsDb:+(20*Math.log10(direct.rms)).toFixed(2),proxyDb:+(20*Math.log10(proxy.rms)).toFixed(2),peak:+direct.peak.toFixed(5)});document.querySelector('#results').textContent=JSON.stringify(rows,null,2);}
+ const lowChord=await render(18,false,16),midChord=await render(60,false,16);
+ const legacyLow=await render(18,true,1,true),legacyMid=await render(60,true,1,true);
+ const directSpread=Math.max(...rows.map(r=>r.rmsDb))-Math.min(...rows.map(r=>r.rmsDb));
+ const proxySpread=Math.max(...rows.map(r=>r.proxyDb))-Math.min(...rows.map(r=>r.proxyDb));
+ const reportedProject=await renderReportedProject();
+ const checks={reportedProjectAudible:reportedProject.attacks===4&&reportedProject.noteRms>.02&&reportedProject.peak<1&&reportedProject.silenceBeforeFirstNote<1e-8,equalDigitalEnergy:directSpread<1,bassAudibleInProxy:proxySpread<4,noSingleNoteClipping:rows.every(r=>r.peak<1),no16VoiceClipping:Math.max(lowChord.peak,midChord.peak)<1};
+ document.querySelector('#results').textContent=JSON.stringify({rows,directSpread,proxySpread,legacyProxyGap:20*Math.log10(legacyMid.rms/legacyLow.rms),lowChord,midChord,reportedProject,checks,pass:Object.values(checks).every(Boolean),complete:true},null,2);
+}catch(e){document.querySelector('#results').textContent=e.stack;}};
+</script>

@@ -6,7 +6,7 @@ all clamped a1 values strictly stable; actual pressure sweeps also check RTL
 rounding/clamping. This is a pole audit, not a nonlinear overflow/listening test.
 """
 from pathlib import Path
-import argparse,json,struct,sys
+import argparse,json,struct,sys,re
 ROOT=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'rtl/router/tools')]
 from check_performance_resources import check as check_layout
@@ -26,12 +26,13 @@ def wrap32(n):return (n+(1<<31))%(1<<32)-(1<<31)
 
 def audit(directory):
     directory=Path(directory);layout=check_layout(directory)
+    cap=int(re.search(r'MAX_LAMBDA_Q30\s*=\s*32\x27sd([\d_]+)',(ROOT/'rtl/router/parts/modulation0.sv').read_text())[1].replace('_',''))
     m=json.loads((directory/'resources.json').read_text());raw=(directory/'resources.bin').read_bytes()
     ratios=struct.unpack_from('>512I',raw,m['control_page']['offset'])
     deltas=set()
     for th in [64,102,230]:
         for level in range(256):
-            diff=max(0,level-th);cents=(diff*768+2)//5
+            diff=max(0,level-th);cents=diff*192
             index=(cents+56320)>>8;fraction=(cents+56320)&255
             assert index+1<512
             delta=ratios[index]+(((ratios[index+1]-ratios[index])*fraction+128)>>8)-(1<<24)
@@ -53,9 +54,9 @@ def audit(directory):
                 failures.append(dict(name=name,midi=row['midi'],mode=mode,kind='nominal'))
             if name=='guitar' and mode<4:
                 for th in [64,102,230]:
-                    span=max(1,230-th);step=(37580959+span//2)//span
+                    span=max(1,230-th);step=(cap+span//2)//span
                     for level in range(256):
-                        lam=37580959 if level>=230 else step*max(0,level-th)
+                        lam=cap if level>=230 else step*max(0,level-th)
                         a=wrap32(co[8]+((lam*co[12])>>31));b=wrap32(co[9]+((lam*co[13])>>29))
                         d=wrap32(co[10]+((lam*co[14])>>31));c=wrap32(-(b>>7))
                         # Matching modulation0's Q28/Q30/Q23 updates.

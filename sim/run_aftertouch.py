@@ -12,8 +12,8 @@ def vectors(out):
     (out/'pitch_tables.mem').write_text(''.join(f'{x:08x}\n' for x in words))
     cents=[];delta=[]
     for p in range(256):
-        # Nearest Q8 cent, with a rational 60 cents / 100 pressure mapping.
-        q=(max(0,p-102)*60*256+50)//100
+        # Independent oracle: exactly 75 cents per 100 pressure counts in Q8.
+        q=max(0,p-102)*75*256//100
         i,f=divmod(q+220*256,256)
         cents.append(q);delta.append(ratios[i]+((ratios[i+1]-ratios[i])*f+128)//256-(1<<24))
     for name,values in [('cents',cents),('delta',delta)]:

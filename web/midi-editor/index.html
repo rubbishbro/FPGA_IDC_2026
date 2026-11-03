@@ -23,7 +23,7 @@
     <div class="meter"><strong>4<span>/</span>4</strong><small>拍号</small></div>
     <div class="transport-spacer"></div>
     <div class="record-controls"><button id="record-performance" class="record-button" aria-label="录制演奏" aria-pressed="false" disabled>● 录制演奏</button><small id="record-status">PAD → MIDI</small></div>
-    <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑参考试听</option><option value="uart">FPGA · 串口</option></select></label>
+    <label class="route-label"><span>播放输出</span><select id="output" aria-label="播放输出"><option value="local">电脑乐器采样</option><option value="uart">FPGA · 串口</option></select></label>
     <button id="panic" class="panic" title="停止走带并向全部通道发送清音（Esc）" aria-label="紧急清音（Esc）"><span class="panic-label">危险操作</span><span class="panic-action">■ 紧急清音<kbd>ESC</kbd></span></button>
     <button id="help" class="transport-help" title="操作指南（?）" aria-label="操作指南">?</button>
   </nav>
@@ -34,7 +34,7 @@
       <div class="panel-title"><span>轨道 <small id="track-count">02</small></span><div class="panel-title-actions"><button id="close-tracks" class="mini-icon" aria-label="收起轨道侧栏" title="收起侧栏">‹</button><button id="add-track" class="mini-icon" title="新增轨道" aria-label="新增轨道"><svg><use href="#i-plus"/></svg></button></div></div>
       <div class="track-list" id="tracks"></div>
       <div class="track-bottom"><span class="eyebrow">PROJECT</span><div class="project-stat"><strong id="note-count">0</strong><span>个音符</span><strong id="bar-count">8</strong><span>小节</span></div><button id="new-project" class="full subtle">＋ 新建空白工程</button></div>
-      <div class="file-actions"><button id="import"><svg><use href="#i-import"/></svg>导入 MIDI / 工程</button><button id="export-midi"><svg><use href="#i-export"/></svg>导出 MIDI</button><button id="save-project" class="subtle">保存工程 <span>JSON</span></button></div>
+      <div class="file-actions"><button id="import"><svg><use href="#i-import"/></svg>导入 MIDI / 工程</button><button id="load-ensemble">加载巴赫合奏示例</button><button id="export-midi"><svg><use href="#i-export"/></svg>导出 MIDI</button><button id="save-project" class="subtle">保存工程 <span>JSON</span></button></div>
       <input id="file-input" type="file" accept=".mid,.midi,.json" hidden>
     </aside>
     </div>
@@ -65,6 +65,7 @@
         <label class="serial-select">通信协议<select id="protocol"><option value="v1">v1 · 有线 115200 / 蓝牙 9600</option><option value="v2">v2 · 蓝牙/测试串口（当前固件不支持）</option></select></label>
         <label class="serial-select">波特率<select id="baud" disabled><option>115200</option><option>9600</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
         <button id="connect" class="connect-button"><svg><use href="#i-plug"/></svg><span>连接串口</span></button>
+        <button id="open-keymap" class="connect-button">自定义键位配置</button>
         <button id="export-link-diagnostics" class="connect-button">导出通信诊断</button>
         <p id="serial-support" class="hint">USB 转 UART · 8N1 · SLIP / CRC16</p>
         <p id="protocol-hint" class="hint">有线选“连接方式=有线”+ v1 + 115200；HC-05 选“蓝牙”+ v1 + 9600（HC-05 本身也需配置为 9600）。当前固件没有 v2 心跳/会话层，v2 仅保留给其它固件。</p>
@@ -80,7 +81,7 @@
           </details>
         </div>
         <details id="hardware-profile"><summary>板端已加载配置 <span>手动核对</span></summary>
-          <label class="stack-label">当前接收通道 / 音色<span class="channel-field"><span id="hw-channel-icon" class="instrument-icon" aria-hidden="true"></span><select id="hw-channel"><option value="0">1 · 吉他1</option><option value="1" selected>2 · 钢琴1</option><option value="2">3 · 小号</option><option value="3">4 · 小提琴</option><option value="4">5 · 大提琴</option><option value="5">6 · 长笛</option><option value="6">7 · 钢琴2</option><option value="7">8 · 吉他2</option></select></span></label>
+          <label class="stack-label">当前接收通道 / 音色<span class="channel-field"><span id="hw-channel-icon" class="instrument-icon" aria-hidden="true"></span><select id="hw-channel"><option value="0">1 · 吉他1</option><option value="1" selected>2 · 钢琴1</option><option value="2">3 · 小号</option><option value="3">4 · 小提琴</option><option value="4">5 · 大提琴</option><option value="5">6 · 长笛</option><option value="6">7 · 钢琴2</option><option value="7">8 · 吉他2</option><option value="8">9 · 双簧管</option><option value="9">10 · 鼓组</option><option value="10">11 · 班卓</option><option value="11">12 · 曼陀铃</option></select></span></label>
           <label class="stack-label">当前已加载音高（MIDI 编号）<textarea id="hw-notes" rows="3" spellcheck="false">21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36</textarea></label>
           <button id="load-manifest" class="full subtle">从资源清单读取音组</button><input id="manifest-input" type="file" accept=".json" hidden>
           <label class="inline-field">音高组（与板端一致）<select id="manifest-bank"><option value="0">低组 / 0</option><option value="1">高组 / 1</option></select></label>
@@ -91,10 +92,23 @@
     </aside>
     </div>
   </main>
-  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="status-divider">·</span><span class="status-engine" title="钢琴卷帘渲染后端"><i></i><span id="backend">WebGL</span></span><span class="transport-spacer"></span><span id="output-status">参考试听 · 三角波</span><span class="status-divider">|</span><span id="protocol-status">UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
+  <footer class="statusbar"><span class="status-light"></span><span id="status" role="status">就绪</span><span class="status-divider">·</span><span class="status-engine" title="钢琴卷帘渲染后端"><i></i><span id="backend">WebGL</span></span><span class="transport-spacer"></span><span id="output-status">乐器采样演奏</span><span class="status-divider">|</span><span id="protocol-status">UART v1</span><span class="status-divider">|</span><span id="draft-time">本机自动保存</span></footer>
 </div>
 <div id="channel-menu" class="channel-menu" role="listbox" aria-label="MIDI 通道与音色" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
-<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听使用三角波参考音源。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
+<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听按轨道音色加载真实乐器录音。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
+<dialog id="keymap-dialog" aria-labelledby="keymap-title">
+  <div class="dialog-heading"><span class="eyebrow">DEVICE CONFIGURATION</span><button id="close-keymap" class="mini-icon" aria-label="关闭键位配置">×</button></div>
+  <h2 id="keymap-title">自定义压力垫键位</h2>
+  <p>为 16 个压力垫指定 MIDI 音高。整组使用同一种乐器，允许多个键使用相同音高。</p>
+  <label class="stack-label">乐器<select id="keymap-instrument"></select></label>
+  <p id="keymap-range" class="hint"></p>
+  <div class="edit-actions"><button id="keymap-low">填入低音组</button><button id="keymap-high">填入高音组</button></div>
+  <div id="keymap-grid" class="keymap-grid"></div>
+  <p id="keymap-validation" role="status"></p><p id="keymap-connection" class="hint"></p>
+  <button id="keymap-send" class="connect-button">通过串口应用键位</button>
+  <p id="keymap-result" role="status" aria-live="polite">尚未发送到设备</p>
+  <p class="hint">更改时会重载音色资源。成功以设备回复为准；超时表示结果未知，可保持松键后重新应用。此页面不能读取设备当前键位，也不保证断电保存。</p>
+</dialog>
 <script type="module" src="/src/app.mjs"></script>
 </body></html>

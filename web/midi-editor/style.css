@@ -1254,3 +1254,5 @@ button[hidden], div[hidden] { display: none !important; }
 @media (max-width: 1080px) {
   .position-readout > span { font-size: 14px; letter-spacing: .5px; }
 }
+
+#keymap-dialog{width:min(600px,calc(100vw - 32px));max-height:90vh;overflow:auto} .keymap-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}.keymap-grid label{display:flex;flex-direction:column;gap:6px}.keymap-grid input{width:100%;min-width:0}#keymap-validation{color:#f4a09c}#keymap-result{line-height:1.6}

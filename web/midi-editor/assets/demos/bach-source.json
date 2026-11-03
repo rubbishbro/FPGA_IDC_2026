@@ -1,0 +1,10 @@
+{
+  "source": "Mutopia Project",
+  "work": "Bach BWV1047 movement I",
+  "credit": "Andy Vaught",
+  "license": "Public Domain",
+  "url": "https://www.mutopiaproject.org/ftp/BachJS/BWV1047/brandenburg_2/",
+  "excerptQuarterBeats": 64,
+  "demoBpm": 112,
+  "meterAdaptation": "2/2 to equal-length 4/4 display"
+}

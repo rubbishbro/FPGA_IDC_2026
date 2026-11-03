@@ -44,9 +44,9 @@ def build_fixture(n):
         assert not gates[a:b,slot].any(),'same-pad gate collision'
         extra=np.zeros(b-a)
         if connected_in and e['midi']<prior['midi']:
-            extra+=30*(1-smooth(t/.1)) # 18c ->0 over100ms.
+            extra+=30*(1-smooth(t/.1)) # 22.5c ->0 over100ms.
         if connected_out and following['midi']>e['midi']:
-            extra+=20*smooth((t-((end-start)-.1))/.1) #0 ->12c tail lift.
+            extra+=20*smooth((t-((end-start)-.1))/.1) #0 ->15c tail lift.
         level=np.rint(102+extra).astype(np.uint8)
         gates[a:b,slot]=True;pressure[a:b,slot]=level;triggers[a,slot]=True
         events.append(dict(**e,gate_on=start,gate_off=end,connected_in=connected_in,
@@ -55,10 +55,8 @@ def build_fixture(n):
 
 
 def pitch_ratio_q24(level):
-    # modulation1.sv exact diff<=153 multiplier/shift mapping.
-    diff=max(0,int(level)-102)
-    cents_q8=(diff*40_265_472+104_858)>>18
-    assert cents_q8==(diff*768+2)//5
+    # Current modulation1.sv: exact 0.75 cents per pressure count.
+    cents_q8=P.aftertouch_cents_q8(level)
     index,frac=divmod(cents_q8+56320,256)
     ratios=P.ratio_table()
     return ratios[index]+(((ratios[index+1]-ratios[index])*frac+128)>>8)-(1<<24),cents_q8
@@ -66,7 +64,7 @@ def pitch_ratio_q24(level):
 
 def arithmetic_checks():
     assert pitch_ratio_q24(102)==(0,0)
-    assert pitch_ratio_q24(132)[1]==18*256
+    assert pitch_ratio_q24(132)[1]==5760
     for level in range(102,256):pitch_ratio_q24(level)
     # Phase increment and modal refresh consume one shared committed delta.
     co=R.build_b_table('flute',64,'forte').padded(64)

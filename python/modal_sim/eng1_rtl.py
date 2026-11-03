@@ -358,9 +358,14 @@ class PitchEngine:
                 self.next_cents[s]=self.cents[s];self.next_delta[s]=int(self.active_delta[s])
                 self.state='COMMIT' if self.nm==0 else 'RD'
             else:
-                q=(max(0,self.level_job-self.threshold)*768+2)//5
-                self.next_cents[s]=q;self.ratio_index,self.ratio_fraction=divmod(q+56320,256)
-                self.state='RATIO_LD'
+                self.pressure_diff=max(0,self.level_job-self.threshold)
+                self.state='MAP_CENTS'
+        elif st=='MAP_CENTS':
+            self.target_cents=self.pressure_diff*192;self.state='MAP_RATIO'
+        elif st=='MAP_RATIO':
+            self.next_cents[s]=self.target_cents
+            self.ratio_index,self.ratio_fraction=divmod(self.target_cents+56320,256)
+            self.state='RATIO_LD'
         elif st=='RATIO_LD':self.state='RATIO_DATA'
         elif st=='RATIO_DATA':
             self.ratio_base=self.ratios[self.ratio_index]

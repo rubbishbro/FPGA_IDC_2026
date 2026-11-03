@@ -7,3 +7,8 @@ import './protocol-v2-recovery.test.mjs';
 import './serial-v2.test.mjs';
 
 import './performance.test.mjs';
+
+import './reference-wave.test.mjs';
+import './sample-synth.test.mjs';
+
+import './keymap.test.mjs';

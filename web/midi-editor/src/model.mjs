@@ -1,3 +1,4 @@
+import {trackInstrument,SAMPLE_NAMES} from './sample-instruments.mjs';
 export const PPQ=480;
 export const COLORS=['#5b9cf8','#80c6b7','#b49be8','#d998ac','#94bb75','#7cb9d2'];
 export const LEGACY_NOTES=[40,42,44,46,48,50,52,54,56,58,60,62,64,67,71,76];
@@ -24,6 +25,7 @@ export function validateProject(p) {
   p.tempoMap.forEach((t,i)=>{if(!Number.isFinite(t.beat)||t.beat<0||!Number.isFinite(t.bpm)||t.bpm<4||t.bpm>1000||(i&&t.beat<=p.tempoMap[i-1].beat)) throw Error('速度图无效');});
   let count=0,maxEnd=0;const ids=new Set();
   for(const t of p.tracks) {
+    if(t.previewInstrument!==undefined&&!Object.hasOwn(SAMPLE_NAMES,t.previewInstrument))throw Error('轨道采样音色无效');
     if(typeof t.name!=='string'||t.name.length>160||typeof t.id!=='string'||ids.has(t.id)||!Number.isInteger(t.channel)||t.channel<0||t.channel>15||!/^#[0-9a-f]{6}$/i.test(t.color)||typeof t.muted!=='boolean'||typeof t.solo!=='boolean'||!Array.isArray(t.notes)||!Array.isArray(t.events)) throw Error('轨道数据无效');
     ids.add(t.id);
     for(const n of t.notes) {
@@ -48,7 +50,7 @@ export function compileEvents(project,{hardware=false}={}) {
   for(const t of activeTracks(project)) {
     for(const n of t.notes) {
       const key=`${t.id}:${n.id}`;
-      events.push({beat:n.beat,order:2,key,data:[0x90|t.channel,n.pitch,n.velocity]});
+      events.push({beat:n.beat,order:2,key,...(!hardware?{instrument:trackInstrument(t,n.beat)}:{}),data:[0x90|t.channel,n.pitch,n.velocity]});
       events.push({beat:n.beat+n.duration,order:0,key,data:[0x80|t.channel,n.pitch,0]});
     }
     for(const [i,e] of t.events.entries()) if(!hardware || ((e.data[0]&0xf0)===0xb0 && [64,120,123].includes(e.data[1]))) events.push({...e,data:[(e.data[0]&0xf0)|t.channel,...e.data.slice(1)],key:`${t.id}:e${i}`,order:1});

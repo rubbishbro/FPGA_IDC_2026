@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "name": "未命名片段",
+  "tempoMap": [
+    {
+      "beat": 0,
+      "bpm": 100
+    }
+  ],
+  "timeSignature": [
+    4,
+    4
+  ],
+  "bars": 8,
+  "loop": {
+    "enabled": false,
+    "start": 0,
+    "end": 16
+  },
+  "tracks": [
+    {
+      "id": "9b0b689a-1233-48f9-8675-c7fcf58ee9fb",
+      "name": "轨道 01",
+      "channel": 6,
+      "color": "#5b9cf8",
+      "muted": false,
+      "solo": false,
+      "notes": [
+        {
+          "id": "91f8a9bd-d01b-4300-8c26-28d7c1965a8a",
+          "pitch": 27,
+          "beat": 3.25,
+          "duration": 0.5,
+          "velocity": 96
+        },
+        {
+          "id": "2cf183b3-efc7-4584-ba47-ff79ea7f3c10",
+          "pitch": 28,
+          "beat": 1.75,
+          "duration": 7.25,
+          "velocity": 96
+        },
+        {
+          "id": "99429027-4fe4-4584-bac3-12b447bc6e12",
+          "pitch": 30,
+          "beat": 2.75,
+          "duration": 0.25,
+          "velocity": 96
+        },
+        {
+          "id": "160ac1bc-ea7a-4916-8864-023c65feeb02",
+          "pitch": 18,
+          "beat": 2,
+          "duration": 0.5,
+          "velocity": 96
+        }
+      ],
+      "events": []
+    }
+  ]
+}

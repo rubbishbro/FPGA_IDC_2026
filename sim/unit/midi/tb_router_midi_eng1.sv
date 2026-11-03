@@ -15,6 +15,7 @@ module tb_router_midi_eng1;
         .dq_o(dut.qspi_dq_o),.dq_oe(dut.qspi_dq_oe),.blank(1'b0),.dq_i(qspi_i));
     integer outputs=0,nonzero_outputs=0,checks=0;
     voice_router #(.SLOTS(4),.N_MODES(4),.CLK_HZ(10_000_000),.SR_HZ(10_000),.MIDI_ENABLE(1)) dut (
+        .slot_note_map(28'(router_pkg::default_note_map())),
         .clk(clk),.rst_n(rst_n),.fmap(fmap),.inst(INST_FLUTE),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.start(1'b1),.done(done),.ready(),.load_err(),.y_valid(y_valid),.y_data(y_data),
         .qspi_cs_n(),.qspi_sck(),.qspi_dq_o(),.qspi_dq_oe(),.qspi_dq_i(qspi_i),

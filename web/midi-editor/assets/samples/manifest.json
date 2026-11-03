@@ -1,0 +1,3296 @@
+{
+  "version": 1,
+  "instruments": {
+    "piano": {
+      "samples": [
+        {
+          "pitch": 21,
+          "url": "/assets/samples/piano/21.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A0vL.flac"
+        },
+        {
+          "pitch": 23,
+          "url": "/assets/samples/piano/23.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B0vH.flac"
+        },
+        {
+          "pitch": 24,
+          "url": "/assets/samples/piano/24.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C1vL.flac"
+        },
+        {
+          "pitch": 27,
+          "url": "/assets/samples/piano/27.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#1vL.flac"
+        },
+        {
+          "pitch": 30,
+          "url": "/assets/samples/piano/30.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#1vL.flac"
+        },
+        {
+          "pitch": 33,
+          "url": "/assets/samples/piano/33.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A1vL.flac"
+        },
+        {
+          "pitch": 35,
+          "url": "/assets/samples/piano/35.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B1vH.flac"
+        },
+        {
+          "pitch": 36,
+          "url": "/assets/samples/piano/36.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C2vL.flac"
+        },
+        {
+          "pitch": 39,
+          "url": "/assets/samples/piano/39.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#2vL.flac"
+        },
+        {
+          "pitch": 42,
+          "url": "/assets/samples/piano/42.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#2vL.flac"
+        },
+        {
+          "pitch": 45,
+          "url": "/assets/samples/piano/45.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A2vL.flac"
+        },
+        {
+          "pitch": 47,
+          "url": "/assets/samples/piano/47.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B2vH.flac"
+        },
+        {
+          "pitch": 48,
+          "url": "/assets/samples/piano/48.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C3vL.flac"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/piano/51.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#3vL.flac"
+        },
+        {
+          "pitch": 54,
+          "url": "/assets/samples/piano/54.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#3vL.flac"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/piano/57.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A3vL.flac"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/piano/59.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B3vH.flac"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/piano/60.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C4vL.flac"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/piano/63.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#4vL.flac"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/piano/66.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#4vL.flac"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/piano/69.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A4vL.flac"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/piano/71.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B4vH.flac"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/piano/72.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C5vL.flac"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/piano/75.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#5vL.flac"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/piano/78.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#5vL.flac"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/piano/81.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A5vL.flac"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/piano/83.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B5vH.flac"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/piano/84.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C6vL.flac"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/piano/87.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#6vL.flac"
+        },
+        {
+          "pitch": 90,
+          "url": "/assets/samples/piano/90.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#6vL.flac"
+        },
+        {
+          "pitch": 93,
+          "url": "/assets/samples/piano/93.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A6vL.flac"
+        },
+        {
+          "pitch": 95,
+          "url": "/assets/samples/piano/95.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B6vH.flac"
+        },
+        {
+          "pitch": 96,
+          "url": "/assets/samples/piano/96.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C7vL.flac"
+        },
+        {
+          "pitch": 99,
+          "url": "/assets/samples/piano/99.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/D#7vL.flac"
+        },
+        {
+          "pitch": 102,
+          "url": "/assets/samples/piano/102.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/F#7vL.flac"
+        },
+        {
+          "pitch": 105,
+          "url": "/assets/samples/piano/105.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/A7vL.flac"
+        },
+        {
+          "pitch": 107,
+          "url": "/assets/samples/piano/107.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/B7vH.flac"
+        },
+        {
+          "pitch": 108,
+          "url": "/assets/samples/piano/108.wav",
+          "loop": null,
+          "source": "music_resources/UprightPian/samples/C8vL.flac"
+        }
+      ]
+    },
+    "guitar": {
+      "samples": [
+        {
+          "pitch": 40,
+          "url": "/assets/samples/guitar/40.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_E2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 41,
+          "url": "/assets/samples/guitar/41.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_F2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 42,
+          "url": "/assets/samples/guitar/42.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Fs2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 43,
+          "url": "/assets/samples/guitar/43.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_G2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 44,
+          "url": "/assets/samples/guitar/44.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Gs2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 45,
+          "url": "/assets/samples/guitar/45.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_A2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 46,
+          "url": "/assets/samples/guitar/46.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_As2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 47,
+          "url": "/assets/samples/guitar/47.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_B2_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 48,
+          "url": "/assets/samples/guitar/48.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_C3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 49,
+          "url": "/assets/samples/guitar/49.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Cs3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 50,
+          "url": "/assets/samples/guitar/50.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_D3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/guitar/51.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Ds3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 52,
+          "url": "/assets/samples/guitar/52.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_E3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 53,
+          "url": "/assets/samples/guitar/53.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_F3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 54,
+          "url": "/assets/samples/guitar/54.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Fs3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 55,
+          "url": "/assets/samples/guitar/55.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_G3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/guitar/56.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Gs3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/guitar/57.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_A3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/guitar/58.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_As3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/guitar/59.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_B3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/guitar/60.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_C4_very-long_forte_normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/guitar/61.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Cs4_very-long_forte_normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/guitar/62.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_D4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/guitar/63.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Ds4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/guitar/64.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_E4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/guitar/65.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_F4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/guitar/66.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Fs4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/guitar/67.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_G4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/guitar/68.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Gs4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/guitar/69.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_A4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/guitar/70.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_As4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/guitar/71.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_B4_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/guitar/74.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_D5_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/guitar/75.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Ds5_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/guitar/76.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_E5_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/guitar/79.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_G5_very-long_forte_normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/guitar/80.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_Gs5_very-long_forte_normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/guitar/84.wav",
+          "loop": null,
+          "source": "music_resources/guitar/guitar_C6_very-long_piano_normal.mp3"
+        }
+      ]
+    },
+    "trumpet": {
+      "samples": [
+        {
+          "pitch": 40,
+          "url": "/assets/samples/trumpet/40.wav",
+          "loop": [
+            0.37997732426303854,
+            2.7009750566893422
+          ],
+          "source": "music_resources/trumpet/trumpet_E2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 41,
+          "url": "/assets/samples/trumpet/41.wav",
+          "loop": [
+            0.37997732426303854,
+            2.5553968253968256
+          ],
+          "source": "music_resources/trumpet/trumpet_F2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 42,
+          "url": "/assets/samples/trumpet/42.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_Fs2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 43,
+          "url": "/assets/samples/trumpet/43.wav",
+          "loop": [
+            0.37997732426303854,
+            2.8265986394557823
+          ],
+          "source": "music_resources/trumpet/trumpet_G2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 44,
+          "url": "/assets/samples/trumpet/44.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_Gs2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 45,
+          "url": "/assets/samples/trumpet/45.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1001587301587303
+          ],
+          "source": "music_resources/trumpet/trumpet_A2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 46,
+          "url": "/assets/samples/trumpet/46.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_As2_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 49,
+          "url": "/assets/samples/trumpet/49.wav",
+          "loop": [
+            0.37997732426303854,
+            2.029138321995465
+          ],
+          "source": "music_resources/trumpet/trumpet_Cs3_long_pianissimo_normal.mp3"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/trumpet/51.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3953968253968254
+          ],
+          "source": "music_resources/trumpet/trumpet_Ds3_long_forte_normal.mp3"
+        },
+        {
+          "pitch": 52,
+          "url": "/assets/samples/trumpet/52.wav",
+          "loop": null,
+          "source": "music_resources/trumpet/trumpet_E3_025_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 53,
+          "url": "/assets/samples/trumpet/53.wav",
+          "loop": [
+            0.37997732426303854,
+            2.22578231292517
+          ],
+          "source": "music_resources/trumpet/trumpet_F3_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 55,
+          "url": "/assets/samples/trumpet/55.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4488208616780045
+          ],
+          "source": "music_resources/trumpet/trumpet_G3_long_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/trumpet/56.wav",
+          "loop": [
+            0.37997732426303854,
+            2.194671201814059
+          ],
+          "source": "music_resources/trumpet/trumpet_Gs3_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/trumpet/57.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_A3_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/trumpet/58.wav",
+          "loop": [
+            0.37997732426303854,
+            1.359297052154195
+          ],
+          "source": "music_resources/trumpet/trumpet_As3_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/trumpet/59.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9123129251700681
+          ],
+          "source": "music_resources/trumpet/trumpet_B3_1_forte_normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/trumpet/60.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0068253968253966
+          ],
+          "source": "music_resources/trumpet/trumpet_C4_1_forte_normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/trumpet/61.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9073242630385487
+          ],
+          "source": "music_resources/trumpet/trumpet_Cs4_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/trumpet/62.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3170294784580499
+          ],
+          "source": "music_resources/trumpet/trumpet_D4_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/trumpet/63.wav",
+          "loop": [
+            0.37997732426303854,
+            2.074036281179138
+          ],
+          "source": "music_resources/trumpet/trumpet_Ds4_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/trumpet/64.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_E4_very-long_forte_normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/trumpet/65.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0246938775510204
+          ],
+          "source": "music_resources/trumpet/trumpet_F4_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/trumpet/66.wav",
+          "loop": [
+            0.37997732426303854,
+            1.359297052154195
+          ],
+          "source": "music_resources/trumpet/trumpet_Fs4_long_piano_normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/trumpet/67.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1001587301587303
+          ],
+          "source": "music_resources/trumpet/trumpet_G4_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/trumpet/68.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_Gs4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/trumpet/69.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2870975056689342
+          ],
+          "source": "music_resources/trumpet/trumpet_A4_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/trumpet/70.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8911791383219954
+          ],
+          "source": "music_resources/trumpet/trumpet_As4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/trumpet/71.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1163038548752833
+          ],
+          "source": "music_resources/trumpet/trumpet_B4_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/trumpet/72.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8791156462585034
+          ],
+          "source": "music_resources/trumpet/trumpet_C5_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/trumpet/73.wav",
+          "loop": [
+            0.37997732426303854,
+            1.504875283446712
+          ],
+          "source": "music_resources/trumpet/trumpet_Cs5_long_piano_normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/trumpet/74.wav",
+          "loop": null,
+          "source": "music_resources/trumpet/trumpet_D5_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/trumpet/75.wav",
+          "loop": [
+            0.37997732426303854,
+            1.19140589569161
+          ],
+          "source": "music_resources/trumpet/trumpet_Ds5_long_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/trumpet/76.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0690476190476192
+          ],
+          "source": "music_resources/trumpet/trumpet_E5_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/trumpet/77.wav",
+          "loop": null,
+          "source": "music_resources/trumpet/trumpet_F5_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/trumpet/78.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/trumpet/trumpet_Fs5_very-long_piano_normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/trumpet/79.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1036961451247165
+          ],
+          "source": "music_resources/trumpet/trumpet_G5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/trumpet/80.wav",
+          "loop": null,
+          "source": "music_resources/trumpet/trumpet_Gs5_05_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/trumpet/81.wav",
+          "loop": [
+            0.37997732426303854,
+            2.5055102040816326
+          ],
+          "source": "music_resources/trumpet/trumpet_A5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/trumpet/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2548072562358277
+          ],
+          "source": "music_resources/trumpet/trumpet_As5_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/trumpet/83.wav",
+          "loop": [
+            0.37997732426303854,
+            1.01562358276644
+          ],
+          "source": "music_resources/trumpet/trumpet_B5_1_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/trumpet/84.wav",
+          "loop": [
+            0.37997732426303854,
+            0.79140589569161
+          ],
+          "source": "music_resources/trumpet/trumpet_C6_05_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 85,
+          "url": "/assets/samples/trumpet/85.wav",
+          "loop": [
+            0.37997732426303854,
+            2.202018140589569
+          ],
+          "source": "music_resources/trumpet/trumpet_Cs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 86,
+          "url": "/assets/samples/trumpet/86.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5110430839002267
+          ],
+          "source": "music_resources/trumpet/trumpet_D6_long_mezzo-piano_normal.mp3"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/trumpet/87.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0690476190476192
+          ],
+          "source": "music_resources/trumpet/trumpet_Ds6_15_forte_normal.mp3"
+        },
+        {
+          "pitch": 88,
+          "url": "/assets/samples/trumpet/88.wav",
+          "loop": [
+            0.37997732426303854,
+            1.755578231292517
+          ],
+          "source": "music_resources/trumpet/trumpet_E6_15_forte_normal.mp3"
+        }
+      ]
+    },
+    "violin": {
+      "samples": [
+        {
+          "pitch": 55,
+          "url": "/assets/samples/violin/55.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8230612244897959
+          ],
+          "source": "music_resources/violin/violin_G3_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/violin/56.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8380272108843537
+          ],
+          "source": "music_resources/violin/violin_Gs3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/violin/57.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8753061224489795
+          ],
+          "source": "music_resources/violin/violin_A3_025_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/violin/58.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8876417233560091
+          ],
+          "source": "music_resources/violin/violin_As3_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/violin/59.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8107256235827665
+          ],
+          "source": "music_resources/violin/violin_B3_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/violin/60.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8691383219954648
+          ],
+          "source": "music_resources/violin/violin_C4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/violin/61.wav",
+          "loop": [
+            0.37997732426303854,
+            0.843015873015873
+          ],
+          "source": "music_resources/violin/violin_Cs4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/violin/62.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8579818594104308
+          ],
+          "source": "music_resources/violin/violin_D4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/violin/63.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/violin/violin_Ds4_long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/violin/64.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0904535147392291
+          ],
+          "source": "music_resources/violin/violin_E4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/violin/65.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3417006802721088
+          ],
+          "source": "music_resources/violin/violin_F4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/violin/66.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_Fs4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/violin/67.wav",
+          "loop": [
+            0.37997732426303854,
+            1.293265306122449
+          ],
+          "source": "music_resources/violin/violin_G4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/violin/68.wav",
+          "loop": [
+            0.37997732426303854,
+            1.273310657596372
+          ],
+          "source": "music_resources/violin/violin_Gs4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/violin/69.wav",
+          "loop": [
+            0.37997732426303854,
+            0.9287301587301587
+          ],
+          "source": "music_resources/violin/violin_A4_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/violin/70.wav",
+          "loop": [
+            0.37997732426303854,
+            0.7719954648526077
+          ],
+          "source": "music_resources/violin/violin_As4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/violin/71.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_B4_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/violin/72.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8453741496598639
+          ],
+          "source": "music_resources/violin/violin_C5_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/violin/73.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0170748299319727
+          ],
+          "source": "music_resources/violin/violin_Cs5_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/violin/74.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4948979591836735
+          ],
+          "source": "music_resources/violin/violin_D5_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/violin/75.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3516780045351473
+          ],
+          "source": "music_resources/violin/violin_Ds5_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/violin/76.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3977551020408163
+          ],
+          "source": "music_resources/violin/violin_E5_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/violin/77.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8242403628117914
+          ],
+          "source": "music_resources/violin/violin_F5_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/violin/78.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8864625850340137
+          ],
+          "source": "music_resources/violin/violin_Fs5_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/violin/79.wav",
+          "loop": [
+            0.37997732426303854,
+            0.9040589569160997
+          ],
+          "source": "music_resources/violin/violin_G5_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/violin/80.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_Gs5_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/violin/81.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_A5_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/violin/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1638321995464853
+          ],
+          "source": "music_resources/violin/violin_As5_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/violin/83.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2994331065759637
+          ],
+          "source": "music_resources/violin/violin_B5_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/violin/84.wav",
+          "loop": [
+            0.37997732426303854,
+            0.9859637188208616
+          ],
+          "source": "music_resources/violin/violin_C6_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 85,
+          "url": "/assets/samples/violin/85.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2421995464852609
+          ],
+          "source": "music_resources/violin/violin_Cs6_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 86,
+          "url": "/assets/samples/violin/86.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0382086167800453
+          ],
+          "source": "music_resources/violin/violin_D6_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/violin/87.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1638321995464853
+          ],
+          "source": "music_resources/violin/violin_Ds6_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 88,
+          "url": "/assets/samples/violin/88.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8814739229024944
+          ],
+          "source": "music_resources/violin/violin_E6_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 89,
+          "url": "/assets/samples/violin/89.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_F6_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 90,
+          "url": "/assets/samples/violin/90.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2421995464852609
+          ],
+          "source": "music_resources/violin/violin_Fs6_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 91,
+          "url": "/assets/samples/violin/91.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2260544217687075
+          ],
+          "source": "music_resources/violin/violin_G6_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 92,
+          "url": "/assets/samples/violin/92.wav",
+          "loop": [
+            0.37997732426303854,
+            1.370453514739229
+          ],
+          "source": "music_resources/violin/violin_Gs6_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 93,
+          "url": "/assets/samples/violin/93.wav",
+          "loop": [
+            0.37997732426303854,
+            0.91140589569161
+          ],
+          "source": "music_resources/violin/violin_A6_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 94,
+          "url": "/assets/samples/violin/94.wav",
+          "loop": [
+            0.37997732426303854,
+            0.9648299319727891
+          ],
+          "source": "music_resources/violin/violin_As6_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 95,
+          "url": "/assets/samples/violin/95.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8603401360544217
+          ],
+          "source": "music_resources/violin/violin_B6_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 96,
+          "url": "/assets/samples/violin/96.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_C7_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 97,
+          "url": "/assets/samples/violin/97.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1465079365079365
+          ],
+          "source": "music_resources/violin/violin_Cs7_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 98,
+          "url": "/assets/samples/violin/98.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_D7_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 99,
+          "url": "/assets/samples/violin/99.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8714965986394558
+          ],
+          "source": "music_resources/violin/violin_Ds7_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 100,
+          "url": "/assets/samples/violin/100.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_E7_05_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 101,
+          "url": "/assets/samples/violin/101.wav",
+          "loop": null,
+          "source": "music_resources/violin/violin_F7_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 102,
+          "url": "/assets/samples/violin/102.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8491836734693877
+          ],
+          "source": "music_resources/violin/violin_Fs7_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 103,
+          "url": "/assets/samples/violin/103.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1738095238095239
+          ],
+          "source": "music_resources/violin/violin_G7_1_mezzo-forte_arco-normal.mp3"
+        }
+      ]
+    },
+    "cello": {
+      "samples": [
+        {
+          "pitch": 36,
+          "url": "/assets/samples/cello/36.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1864172335600907
+          ],
+          "source": "music_resources/cello/cello_C2_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 37,
+          "url": "/assets/samples/cello/37.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0619727891156463
+          ],
+          "source": "music_resources/cello/cello_Cs2_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 38,
+          "url": "/assets/samples/cello/38.wav",
+          "loop": [
+            0.37997732426303854,
+            2.63312925170068
+          ],
+          "source": "music_resources/cello/cello_D2_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 39,
+          "url": "/assets/samples/cello/39.wav",
+          "loop": [
+            0.37997732426303854,
+            2.19875283446712
+          ],
+          "source": "music_resources/cello/cello_Ds2_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 40,
+          "url": "/assets/samples/cello/40.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1415192743764173
+          ],
+          "source": "music_resources/cello/cello_E2_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 41,
+          "url": "/assets/samples/cello/41.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0581632653061224
+          ],
+          "source": "music_resources/cello/cello_F2_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 42,
+          "url": "/assets/samples/cello/42.wav",
+          "loop": [
+            0.37997732426303854,
+            2.094263038548753
+          ],
+          "source": "music_resources/cello/cello_Fs2_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 43,
+          "url": "/assets/samples/cello/43.wav",
+          "loop": [
+            0.37997732426303854,
+            2.528639455782313
+          ],
+          "source": "music_resources/cello/cello_G2_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 44,
+          "url": "/assets/samples/cello/44.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0942630385487528
+          ],
+          "source": "music_resources/cello/cello_Gs2_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 45,
+          "url": "/assets/samples/cello/45.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2436507936507937
+          ],
+          "source": "music_resources/cello/cello_A2_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 46,
+          "url": "/assets/samples/cello/46.wav",
+          "loop": [
+            0.37997732426303854,
+            1.125374149659864
+          ],
+          "source": "music_resources/cello/cello_As2_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 47,
+          "url": "/assets/samples/cello/47.wav",
+          "loop": [
+            0.37997732426303854,
+            2.197573696145125
+          ],
+          "source": "music_resources/cello/cello_B2_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 48,
+          "url": "/assets/samples/cello/48.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1626530612244899
+          ],
+          "source": "music_resources/cello/cello_C3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 49,
+          "url": "/assets/samples/cello/49.wav",
+          "loop": [
+            0.37997732426303854,
+            2.083106575963719
+          ],
+          "source": "music_resources/cello/cello_Cs3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 50,
+          "url": "/assets/samples/cello/50.wav",
+          "loop": [
+            0.37997732426303854,
+            2.419160997732426
+          ],
+          "source": "music_resources/cello/cello_D3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/cello/51.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0519954648526078
+          ],
+          "source": "music_resources/cello/cello_Ds3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 52,
+          "url": "/assets/samples/cello/52.wav",
+          "loop": [
+            0.37997732426303854,
+            2.042018140589569
+          ],
+          "source": "music_resources/cello/cello_E3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 53,
+          "url": "/assets/samples/cello/53.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0097278911564627
+          ],
+          "source": "music_resources/cello/cello_F3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 54,
+          "url": "/assets/samples/cello/54.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1426984126984128
+          ],
+          "source": "music_resources/cello/cello_Fs3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 55,
+          "url": "/assets/samples/cello/55.wav",
+          "loop": [
+            0.37997732426303854,
+            2.419160997732426
+          ],
+          "source": "music_resources/cello/cello_G3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/cello/56.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0109070294784581
+          ],
+          "source": "music_resources/cello/cello_Gs3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/cello/57.wav",
+          "loop": [
+            0.37997732426303854,
+            2.34578231292517
+          ],
+          "source": "music_resources/cello/cello_A3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/cello/58.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9228344671201814
+          ],
+          "source": "music_resources/cello/cello_As3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/cello/59.wav",
+          "loop": [
+            0.37997732426303854,
+            2.378072562358277
+          ],
+          "source": "music_resources/cello/cello_B3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/cello/60.wav",
+          "loop": [
+            0.37997732426303854,
+            2.4053741496598637
+          ],
+          "source": "music_resources/cello/cello_C4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/cello/61.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1391609977324264
+          ],
+          "source": "music_resources/cello/cello_Cs4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/cello/62.wav",
+          "loop": [
+            0.37997732426303854,
+            2.34578231292517
+          ],
+          "source": "music_resources/cello/cello_D4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/cello/63.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0455555555555556
+          ],
+          "source": "music_resources/cello/cello_Ds4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/cello/64.wav",
+          "loop": [
+            0.37997732426303854,
+            2.175260770975057
+          ],
+          "source": "music_resources/cello/cello_E4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/cello/65.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9489569160997733
+          ],
+          "source": "music_resources/cello/cello_F4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/cello/66.wav",
+          "loop": [
+            0.37997732426303854,
+            2.221065759637188
+          ],
+          "source": "music_resources/cello/cello_Fs4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/cello/67.wav",
+          "loop": [
+            0.37997732426303854,
+            2.2363038548752834
+          ],
+          "source": "music_resources/cello/cello_G4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/cello/68.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1215646258503402
+          ],
+          "source": "music_resources/cello/cello_Gs4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/cello/69.wav",
+          "loop": [
+            0.37997732426303854,
+            2.419160997732426
+          ],
+          "source": "music_resources/cello/cello_A4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/cello/70.wav",
+          "loop": [
+            0.37997732426303854,
+            2.2571655328798186
+          ],
+          "source": "music_resources/cello/cello_As4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/cello/71.wav",
+          "loop": [
+            0.37997732426303854,
+            2.3220181405895692
+          ],
+          "source": "music_resources/cello/cello_B4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/cello/72.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0185260770975058
+          ],
+          "source": "music_resources/cello/cello_C5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/cello/73.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1840589569161
+          ],
+          "source": "music_resources/cello/cello_Cs5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/cello/74.wav",
+          "loop": [
+            0.37997732426303854,
+            1.134172335600907
+          ],
+          "source": "music_resources/cello/cello_D5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/cello/75.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1814285714285715
+          ],
+          "source": "music_resources/cello/cello_Ds5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/cello/76.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7710884353741496
+          ],
+          "source": "music_resources/cello/cello_E5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/cello/77.wav",
+          "loop": [
+            0.37997732426303854,
+            2.050816326530612
+          ],
+          "source": "music_resources/cello/cello_F5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/cello/78.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1790702947845806
+          ],
+          "source": "music_resources/cello/cello_Fs5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/cello/79.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1106802721088433
+          ],
+          "source": "music_resources/cello/cello_G5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/cello/80.wav",
+          "loop": [
+            0.37997732426303854,
+            2.157936507936508
+          ],
+          "source": "music_resources/cello/cello_Gs5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/cello/81.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0907256235827663
+          ],
+          "source": "music_resources/cello/cello_A5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/cello/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9786167800453516
+          ],
+          "source": "music_resources/cello/cello_As5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/cello/83.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0546258503401362
+          ],
+          "source": "music_resources/cello/cello_B5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/cello/84.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9489569160997733
+          ],
+          "source": "music_resources/cello/cello_C6_15_mezzo-piano_arco-normal.mp3"
+        }
+      ]
+    },
+    "flute": {
+      "samples": [
+        {
+          "pitch": 60,
+          "url": "/assets/samples/flute/60.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1130385487528345
+          ],
+          "source": "music_resources/flute/flute_C4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/flute/61.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1664625850340136
+          ],
+          "source": "music_resources/flute/flute_Cs4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/flute/62.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2187074829931972
+          ],
+          "source": "music_resources/flute/flute_D4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/flute/63.wav",
+          "loop": [
+            0.37997732426303854,
+            1.171451247165533
+          ],
+          "source": "music_resources/flute/flute_Ds4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/flute/64.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3742630385487529
+          ],
+          "source": "music_resources/flute/flute_E4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/flute/65.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/flute/flute_F4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/flute/66.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2125396825396826
+          ],
+          "source": "music_resources/flute/flute_Fs4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/flute/67.wav",
+          "loop": [
+            0.37997732426303854,
+            1.238390022675737
+          ],
+          "source": "music_resources/flute/flute_G4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/flute/68.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2521768707482994
+          ],
+          "source": "music_resources/flute/flute_Gs4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/flute/69.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/flute/flute_A4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/flute/70.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3220181405895692
+          ],
+          "source": "music_resources/flute/flute_As4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/flute/71.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2348526077097506
+          ],
+          "source": "music_resources/flute/flute_B4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/flute/72.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/flute/flute_C5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/flute/73.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2647845804988662
+          ],
+          "source": "music_resources/flute/flute_Cs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/flute/74.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1650113378684808
+          ],
+          "source": "music_resources/flute/flute_D5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/flute/75.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2647845804988662
+          ],
+          "source": "music_resources/flute/flute_Ds5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/flute/76.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1488662131519274
+          ],
+          "source": "music_resources/flute/flute_E5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/flute/77.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2175283446712017
+          ],
+          "source": "music_resources/flute/flute_F5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/flute/78.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/flute/flute_Fs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/flute/79.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2771201814058957
+          ],
+          "source": "music_resources/flute/flute_G5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/flute/80.wav",
+          "loop": [
+            0.37997732426303854,
+            1.167641723356009
+          ],
+          "source": "music_resources/flute/flute_Gs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/flute/81.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2460090702947846
+          ],
+          "source": "music_resources/flute/flute_A5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/flute/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1600226757369614
+          ],
+          "source": "music_resources/flute/flute_As5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/flute/83.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2386621315192743
+          ],
+          "source": "music_resources/flute/flute_B5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/flute/84.wav",
+          "loop": [
+            0.37997732426303854,
+            1.270952380952381
+          ],
+          "source": "music_resources/flute/flute_C6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 85,
+          "url": "/assets/samples/flute/85.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3742630385487529
+          ],
+          "source": "music_resources/flute/flute_Cs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 86,
+          "url": "/assets/samples/flute/86.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3393424036281179
+          ],
+          "source": "music_resources/flute/flute_D6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/flute/87.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2868253968253969
+          ],
+          "source": "music_resources/flute/flute_Ds6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 88,
+          "url": "/assets/samples/flute/88.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4998866213151927
+          ],
+          "source": "music_resources/flute/flute_E6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 89,
+          "url": "/assets/samples/flute/89.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4711337868480725
+          ],
+          "source": "music_resources/flute/flute_F6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 90,
+          "url": "/assets/samples/flute/90.wav",
+          "loop": [
+            0.37997732426303854,
+            1.227233560090703
+          ],
+          "source": "music_resources/flute/flute_Fs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 91,
+          "url": "/assets/samples/flute/91.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2134467120181407
+          ],
+          "source": "music_resources/flute/flute_G6_1_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 92,
+          "url": "/assets/samples/flute/92.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3281859410430839
+          ],
+          "source": "music_resources/flute/flute_Gs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 93,
+          "url": "/assets/samples/flute/93.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4538095238095239
+          ],
+          "source": "music_resources/flute/flute_A6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 94,
+          "url": "/assets/samples/flute/94.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1315419501133788
+          ],
+          "source": "music_resources/flute/flute_As6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 95,
+          "url": "/assets/samples/flute/95.wav",
+          "loop": [
+            0.37997732426303854,
+            1.282108843537415
+          ],
+          "source": "music_resources/flute/flute_B6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 96,
+          "url": "/assets/samples/flute/96.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3220181405895692
+          ],
+          "source": "music_resources/flute/flute_C7_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 97,
+          "url": "/assets/samples/flute/97.wav",
+          "loop": [
+            0.37997732426303854,
+            1.0619727891156463
+          ],
+          "source": "music_resources/flute/flute_Cs7_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 98,
+          "url": "/assets/samples/flute/98.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2994331065759637
+          ],
+          "source": "music_resources/flute/flute_D7_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 99,
+          "url": "/assets/samples/flute/99.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8254195011337868
+          ],
+          "source": "music_resources/flute/flute_Ds7_15_piano_normal.mp3"
+        },
+        {
+          "pitch": 100,
+          "url": "/assets/samples/flute/100.wav",
+          "loop": [
+            0.37997732426303854,
+            0.9598412698412698
+          ],
+          "source": "music_resources/flute/flute_E7_15_piano_normal.mp3"
+        },
+        {
+          "pitch": 101,
+          "url": "/assets/samples/flute/101.wav",
+          "loop": null,
+          "source": "music_resources/flute/flute_F7_15_forte_normal.mp3"
+        }
+      ]
+    },
+    "viola": {
+      "samples": [
+        {
+          "pitch": 48,
+          "url": "/assets/samples/viola/48.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/viola/viola_C3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 49,
+          "url": "/assets/samples/viola/49.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8444671201814058
+          ],
+          "source": "music_resources/viola/viola_Cs3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 50,
+          "url": "/assets/samples/viola/50.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5098639455782312
+          ],
+          "source": "music_resources/viola/viola_D3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/viola/51.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4003854875283446
+          ],
+          "source": "music_resources/viola/viola_Ds3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 52,
+          "url": "/assets/samples/viola/52.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8917233560090703
+          ],
+          "source": "music_resources/viola/viola_E3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 53,
+          "url": "/assets/samples/viola/53.wav",
+          "loop": [
+            0.37997732426303854,
+            1.390408163265306
+          ],
+          "source": "music_resources/viola/viola_F3_05_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 54,
+          "url": "/assets/samples/viola/54.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5832426303854876
+          ],
+          "source": "music_resources/viola/viola_Fs3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 55,
+          "url": "/assets/samples/viola/55.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3008843537414967
+          ],
+          "source": "music_resources/viola/viola_G3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/viola/56.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5260090702947846
+          ],
+          "source": "music_resources/viola/viola_Gs3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/viola/57.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0323129251700682
+          ],
+          "source": "music_resources/viola/viola_A3_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/viola/58.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2697732426303854
+          ],
+          "source": "music_resources/viola/viola_As3_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/viola/59.wav",
+          "loop": [
+            0.37997732426303854,
+            1.772267573696145
+          ],
+          "source": "music_resources/viola/viola_B3_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/viola/60.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_C4_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/viola/61.wav",
+          "loop": [
+            0.37997732426303854,
+            1.687732426303855
+          ],
+          "source": "music_resources/viola/viola_Cs4_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/viola/62.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_D4_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/viola/63.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8606122448979592
+          ],
+          "source": "music_resources/viola/viola_Ds4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/viola/64.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9078684807256236
+          ],
+          "source": "music_resources/viola/viola_E4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/viola/65.wav",
+          "loop": [
+            0.37997732426303854,
+            2.131814058956916
+          ],
+          "source": "music_resources/viola/viola_F4_phrase_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/viola/66.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7660997732426305
+          ],
+          "source": "music_resources/viola/viola_Fs4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/viola/67.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_G4_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/viola/68.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8705895691609977
+          ],
+          "source": "music_resources/viola/viola_Gs4_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/viola/69.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_A4_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/viola/70.wav",
+          "loop": [
+            0.37997732426303854,
+            1.516031746031746
+          ],
+          "source": "music_resources/viola/viola_As4_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/viola/71.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/viola/viola_B4_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/viola/72.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6354875283446713
+          ],
+          "source": "music_resources/viola/viola_C5_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/viola/73.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8629705215419501
+          ],
+          "source": "music_resources/viola/viola_Cs5_05_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/viola/74.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_D5_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/viola/75.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6777551020408163
+          ],
+          "source": "music_resources/viola/viola_Ds5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/viola/76.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/viola/viola_E5_very-long_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/viola/77.wav",
+          "loop": null,
+          "source": "music_resources/viola/viola_F5_05_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/viola/78.wav",
+          "loop": [
+            0.37997732426303854,
+            1.504875283446712
+          ],
+          "source": "music_resources/viola/viola_Fs5_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/viola/79.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4549886621315193
+          ],
+          "source": "music_resources/viola/viola_G5_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/viola/80.wav",
+          "loop": null,
+          "source": "music_resources/viola/viola_Gs5_1_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/viola/81.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5172108843537415
+          ],
+          "source": "music_resources/viola/viola_A5_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/viola/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/viola/viola_As5_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/viola/83.wav",
+          "loop": [
+            0.37997732426303854,
+            1.875578231292517
+          ],
+          "source": "music_resources/viola/viola_B5_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/viola/84.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3742630385487529
+          ],
+          "source": "music_resources/viola/viola_C6_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 85,
+          "url": "/assets/samples/viola/85.wav",
+          "loop": [
+            0.37997732426303854,
+            1.370453514739229
+          ],
+          "source": "music_resources/viola/viola_Cs6_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 86,
+          "url": "/assets/samples/viola/86.wav",
+          "loop": [
+            0.37997732426303854,
+            1.359297052154195
+          ],
+          "source": "music_resources/viola/viola_D6_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/viola/87.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3381632653061224
+          ],
+          "source": "music_resources/viola/viola_Ds6_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 88,
+          "url": "/assets/samples/viola/88.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1391609977324264
+          ],
+          "source": "music_resources/viola/viola_E6_15_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 89,
+          "url": "/assets/samples/viola/89.wav",
+          "loop": null,
+          "source": "music_resources/viola/viola_F6_05_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 90,
+          "url": "/assets/samples/viola/90.wav",
+          "loop": [
+            0.37997732426303854,
+            1.06578231292517
+          ],
+          "source": "music_resources/viola/viola_Fs6_1_mezzo-piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 91,
+          "url": "/assets/samples/viola/91.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4003854875283446
+          ],
+          "source": "music_resources/viola/viola_G6_1_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 92,
+          "url": "/assets/samples/viola/92.wav",
+          "loop": null,
+          "source": "music_resources/viola/viola_Gs6_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 93,
+          "url": "/assets/samples/viola/93.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4003854875283446
+          ],
+          "source": "music_resources/viola/viola_A6_15_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 94,
+          "url": "/assets/samples/viola/94.wav",
+          "loop": [
+            0.37997732426303854,
+            1.1864172335600907
+          ],
+          "source": "music_resources/viola/viola_As6_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 95,
+          "url": "/assets/samples/viola/95.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4265079365079365
+          ],
+          "source": "music_resources/viola/viola_B6_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 96,
+          "url": "/assets/samples/viola/96.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8729478458049886
+          ],
+          "source": "music_resources/viola/viola_C7_15_forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 97,
+          "url": "/assets/samples/viola/97.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6665986394557823
+          ],
+          "source": "music_resources/viola/viola_Cs7_1_piano_arco-normal.mp3"
+        },
+        {
+          "pitch": 98,
+          "url": "/assets/samples/viola/98.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2436507936507937
+          ],
+          "source": "music_resources/viola/viola_D7_15_piano_arco-normal.mp3"
+        }
+      ]
+    },
+    "oboe": {
+      "samples": [
+        {
+          "pitch": 58,
+          "url": "/assets/samples/oboe/58.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5782539682539682
+          ],
+          "source": "music_resources/oboe/oboe_As3_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/oboe/59.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_B3_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/oboe/60.wav",
+          "loop": [
+            0.37997732426303854,
+            1.405374149659864
+          ],
+          "source": "music_resources/oboe/oboe_C4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/oboe/61.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4265079365079365
+          ],
+          "source": "music_resources/oboe/oboe_Cs4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/oboe/62.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_D4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/oboe/63.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3804308390022675
+          ],
+          "source": "music_resources/oboe/oboe_Ds4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/oboe/64.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3367120181405896
+          ],
+          "source": "music_resources/oboe/oboe_E4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/oboe/65.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_F4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/oboe/66.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3367120181405896
+          ],
+          "source": "music_resources/oboe/oboe_Fs4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/oboe/67.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3281859410430839
+          ],
+          "source": "music_resources/oboe/oboe_G4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 68,
+          "url": "/assets/samples/oboe/68.wav",
+          "loop": [
+            0.37997732426303854,
+            2.5582086167800453
+          ],
+          "source": "music_resources/oboe/oboe_Gs4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 69,
+          "url": "/assets/samples/oboe/69.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3431519274376418
+          ],
+          "source": "music_resources/oboe/oboe_A4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 70,
+          "url": "/assets/samples/oboe/70.wav",
+          "loop": [
+            0.37997732426303854,
+            1.160294784580499
+          ],
+          "source": "music_resources/oboe/oboe_As4_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 71,
+          "url": "/assets/samples/oboe/71.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_B4_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 72,
+          "url": "/assets/samples/oboe/72.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3543083900226758
+          ],
+          "source": "music_resources/oboe/oboe_C5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 73,
+          "url": "/assets/samples/oboe/73.wav",
+          "loop": [
+            0.37997732426303854,
+            1.250997732426304
+          ],
+          "source": "music_resources/oboe/oboe_Cs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 74,
+          "url": "/assets/samples/oboe/74.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_D5_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 75,
+          "url": "/assets/samples/oboe/75.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3105895691609977
+          ],
+          "source": "music_resources/oboe/oboe_Ds5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 76,
+          "url": "/assets/samples/oboe/76.wav",
+          "loop": [
+            0.37997732426303854,
+            1.227233560090703
+          ],
+          "source": "music_resources/oboe/oboe_E5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 77,
+          "url": "/assets/samples/oboe/77.wav",
+          "loop": [
+            0.37997732426303854,
+            2.38859410430839
+          ],
+          "source": "music_resources/oboe/oboe_F5_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 78,
+          "url": "/assets/samples/oboe/78.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3692743764172335
+          ],
+          "source": "music_resources/oboe/oboe_Fs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 79,
+          "url": "/assets/samples/oboe/79.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2322222222222223
+          ],
+          "source": "music_resources/oboe/oboe_G5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 80,
+          "url": "/assets/samples/oboe/80.wav",
+          "loop": [
+            0.37997732426303854,
+            1.370453514739229
+          ],
+          "source": "music_resources/oboe/oboe_Gs5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 81,
+          "url": "/assets/samples/oboe/81.wav",
+          "loop": [
+            0.37997732426303854,
+            2.85
+          ],
+          "source": "music_resources/oboe/oboe_A5_phrase_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 82,
+          "url": "/assets/samples/oboe/82.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3381632653061224
+          ],
+          "source": "music_resources/oboe/oboe_As5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 83,
+          "url": "/assets/samples/oboe/83.wav",
+          "loop": [
+            0.37997732426303854,
+            1.473764172335601
+          ],
+          "source": "music_resources/oboe/oboe_B5_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 84,
+          "url": "/assets/samples/oboe/84.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5210204081632652
+          ],
+          "source": "music_resources/oboe/oboe_C6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 85,
+          "url": "/assets/samples/oboe/85.wav",
+          "loop": [
+            0.37997732426303854,
+            1.514580498866213
+          ],
+          "source": "music_resources/oboe/oboe_Cs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 86,
+          "url": "/assets/samples/oboe/86.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4376643990929705
+          ],
+          "source": "music_resources/oboe/oboe_D6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 87,
+          "url": "/assets/samples/oboe/87.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3431519274376418
+          ],
+          "source": "music_resources/oboe/oboe_Ds6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 88,
+          "url": "/assets/samples/oboe/88.wav",
+          "loop": [
+            0.37997732426303854,
+            1.3143990929705216
+          ],
+          "source": "music_resources/oboe/oboe_E6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 89,
+          "url": "/assets/samples/oboe/89.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4139002267573697
+          ],
+          "source": "music_resources/oboe/oboe_F6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 90,
+          "url": "/assets/samples/oboe/90.wav",
+          "loop": [
+            0.37997732426303854,
+            1.348140589569161
+          ],
+          "source": "music_resources/oboe/oboe_Fs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 91,
+          "url": "/assets/samples/oboe/91.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5260090702947846
+          ],
+          "source": "music_resources/oboe/oboe_G6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 92,
+          "url": "/assets/samples/oboe/92.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4687755102040816
+          ],
+          "source": "music_resources/oboe/oboe_Gs6_15_mezzo-forte_normal.mp3"
+        },
+        {
+          "pitch": 93,
+          "url": "/assets/samples/oboe/93.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4265079365079365
+          ],
+          "source": "music_resources/oboe/oboe_A6_15_piano_normal.mp3"
+        },
+        {
+          "pitch": 94,
+          "url": "/assets/samples/oboe/94.wav",
+          "loop": [
+            0.37997732426303854,
+            0.8779365079365079
+          ],
+          "source": "music_resources/oboe/oboe_As6_15_piano_normal.mp3"
+        }
+      ]
+    },
+    "bass": {
+      "samples": [
+        {
+          "pitch": 24,
+          "url": "/assets/samples/bass/24.wav",
+          "loop": [
+            0.37997732426303854,
+            1.8729478458049886
+          ],
+          "source": "music_resources/double bass/double-bass_C1_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 25,
+          "url": "/assets/samples/bass/25.wav",
+          "loop": [
+            0.37997732426303854,
+            2.152947845804989
+          ],
+          "source": "music_resources/double bass/double-bass_Cs1_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 26,
+          "url": "/assets/samples/bass/26.wav",
+          "loop": [
+            0.37997732426303854,
+            2.0558049886621315
+          ],
+          "source": "music_resources/double bass/double-bass_D1_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 27,
+          "url": "/assets/samples/bass/27.wav",
+          "loop": [
+            0.37997732426303854,
+            1.9513151927437642
+          ],
+          "source": "music_resources/double bass/double-bass_Ds1_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 28,
+          "url": "/assets/samples/bass/28.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7423356009070294
+          ],
+          "source": "music_resources/double bass/double-bass_E1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 29,
+          "url": "/assets/samples/bass/29.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6428344671201813
+          ],
+          "source": "music_resources/double bass/double-bass_F1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 30,
+          "url": "/assets/samples/bass/30.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6428344671201813
+          ],
+          "source": "music_resources/double bass/double-bass_Fs1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 31,
+          "url": "/assets/samples/bass/31.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6428344671201813
+          ],
+          "source": "music_resources/double bass/double-bass_G1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 32,
+          "url": "/assets/samples/bass/32.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5905895691609977
+          ],
+          "source": "music_resources/double bass/double-bass_Gs1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 33,
+          "url": "/assets/samples/bass/33.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6428344671201813
+          ],
+          "source": "music_resources/double bass/double-bass_A1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 34,
+          "url": "/assets/samples/bass/34.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6777551020408163
+          ],
+          "source": "music_resources/double bass/double-bass_As1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 35,
+          "url": "/assets/samples/bass/35.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6404761904761904
+          ],
+          "source": "music_resources/double bass/double-bass_B1_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 36,
+          "url": "/assets/samples/bass/36.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5993877551020408
+          ],
+          "source": "music_resources/double bass/double-bass_C2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 37,
+          "url": "/assets/samples/bass/37.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2175283446712017
+          ],
+          "source": "music_resources/double bass/double-bass_Cs2_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 38,
+          "url": "/assets/samples/bass/38.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6416553287981859
+          ],
+          "source": "music_resources/double bass/double-bass_D2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 39,
+          "url": "/assets/samples/bass/39.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7250113378684808
+          ],
+          "source": "music_resources/double bass/double-bass_Ds2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 40,
+          "url": "/assets/samples/bass/40.wav",
+          "loop": [
+            0.37997732426303854,
+            2.1106802721088433
+          ],
+          "source": "music_resources/double bass/double-bass_E2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 41,
+          "url": "/assets/samples/bass/41.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6639682539682539
+          ],
+          "source": "music_resources/double bass/double-bass_F2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 42,
+          "url": "/assets/samples/bass/42.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6751247165532879
+          ],
+          "source": "music_resources/double bass/double-bass_Fs2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 43,
+          "url": "/assets/samples/bass/43.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6378458049886622
+          ],
+          "source": "music_resources/double bass/double-bass_G2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 44,
+          "url": "/assets/samples/bass/44.wav",
+          "loop": [
+            0.37997732426303854,
+            1.187596371882086
+          ],
+          "source": "music_resources/double bass/double-bass_Gs2_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 45,
+          "url": "/assets/samples/bass/45.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7261904761904763
+          ],
+          "source": "music_resources/double bass/double-bass_A2_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 46,
+          "url": "/assets/samples/bass/46.wav",
+          "loop": [
+            0.37997732426303854,
+            1.193764172335601
+          ],
+          "source": "music_resources/double bass/double-bass_As2_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 47,
+          "url": "/assets/samples/bass/47.wav",
+          "loop": [
+            0.37997732426303854,
+            1.818344671201814
+          ],
+          "source": "music_resources/double bass/double-bass_B2_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 48,
+          "url": "/assets/samples/bass/48.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6190702947845805
+          ],
+          "source": "music_resources/double bass/double-bass_C3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 49,
+          "url": "/assets/samples/bass/49.wav",
+          "loop": [
+            0.37997732426303854,
+            1.761111111111111
+          ],
+          "source": "music_resources/double bass/double-bass_Cs3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 50,
+          "url": "/assets/samples/bass/50.wav",
+          "loop": [
+            0.37997732426303854,
+            1.2022902494331065
+          ],
+          "source": "music_resources/double bass/double-bass_D3_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 51,
+          "url": "/assets/samples/bass/51.wav",
+          "loop": [
+            0.37997732426303854,
+            1.698888888888889
+          ],
+          "source": "music_resources/double bass/double-bass_Ds3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 52,
+          "url": "/assets/samples/bass/52.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6354875283446713
+          ],
+          "source": "music_resources/double bass/double-bass_E3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 53,
+          "url": "/assets/samples/bass/53.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6093650793650793
+          ],
+          "source": "music_resources/double bass/double-bass_F3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 54,
+          "url": "/assets/samples/bass/54.wav",
+          "loop": [
+            0.37997732426303854,
+            1.5371655328798186
+          ],
+          "source": "music_resources/double bass/double-bass_Fs3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 55,
+          "url": "/assets/samples/bass/55.wav",
+          "loop": [
+            0.37997732426303854,
+            1.52718820861678
+          ],
+          "source": "music_resources/double bass/double-bass_G3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 56,
+          "url": "/assets/samples/bass/56.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6105442176870748
+          ],
+          "source": "music_resources/double bass/double-bass_Gs3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 57,
+          "url": "/assets/samples/bass/57.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6354875283446713
+          ],
+          "source": "music_resources/double bass/double-bass_A3_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 58,
+          "url": "/assets/samples/bass/58.wav",
+          "loop": [
+            0.37997732426303854,
+            1.688639455782313
+          ],
+          "source": "music_resources/double bass/double-bass_As3_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 59,
+          "url": "/assets/samples/bass/59.wav",
+          "loop": [
+            0.37997732426303854,
+            2.3407936507936506
+          ],
+          "source": "music_resources/double bass/double-bass_B3_phrase_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 60,
+          "url": "/assets/samples/bass/60.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6548979591836734
+          ],
+          "source": "music_resources/double bass/double-bass_C4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 61,
+          "url": "/assets/samples/bass/61.wav",
+          "loop": [
+            0.37997732426303854,
+            1.875578231292517
+          ],
+          "source": "music_resources/double bass/double-bass_Cs4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 62,
+          "url": "/assets/samples/bass/62.wav",
+          "loop": [
+            0.37997732426303854,
+            1.4910884353741496
+          ],
+          "source": "music_resources/double bass/double-bass_D4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 63,
+          "url": "/assets/samples/bass/63.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7573015873015874
+          ],
+          "source": "music_resources/double bass/double-bass_Ds4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 64,
+          "url": "/assets/samples/bass/64.wav",
+          "loop": [
+            0.37997732426303854,
+            1.7050566893424037
+          ],
+          "source": "music_resources/double bass/double-bass_E4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 65,
+          "url": "/assets/samples/bass/65.wav",
+          "loop": [
+            0.37997732426303854,
+            1.6217006802721088
+          ],
+          "source": "music_resources/double bass/double-bass_F4_1_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 66,
+          "url": "/assets/samples/bass/66.wav",
+          "loop": [
+            0.37997732426303854,
+            1.78578231292517
+          ],
+          "source": "music_resources/double bass/double-bass_Fs4_15_mezzo-forte_arco-normal.mp3"
+        },
+        {
+          "pitch": 67,
+          "url": "/assets/samples/bass/67.wav",
+          "loop": [
+            0.37997732426303854,
+            2.014716553287982
+          ],
+          "source": "music_resources/double bass/double-bass_G4_15_mezzo-forte_arco-normal.mp3"
+        }
+      ]
+    }
+  }
+}

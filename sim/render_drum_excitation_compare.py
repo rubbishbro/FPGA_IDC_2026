@@ -31,6 +31,23 @@ def render(co,nm,drive):
   out[n]=total
  return out,dict(modal_rail_hits=rail,noise_saturations=noise_rail,noise_initialization=env_initial)
 
+def production_bank(manifest,image):
+ """Current production coefficients, selected strike and ADSR; balance is baked in."""
+ from eng1_rtl import Envelope
+ cfg=manifest['frontends']['drums'];strike=Strike('guitar',1)
+ strike.rise=cfg['rise_sh'];strike.width=cfg['pw_len'];strike.gap=cfg['gap_len'];strike.pulses=cfg['n_pulse']
+ drive=np.array([int(strike.step([255],[True],[n==0],[False])[0]) for n in range(N)],dtype=np.int64)
+ envelope=Envelope([cfg['a_step']],[cfg['r_step']],sustain_level=cfg['s_level'],decay_step=cfg['d_step'])
+ levels=np.empty(N,dtype=np.int64)
+ for n in range(N):
+  old=int(envelope.level[0]);envelope.step([n<N-48000],[n==0],[False]);levels[n]=0 if n==0 else old
+ for row in (r for r in manifest['entries'] if r['name']=='drums'):
+  co=np.frombuffer(image[row['offset']:row['offset']+4096],dtype='>i4').astype(np.int64).reshape(64,16)[:,:7]
+  co[48:]=co[48:].astype(np.uint32).astype(np.int64)
+  co[48:,5]=co[48:,5].astype(np.uint32).view(np.int32).astype(np.int64)
+  engine,stats=render(co,row['modal_modes'],drive)
+  yield row,engine,(engine*levels)>>31,drive,levels,stats
+
 def main():
  OUT.mkdir(parents=True,exist_ok=True);base=ROOT/'build/drum_full_compare';meta=json.loads((base/'report.json').read_text());u=np.array([int(s,16) for s in (base/'coefficients.mem').read_text().split()],dtype=np.uint32).reshape(6,64,7)
  impulse=Strike('guitar',1);impulse.rise=0;impulse.width=1;impulse.gap=0;impulse.pulses=0

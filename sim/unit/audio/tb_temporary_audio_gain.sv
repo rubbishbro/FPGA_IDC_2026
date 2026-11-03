@@ -7,7 +7,8 @@ module tb_temporary_audio_gain;
  logic signed[83:0] left,right;
  logic[12:0] gl,gr;
  logic[9:0] pos,dl,dr;
- voice_router #(.SLOTS(4),.N_MODES(64)) voice(.clk(clk),.rst_n(rst_n),.start(1'b0),.sample_tick(1'b0),
+ voice_router #(.SLOTS(4),.N_MODES(64)) voice(.slot_note_map(28'(router_pkg::default_note_map())),
+        .clk(clk),.rst_n(rst_n),.start(1'b0),.sample_tick(1'b0),
   .fmap('0),.inst(router_pkg::INST_PIANO),.reverb_preset(router_pkg::REVERB_NONE),.reload(1'b0),
   .midi_select(1'b0),.midi_valid(1'b0),.midi_gate('0),.midi_retrigger('0),.midi_hard_clear('0),.midi_velocity('0),
   .maintenance_clear(1'b0),.map_reload(1'b0),.load_offsets('0),.qspi_dq_i('0),

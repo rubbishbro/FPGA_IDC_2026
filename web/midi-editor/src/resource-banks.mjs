@@ -1,6 +1,6 @@
 // Resource-bank interface shared by the hardware-profile UI.
 // This reads deployment metadata; it does not pretend to commit hardware state.
-const CHANNEL_NAMES=['guitar','piano','trumpet','violin','cello','flute','piano_abc','guitar_abc'];
+const CHANNEL_NAMES=['guitar','piano','trumpet','violin','cello','flute','piano_abc','guitar_abc','oboe','drums','banjo','mandolin'];
 export function resourceBank(manifest,channel,bank=0){
   if(![0,1].includes(bank))throw Error('音组必须为低组0或高组1');
   const instrument=CHANNEL_NAMES[channel];

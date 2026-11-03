@@ -21,14 +21,14 @@
 //
 // lambda 的映射：PAD_NOTE_ON_TH 对应 0，fmap>=230 对应 MAX_LAMBDA_Q30。
 // 阈值以下钳零；阈值以上按固定步长线性增加，只做向上音偏。
-// 当前仍保留旧上限 0.035；50 音分的实现/稳定性见 docs/吉他.md。
+// 上限 0.04375，较旧映射提升25%；只作用于经过稳定性审计的前四模态。
 // =============================================================================
 module modulation0 #(
     parameter int SLOTS   = 16,
     parameter int N_MODES = 64,
     parameter int FS      = 48000,
     parameter logic [7:0] PAD_NOTE_ON_TH = 8'd102,
-    parameter logic signed [31:0] MAX_LAMBDA_Q30 = 32'sd37_580_959
+    parameter logic signed [31:0] MAX_LAMBDA_Q30 = 32'sd46_976_199
 )(
     input  logic                      clk,
     input  logic                      rst_n,

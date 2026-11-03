@@ -56,7 +56,9 @@ module voice_router #(
     output logic [SLOTS*8-1:0] record_snapshot_level,
     output logic [SLOTS*7-1:0] record_snapshot_notes,
     output wire [SLOTS-1:0] pad_keys_down, // actual pressure hysteresis used by the PAD path
-    input logic [SLOTS*7-1:0] slot_note_map = router_pkg::default_note_map(), // resource identity; latched with each load
+    // Dynamic resource identity, latched with each load. Gowin 1.9.12.04
+    // corrupts a combinationally driven map when this input has a default.
+    input wire [SLOTS*7-1:0] slot_note_map,
     input  logic                                     sample_tick, // clk domain; I2S frame master when enabled
     // 每个乐器用多少模态在内部按 inst 查 router_pkg::n_modes_of()，不再是端口
     // ---- 作业流控 ----

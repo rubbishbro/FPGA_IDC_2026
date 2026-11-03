@@ -9,6 +9,7 @@ module tb_router_pending_config;
     pad_driver_pkg::mat4x4 fmap='0;
     instrument_e inst=INST_PIANO;
     voice_router #(.SLOTS(4),.N_MODES(64)) dut (
+        .slot_note_map(28'(router_pkg::default_note_map())),
         .clk(clk),.rst_n(rst_n),.fmap(fmap),.inst(inst),.reverb_preset(REVERB_NONE),
         .reload(reload),.start(start),.done(done),.ready(ready),.load_err(load_err),.y_valid(y_valid),.y_data(),
         .table_valid(table_valid),

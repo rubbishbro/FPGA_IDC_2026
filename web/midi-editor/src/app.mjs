@@ -1,13 +1,16 @@
-import {History,demoProject,blankProject,newTrack,uid,clamp,noteName,validateProject,hardwareIssues,INSTRUMENTS,INSTRUMENT_ICONS,COLORS,endBeat,profileExercise} from './model.mjs';
+import {History,activeTracks,demoProject,blankProject,newTrack,uid,clamp,noteName,validateProject,hardwareIssues,INSTRUMENTS,INSTRUMENT_ICONS,COLORS,endBeat,profileExercise} from './model.mjs';
 import {parseMidi,writeMidi} from './midi-file.mjs';
 import {PianoRoll} from './piano-roll.mjs';
 import {SerialLink} from './serial.mjs';
 import {V2SerialLink} from './serial-v2.mjs';
-import {Playback,ReferenceSynth} from './playback.mjs';
+import {Playback} from './playback.mjs';
+import {SampleSynth} from './sample-synth.mjs';
+import {trackInstrument,SAMPLE_NAMES,CHANNEL_SAMPLES} from './sample-instruments.mjs';
 import {resourceBank} from './resource-banks.mjs';
 import {setupSidebars} from './sidebars.mjs';
+import {setupKeymap} from './keymap-ui.mjs';
 import {setupRecording} from './recording-ui.mjs';
-let recording;
+let recording,keymap;
 const $=id=>document.getElementById(id),DRAFT='fpga-midi-studio:v1';
 let toastTimer,autosaveTimer,selectedTrack,clipboard=[],worker,output='local',manifest=null,starting=false,lastTick=0,startGeneration=0;
 let project=demoProject();
@@ -21,7 +24,7 @@ try{
   }
 }catch{}
 const history=new History(project,()=>{scheduleSave();render();});selectedTrack=project.tracks[0].id;
-const synth=new ReferenceSynth();
+const synth=new SampleSynth();
 const serialV1=new SerialLink(renderSerial,log),serialV2=new V2SerialLink(renderSerial,log);
 let serial=serialV1,recoveryGeneration=-1,resumeAfterRecovery=false,connecting=false;
 const LINK_PREF='fpga-midi-studio:link';
@@ -29,7 +32,7 @@ const playback=new Playback({
   send:events=>output==='uart'?serial.send(events.map(e=>e.data)):synth.send(events),
   panic:()=>{synth.panic();if(output==='uart'&&serial.connected)serial.panic([Number($('hw-channel').value)]).catch(e=>log('清音失败',e.message));},
   onPosition:beat=>{roll.cursor=beat;roll.invalidate();renderPosition();if(playback.playing&&roll.x(beat)>roll.width-35){roll.leftBeat=Math.max(0,beat-1);roll.invalidate();}},
-  onStop:()=>{worker?.postMessage('stop');renderTransport();},
+  onStop:()=>{worker?.postMessage('stop');renderTransport();if(output==='local')status('采样演奏已停止');},
   onError:e=>{if(!playback.playing)return;stopPlayback();toast(e.message,true);}
 });
 for(const link of [serialV1,serialV2])link.onFault=e=>{
@@ -80,12 +83,12 @@ function renderTracks(){
     const top=document.createElement('div');top.className='track-top';const index=document.createElement('span');index.className='track-index';index.textContent=String(i+1).padStart(2,'0');const color=document.createElement('span');color.className='track-color';
     const name=document.createElement('input');name.className='track-name';name.value=t.name;name.maxLength=150;name.setAttribute('aria-label',`轨道 ${i+1} 名称`);name.onchange=()=>edit(p=>p.tracks[i].name=name.value.trim()||`轨道 ${i+1}`);
     top.append(index,color,name);const bottom=document.createElement('div');bottom.className='track-bottom-row';
-    const channel=document.createElement('button');channel.type='button';channel.className='channel-trigger';channel.dataset.track=i;channel.setAttribute('aria-label',`轨道 ${i+1} MIDI 通道：${channelLabel(t.channel)}`);channel.title=channelLabel(t.channel);channel.setAttribute('aria-haspopup','listbox');channel.setAttribute('aria-expanded','false');channel.setAttribute('aria-controls','channel-menu');
-    const channelIcon=document.createElement('span');channelIcon.className='instrument-icon';channelIcon.setAttribute('aria-hidden','true');setInstrumentIcon(channelIcon,t.channel);
-    const channelText=document.createElement('span');channelText.className='channel-label';channelText.textContent=channelLabel(t.channel);
+    const channel=document.createElement('button');channel.type='button';channel.className='channel-trigger';channel.dataset.track=i;channel.setAttribute('aria-label',`轨道 ${i+1} MIDI 通道：${channelLabel(t.channel,t)}`);channel.title=channelLabel(t.channel,t);channel.setAttribute('aria-haspopup','listbox');channel.setAttribute('aria-expanded','false');channel.setAttribute('aria-controls','channel-menu');
+    const channelIcon=document.createElement('span');channelIcon.className='instrument-icon';channelIcon.setAttribute('aria-hidden','true');setInstrumentIcon(channelIcon,t.channel,t);
+    const channelText=document.createElement('span');channelText.className='channel-label';channelText.textContent=channelLabel(t.channel,t);
     const channelArrow=document.createElement('span');channelArrow.className='picker-chevron';channelArrow.textContent='⌄';
     channel.append(channelIcon,channelText,channelArrow);
-    channel.onclick=e=>{e.stopPropagation();toggleChannelPicker(channel,t.channel,ch=>{if(ch!==t.channel)edit(p=>p.tracks[i].channel=ch);setTimeout(()=>document.querySelector(`.channel-trigger[data-track="${i}"]`)?.focus(),0);});};
+    channel.onclick=e=>{e.stopPropagation();toggleChannelPicker(channel,t.channel,ch=>{if(ch!==t.channel)edit(p=>{p.tracks[i].channel=ch;p.tracks[i].previewInstrument=CHANNEL_SAMPLES[ch]??'piano';});setTimeout(()=>document.querySelector(`.channel-trigger[data-track="${i}"]`)?.focus(),0);});};
     const button=(text,title,on,action)=>{const b=document.createElement('button');b.textContent=text;b.title=title;b.setAttribute('aria-label',`${t.name} ${title}`);b.className=`track-button${on?' on':''}`;b.setAttribute('aria-pressed',on);b.onclick=e=>{e.stopPropagation();edit(p=>action(p.tracks[i]));};return b;};
     const mute=button('M','静音',t.muted,t=>t.muted=!t.muted),solo=button('S','独奏',t.solo,t=>t.solo=!t.solo),del=button('×','删除轨道',false,()=>{});del.classList.add('track-delete');del.onclick=e=>{e.stopPropagation();if(history.current.tracks.length===1){toast('工程至少保留一条轨道');return;}edit(p=>p.tracks.splice(i,1));};
     bottom.append(channel,mute,solo,del);const count=document.createElement('div');count.className='track-notes';count.textContent=`${t.notes.length} 个音符${t.events.length?' · '+t.events.length+' 个控制事件':''}`;
@@ -94,8 +97,8 @@ function renderTracks(){
   });
 }
 
-function channelLabel(ch){return `Ch ${ch+1}${INSTRUMENTS[ch]?' · '+INSTRUMENTS[ch]:''}`;}
-function setInstrumentIcon(el,ch){const icon=INSTRUMENT_ICONS[ch];el.classList.toggle('is-empty',!icon);el.style.setProperty('--icon',icon?`url(assets/instruments/${icon}.png)`:'none');}
+function channelLabel(ch,track){const name=track?SAMPLE_NAMES[trackInstrument(track,playback.position)]:INSTRUMENTS[ch];return `Ch ${ch+1}${name?' · '+name:''}`;}
+function setInstrumentIcon(el,ch,track){const icons={piano:'piano-1',guitar:'guitar-1',trumpet:'trumpet',violin:'violin',cello:'cello',flute:'flute',oboe:'flute',viola:'violin',bass:'cello'};const icon=track?icons[trackInstrument(track,playback.position)]:INSTRUMENT_ICONS[ch];el.classList.toggle('is-empty',!icon);el.style.setProperty('--icon',icon?`url(assets/instruments/${icon}.png)`:'none');}
 let channelMenuCleanup=null;
 function closeChannelPicker(){
   if(!channelMenuCleanup)return;
@@ -156,6 +159,7 @@ function renderSerialCounters(){
   $('rx-frames').title=serial===serialV1?`收到 ${serial.rxBytes} 字节 · ${serial.performanceFrames} 个录制帧 · ${serial.rxErrors} 个解码错误`:'';
 }
 function renderSerial(){
+  keymap?.render();
   const v2=serial===serialV2;
   const phases={idle:'未握手',hello_sent:'正在请求会话',welcome:'设备清理完成',confirm_sent:'正在确认会话',active:'会话已就绪',resync:'正在恢复演奏',resume_sent:'等待恢复确认',fault:'会话已失效'};
   const phase=v2?(phases[serial.phase]||serial.phase||'未握手'):(serial.connected?'串口已连接':'未连接');
@@ -175,29 +179,47 @@ function renderSerial(){
 function hardwareProfile(){const notes=$('hw-notes').value.split(/[\s,，]+/).filter(Boolean).map(Number);if(notes.some(n=>!Number.isInteger(n)||n<0||n>127)||new Set(notes).size!==notes.length)throw Error('已加载音高清单必须是不重复的 0～127 整数');return {channel:Number($('hw-channel').value),notes};}
 function stopPlayback(){startGeneration++;playback.stop();worker?.postMessage('stop');renderTransport();}
 async function play(){
-  if(recording?.busy)return;
+  if(recording?.busy||keymap?.busy)return;
   if(playback.playing){stopPlayback();return;}if(starting){stopPlayback();return;}starting=true;const generation=++startGeneration;
   try{
     if(!worker)throw Error('播放时钟不可用');validateProject(history.current);
+    output=$('output').value;
+    const audible=activeTracks(history.current),notes=audible.flatMap(t=>t.notes);
+    if(!notes.length)throw Error('没有可播放音符：请检查轨道 M 静音 / S 独奏，或添加音符');
+    if(history.current.loop.enabled&&!notes.some(n=>n.beat<history.current.loop.end&&n.beat+n.duration>history.current.loop.start))throw Error('循环范围内没有可播放音符，请关闭循环或调整循环范围');
     if(output==='uart') {
       if(!serial.connected)throw Error(serial===serialV2?'请先连接并等待 v2 会话就绪':'请先连接串口');const issues=hardwareIssues(history.current,hardwareProfile());if(issues.length)throw Error(issues.join('；'));await serial.panic([hardwareProfile().channel]);
       const aux=history.current.tracks.reduce((sum,t)=>sum+t.events.filter(e=>!((e.data[0]&0xf0)===0xb0&&[64,120,123].includes(e.data[1]))).length,0);if(aux)toast(`${aux} 个非踏板/清音控制事件保留在工程中，本轮 UART 播放跳过`);
-    } else await synth.resume();
+    } else {
+      await synth.resume();
+      await synth.prepare(history.current,(done,total)=>{if(generation===startGeneration)status(`正在加载乐器录音 ${done}/${total}`);},playback.position);
+    }
     if(generation!==startGeneration||document.hidden)return;
-    lastTick=performance.now();playback.start(history.current,playback.position,output==='uart');worker.postMessage('start');renderTransport();status(output==='uart'?'UART 演奏中 · 写入不等于板端确认':'参考试听中 · 三角波音源');
+    lastTick=performance.now();playback.start(history.current,playback.position,output==='uart');worker.postMessage('start');renderTransport();status(output==='uart'?'UART 演奏中 · 写入不等于板端确认':`采样演奏中 · ${notes.length} 个音符 · ${synth.buffers.size} 段录音已就绪`);
   }catch(e){toast(e.message,true);}finally{starting=false;}
 }
-async function audition(pitch){await synth.resume();const key=uid(),ch=currentTrack().channel;synth.send([{key,data:[0x90|ch,pitch,90]}]);setTimeout(()=>synth.send([{key,data:[0x80|ch,pitch,0]}]),220);}
+async function audition(pitch){const generation=startGeneration;await synth.resume();const key=uid(),track=currentTrack(),ch=track.channel,instrument=trackInstrument(track,playback.position);await synth.load(instrument,pitch);if(generation!==startGeneration)return;synth.send([{key,instrument,data:[0x90|ch,pitch,90]}]);setTimeout(()=>synth.send([{key,data:[0x80|ch,pitch,0]}]),220);}
 function deleteNotes(){const ids=new Set(roll.selection);if(!ids.size)return;edit(p=>{const t=p.tracks.find(t=>t.id===selectedTrack);t.notes=t.notes.filter(n=>!ids.has(n.id));});roll.select([]);}
 function copyNotes(){clipboard=structuredClone(roll.selected());if(clipboard.length)toast(`已复制 ${clipboard.length} 个音符`);}
 function pasteNotes(atCursor=true){if(!clipboard.length)return;const min=Math.min(...clipboard.map(n=>n.beat)),offset=atCursor?Math.max(0,playback.position)-min:Math.max(...clipboard.map(n=>n.beat+n.duration))-min,copies=clipboard.map(n=>({...n,id:uid(),beat:n.beat+offset}));edit(p=>p.tracks.find(t=>t.id===selectedTrack).notes.push(...copies));roll.select(copies.map(n=>n.id));}
 function transformNotes(fn){if(!roll.selection.size)return;edit(p=>p.tracks.find(t=>t.id===selectedTrack).notes.filter(n=>roll.selection.has(n.id)).forEach(fn));}
 function download(data,type,name){const url=URL.createObjectURL(new Blob([data],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function safeName(){return history.current.name.replace(/[\\/:*?"<>|]/g,'_')||'untitled';}
+$('load-ensemble').onclick=async()=>{
+  if(recording?.busy)return;
+  stopPlayback();const button=$('load-ensemble');button.disabled=true;
+  try{
+    const response=await fetch('/assets/demos/bach-ensemble.json');if(!response.ok)throw Error('合奏示例资源不可用');
+    const next=validateProject(await response.json());history.commit(next);selectedTrack=next.tracks[0].id;
+    output='local';$('output').value='local';$('output-status').textContent='乐器采样演奏';
+    playback.position=0;roll.cursor=0;roll.select([]);render();roll.fit();
+    toast('已加载巴赫九声部合奏，点击播放即可演奏');
+  }catch(e){toast(e.message,true);}finally{button.disabled=false;}
+};
 $('play').onclick=play;$('stop').onclick=()=>{stopPlayback();playback.position=history.current.loop.enabled?history.current.loop.start:0;roll.cursor=playback.position;renderPosition();roll.invalidate();};$('rewind').onclick=$('stop').onclick;
 $('panic').onclick=async()=>{stopPlayback();if(serial.connected){try{await serial.panic();toast('全通道清音请求已写入；板端静音状态需实机确认');}catch(e){toast(`清音写入失败：${e.message}`,true);}}else toast('已停止电脑试听；串口未连接');};
 $('loop-toggle').onclick=()=>edit(p=>p.loop.enabled=!p.loop.enabled);
-$('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 串口':'参考试听 · 三角波';status(output==='uart'?'已选择串口，播放前将核对硬件配置':'已选择电脑参考试听');};
+$('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 串口':'乐器采样演奏';status(output==='uart'?'已选择串口，播放前将核对硬件配置':'已选择电脑乐器采样演奏');};
 $('link').onchange=()=>{
   if(serial.port)return;
   stopPlayback();
@@ -264,9 +286,9 @@ setupSidebars();
 $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$('help-dialog').close();
 $('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){if($('help-dialog').open)return;$('panic').click();return;}
+  if(e.key==='Escape'){if($('help-dialog').open||$('keymap-dialog').open)return;$('panic').click();return;}
   if(recording?.busy)return;
-  if(e.target.closest('input,textarea,select')||$('help-dialog').open)return;
+  if(e.target.closest('input,textarea,select')||$('help-dialog').open||$('keymap-dialog').open)return;
   const mod=e.ctrlKey||e.metaKey,key=e.key.toLowerCase();
   if(e.code==='Space'){e.preventDefault();play();return;}
   if(mod&&key==='z'){e.preventDefault();stopPlayback();e.shiftKey?history.redo():history.undo();return;}
@@ -295,3 +317,9 @@ recording=setupRecording({getLink:()=>serial,supportsRecording:()=>serial===seri
   validateProject(next);selectedTrack=track.id;history.commit(next);roll.select([]);roll.fit();
  }});
 serialV1.onFrame=frame=>recording.onFrame(frame);
+
+keymap=setupKeymap({getLink:()=>serial,supported:()=>serial===serialV1,isBusy:()=>!!recording?.busy,
+  stopPlayback,toast,onApplied:(spec,notes)=>{
+    $('hw-channel').value=String(spec.channel-1);$('hw-notes').value=[...new Set(notes)].join(',');syncHwChannelIcon();
+    log('键位配置',`${spec.name} · 设备确认成功 · ${notes.join(',')}`);render();
+  }});

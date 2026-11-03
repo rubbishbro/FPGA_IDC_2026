@@ -53,6 +53,7 @@ module tb_music;
     voice_router #(
         .SLOTS(16), .N_MODES(64), .CLK_HZ(CLK_HZ), .SR_HZ(SR_HZ), .DEBUG_PORT(1'b1)
     ) dut (
+        .slot_note_map(112'(router_pkg::default_note_map())),
         .clk(clk), .rst_n(rst_n),
         .fmap(fmap), .inst(inst), .reverb_preset(preset),
         .reload(reload), .start(start),

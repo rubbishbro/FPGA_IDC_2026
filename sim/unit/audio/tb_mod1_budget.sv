@@ -29,6 +29,7 @@ module tb_mod1_budget #(parameter int CAP=4,INSTRUMENT=3,FRAME_CYCLES=1024,TEST_
     end
     voice_router #(.SLOTS(16),.N_MODES(64),.CLK_HZ(50_000_000),.SR_HZ(48000),
         .MOD1_MODES_PER_JOB(CAP),.EXTERNAL_SAMPLE_TICK(1),.MIDI_ENABLE(1)) dut(
+        .slot_note_map(112'(router_pkg::default_note_map())),
         .clk(clk),.rst_n(rst_n),.fmap(fmap),.inst(instrument_e'(INSTRUMENT)),.reverb_preset(REVERB_NONE),
         .start(run),.sample_tick(tick),.reload(1'b0),.done(done),.ready(),.load_err(err),
         .y_valid(yv),.y_data(y),.qspi_cs_n(),.qspi_sck(),.qspi_dq_o(),.qspi_dq_oe(),.qspi_dq_i(4'd0),
@@ -42,7 +43,7 @@ module tb_mod1_budget #(parameter int CAP=4,INSTRUMENT=3,FRAME_CYCLES=1024,TEST_
     endfunction
     function automatic integer delta_for(input integer p);
         integer q,i,f;longint signed v;
-        q=(p>102 ? (p-102)*768+2 : 0)/5;i=(q+56320)>>8;f=(q+56320)&255;
+        q=(p>102 ? (p-102)*192 : 0);i=(q+56320)>>8;f=(q+56320)&255;
         v=$signed({1'b0,table_words[i+1][24:0]})-$signed({1'b0,table_words[i][24:0]});
         return 32'($signed({1'b0,table_words[i][24:0]})+((v*f+128)>>>8)-16777216);
     endfunction

@@ -10,6 +10,10 @@ LFO_STEP=round(5.2*INTERVAL/48000*(1<<24))
 SLEW=2*256  # cents Q8 per control update
 LIMIT=220*256
 
+def aftertouch_cents_q8(level,threshold=102):
+    """Production PAD mapping: 0.75 cents per pressure count, exactly in Q8."""
+    return max(0,int(level)-int(threshold))*192
+
 
 def modulation_words(table):
     """words8..15: lower, nominal a1, upper, 0, 0, K, 0, tag.

@@ -143,7 +143,7 @@ def test_output_mute_does_not_falsely_retire_held_voice(resources):
 def test_aftertouch_tail_hold_and_midi_controls_rejected(resources):
     s=synth(resources)
     for _ in range(120):s.step_pad([202,102,102,102])
-    assert s.pitch.active_delta[0]>0 and s.pitch.cents[0]==60*256
+    assert s.pitch.active_delta[0]>0 and s.pitch.cents[0]==75*256
     held=s.pitch.active_delta.copy()
     for _ in range(120):s.step_pad([0,0,0,0])
     assert np.array_equal(s.pitch.active_delta,held)

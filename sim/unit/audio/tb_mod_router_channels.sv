@@ -32,7 +32,7 @@ module tb_mod_router_channels;
         .pitch_bank(),.pitch_commit(commit),.pitch_delta(delta),.pitch_sources_ready(sready));
     function automatic integer adjust(input integer base,slope,shift);
         longint signed lam,prod;
-        lam=((37580959+64)/128)*(int'(pressure)-102);prod=lam*64'(slope);
+        lam=((46976199+64)/128)*(int'(pressure)-102);prod=lam*64'(slope);
         return base+32'(prod>>>shift);
     endfunction
     always @(posedge clk)if(rst_n)begin
@@ -58,7 +58,7 @@ module tb_mod_router_channels;
                    co.wo!==adjust(40000+100*int'(co_mode),1048576,30))
                     $fatal(1,"FAIL ENG0 payload/mask");
             end else if(uses_mod1(inst))begin
-                if(co_we!=5'b00010 || co.a12!==(-25000000+100*int'(co_mode)+(co_mode[0] ? -60000 : 60000)) ||
+                if(co_we!=5'b00010 || co.a12!==(-25000000+100*int'(co_mode)+(co_mode[0] ? -75000 : 75000)) ||
                    co.a11!=0 || co.a21!=0 || co.a22!=0 || co.wo!=0 || co.gq!=0 || co.gv!=0)
                     $fatal(1,"FAIL ENG1 payload/mask");
             end else $fatal(1,"FAIL inactive kernel wrote coefficients");
@@ -70,7 +70,7 @@ module tb_mod_router_channels;
         @(negedge clk);start=0;wait(done);@(posedge clk);#1;
         if(reads!=expected_reads || writes!=expected_writes || busy)
             $fatal(1,"FAIL shared handshake inst=%d reads=%d writes=%d",kind,reads,writes);
-        if(uses_mod1(kind) && !bad_tag && $signed(delta[slot*24 +:24])!=60000)
+        if(uses_mod1(kind) && !bad_tag && $signed(delta[slot*24 +:24])!=75000)
             $fatal(1,"FAIL pitch commit payload");
         jobs++;@(negedge clk);
     endtask
