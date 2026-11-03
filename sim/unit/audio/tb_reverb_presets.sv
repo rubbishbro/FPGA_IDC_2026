@@ -62,8 +62,11 @@ module tb_reverb_presets;
         preset=REVERB_HALL;#1;
         if(dsp.len[0]!=1214 || dsp.gw!=32'sd67108864)$fatal(1,"FAIL HALL parameters");
         preset=REVERB_BATHROOM;#1;
-        if(dsp.len[0]!=557 || dsp.gw!=32'sd53687091)$fatal(1,"FAIL BATHROOM parameters");
-        for(integer p=0;p<2;p++)begin
+        if(dsp.len[0]!=293 || dsp.gw!=32'sd33554432)$fatal(1,"FAIL BATHROOM parameters");
+        preset=REVERB_CHAMBER;#1;
+        if(dsp.len[0]!=431 || dsp.gw!=32'sd24159191 || dsp.gc[0]!=32'sd121035857)
+            $fatal(1,"FAIL CHAMBER parameters");
+        for(integer p=0;p<1;p++)begin
             @(negedge clk);preset=p==0?REVERB_NONE:REVERB_CHAMBER;
             repeat(3)@(negedge clk);
             for(integer k=0;k<4;k++)if(dsp.len[k]!=1 || dsp.gc[k]!=0 || dsp.wc[k]!=0)
@@ -72,7 +75,7 @@ module tb_reverb_presets;
             sample(0);sample(64'sh7fff_ffff_ffff_ffff);sample(64'sh8000_0000_0000_0000);
             sample(-123456789);sample(123456789);
         end
-        $display("PASS tb_reverb_presets four IDs/config/UI/DSP, invalid values, CHAMBER dry extremes");$finish;
+        $display("PASS tb_reverb_presets four IDs/config/UI/DSP, invalid values, tuned CHAMBER/BATHROOM, NONE dry extremes");$finish;
     end
     initial begin #100000;$fatal(1,"FAIL reverb test watchdog");end
 endmodule

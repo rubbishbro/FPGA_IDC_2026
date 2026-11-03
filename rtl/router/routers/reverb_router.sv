@@ -13,11 +13,10 @@
 //
 // REVERB_NONE = 直通：gc=0、wc=0、gd=1.0、gw=0 => y 就是延迟 6 拍的 x，逐位不变。
 //
-// 预设里的数字是先能响的占位值：
-//   HALL     ：延迟按 44.1k 的 Freeverb 梳状长度换算到 48k（1214/1293/1390/1476），
-//              反馈约 0.90（T60 ~ 2.5 s），湿声加权各 0.25
-//   BATHROOM ：更短的延迟 + 稍小的反馈（T60 ~ 0.8 s）
-// 要按听感/实测调，就改这张表。
+// 48 kHz presets: CHAMBER RT60=0.60s, BATHROOM RT60=1.10s.
+// Per-line g = 10^(-3*len/(48000*RT60)), rounded to Q4.27.
+// HALL keeps its original parameters (individual RT60 about 1.66..2.02s).
+// Four bare combs: no diffusion or frequency-dependent damping; audition needed.
 // =============================================================================
 module reverb_router #(
     parameter int N      = 2048,          // 最大延迟（和 comb_reverb 一致）
@@ -75,15 +74,21 @@ module reverb_router #(
                 // The defaults above are the bit-exact dry passthrough preset.
             end
             router_pkg::REVERB_CHAMBER: begin
-                // TODO: tune CHAMBER delay/feedback/weights and dry/wet gains.
-                // Placeholder: explicitly use the same parameters as NONE.
-                for (int k = 0; k < 4; k++) begin
-                    len[k] = (AW+1)'(1);
-                    gc[k] = 32'sd0;
-                    wc[k] = 32'sd0;
-                end
-                gd = Q_ONE;
-                gw = 32'sd0;
+                // Target RT60=0.60s @48kHz; TODO: confirm by listening.
+                len[0] = (AW+1)'(431);
+                gc[0] = 32'sd121035857;
+                wc[0] = Q_0_25;
+                len[1] = (AW+1)'(557);
+                gc[1] = 32'sd117432701;
+                wc[1] = Q_0_25;
+                len[2] = (AW+1)'(683);
+                gc[2] = 32'sd113936808;
+                wc[2] = Q_0_25;
+                len[3] = (AW+1)'(809);
+                gc[3] = 32'sd110544986;
+                wc[3] = Q_0_25;
+                gd = 32'sd120795955;
+                gw = 32'sd24159191;
             end
             router_pkg::REVERB_HALL: begin
                 len[0] = (AW+1)'(1214); len[1] = (AW+1)'(1293);
@@ -96,14 +101,21 @@ module reverb_router #(
                 gw = Q_0_50;
             end
             router_pkg::REVERB_BATHROOM: begin
-                len[0] = (AW+1)'(557);  len[1] = (AW+1)'(613);
-                len[2] = (AW+1)'(691);  len[3] = (AW+1)'(743);
-                gc[0]  = Q_0_82;  gc[1]  = Q_0_82;
-                gc[2]  = Q_0_82;  gc[3]  = Q_0_82;
-                wc[0]  = Q_0_25;  wc[1]  = Q_0_25;
-                wc[2]  = Q_0_25;  wc[3]  = Q_0_25;
-                gd = Q_0_80;
-                gw = Q_0_40;
+                // Target RT60=1.10s @48kHz; TODO: confirm by listening.
+                len[0] = (AW+1)'(293);
+                gc[0] = 32'sd129170148;
+                wc[0] = Q_0_25;
+                len[1] = (AW+1)'(379);
+                gc[1] = 32'sd127724965;
+                wc[1] = Q_0_25;
+                len[2] = (AW+1)'(463);
+                gc[2] = 32'sd126329002;
+                wc[2] = Q_0_25;
+                len[3] = (AW+1)'(557);
+                gc[3] = 32'sd124784935;
+                wc[3] = Q_0_25;
+                gd = 32'sd114085069;
+                gw = 32'sd33554432;
             end
             default: ;                    // 非法值：直通
         endcase

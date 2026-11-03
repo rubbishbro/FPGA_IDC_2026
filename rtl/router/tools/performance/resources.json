@@ -22030,7 +22030,7 @@
     "python/modal_sim/guitar_refit_experiments.py": "ef9804c3e6dc2c8ded548f3029cdd64e5a1b5800ee8adc04477b3573d161de1e",
     "rtl/router/tools/sustain_resources.py": "3d4fb527ff544ec25c114a106cf4e5793b23e8eb4e18f7aca520f38a2e268c45",
     "python/modal_sim/pitch_linear.py": "29a1eea8f4a20077ff393c764e1925796d91a6494d59df36d9c12da30c2cee8a",
-    "python/modal_sim/router_eng1.py": "dc54e2e4deccbe5599ea1f2925e2c8b5cdcacf43e5ecbfce9cf2a7ad1d6a5508",
+    "python/modal_sim/router_eng1.py": "38a0950eadf46dab1e2de21814e8c844c407acf3488759fbd83d63194551d1bc",
     "python/modal_sim/params.py": "bcfe89785290efb28b46073814252e7e6b7dfca9bb2d472ce79655d908930c1a",
     "python/modal_sim/eng1_rtl.py": "82fc40fd846776d69e7a8430b589cd0b109935f72b039f48d1e3cf3242ddf772",
     "FFT_results/params/guitar_manifest.json": "a214c308710bf7aa3f2d009892042f72aaa1781234b732f0c3f74094e8e99220",

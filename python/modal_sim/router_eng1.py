@@ -787,15 +787,13 @@ _REV_Q_ONE = 1 << REV_FRAC
 REVERB_PRESETS: dict[str, ReverbPreset] = {
     "NONE": ReverbPreset((1, 1, 1, 1), (0, 0, 0, 0), (0, 0, 0, 0),
                          _REV_Q_ONE, 0),
-    # TODO: tune CHAMBER; mirrors the RTL NONE-parameter placeholder.
-    "CHAMBER": ReverbPreset((1, 1, 1, 1), (0, 0, 0, 0), (0, 0, 0, 0),
-                            _REV_Q_ONE, 0),
+    "CHAMBER": ReverbPreset((431, 557, 683, 809), (121035857, 117432701, 113936808, 110544986), (33554432,) * 4,
+                            120795955, 24159191),
     "HALL": ReverbPreset(
         (1214, 1293, 1390, 1476), (120795955,) * 4, (33554432,) * 4,
         93952410, 67108864),
-    "BATHROOM": ReverbPreset(
-        (557, 613, 691, 743), (110058537,) * 4, (33554432,) * 4,
-        107374182, 53687091),
+    "BATHROOM": ReverbPreset((293, 379, 463, 557), (129170148, 127724965, 126329002, 124784935), (33554432,) * 4,
+                             114085069, 33554432),
 }
 
 
@@ -865,7 +863,7 @@ class ReverbRouter:
         # width is fixed here, not the rounding rule.
         dry = int(x) * p.dry
         wets = wet * p.wet
-        return wrap_signed((dry + wets) >> REV_FRAC, 64)
+        return wrap_signed((dry >> REV_FRAC) + (wets >> REV_FRAC), 64)
 
 
 # ---------------------------------------------------------------------------
