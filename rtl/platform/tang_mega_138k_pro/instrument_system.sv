@@ -151,7 +151,7 @@ module instrument_system #(
     wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
 
     logic keymap_valid,keymap_ready,keymap_rsp_valid;
-    logic keymap_cancel;
+    logic keymap_waiting_release,keymap_cancel;
     logic [31:0] keymap_wait_timer;
     localparam int KEYMAP_WAIT_CYCLES=CLK_HZ*2/5;
     logic [7:0] keymap_result;
@@ -214,7 +214,7 @@ module instrument_system #(
         .backend_rsp_ready(backend_rsp_ready && !policy_rsp_valid),.backend_response(voice_response),
         .backend_supported(voice_supported),.backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
         .keymap_valid(keymap_valid),.keymap_ready(keymap_ready),.keymap_entries(ctx_shadow[263:8]),
-        .keymap_rsp_valid(keymap_rsp_valid),.keymap_rsp_ready(bridge_state==B_KEY_WAIT),.keymap_cancel(keymap_cancel),.keymap_result(keymap_result),
+        .keymap_rsp_valid(keymap_rsp_valid),.keymap_rsp_ready(bridge_state==B_KEY_WAIT),.keymap_waiting_release(keymap_waiting_release),.keymap_cancel(keymap_cancel),.keymap_result(keymap_result),
         .event_valid(event_valid),.event_ready(event_ready),.event_data(event_data),.event_source_id(event_source),
         .source_cleanup_req(quarantine),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),.midi_ops_idle(midi_idle),
         .control_valid(),.control_cancel(),.control_ready(1'b0),.control_data(),.control_source_id(),
@@ -239,7 +239,7 @@ module instrument_system #(
     // Cancel an in-flight table if the source is lost before it commits.
     assign keymap_cancel=bridge_state==B_KEY_WAIT &&
                          (quarantine[ctx_source] || !remote_permission[ctx_source] ||
-                          keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1);
+                          (keymap_waiting_release && keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1));
     assign cfg_ready=bridge_state==B_IDLE && core_n;
     assign cfg_done=bridge_state==B_DONE && core_n;
     assign ext_valid=bridge_state==B_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
@@ -255,7 +255,7 @@ module instrument_system #(
         else if(remote_admit_age<CLK_HZ/50)remote_admit_age<=remote_admit_age+1'b1;
         if(bridge_state==B_REC_START || bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
         else rec_wait_timer<=0;
-        if(bridge_state==B_KEY_WAIT)keymap_wait_timer<=keymap_wait_timer+1'b1;
+        if(bridge_state==B_KEY_WAIT && keymap_waiting_release)keymap_wait_timer<=keymap_wait_timer+1'b1;
         else keymap_wait_timer<=0;
         case(bridge_state)
             B_IDLE:if(cfg_valid)begin
@@ -312,7 +312,7 @@ module instrument_system #(
                     bridge_state<=B_DONE;
                 end else if(quarantine[ctx_source] || !remote_permission[ctx_source])begin
                     cfg_result<=8'd6;bridge_state<=B_DONE;
-                end else if(keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1)begin
+                end else if(keymap_waiting_release && keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1)begin
                     // Reply 04 before rollback cleanup; keymap_cancel asks the
                     // audio backend to abort/restore quietly.
                     cfg_result<=8'd4;bridge_state<=B_DONE;

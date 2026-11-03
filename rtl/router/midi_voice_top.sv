@@ -60,6 +60,7 @@ module midi_voice_top #(
     // Atomic 16-entry CONFIG 20 table, bytes {instrument,note} in key order.
     input logic keymap_valid=1'b0,
     output logic keymap_ready,
+    output logic keymap_waiting_release,
     input logic [255:0] keymap_entries='0,
     output logic keymap_rsp_valid,
     input logic keymap_rsp_ready=1'b1,
@@ -87,14 +88,12 @@ module midi_voice_top #(
     output logic [3:0] qspi_dq_o,
     input logic [3:0] qspi_dq_i
 );
-    typedef enum logic [2:0] {C_INIT,C_CLEAN,C_APPLY,C_WAIT,C_DRAIN,C_RUN,C_FAULT,C_RELEASE} cfg_t;
+    typedef enum logic [3:0] {C_INIT,C_CLEAN,C_APPLY,C_WAIT,C_DRAIN,C_RUN,C_FAULT,C_RELEASE,C_KEY_RELEASE} cfg_t;
     cfg_t cfg_state;
     logic [3:0] channel_q,target_channel;
     logic bank_q,target_bank,mode_q,target_mode,source_q,target_source;
     logic guide_q,target_guide,arm_pad;
     logic custom_q,target_custom,keymap_inflight,keymap_validating,keymap_rollback;
-    logic keymap_timeout,keymap_canceled,keymap_abort_responded;
-    logic [31:0] keymap_deadline_timer;
     logic [255:0] keymap_hold;
     logic [3:0] keymap_scan;
     logic [SLOTS*7-1:0] committed_map;
@@ -192,6 +191,7 @@ module midi_voice_top #(
     assign backend_ready=CONFIG_BACKEND && rst_n && !backend_inflight && backend_stage==0 && !backend_rsp_valid && !keymap_inflight && !keymap_rsp_valid &&
                          (cfg_state==C_RUN || cfg_state==C_FAULT) && !panic && !reload;
     assign keymap_ready=backend_ready && !backend_valid && NOTE_BANKS && INSTRUMENT_NOTE_RANGES && SLOTS==16 && have_commit;
+    assign keymap_waiting_release=(cfg_state==C_KEY_RELEASE) && keymap_inflight;
     assign backend_audio_valid=CONFIG_BACKEND && have_commit && cfg_state==C_RUN && !config_failed;
     assign backend_audio_fault=CONFIG_BACKEND && config_failed;
     // 当前只开放有真实提交路径的参数。资源是否存在由集成者给出，不凭枚举猜测。
@@ -273,7 +273,7 @@ module midi_voice_top #(
         pad_use=maintain_req || config_busy || config_failed || panic ? '0 : fmap;
         guide_display='0;
         guide_display.enabled=CONFIG_BACKEND && have_commit && backend_audio_state.guide && cfg_state==C_RUN && !config_failed;
-        guide_display.waiting_release=cfg_state==C_RELEASE;
+        guide_display.waiting_release=(cfg_state==C_RELEASE)||(cfg_state==C_KEY_RELEASE);
         guide_display.fault=config_failed;
         guide_display.link_fault=mode_q && source_cleanup_req[source_q];
         guide_display.revision=guide_revision;guide_display.banked=NOTE_BANKS;
@@ -323,7 +323,7 @@ module midi_voice_top #(
             slot_map_q<=router_pkg::default_note_map();target_slot_map<=router_pkg::default_note_map();
             committed_map<=router_pkg::default_note_map();custom_q<=0;target_custom<=0;
             keymap_inflight<=0;keymap_validating<=0;keymap_rollback<=0;keymap_hold<=0;keymap_scan<=0;
-            keymap_rsp_valid<=0;keymap_result<=6;keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;keymap_deadline_timer<=0;
+            keymap_rsp_valid<=0;keymap_result<=6;
             guide_q<=0;target_guide<=0;guide_revision<=0;arm_pad<=0;
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
@@ -379,6 +379,11 @@ module midi_voice_top #(
                     cfg_timer<=0;cfg_state<=C_CLEAN;
                     config_failed<=0;
                 end
+                // Wait for the physical pad to be released before loading the
+                // staged table. The bridge B_KEY_WAIT timer owns the 400 ms 04
+                // deadline; timeout cancels this state without touching the
+                // committed table.
+                C_KEY_RELEASE: if(pads_released) cfg_state<=C_CLEAN;
                 C_CLEAN: if((&state_cleanup_done) && (&guide_cleanup_done) && (maint_seen || maintenance_done)) cfg_state<=C_APPLY;
                 C_APPLY: begin
                     if((target_mode && target_channel>7) ||
@@ -388,10 +393,10 @@ module midi_voice_top #(
                         config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
                     end else begin
                         slot_map_q<=target_slot_map;custom_q<=target_custom;
-                        arm_pad<=CONFIG_BACKEND && !keymap_timeout && !keymap_canceled &&
-                            (keymap_inflight || (backend_inflight && pending_request.id!=16'h8001)) &&
+                        arm_pad<=CONFIG_BACKEND &&
+                            (backend_inflight && pending_request.id!=16'h8001) &&
                             (!target_mode || target_guide) &&
-                            (target_custom!=custom_q || keymap_inflight || target_mode!=mode_q || target_guide!=guide_q || target_source!=source_q ||
+                            (target_custom!=custom_q || target_mode!=mode_q || target_guide!=guide_q || target_source!=source_q ||
                              target_channel!=channel_q || target_bank!=bank_q || target_pad!=pad_q);
                         channel_q<=target_channel;mode_q<=target_mode;source_q<=target_source;guide_q<=target_guide;
                         inst_use<=target_mode ? router_pkg::instrument_e'(config_pkg::midi_instrument({1'b0,target_channel}+5'd1)) : target_pad;
@@ -421,13 +426,9 @@ module midi_voice_top #(
                             committed_map<=slot_map_q;guide_revision<=guide_revision+1'b1;
                             committed_pad<=pad_q;have_commit<=1;
                             if(keymap_inflight)begin
-                                if(!keymap_abort_responded)begin
-                                    keymap_result<=keymap_timeout ? 8'd4 :
-                                                     (keymap_canceled ? 8'd6 : (keymap_rollback ? 8'd6 : 8'd0));
-                                    keymap_rsp_valid<=1;
-                                end
+                                keymap_result<=keymap_rollback ? 8'd6 : 8'd0;
+                                keymap_rsp_valid<=1;
                                 keymap_inflight<=0;keymap_rollback<=0;
-                                keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;
                             end
                             if(backend_inflight)begin
                                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
@@ -476,7 +477,6 @@ module midi_voice_top #(
             if(keymap_valid && keymap_ready)begin
                 keymap_hold<=keymap_entries;keymap_scan<=0;
                 keymap_inflight<=1;keymap_validating<=1;keymap_rollback<=0;
-                keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;keymap_deadline_timer<=0;
             end
             if(keymap_validating)begin
                 if(!key_entry_ok)begin
@@ -489,7 +489,7 @@ module midi_voice_top #(
                         target_channel<=4'(config_pkg::instrument_channel({8'd0,keymap_hold[7:0]})-1'b1);
                         target_mode<=mode_q;target_source<=source_q;target_guide<=guide_q;
                         target_bank<=bank_q;target_first<=0;target_reverb<=backend_audio_state.reverb;
-                        config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
+                        arm_pad<=1'b0;config_failed<=0;cfg_timer<=0;cfg_state<=C_KEY_RELEASE;
                     end else keymap_scan<=keymap_scan+1'b1;
                 end
             end
@@ -506,52 +506,29 @@ module midi_voice_top #(
                     arm_pad<=1'b0;
                     config_failed<=0;cfg_timer<=0;cfg_state<=C_CLEAN;
                 end else begin
-                    keymap_result<=keymap_timeout ? 8'd4 : 8'd6;
+                    keymap_result<=8'd6;
                     keymap_rsp_valid<=1;keymap_inflight<=0;
-                    keymap_timeout<=0;keymap_canceled<=0;
                 end
             end
-            // Keymap's C_RELEASE wait must not be unbounded: the host gives the
-            // board 500 ms. Abort at 400 ms, roll back to the committed table,
-            // and return BUSY (04) before the host deadline.
-            // Count from request acceptance, not from C_RELEASE. The 500 ms
-            // host deadline includes table load and release waiting. Roll back
-            // directly into C_CLEAN instead of C_FAULT: C_FAULT would wait for
-            // a reload and can consume the remaining host deadline.
-            if(keymap_inflight && !keymap_rsp_valid) begin
-                if(keymap_deadline_timer < 32'hffff_ffff)
-                    keymap_deadline_timer <= keymap_deadline_timer + 1'b1;
-                if(keymap_deadline_timer >= KEYMAP_RELEASE_TIMEOUT_CYCLES-1 &&
-                   !keymap_abort_responded) begin
-                    // Reply first, rollback second. The host deadline does not
-                    // depend on pad release or on the rollback reload time.
-                    keymap_timeout<=1;keymap_validating<=0;arm_pad<=1'b0;
-                    keymap_abort_responded<=1;
-                    keymap_rsp_valid<=1'b0;
-                    if(have_commit)begin
-                        target_slot_map<=committed_map;
-                        target_custom<=backend_audio_state.custom_keys;
-                        target_pad<=committed_pad;
-                        target_channel<=4'(backend_audio_state.channel-1'b1);
-                        target_mode<=backend_audio_state.source!=0;
-                        target_source<=backend_audio_state.source==2;
-                        target_guide<=backend_audio_state.guide;
-                        target_bank<=backend_audio_state.bank;
-                        target_reverb<=backend_audio_state.reverb;
-                        target_first<=0;config_failed<=0;cfg_state<=C_CLEAN;
-                    end else begin
-                        keymap_inflight<=0;keymap_timeout<=0;cfg_state<=C_RUN;
-                    end
-                end
-            end else keymap_deadline_timer<=0;
             // A source can be quarantined or lose permission while the keymap
-            // table is already in flight. Abort/rollback instead of silently
-            // committing the table after the reply was suppressed.
-            if(keymap_cancel && keymap_inflight && !keymap_abort_responded) begin
-                keymap_canceled<=1;keymap_validating<=0;arm_pad<=1'b0;
-                keymap_abort_responded<=1;
-                keymap_rsp_valid<=1'b0;
-                if(have_commit)begin
+            // table is already in flight. Abort; if the table is still waiting
+            // for release, no load has happened yet, so just discard it.
+            if(keymap_cancel && keymap_inflight) begin
+                keymap_validating<=0;arm_pad<=1'b0;
+                if(cfg_state==C_KEY_RELEASE)begin
+                    keymap_inflight<=0;
+                    target_slot_map<=committed_map;
+                    target_custom<=backend_audio_state.custom_keys;
+                    target_pad<=committed_pad;
+                    target_channel<=4'(backend_audio_state.channel-1'b1);
+                    target_mode<=backend_audio_state.source!=0;
+                    target_source<=backend_audio_state.source==2;
+                    target_guide<=backend_audio_state.guide;
+                    target_bank<=backend_audio_state.bank;
+                    target_reverb<=backend_audio_state.reverb;
+                    target_first<=0;config_failed<=0;cfg_state<=C_RUN;
+                end else begin
+                    keymap_rollback<=1;keymap_inflight<=0;
                     target_slot_map<=committed_map;
                     target_custom<=backend_audio_state.custom_keys;
                     target_pad<=committed_pad;
@@ -562,8 +539,6 @@ module midi_voice_top #(
                     target_bank<=backend_audio_state.bank;
                     target_reverb<=backend_audio_state.reverb;
                     target_first<=0;config_failed<=0;cfg_state<=C_CLEAN;
-                end else begin
-                    keymap_inflight<=0;keymap_canceled<=0;cfg_state<=C_RUN;
                 end
             end
             if((config_busy && cfg_state!=C_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
