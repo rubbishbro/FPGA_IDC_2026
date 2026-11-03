@@ -208,6 +208,15 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
                         end
                     end
                 end
+                // Plan A: show that the custom binding capability exists even
+                // before it is uploaded. This is display-only: it does not add
+                // a selectable option and does not change low/high behavior.
+                if(((view.scene.layer==1 && view.scene.category==2) ||
+                    (view.scene.layer==2 && view.scene.edit_index==5)) &&
+                   view.values[5]!=2 && y>=356 && y<372)begin
+                    label_id=8'd126;text_x=16;text_y=356;
+                    enabled=0;selected=0;number_text=0;
+                end
                 if(selected)begin
                     background={6'h07,6'h15,6'h15};
                     if(x>=8&&x<11)background={6'h0c,6'h38,6'h2c};

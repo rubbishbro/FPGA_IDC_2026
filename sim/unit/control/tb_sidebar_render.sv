@@ -67,6 +67,14 @@ module tb_sidebar_render;
         frame();repeat(4)@(negedge clk);
         if(dut.value_labels[5]!=126)$fatal(1,"custom binding label not prepared");
         capture({filename,".custom.ppm"});
+        // Plan A: before upload the custom-binding capability is visible as a
+        // gray, non-selectable hint; low/high selection behavior is unchanged.
+        view.values[5]=0;
+        frame();repeat(4)@(negedge clk);
+        x=10'd16;y=10'd358;#1;
+        if(dut.label_id!=126 || dut.enabled!=0)
+            $fatal(1,"FAIL custom unavailable hint label/gray");
+        capture({filename,".custom_unavailable.ppm"});
         view.scene.open=0;
         for(integer i=0;i<12;i=i+1)frame();
         if(width!=0)$fatal(1,"close easing endpoint");

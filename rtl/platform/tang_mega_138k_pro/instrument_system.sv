@@ -151,6 +151,7 @@ module instrument_system #(
     wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
 
     logic keymap_valid,keymap_ready,keymap_rsp_valid;
+    logic keymap_cancel;
     logic [7:0] keymap_result;
     logic backend_valid,backend_ready,backend_source,backend_rsp_valid,backend_rsp_ready;
     cfg_request_t backend_request;
@@ -211,7 +212,7 @@ module instrument_system #(
         .backend_rsp_ready(backend_rsp_ready && !policy_rsp_valid),.backend_response(voice_response),
         .backend_supported(voice_supported),.backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
         .keymap_valid(keymap_valid),.keymap_ready(keymap_ready),.keymap_entries(ctx_shadow[263:8]),
-        .keymap_rsp_valid(keymap_rsp_valid),.keymap_rsp_ready(bridge_state==B_KEY_WAIT),.keymap_result(keymap_result),
+        .keymap_rsp_valid(keymap_rsp_valid),.keymap_rsp_ready(bridge_state==B_KEY_WAIT),.keymap_cancel(keymap_cancel),.keymap_result(keymap_result),
         .event_valid(event_valid),.event_ready(event_ready),.event_data(event_data),.event_source_id(event_source),
         .source_cleanup_req(quarantine),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),.midi_ops_idle(midi_idle),
         .control_valid(),.control_cancel(),.control_ready(1'b0),.control_data(),.control_source_id(),
@@ -233,6 +234,9 @@ module instrument_system #(
             if(key_scan_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
     end
     assign keymap_valid=bridge_state==B_KEY_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
+    // Cancel an in-flight table if the source is lost before it commits.
+    assign keymap_cancel=bridge_state==B_KEY_WAIT &&
+                         (quarantine[ctx_source] || !remote_permission[ctx_source]);
     assign cfg_ready=bridge_state==B_IDLE && core_n;
     assign cfg_done=bridge_state==B_DONE && core_n;
     assign ext_valid=bridge_state==B_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
@@ -297,7 +301,10 @@ module instrument_system #(
                 else if(keymap_ready)bridge_state<=B_KEY_WAIT;
                 else if(remote_admit_age>=CLK_HZ/50)begin cfg_result<=4;bridge_state<=B_DONE;end
             end
-            B_KEY_WAIT:if(keymap_rsp_valid)begin cfg_result<=keymap_result;bridge_state<=B_DONE;end
+            B_KEY_WAIT:if(keymap_rsp_valid)begin
+                cfg_result<=(quarantine[ctx_source] || !remote_permission[ctx_source]) ? 8'd6 : keymap_result;
+                bridge_state<=B_DONE;
+            end
             B_REC_START:begin
                 if(quarantine[0] || !remote_permission[0] || !rec_eligible)begin
                     rec_abort<=1;cfg_result<=6;bridge_state<=B_DONE;
