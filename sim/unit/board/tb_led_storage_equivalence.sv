@@ -17,7 +17,7 @@ module tb_led_storage_equivalence #(parameter int CE_PERIOD=4);
     wire da,db,ba,bb,fa,fb;
     pad_led_effects dut(cr,force_map,ba,fa,a);
     pad_led_effects_reference reference_fx(cr,force_map,bb,fb,b);
-    led8x8 driver(cr,a.x,a.y,a.pix,a.wr,da,ba,fa);
+    led8x8 #(.ROTATE_180(0)) driver(cr,a.x,a.y,a.pix,a.wr,da,ba,fa);
     // Direct legacy read remains correct with consecutive enables as well.
     led8x8_reference #(.PIPELINED_READ(0)) reference_driver(cr,b.x,b.y,b.pix,b.wr,db,bb,fb);
     integer cycles=0,pixels=0,frames=0,resets=0;

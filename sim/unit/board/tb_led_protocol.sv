@@ -52,7 +52,7 @@ module tb_led_protocol;
                     pixel.r.val=8'(cell_id*13+64);
                     pixel.b.val=8'(cell_id*7+128);
                 end
-                expected[(cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
+                expected[(7-cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
                     {pixel.g.val,pixel.r.val,pixel.b.val};
             end
             @(negedge clk);while(!ce) @(negedge clk);

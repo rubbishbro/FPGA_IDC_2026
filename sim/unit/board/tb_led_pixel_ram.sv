@@ -70,7 +70,7 @@ module tb_led_pixel_ram;
         logic [23:0] keep_word;
         keep_word=dut.pixel_ram[0];
         keep_pixel=pixel;
-        wr=1;x=3'd0;y=3'd0;pixel=24'hff_ff_ff;
+        wr=1;x=3'd7;y=3'd7;pixel=24'hff_ff_ff;
         repeat(3) @(negedge clk);
         if(dut.pixel_ram[0]!==keep_word)
             $fatal(1,"FAIL write during S_TX corrupted pixel RAM");
@@ -93,7 +93,7 @@ module tb_led_pixel_ram;
             pixel.g.val=8'(frame_id*37+cell_id*3+1);
             pixel.r.val=8'(frame_id*11+cell_id*5+64);
             pixel.b.val=8'(cell_id*7+128);
-            expected[(cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
+            expected[(7-cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
                 {pixel.g.val,pixel.r.val,pixel.b.val};
         end
         @(negedge clk);while(!ce) @(negedge clk);
@@ -118,7 +118,7 @@ module tb_led_pixel_ram;
             x=3'(cell_id/8);y=3'(cell_id%8);
             pixel.g.val=8'(cell_id*3+2);pixel.r.val=8'(cell_id*5+7);
             pixel.b.val=8'(cell_id*7+9);
-            expected[(cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
+            expected[(7-cell_id/8)*8+((cell_id/8)%2 ? 7-cell_id%8 : cell_id%8)]=
                 {pixel.g.val,pixel.r.val,pixel.b.val};
         end
         @(negedge clk);while(!ce) @(negedge clk);

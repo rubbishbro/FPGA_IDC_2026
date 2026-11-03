@@ -22,7 +22,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
         .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.dac_bck(db),.dac_ws(dw),.dac_din(dd),.dac_pa_en(pa),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
     initial if(dut.u_system.u_ui.u_joystick.SWAP_XY!=1 || dut.u_system.u_ui.u_joystick.INVERT_X!=1 || dut.u_system.u_ui.u_joystick.INVERT_Y!=0)
         $fatal(1,"FAIL board joystick XY orientation not connected");
-    initial if(dut.u_system.u_sound.PCM_HEADROOM_BITS!=3 || dut.u_system.u_timing.ROTATE_180!=1)
+    initial if(dut.u_system.u_sound.PCM_HEADROOM_BITS!=0 || dut.u_system.u_timing.ROTATE_180!=1)
         $fatal(1,"FAIL board six-timbre PCM/rotated LCD profile not connected");
     w25q64_read_model #(.N_MODES(64),.RESOURCE_BASE(32'h0080_0000),.FLASH_BYTES(16_777_216),.FORBID_PROGRAM_READ(1),.WRITE_NS(20_000_000),.MEM_FILE("performance_resources.mem"),.MEM_BYTES(1576960)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dq),.dq_oe(dut.u_system.flash_oe),.blank(blank),.dq_i(flash_data));
@@ -197,7 +197,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
                 int physical_y;logic [23:0] expected,stored;
                 physical_y=x%2 ? 7-y : y;
                 expected=dut.u_system.u_pad_leds.framebuffer[y*8+x];
-                stored=dut.u_system.u_pad.led_inst.pixel_ram[x*8+physical_y];
+                stored=dut.u_system.u_pad.led_inst.pixel_ram[(7-x)*8+physical_y];
                 for(int bit_id=0;bit_id<24;bit_id++)
                     if(stored[bit_id]!==expected[23-bit_id])
                         $fatal(1,"FAIL LED image/serpentine/wire mapping x=%d y=%d",x,y);

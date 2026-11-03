@@ -85,7 +85,7 @@ def check(directory, deployment=True):
     for key,base in [('pitch_ratio',0),('pitch_sine',512),('pitch_depth',768)]:
         expected_page[base:base+len(tables[key])]=tables[key]
     require(data[page['offset']:]==struct.pack('>1024I',*expected_page),'control table payload mismatch')
-    require(m['pcm_headroom_bits']==3,'unexpected PCM headroom')
+    require(m['pcm_headroom_bits']==0,'unexpected PCM headroom')
     count=0
     for entry in m['entries']:
         matrix=entry['instrument'] in MATRIX_IDS

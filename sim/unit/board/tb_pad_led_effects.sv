@@ -77,7 +77,7 @@ module tb_pad_led_effects #(parameter int CE_PERIOD=4);
                 written[{leds.y,leds.x}]=1; writes++;
                 // Protocol order, not the driver's internal storage bit order.
                 for(int b=0;b<24;b++)
-                    expected_bits[(int'(leds.x)*8+(leds.x[0] ? 7-int'(leds.y) : int'(leds.y)))*24+b]=
+                    expected_bits[((7-int'(leds.x))*8+(leds.x[0] ? 7-int'(leds.y) : int'(leds.y)))*24+b]=
                         1'(24'(leds.pix) >> (23-b));
             end
             if(!leds.wr && writing) begin

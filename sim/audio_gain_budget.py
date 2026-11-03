@@ -11,18 +11,18 @@ The board chain, with the exact fixed-point points:
   body biquad             Q24   (Q4.27 coefficients; piano 40Hz HP + 2kHz +3dB shelf,
                                  guitar 5 sections, trumpet/violin passthrough)
   reverb NONE             Q24   (gd=1.0, gw=0, 6-clock delay; bit-exact passthrough)
-  stereo_spatializer      Q42   (Q12 gain 181/256 at center, Q6 fractional ITD)
+  stereo_spatializer      Q42   (Q12 gain 4096/4096 (unity) at center, Q6 fractional ITD)
   PCM16                   >> (27 + h) with round-half-up
   i2s_amp_tx              16-bit MSB-first in a 32-bit slot, 1-bit I2S delay
 
 So at the pins:
 
-  pcm_centered = (y_q24 * 181 * 1024 + 2**(26+h)) >> (27+h)
+  pcm_centered = (y_q24 * 4096 * 64 + 2**(26+h)) >> (27+h)
   pcm_mono     = (y_q24 + 2**(8+h)) >> (9+h)
 
 and backwards, one PCM LSB is:
 
-  y_q24 per LSB = 2**(27+h) / (181*1024) = 2**(27+h) / 185344
+  y_q24 per LSB = 2**(27+h) / (4096*64) = 2**(27+h) / 262144
 """
 from __future__ import annotations
 
@@ -33,9 +33,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 Q24 = 1 << 24
-CENTER_GAIN_Q12 = 181 << 4          # gain_lut(16)=181, Q12
+CENTER_GAIN_Q12 = 4096              # gain_lut(16)=256, Q12
 ITD_Q6 = 64                         # spatializer keeps 6 extra fractional bits
-SPATIAL_SCALE = CENTER_GAIN_Q12 * ITD_Q6   # 185344
+SPATIAL_SCALE = CENTER_GAIN_Q12 * ITD_Q6   # 262144
 
 
 def spatial_pcm16(y_q24: int, headroom: int) -> int:
@@ -104,14 +104,14 @@ def main() -> None:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--pcm', type=int, default=None,
                     help='measured 16-bit PCM at amp_din (signed), reverse it to Q24')
-    ap.add_argument('--headroom', type=int, default=4,
-                    help='PCM_HEADROOM_BITS currently in the bitstream (default 4)')
+    ap.add_argument('--headroom', type=int, default=0,
+                    help='PCM_HEADROOM_BITS currently in the bitstream (default 0)')
     args = ap.parse_args()
 
     h = args.headroom
     print('== fixed points ==')
-    print(f'center gain         181/256 = {181/256:.6f} ({db_ratio(181/256):+.3f} dB)')
-    print(f'spatializer scale   {SPATIAL_SCALE} (181<<10)')
+    print(f'center gain         256/256 = {256/256:.6f} ({db_ratio(256/256):+.3f} dB)')
+    print(f'spatializer scale   {SPATIAL_SCALE} (4096<<6)')
     print(f'Q24 unity           {Q24}')
     print(f'headroom h={h}      PCM shift {27+h} (stereo) / {9+h} (mono)')
     print(f'1 PCM LSB (stereo)  = {2**(27+h)/SPATIAL_SCALE:.1f} Q24 units')
@@ -121,9 +121,9 @@ def main() -> None:
 
     print('\n== where the dB go for a 1.0 (Q24) note ==')
     print(f'  synth reference       0.00 dB')
-    print(f'  center pan           {db_ratio(181/256):+.2f} dB')
+    print(f'  center pan           {db_ratio(256/256):+.2f} dB')
     print(f'  PCM headroom h={h}    {-6.0206*h:+.2f} dB')
-    print(f'  net                  {db_ratio(181/256) - 6.0206*h:+.2f} dBFS')
+    print(f'  net                  {db_ratio(256/256) - 6.0206*h:+.2f} dBFS')
 
     print('\n== forward: measured raw Q24 -> centered PCM at the pins ==')
     audit = load_audit()
@@ -150,7 +150,7 @@ def main() -> None:
     for p in samples:
         y = y_from_pcm(p, h)
         print(f'PCM {p:>6d} ({dbfs(p):+6.1f} dBFS) -> y = {y:8.3f} x Q24 '
-              f'({y*Q24:12.0f} LSB); mono would be {p*256/181:8.1f}')
+              f'({y*Q24:12.0f} LSB); mono would be {p:8.1f}')
 
 
 if __name__ == '__main__':

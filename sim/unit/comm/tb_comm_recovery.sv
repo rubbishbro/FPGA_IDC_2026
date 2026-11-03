@@ -209,9 +209,12 @@ module tb_comm_recovery;
         if(!quarantine[0])$fatal(1,"FAIL break recovered while held low");
         rx[0]=1;recovered();config_reply(0,8,1,0);
 
-        // Bluetooth still needs its explicit restart; wired idle never clears it.
+        // Bluetooth uses the same bounded idle recovery, but its own pin/baud.
         rx[1]=0;clocks(32*14);rx[1]=1;clocks(IDLE_CYCLES*2);
-        if(quarantine!=2)$fatal(1,"FAIL peer recovery policy changed");
+        if(quarantine!=0)$fatal(1,"FAIL Bluetooth idle recovery");
+        // A fresh BT fault can still be cleared by an explicit restart.
+        rx[1]=0;clocks(32*14);rx[1]=1;clocks(4);
+        if(quarantine!=2)$fatal(1,"FAIL Bluetooth fault did not isolate");
         restart=2;clocks(1);restart=0;clocks(10);
         if(quarantine!=0)$fatal(1,"FAIL explicit Bluetooth restart");
 

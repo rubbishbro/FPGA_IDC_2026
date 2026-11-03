@@ -386,6 +386,15 @@ module voice_router #(
     logic [SLOTS-1:0]        mod_req;
     // Round-robin prevents high slots starving when the cap spans several frames.
     logic [VWID-1:0] mod_rr;
+    function automatic logic signed [AW-1:0] sat_mix(input logic signed [79:0] v);
+        if (v > 80'sd9223372036854775807)
+            sat_mix = 64'sh7fff_ffff_ffff_ffff;
+        else if (v < -80'sd9223372036854775808)
+            sat_mix = 64'sh8000_0000_0000_0000;
+        else
+            sat_mix = v[AW-1:0];
+    endfunction
+
     function automatic logic [VWID-1:0] next_mod_req(input logic [SLOTS-1:0] requests,
                                                    input logic [VWID-1:0] first);
         logic found;
@@ -726,6 +735,7 @@ module voice_router #(
     //   y_acc 是 64 位；SLOTS 个声部同时满量程理论上会回绕（实际信号远不到）。
     // =========================================================================
     logic signed [AW-1:0] y_acc;       // Σ y_env（帧内跨声部混音）
+    logic signed [15:0]  inst_gain_q12; // 当前乐器的全局 Q4.12 trim
     logic signed [AW-1:0] y_lat;       // eng_y 打一拍：乘法器的输入必须是寄存器
     logic signed [AW-1:0] y_b_lat;     // B 结果只在 y_valid 保证有效，必须同步锁存
     logic signed [31:0] e_b_lat;
@@ -828,7 +838,9 @@ module voice_router #(
     assign body_accept = mix_v && body_in_ready;
     assign y_valid     = gain_valid && table_valid;
     assign y_data      = table_valid ? gained_y : 64'sd0;
-    polyphony_gain #(.ENABLE(POLYPHONIC_GAIN)) u_gain(.clk(clk),.rst_n(rst_n),
+    // TEMPORARY: bypass count-dependent polyphony gain while per-instrument
+    // RMS trims are calibrated. Re-enable after a multi-voice peak re-scan.
+    polyphony_gain #(.ENABLE(1'b0)) u_gain(.clk(clk),.rst_n(rst_n),
         .clear(play_clear || effects_clear),.in_valid(rev_out_valid && table_valid),
         .in_data(rev_y),.voices(speaking_count_q),.out_valid(gain_valid),.out_data(gained_y),.gain_q12(poly_gain_q12));
     always_ff @(posedge clk or negedge rst_n)begin
@@ -1008,6 +1020,7 @@ module voice_router #(
             state      <= S_DONE;        // 上电就是"空闲、可以 start"
             mix_v      <= 1'b0;
             mix_q      <= '0;
+            inst_gain_q12 <= 16'sd4096;
 
             pick_b     <= 1'b0;
             nm_lat     <= '0;
@@ -1133,6 +1146,8 @@ module voice_router #(
                 // 引擎第一拍就要读 x，抄和读挤同一拍会读到上一笔
                 S_XS: begin
                     xw_run    <= 1'b0;
+                    // inst_lat is the loaded table, not the pending inst port.
+                    inst_gain_q12 <= router_pkg::gain_q12_of(inst_lat);
 
                     pick_b    <= 1'b0;
                     eng_start <= 1'b1;              // 第 0 组的两个声部**同时**起
@@ -1189,7 +1204,9 @@ module voice_router #(
                         // 全部声部算完：把这一采样的混音交给腔体。
                         // 上一笔还没被接走就原地等（绝不覆盖），腔体出来才是 y_data
                         if (!mix_v) begin
-                            mix_q <= y_acc;
+                            mix_q <= sat_mix((80'(signed'(y_acc)) *
+                                              80'(signed'(inst_gain_q12)) +
+                                              80'sd2048) >>> 12);
                             mix_v <= 1'b1;
 
                             pick_b<= 1'b0;

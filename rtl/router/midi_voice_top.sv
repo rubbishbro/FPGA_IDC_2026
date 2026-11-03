@@ -10,7 +10,7 @@ module midi_voice_top #(
     parameter logic [7:0] PAD_NOTE_ON_TH=8'd230, PAD_NOTE_OFF_TH=8'd26,
     // AUDIO_ENABLE requires audio_clk; actual Fs = audio_clk / (64*AUDIO_CLK_DIV).
     parameter bit AUDIO_ENABLE=1'b0, PT8211_ENABLE=1'b0,
-    parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=3,
+    parameter int AUDIO_CLK_DIV=4, PCM_HEADROOM_BITS=0,
     parameter bit STEREO_ENABLE=1'b1,
     parameter int ITD_MAX_SAMPLES=4,
     parameter logic [31:0] FLASH_BASE=32'h0000_0000,

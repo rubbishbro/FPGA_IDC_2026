@@ -101,6 +101,35 @@ module comm_top #(
         end
     end
 
+    // Bluetooth has no usable STATE on the production board (BT_HAS_STATE=0).
+    // Mirror the wired bounded-idle rule so a framing/break/overflow quarantine
+    // can retire itself after the HC-05 line has been idle long enough. This is
+    // a live qualification, not a latched restart: noise or a new physical
+    // error restarts the count, and session_ctrl still waits for event/backend/
+    // arbiter/parser retirement before reopening the source.
+    localparam int BT_IDLE_CYCLES = ((CLK_HZ + BT_BAUD - 1) / BT_BAUD) * 32;
+    localparam int BT_IDLE_W = $clog2(BT_IDLE_CYCLES + 1);
+    localparam logic [BT_IDLE_W-1:0] BT_IDLE_LIMIT = BT_IDLE_W'(BT_IDLE_CYCLES);
+    (* ASYNC_REG = "TRUE" *) logic bt_rx_meta, bt_rx_sync;
+    logic [BT_IDLE_W-1:0] bt_idle_count;
+    wire bt_idle_ready = bt_idle_count == BT_IDLE_LIMIT &&
+                         bt_rx_sync && !rx_frame_err[1] && !rx_break[1] && !rx_overflow[1];
+    always_ff @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            bt_rx_meta <= 1'b1;
+            bt_rx_sync <= 1'b1;
+            bt_idle_count <= '0;
+        end else begin
+            bt_rx_meta <= rx_i[1];
+            bt_rx_sync <= bt_rx_meta;
+            if (!source_quarantine[1] || !bt_rx_sync ||
+                rx_frame_err[1] || rx_break[1] || rx_overflow[1])
+                bt_idle_count <= '0;
+            else if (bt_idle_count != BT_IDLE_LIMIT)
+                bt_idle_count <= bt_idle_count + 1'b1;
+        end
+    end
+
     uart_driver #(.CLK_HZ(CLK_HZ), .BAUD(WIRED_BAUD),
         .OVERSAMPLE(WIRED_OVERSAMPLE), .RX_DEPTH(RX_DEPTH)) u_wired (
         .clk(clk), .rst_n(rst_n), .rx_i(rx_i[0]), .tx_o(tx_o[0]),
@@ -166,7 +195,7 @@ module comm_top #(
         .overflow(rx_overflow),
         .protocol_errors(frame_errors), .midi_error(midi_error_sources),
         .source_cleanup_done(source_cleanup_done), .source_ops_idle(source_ops_idle),
-        .idle_recovery_ready({1'b0, wired_idle_ready}),
+        .idle_recovery_ready({bt_idle_ready, wired_idle_ready}),
         .arb_busy(arb_busy), .arb_source(arb_source),
         .parser_busy(dispatch_busy), .parser_source(dispatch_source),
         .event_push(parsed_valid && parsed_ready), .event_push_source(parsed_source),

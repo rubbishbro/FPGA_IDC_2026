@@ -140,6 +140,26 @@ package router_pkg;
         endcase
     endfunction
 
+    // Per-instrument output gain, Q4.12. Unity=4096. Values are calibrated
+    // from *_raw_q24.npy max-20ms RMS to a common -14 dBFS target at
+    // PCM_HEADROOM_BITS=0 (per-channel full scale 1.0 Q24); they include
+    // both attenuation and positive gain. The loudest measured peak leaves
+    // ~1.57 dB margin; do not raise the target above -12.43 dBFS without a
+    // fresh peak scan.
+    // Re-run sim/analyze_instrument_loudness.py and re-check peak headroom
+    // after any resource/level change.
+    function automatic logic signed [15:0] gain_q12_of(input instrument_e inst);
+        case (inst)
+            INST_PIANO:      return 16'sd9532; // +7.34 dB, RMS target -14 dBFS
+            INST_GUITAR:     return 16'sd7676; // +5.46 dB
+            INST_TRUMPET:    return 16'sd1252; // -10.29 dB
+            INST_VIOLIN:     return 16'sd614;  // -16.48 dB
+            INST_PIANO_ABC:  return 16'sd1304; // -9.94 dB
+            INST_GUITAR_ABC: return 16'sd916;  // -13.01 dB
+            default:         return 16'sd4096;
+        endcase
+    endfunction
+
 endpackage
 
 `endif

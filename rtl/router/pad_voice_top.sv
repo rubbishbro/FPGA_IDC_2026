@@ -14,7 +14,7 @@ module pad_voice_top #(
     parameter int  N_MODES       = 64,
     parameter int  SLOTS         = 16,
     parameter bit  AUDIO_ENABLE = 1'b0,
-    parameter int  AUDIO_CLK_DIV = 4, PCM_HEADROOM_BITS = 3,
+    parameter int  AUDIO_CLK_DIV = 4, PCM_HEADROOM_BITS = 0,
     parameter bit STEREO_ENABLE=1'b1,
     parameter int ITD_MAX_SAMPLES=4,
     parameter logic [31:0] FLASH_BASE=32'h0000_0000,

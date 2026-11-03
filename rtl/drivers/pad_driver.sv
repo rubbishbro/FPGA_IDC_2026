@@ -48,7 +48,9 @@ wr：高电平写显存，低电平刷新一次屏幕
 
 dat：屏幕串行数据输入
 */
-module led8x8(
+module led8x8 #(
+    parameter bit ROTATE_180 = 1'b1
+)(
     input  clk_rst     cr,
     input  logic [2:0] x, y,
     input  pixel_t     pix,
@@ -80,7 +82,10 @@ end
 logic   [2:0]      t0_v;
 shift_timer #(.N(3)) timer0 (.cr({cr.clk, cr.clk_en, state == S_TX}), .val(t0_v));
 
-//写显存
+// 写显存
+// 面板相对渲染逻辑坐标旋转 180 度。先做 (7-x,7-y)，再走原有的列内蛇形；
+// 因为蛇形 y 翻转与旋转 y 翻转相消，等效地址就是 {~x, y_}。
+// ROTATE_180=0 仅供旧基线等价性测试使用。
 // idx walks upward from bit 0. Store each pixel in wire order so that the
 // receiver sees G7..G0, R7..R0, B7..B0 (WS2812 MSB first), not reversed bytes.
 wire [23:0] pixel_grb = pix;
@@ -94,10 +99,11 @@ end
 // initialization after reset. Protocol state, index and dat still reset below.
 always_ff @(posedge cr.clk) begin
     if(wr && (state != S_TX) && cr.clk_en) begin
-        logic [2:0] y_;
+        logic [2:0] store_x, y_;
         y_ = (x[0] == 0) ? y : ~y;
+        store_x = ROTATE_180 ? ~x : x;
 
-        pixel_ram[{x,y_}] <= serial_pixel;
+        pixel_ram[{store_x,y_}] <= serial_pixel;
     end
 end
 

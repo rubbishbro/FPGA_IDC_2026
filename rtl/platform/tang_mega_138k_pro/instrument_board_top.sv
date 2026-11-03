@@ -2,7 +2,7 @@
 module instrument_board_top #(
     parameter int BAUD=115200,KEY_DEBOUNCE=1_000_000,KEY_LONG=40_000_000,
     parameter bit NOTE_BANKS=1,BT_HAS_STATE=0,
-    parameter int PCM_HEADROOM_BITS=3,
+    parameter int PCM_HEADROOM_BITS=0,
     parameter bit LCD_ROTATE_180=1'b1,
     parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,

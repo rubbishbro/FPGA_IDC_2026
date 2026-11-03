@@ -479,7 +479,7 @@
   "default_bank": 0,
   "first_midi": null,
   "resource_mask": 3115,
-  "pcm_headroom_bits": 3,
+  "pcm_headroom_bits": 0,
   "table_bytes": 131072,
   "storage_modes": 64,
   "active_modes_limit": 64,
@@ -19000,7 +19000,7 @@
   "firmware_flash_address": 0,
   "bulk_erase_between_files": false,
   "source_hashes": {
-    "rtl/router/tools/performance_resources.py": "3254f53512fccb4e92f0f74d8ff0ab5c64f576248a50ee435f16c08505974d32",
+    "rtl/router/tools/performance_resources.py": "e9738e26b18497c788e42b8c4493cee085caed35da1a2ec533463141cc5e20ef",
     "rtl/router/tools/matrix_resources.py": "60a03b13ee6cb7954960540683e9c48a0c1250c8872e209f1b5ba2669b23c964",
     "rtl/router/tools/pitch_tables.py": "f498aa16e3a68918cda91f9f95df5d4a4109a17285d6626ce291cd9e5a90e2c1",
     "rtl/router/tools/pitch_tables.json": "deaa50281d922db3407422299c1647ba5b58c594cf8e04cd849d491e7469f6eb",

@@ -4,7 +4,7 @@ module instrument_system #(
     parameter int CLK_HZ=50_000_000, BAUD=115200,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=1, BT_HAS_STATE=0,
-    parameter int PCM_HEADROOM_BITS=3,
+    parameter int PCM_HEADROOM_BITS=0,
     parameter bit LCD_ROTATE_180=1'b1,
     // Legacy probe fallback; production NOTE_BANKS uses per-instrument note_first.
     parameter logic [6:0] FIRST_MIDI=48,

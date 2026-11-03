@@ -8,7 +8,7 @@
 module i2s_audio_output #(
     parameter int CLK_DIV=4,
     parameter int FIFO_DEPTH=16,
-    parameter int PCM_HEADROOM_BITS=3, // Q24 -> Q1.15: >> (9 + headroom); -1 enables +6dB vs unity
+    parameter int PCM_HEADROOM_BITS=0, // Q24 -> Q1.15: >> (9 + headroom); -1 enables +6dB vs unity
     parameter bit STEREO_ENABLE=1'b1,
     parameter bit PT8211_ENABLE=1'b0,
     parameter int ITD_MAX_SAMPLES=4

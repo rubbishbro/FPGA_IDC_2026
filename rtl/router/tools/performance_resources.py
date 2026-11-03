@@ -167,7 +167,7 @@ def generate(out, notes=None, banked=True):
         note_ranges={name:dict(instrument=INSTRUMENTS[name],first=lo,last=hi,count=32,
             low=list(range(lo,lo+16)),high=list(range(lo+16,hi+1))) for name,(lo,hi) in NOTE_RANGES.items()},
         note_banks=1,default_bank=0,first_midi=None,
-        resource_mask=sum(1<<i for i in INSTRUMENTS.values()),pcm_headroom_bits=3,
+        resource_mask=sum(1<<i for i in INSTRUMENTS.values()),pcm_headroom_bits=0,
         table_bytes=note_count*4096,storage_modes=64,active_modes_limit=64,eng1_active_modes_limit=48,record_bytes=64,
         record_formats={
             'eng0 matrix':dict(words=['a11 Q28','a12 Q30','a21 Q23','a22 Q28','gq Q32','gv Q34','wo Q29'],reserved_words=[],profile_word=7,profile_modes=[0,1,2]),
