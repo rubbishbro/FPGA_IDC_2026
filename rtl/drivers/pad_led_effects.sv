@@ -104,7 +104,7 @@ module pad_led_effects #(
     logic [15:0] wave_valid;
     logic [15:0] wave_birth_age [0:15];
     // 16 条 wave 记录的顺序扫描表：命中时按 next_slot 写入，渲染时按 wave_idx
-    // 读出。RAM 读延迟藏在现有 R_WAVE_ADDR->R_DISTANCE 状态边界里，不增加拍数。
+    // 读出。wave_q 更新后再等待一拍，让同步距离 ROM 产出本条记录的距离。
     (* syn_ramstyle="block_ram" *) logic [53:0] wave_ram [0:15];
     logic [53:0] wave_q;
     logic [15:0] frame_age;
@@ -201,7 +201,7 @@ module pad_led_effects #(
     typedef enum logic [4:0] {
         R_BOOT_FILL,R_IDLE,R_PIXEL_ADDR,R_PHASE,R_BG_WAIT,R_BG,R_WAVE_ADDR,R_DISTANCE,
         R_SHAPE_WAIT,R_SHAPE,R_MIX1_WAIT,R_MIX1,R_MIX2_WAIT,R_COMPARE,R_NEXT_WAVE,
-        R_COLOUR_ADDR,R_COLOUR,R_READY,R_FILL
+        R_COLOUR_ADDR,R_COLOUR,R_READY,R_FILL,R_DISTANCE_WAIT
     } render_state_t;
     render_state_t state;
     // Prefetch pixel zero while waiting for TX, and the next pixel on every
@@ -243,8 +243,10 @@ module pad_led_effects #(
             R_BG: begin background<=breath_q; best_amplitude<=0; best_colour<=0; wave_idx<=0; state<=R_WAVE_ADDR; end
             R_WAVE_ADDR: begin
                 if(!wave_valid[wave_idx]) state<=R_NEXT_WAVE;
-                else begin wave_q<=wave_ram[wave_idx]; state<=R_DISTANCE; end
+                else begin wave_q<=wave_ram[wave_idx]; state<=R_DISTANCE_WAIT; end
             end
+            // distance_q samples the new wave_q on this edge; consume it next cycle.
+            R_DISTANCE_WAIT: state<=R_DISTANCE;
             R_DISTANCE: begin
                 if(cur_age>=16'd64 || cur_radius<distance_q16 ||
                    cur_lag>=24'd524288) state<=R_NEXT_WAVE;

@@ -1,0 +1,474 @@
+{
+  "description": "Fourth audition: E4 soft_weights, fitted to third audition source mezzo-piano harmonic ratios; NOT coefficients extracted directly from the third audio.",
+  "source_reference": "music_resources/flute/flute_E4_15_mezzo-piano_normal.mp3",
+  "midi": 64,
+  "sample_rate": 48000,
+  "period": 146,
+  "storage_modes": 64,
+  "active_modes": 48,
+  "formats": {
+    "G": "signed26 Q2.24",
+    "a1": "signed26 Q2.24",
+    "a2": "unsigned24 Q0.24",
+    "recurrence": "y[n]=G*x[n]-a1*y[n-1]-a2*y[n-2]; fixed-point rounding/widths per eng1 model"
+  },
+  "envelope": {
+    "A_STEP": 248551,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 380283
+  },
+  "body": "five identity sections",
+  "noise": "off",
+  "production_deployed": false,
+  "coefficients": [
+    {
+      "index": 0,
+      "harmonic": 1,
+      "G": 7829,
+      "a1": -33515330,
+      "a2": 16769175
+    },
+    {
+      "index": 1,
+      "harmonic": 2,
+      "G": 14489,
+      "a1": -33422208,
+      "a2": 16769175
+    },
+    {
+      "index": 2,
+      "harmonic": 3,
+      "G": 9839,
+      "a1": -33267195,
+      "a2": 16769175
+    },
+    {
+      "index": 3,
+      "harmonic": 4,
+      "G": 13210,
+      "a1": -33048994,
+      "a2": 16767568
+    },
+    {
+      "index": 4,
+      "harmonic": 5,
+      "G": 17429,
+      "a1": -32771189,
+      "a2": 16767568
+    },
+    {
+      "index": 5,
+      "harmonic": 6,
+      "G": 3581,
+      "a1": -32432700,
+      "a2": 16767568
+    },
+    {
+      "index": 6,
+      "harmonic": 7,
+      "G": 5995,
+      "a1": -32035688,
+      "a2": 16769175
+    },
+    {
+      "index": 7,
+      "harmonic": 8,
+      "G": 1849,
+      "a1": -31576285,
+      "a2": 16767568
+    },
+    {
+      "index": 8,
+      "harmonic": 9,
+      "G": 1331,
+      "a1": -31061434,
+      "a2": 16769175
+    },
+    {
+      "index": 9,
+      "harmonic": 10,
+      "G": 1924,
+      "a1": -30487551,
+      "a2": 16769175
+    },
+    {
+      "index": 10,
+      "harmonic": 11,
+      "G": 3513,
+      "a1": -29848626,
+      "a2": 16759532
+    },
+    {
+      "index": 11,
+      "harmonic": 12,
+      "G": 718,
+      "a1": -29170187,
+      "a2": 16767568
+    },
+    {
+      "index": 12,
+      "harmonic": 13,
+      "G": 293,
+      "a1": -28433302,
+      "a2": 16770783
+    },
+    {
+      "index": 13,
+      "harmonic": 14,
+      "G": 426,
+      "a1": -27638318,
+      "a2": 16767568
+    },
+    {
+      "index": 14,
+      "harmonic": 15,
+      "G": 387,
+      "a1": -26798734,
+      "a2": 16772391
+    },
+    {
+      "index": 15,
+      "harmonic": 16,
+      "G": 312,
+      "a1": -25903066,
+      "a2": 16769175
+    },
+    {
+      "index": 16,
+      "harmonic": 17,
+      "G": 321,
+      "a1": -24960805,
+      "a2": 16767568
+    },
+    {
+      "index": 17,
+      "harmonic": 18,
+      "G": 505,
+      "a1": -23970116,
+      "a2": 16762746
+    },
+    {
+      "index": 18,
+      "harmonic": 19,
+      "G": 1016,
+      "a1": -22939729,
+      "a2": 16764353
+    },
+    {
+      "index": 19,
+      "harmonic": 20,
+      "G": 586,
+      "a1": -21868858,
+      "a2": 16769175
+    },
+    {
+      "index": 20,
+      "harmonic": 21,
+      "G": 247,
+      "a1": -20755187,
+      "a2": 16770783
+    },
+    {
+      "index": 21,
+      "harmonic": 22,
+      "G": 199,
+      "a1": -19602034,
+      "a2": 16770783
+    },
+    {
+      "index": 22,
+      "harmonic": 23,
+      "G": 416,
+      "a1": -18410818,
+      "a2": 16767568
+    },
+    {
+      "index": 23,
+      "harmonic": 24,
+      "G": 634,
+      "a1": -17188211,
+      "a2": 16769175
+    },
+    {
+      "index": 24,
+      "harmonic": 25,
+      "G": 523,
+      "a1": -15932894,
+      "a2": 16769175
+    },
+    {
+      "index": 25,
+      "harmonic": 26,
+      "G": 321,
+      "a1": -14647371,
+      "a2": 16767568
+    },
+    {
+      "index": 26,
+      "harmonic": 27,
+      "G": 409,
+      "a1": -13335487,
+      "a2": 16767568
+    },
+    {
+      "index": 27,
+      "harmonic": 28,
+      "G": 454,
+      "a1": -11998910,
+      "a2": 16767568
+    },
+    {
+      "index": 28,
+      "harmonic": 29,
+      "G": 654,
+      "a1": -10639603,
+      "a2": 16765960
+    },
+    {
+      "index": 29,
+      "harmonic": 30,
+      "G": 364,
+      "a1": -9262057,
+      "a2": 16769175
+    },
+    {
+      "index": 30,
+      "harmonic": 31,
+      "G": 586,
+      "a1": -7866340,
+      "a2": 16769175
+    },
+    {
+      "index": 31,
+      "harmonic": 32,
+      "G": 842,
+      "a1": -6456056,
+      "a2": 16769175
+    },
+    {
+      "index": 32,
+      "harmonic": 33,
+      "G": 720,
+      "a1": -5033817,
+      "a2": 16769175
+    },
+    {
+      "index": 33,
+      "harmonic": 34,
+      "G": 467,
+      "a1": -3602257,
+      "a2": 16769175
+    },
+    {
+      "index": 34,
+      "harmonic": 35,
+      "G": 366,
+      "a1": -2164129,
+      "a2": 16770783
+    },
+    {
+      "index": 35,
+      "harmonic": 36,
+      "G": 514,
+      "a1": -721649,
+      "a2": 16762746
+    },
+    {
+      "index": 36,
+      "harmonic": 37,
+      "G": 336,
+      "a1": 721753,
+      "a2": 16767568
+    },
+    {
+      "index": 37,
+      "harmonic": 38,
+      "G": 238,
+      "a1": 2164129,
+      "a2": 16770783
+    },
+    {
+      "index": 38,
+      "harmonic": 39,
+      "G": 236,
+      "a1": 3602084,
+      "a2": 16767568
+    },
+    {
+      "index": 39,
+      "harmonic": 40,
+      "G": 119,
+      "a1": 5033817,
+      "a2": 16769175
+    },
+    {
+      "index": 40,
+      "harmonic": 41,
+      "G": 136,
+      "a1": 6456056,
+      "a2": 16769175
+    },
+    {
+      "index": 41,
+      "harmonic": 42,
+      "G": 247,
+      "a1": 7866340,
+      "a2": 16769175
+    },
+    {
+      "index": 42,
+      "harmonic": 43,
+      "G": 336,
+      "a1": 9261169,
+      "a2": 16765960
+    },
+    {
+      "index": 43,
+      "harmonic": 44,
+      "G": 161,
+      "a1": 10640623,
+      "a2": 16769175
+    },
+    {
+      "index": 44,
+      "harmonic": 45,
+      "G": 131,
+      "a1": 12000060,
+      "a2": 16770783
+    },
+    {
+      "index": 45,
+      "harmonic": 46,
+      "G": 144,
+      "a1": 13334848,
+      "a2": 16765960
+    },
+    {
+      "index": 46,
+      "harmonic": 47,
+      "G": 174,
+      "a1": 14648073,
+      "a2": 16769175
+    },
+    {
+      "index": 47,
+      "harmonic": 48,
+      "G": 173,
+      "a1": 15931367,
+      "a2": 16765960
+    },
+    {
+      "index": 48,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 49,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 50,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 51,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 52,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 53,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 54,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 55,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 56,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 57,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 58,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 59,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 60,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 61,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 62,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    },
+    {
+      "index": 63,
+      "harmonic": null,
+      "G": 0,
+      "a1": 0,
+      "a2": 0
+    }
+  ]
+}

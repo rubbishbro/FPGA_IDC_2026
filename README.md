@@ -2,7 +2,7 @@
 
 面向 IDC 竞赛、基于 Tang Mega 138K Pro（Gowin）的实时合成项目。声音由 HDL 逐样本递推产生；录音用于离线提取参数，模型与 RTL WAV 用于试听验证。
 
-更新：**2026-11-02**。本地已合入整理后的main。当前源码尚未重新编译；板上固件身份见[烧录记录](docs/烧录_20261102_0613.md)（2026-11-02 06:53 为 0BFE，但资源窗口回读仍是旧 768KiB，见问题 I05），本轮不编译、不烧录。
+更新：**2026-11-02**。本地已合入整理后的main。当前源码尚未重新编译；板上固件身份见[烧录记录](docs/archive/2026-11/烧录_20261102_0613.md)（2026-11-02 06:53 为 0BFE，但资源窗口回读仍是旧 768KiB，见问题 I05），本轮不编译、不烧录。
 
 ## 当前实现
 
@@ -19,7 +19,7 @@
 
 源码、板上固件、测试结果及未关闭问题见[调试记录](docs/调试记录.md)和[问题表](docs/bugs.md)。默认固定16音，音频时钟12.5MHz对应48.828125kHz，48kHz资源有约+29.6音分速度偏差。
 
-**阅读入口：**[文档](docs/README.md) · [上板测试](docs/上板测试.md) · [赛题要求](reference_agent_readfirst/competition_requements_most_important.md)。
+**阅读入口：**[文档](docs/README.md) · [当前状态](docs/status.md) · [上板测试](docs/上板测试.md) · [赛题要求](reference_agent_readfirst/competition_requements_most_important.md)。
 
 ## 数据流与目录
 
@@ -92,12 +92,12 @@ python3 sim/run_board.py
 npm --prefix web/midi-editor test
 ```
 
-持续前端、完整音频、vendor Flash模型及板级回归均已有正式入口。旧eng1_cosim.py仍使用历史接口，不作为当前流水核通过依据。仿真命令见 `sim/`，板级构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/板级引脚.md)。本次不重跑长测/PnR或烧录；功能复测与既有报告复核分别记录。
+持续前端、完整音频、vendor Flash模型及板级回归均已有正式入口。旧eng1_cosim.py仍使用历史接口，不作为当前流水核通过依据。仿真命令见 `sim/`，板级构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/contracts/板级引脚.md)。本次不重跑长测/PnR或烧录；功能复测与既有报告复核分别记录。
 
 ## 文档约定
 
-根目录只保留本README；说明文档集中在 `docs/`，赛题资料在 `reference_agent_readfirst/`，其余旧文档已删除。依赖清单、系数数据、许可证、第三方元数据和生成报告按原用途保留。
+根目录只保留本README；说明文档集中在 `docs/`，赛题资料在 `reference_agent_readfirst/`，旧文档归档在 `docs/archive/`。依赖清单、系数数据、许可证、第三方元数据和生成报告按原用途保留。
 
-当前板级配置已对齐 `origin/board50@d47b14df`（50MHz核心、板载Flash QE初始化、实板键盘/蓝牙/I2S管脚）；本地双声道与引导演奏功能保留。构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/板级引脚.md)，历史100MHz PnR报告不代表当前50MHz版本验收。
+当前板级配置已对齐 `origin/board50@d47b14df`（50MHz核心、板载Flash QE初始化、实板键盘/蓝牙/I2S管脚）；本地双声道与引导演奏功能保留。构建入口为 `rtl/platform/tang_mega_138k_pro/build.tcl`，引脚见[板级引脚](docs/contracts/板级引脚.md)，历史100MHz PnR报告不代表当前50MHz版本验收。
 
 2026-10-30已选择性迁入board50的真实FFT/波形和极坐标历史页，经独立异步FIFO连接主合成PCM；保留本地双声道、PT8211和MIDI引导。新版U5仍为DIN=B21、GAIN=A20外接3V3，未采用远端冲突引脚或硬编码12倍音量。详见[调试记录](docs/调试记录.md)。

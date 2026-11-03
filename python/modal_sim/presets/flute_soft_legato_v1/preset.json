@@ -1,0 +1,130 @@
+{
+  "id": "flute_soft_legato_v1",
+  "status": "frozen_user_selected",
+  "selected_date": "2026-11-03",
+  "instrument": "flute",
+  "sample_rate": 48000,
+  "validated_midi_notes": [
+    62,
+    64,
+    67,
+    69,
+    71,
+    72,
+    74,
+    76
+  ],
+  "scope": "Selected sample-model timbre/performance baseline for the eight validated notes, not a full-range production preset.",
+  "envelope": {
+    "A_STEP": 186414,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 211269
+  },
+  "envelope_times_ms": {
+    "attack": 240,
+    "decay": 120,
+    "release_from_sustain": 180
+  },
+  "sustain_fraction": 0.85,
+  "modal": {
+    "storage_modes": 64,
+    "active_modes": 48,
+    "coefficients": "note_resources.json",
+    "poles": "original production poles",
+    "G": "per-note mezzo-piano fit; E4 selected audition weights"
+  },
+  "excitation": {
+    "type": "periodic pulse plus shift/add onset morph",
+    "lp_stages": 2,
+    "lp_shift": 5,
+    "hold_samples": 1536,
+    "fade_samples": 4096,
+    "blend_fraction_bits": 8,
+    "register_update": "second pole reads old first pole"
+  },
+  "body": {
+    "sections": 5,
+    "coeff_frac": 27,
+    "coefficients": [
+      [
+        134217728,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        134217728,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        134217728,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        134217728,
+        0,
+        0,
+        0,
+        0
+      ],
+      [
+        134217728,
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "reverb": "NONE",
+  "added_breath": false,
+  "articulation": {
+    "connected_gap_max_ms": 40,
+    "incoming_advance_ms": 40,
+    "outgoing_extension_ms": 60,
+    "preserve_phrase_rests": true,
+    "rising_tail_cents": 12,
+    "falling_head_cents": 18,
+    "falling_settle_ms": 100
+  },
+  "pitch": {
+    "type": "existing nonnegative PAD-aftertouch P1T1",
+    "threshold": 102,
+    "cents_per_100_counts": 60,
+    "control_interval_samples": 96,
+    "release": "hold last committed pitch",
+    "trajectory": "fixture replay; no modulation FSM clock latency simulation"
+  },
+  "reference": {
+    "audio": "FFT_results/presets/flute_soft_legato_v1/reference.wav",
+    "fixture": "FFT_results/presets/flute_soft_legato_v1/chorus_fixture.npz",
+    "seconds": 19.033333333333335,
+    "playback_gain": 1.8349136709595345e-08,
+    "raw_int64le_sha256": "81225a7307f846c2b16cd9235fe6b5755669f94b23405aeeff7581a5259a2f05",
+    "melody_source": "https://www.hooktheory.com/theorytab/view/sufjan-stevens/mystery-of-love#chorus"
+  },
+  "pinned_model_sha256": {
+    "python/modal_sim/eng1_rtl.py": "a11c016916d120d04f1744b3d27fdb4734496673679281608c194c200e1bc5ce",
+    "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d",
+    "python/modal_sim/pitch_linear.py": "29a1eea8f4a20077ff393c764e1925796d91a6494d59df36d9c12da30c2cee8a"
+  },
+  "asset_sha256": {
+    "python/modal_sim/presets/flute_soft_legato_v1/note_resources.json": "29590036966bbe5de58db759c0666081aa5a8c65f0a9073b6666a4d9502077f3",
+    "python/modal_sim/presets/flute_soft_legato_v1/reference_events.json": "810f9dc967eb6734e2e10f4ff9d16bc9bf961df3d26f83805ce3300f2372f17a",
+    "python/modal_sim/presets/flute_soft_legato_v1/render.py": "7caef15b04d6a7fd7a55fcd18cc5f8a7a56070d33170ce199f8f49b080c01622",
+    "FFT_results/presets/flute_soft_legato_v1/chorus_fixture.npz": "04593fecbd5db48add3fc9879bf7453f8d12ffc3cb293b16bcae1c6d1671c092",
+    "FFT_results/presets/flute_soft_legato_v1/reference.wav": "4a659534dfd563b3e456fe89c917d94173a958400200d7d1686e3f4b20dca7a0",
+    "FFT_results/presets/flute_soft_legato_v1/verification.json": "ccc590242ec281185bf408ed6d133b9020765e9fb3d2b58f857a0f6296e170a2"
+  },
+  "production_status": "NOT deployed: no production RTL, Flash images or coefficient tables modified. Onset morph remains experimental; pitch snapshots replay existing ENG1 datapath.",
+  "version_policy": "Keep this preset and reference immutable. Subsequent timbre experiments should create a new version rather than overwrite v1.",
+  "verification": "FFT_results/presets/flute_soft_legato_v1/verification.json"
+}

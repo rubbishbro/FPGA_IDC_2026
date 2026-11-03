@@ -385,15 +385,19 @@ small, .quiet { color: var(--muted); font-size: 11px; font-weight: 400; }
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   gap: 4px;
   padding: 0 14px;
   color: var(--muted-2);
-  font: 9px/12px var(--font-ui);
+  font: 10px/12px var(--font-ui);
+  font-weight: 600;
   letter-spacing: 1.4px;
 }
+.route-label > span { display: none; }
 .route-label select {
   height: 26px;
-  padding: 0 20px 0 0;
+  padding: 0 20px;
+  text-align: center;
   border: 0;
   appearance: none;
   background-color: transparent;
@@ -402,8 +406,8 @@ small, .quiet { color: var(--muted); font-size: 11px; font-weight: 400; }
   background-position: right 2px center;
   background-size: 12px;
   color: var(--text);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
   line-height: 26px;
 }
 .route-label select:focus { box-shadow: 0 1px 0 var(--accent-line); }
@@ -411,19 +415,22 @@ small, .quiet { color: var(--muted); font-size: 11px; font-weight: 400; }
 .panic {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
   gap: 4px;
   padding: 0 16px;
   border-color: rgba(224, 144, 127, .26);
   background: rgba(224, 144, 127, .05);
   color: #dda092;
-  font-size: 13px;
+  font-size: 15px;
+  font-weight: 600;
   text-align: left;
 }
+.panic-label { display: none; }
 .panic-label {
   color: rgba(224, 144, 127, .62);
-  font: 9px/12px var(--font-ui);
+  font: 10px/12px var(--font-ui);
+  font-weight: 600;
   letter-spacing: 1.6px;
 }
 .panic-action {
@@ -1142,10 +1149,13 @@ button[hidden], div[hidden] { display: none !important; }
 
 @media (max-width: 1500px) {
   :root { --panel-left: 290px; --panel-right: 312px; --pad-shell: 20px; }
-  .transport { gap: 10px; }
+  .transport { gap: 8px; }
   .position-readout { min-width: 190px; }
   .app-brand-name { display: none; }
   .doc-title { width: 190px; }
+  .route-label { padding: 0 10px; }
+  .route-label select { padding: 0 14px; }
+  .panic { padding: 0 12px; }
 }
 
 @media (max-width: 1240px) {
@@ -1157,7 +1167,7 @@ button[hidden], div[hidden] { display: none !important; }
   .tempo-control, .meter, .route-label { padding: 0 10px; }
   .tempo-control input { font-size: 18px; }
   .meter strong { font-size: 18px; }
-  .route-label select { max-width: 132px; font-size: 11px; }
+  .route-label select { max-width: 132px; font-size: 13px; padding: 0 14px; }
   .panic { padding: 0 10px; }
   .panic kbd { display: none; }
   .doc-title { width: 160px; }
@@ -1207,52 +1217,31 @@ button[hidden], div[hidden] { display: none !important; }
   button, input, select, textarea, .track { transition: none; }
 }
 
-.record-controls {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+/* 录制演奏：整张卡片就是按钮，只保留文字 */
+.record-controls { display: contents; }
+.record-controls small { display: none; }
+.record-button {
   height: var(--h-control);
   min-height: var(--h-control);
-  min-width: 132px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
+  min-width: 120px;
+  padding: 0 14px;
+  border: 1px solid #75463f;
   border-radius: 12px;
-  background: var(--surface-2);
-}
-.record-controls small {
-  order: -1;
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  color: var(--muted-2);
-  font: 9px/12px var(--font-mono);
-}
-.record-button {
-  height: 26px;
-  min-height: 26px;
-  padding: 0 8px;
-  border-radius: 6px;
-  border-color: #75463f;
   background: #382827;
   color: #e7a199;
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 600;
 }
 .record-button:hover { border-color: #a05a4e; background: #4a2f2b; color: #ffd7cd; }
 .record-button.recording { border-color: #cd7062; background: #753a32; color: #ffe0d8; }
-.record-button.recording + small { color: #e7a199; }
 @media (max-width: 1500px) {
-  .record-controls { min-width: 118px; padding: 0 9px; }
+  .record-button { min-width: 100px; }
 }
 @media (max-width: 1240px) {
-  .record-controls { min-width: 104px; padding: 0 8px; }
-  .record-controls small { font-size: 8px; }
-  .record-button { font-size: 10px; padding: 0 5px; }
+  .record-button { min-width: 90px; padding: 0 10px; }
 }
 @media (max-width: 1080px) {
-  .record-controls { min-width: 92px; padding: 0 7px; }
-  .record-controls small { display: none; }
+  .record-button { min-width: 90px; padding: 0 10px; }
 }
 
 .position-readout > span { white-space: nowrap; }

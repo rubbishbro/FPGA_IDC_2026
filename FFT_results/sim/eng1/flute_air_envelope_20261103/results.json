@@ -1,0 +1,112 @@
+{
+  "sample_rate": 48000,
+  "seconds": 7.2,
+  "notes": [
+    64,
+    67,
+    72,
+    76
+  ],
+  "events": [
+    [
+      0.12,
+      64,
+      1.55,
+      100
+    ],
+    [
+      1.95,
+      67,
+      0.28,
+      100
+    ],
+    [
+      2.35,
+      72,
+      0.28,
+      100
+    ],
+    [
+      2.75,
+      76,
+      0.55,
+      100
+    ],
+    [
+      3.55,
+      72,
+      1.0,
+      80
+    ],
+    [
+      3.95,
+      64,
+      0.6,
+      80
+    ],
+    [
+      4.95,
+      67,
+      0.3,
+      110
+    ],
+    [
+      5.35,
+      64,
+      0.95,
+      100
+    ]
+  ],
+  "seeds": [
+    324508639,
+    610839777,
+    897170929,
+    1183501843
+  ],
+  "variants": {
+    "baseline": {
+      "file": "baseline.wav",
+      "shift": null,
+      "peak_dbfs": -1.5146197911287804,
+      "rms_dbfs": -21.47365856167385,
+      "air_to_tone_rms_db": null
+    },
+    "air_light": {
+      "file": "air_light.wav",
+      "shift": 4,
+      "peak_dbfs": -1.4169169933368664,
+      "rms_dbfs": -21.469566440704654,
+      "air_to_tone_rms_db": -30.2368595650973
+    },
+    "air_medium": {
+      "file": "air_medium.wav",
+      "shift": 3,
+      "peak_dbfs": -1.3135195148428793,
+      "rms_dbfs": -21.457276518463622,
+      "air_to_tone_rms_db": -24.216259685198672
+    },
+    "air_strong": {
+      "file": "air_strong.wav",
+      "shift": 2,
+      "peak_dbfs": -1.1103466040620245,
+      "rms_dbfs": -21.408425532154446,
+      "air_to_tone_rms_db": -18.195659719749393
+    }
+  },
+  "common_playback_gain": 6.7693134589982534e-09,
+  "baseline_bit_exact": true,
+  "silent_frames": 108247,
+  "operand_overflows": 0,
+  "modal_state_rails": 0,
+  "source_hashes": {
+    "python/modal_sim/flute_air_envelope.py": "9ab61a3ef353bf0bb9fad3f61eb033bfa5a7a003ce217bc1cce7a3f5de5b6050",
+    "python/modal_sim/eng1_rtl.py": "a11c016916d120d04f1744b3d27fdb4734496673679281608c194c200e1bc5ce",
+    "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d",
+    "rtl/router/voice_router.sv": "d350971ab2970f812c3498fa03c03805821e1922645c3a948d9d00b711d85cb9",
+    "rtl/router/routers/body_router.sv": "9621cd996f9fc8971a801c457ee2054a278e95ca98cce1d5054c7f22444426dd",
+    "rtl/router/tools/sustain_profiles.json": "988a0356e0c5e1152e70ff5621de8e04b4a0bf30079fc5a22ad68b4068eaea45"
+  },
+  "method": "signed64(modal+(HP_LFSR24 >>> strength)) * signed32(envelope), product[94:31]; original polyphony gain; body passthrough; no reverb",
+  "scope": "Framework-constrained arithmetic simulation; production RTL unchanged. No new multiplier or hardware module; requires LFSR/DC registers, shifts and pre-multiply adder in a future RTL implementation. Cycle timing, synthesis and PnR not verified.",
+  "limitation": "Fixed breath level before ADSR: follows ADSR and release, but is not separately scaled by MIDI velocity/pressure. Levels are audition choices, not source-calibrated airflow."
+}

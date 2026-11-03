@@ -1,0 +1,8 @@
+{
+  "preset": "flute_soft_legato_v1",
+  "status": "PASS",
+  "frames": 913600,
+  "raw_sha256": "81225a7307f846c2b16cd9235fe6b5755669f94b23405aeeff7581a5259a2f05",
+  "reference_pcm_bit_exact": true,
+  "state_rail_hits": 0
+}

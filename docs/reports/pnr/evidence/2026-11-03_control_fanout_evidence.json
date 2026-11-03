@@ -1,0 +1,898 @@
+{
+  "scope": "Frozen synthesis sources; no PnR",
+  "baseline_sha256": "ee2fece54e39216432106d6ce3b627c5a3e6743943ab9301dfd4b5c677b810c5",
+  "final_sha256": "657f697a1cb8210989954e786b1e9d8b5b6794b589e3ce97a2e1ef33a0d3ad4c",
+  "ff_before": 37653,
+  "ff_after": 37671,
+  "rows": [
+    {
+      "net": "u_system/n3143_6",
+      "fanout_pins": 7520,
+      "unique_cells": 7520,
+      "pins": {
+        "CLEAR": 7333,
+        "PRESET": 152,
+        "RESET": 35
+      },
+      "types": {
+        "DFFCE": 7333,
+        "DFFPE": 152,
+        "SDPB": 32,
+        "MULT27X36": 3
+      },
+      "drivers": [
+        [
+          "u_system/n3143_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_pad/n3143_6",
+        "u_system/u_pad/led_inst/n3143_6",
+        "u_system/u_pad/input_inst/n3143_6",
+        "u_system/u_pad_leds/n3143_6",
+        "u_system/u_record/n3143_6",
+        "u_system/u_record/u_events/n3143_6",
+        "u_system/u_comm/n3143_6",
+        "u_system/u_comm/u_wired/n3143_6",
+        "u_system/u_comm/u_wired/u_rx/n3143_6",
+        "u_system/u_comm/u_wired/u_rx_fifo/n3143_6",
+        "u_system/u_comm/u_wired/u_tx/n3143_6",
+        "u_system/u_comm/u_bluetooth/n3143_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          3106
+        ],
+        [
+          "u_system/u_sound/g_audio.u_audio",
+          918
+        ],
+        [
+          "u_system/u_sound/u_notes",
+          490
+        ],
+        [
+          "u_system/u_comm/g_link[0].u_transport",
+          255
+        ],
+        [
+          "u_system/u_comm/g_link[1].u_transport",
+          255
+        ],
+        [
+          "u_system/u_pad/input_inst",
+          222
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/pad_div_4_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_3_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_exc/u_gen/n1520_6",
+      "fanout_pins": 1649,
+      "unique_cells": 1649,
+      "pins": {
+        "CLEAR": 1649
+      },
+      "types": {
+        "DFFCE": 1649
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/n1520_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1649
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/note_q_14_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/note_q_13_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/note_q_12_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/note_q_11_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_modr/u_pitch/n694_6",
+      "fanout_pins": 1248,
+      "unique_cells": 1248,
+      "pins": {
+        "CLEAR": 1247,
+        "RESET": 1
+      },
+      "types": {
+        "DFFCE": 1247,
+        "MULT27X36": 1
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/n694_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1248
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/st_3_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/st_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/st_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/st_0_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_env/n235_6",
+      "fanout_pins": 1120,
+      "unique_cells": 1120,
+      "pins": {
+        "CLEAR": 1104,
+        "PRESET": 16
+      },
+      "types": {
+        "DFFCE": 1104,
+        "DFFPE": 16
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_env/n235_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_env/u_adsr/n235_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1120
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_26_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_24_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_21_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/part_tick_env",
+      "fanout_pins": 1104,
+      "unique_cells": 1104,
+      "pins": {
+        "I1": 16,
+        "CE": 1088
+      },
+      "types": {
+        "LUT4": 16,
+        "DFFCE": 1072,
+        "DFFPE": 16
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/part_tick_env_s1",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_env/part_tick_env",
+        "u_system/u_sound/u_voice/u_env/u_adsr/part_tick_env"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1104
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/st[0]_1_s4",
+          "I1",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/st[1]_1_s4",
+          "I1",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/st[2]_1_s4",
+          "I1",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/st[3]_1_s4",
+          "I1",
+          "LUT4"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/part_tick_exc",
+      "fanout_pins": 694,
+      "unique_cells": 694,
+      "pins": {
+        "I1": 3,
+        "I0": 66,
+        "CE": 624,
+        "I2": 1
+      },
+      "types": {
+        "LUT3": 18,
+        "LUT4": 51,
+        "DFFCE": 624,
+        "LUT2": 1
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/part_tick_exc_s1",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_exc/part_tick_exc",
+        "u_system/u_sound/u_voice/u_exc/u_gen/part_tick_exc",
+        "u_system/u_sound/u_voice/u_exc/u_trumpet/part_tick_exc"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          694
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/frame_start_s1",
+          "I1",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[0]_31_s2",
+          "I0",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[0]_23_s2",
+          "I0",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[1]_31_s2",
+          "I0",
+          "LUT4"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_era/u_eng0/n129_6",
+      "fanout_pins": 549,
+      "unique_cells": 549,
+      "pins": {
+        "CLEAR": 535,
+        "RESET": 14
+      },
+      "types": {
+        "DFFCE": 535,
+        "MULT27X36": 14
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/n129_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          549
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_63_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_34_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_33_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_32_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_erb/u_eng0/n129_6",
+      "fanout_pins": 549,
+      "unique_cells": 549,
+      "pins": {
+        "CLEAR": 535,
+        "RESET": 14
+      },
+      "types": {
+        "DFFCE": 535,
+        "MULT27X36": 14
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/n129_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          549
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_63_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_34_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_33_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_32_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_exc/u_trumpet/n12150_6",
+      "fanout_pins": 537,
+      "unique_cells": 537,
+      "pins": {
+        "CLEAR": 537
+      },
+      "types": {
+        "DFFCE": 537
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/n12150_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          537
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/xmap_valid_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/work_3_s1",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/work_2_s1",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/work_1_s1",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_modr/u_mod0/n156_6",
+      "fanout_pins": 534,
+      "unique_cells": 534,
+      "pins": {
+        "CLEAR": 532,
+        "RESET": 2
+      },
+      "types": {
+        "DFFCE": 532,
+        "MULT27X36": 2
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/n156_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          534
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/done_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/nmod_lat_6_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/nmod_lat_5_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/nmod_lat_4_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_era/u_eng1/n948_6",
+      "fanout_pins": 458,
+      "unique_cells": 458,
+      "pins": {
+        "CLEAR": 444,
+        "PRESET": 1,
+        "RESET": 13
+      },
+      "types": {
+        "DFFCE": 444,
+        "DFFPE": 1,
+        "MULT27X36": 13
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng1/n948_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          458
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng1/state_3_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng1/state_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng1/state_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng1/state_0_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_erb/u_eng1/n948_6",
+      "fanout_pins": 458,
+      "unique_cells": 458,
+      "pins": {
+        "CLEAR": 444,
+        "PRESET": 1,
+        "RESET": 13
+      },
+      "types": {
+        "DFFCE": 444,
+        "DFFPE": 1,
+        "MULT27X36": 13
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng1/n948_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          458
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng1/state_3_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng1/state_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng1/state_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng1/state_0_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_exc/u_trumpet/n3322_4",
+      "fanout_pins": 270,
+      "unique_cells": 270,
+      "pins": {
+        "RESET": 261,
+        "SET": 9
+      },
+      "types": {
+        "DFFRE": 261,
+        "DFFSE": 9
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/n3322_s1",
+          "F",
+          "LUT2"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          270
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/q.phase_39_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/q.phase_38_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/q.phase_37_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/q.phase_36_s0",
+          "RESET",
+          "DFFRE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_exc/u_trumpet/next_voice.phase_39_5",
+      "fanout_pins": 234,
+      "unique_cells": 234,
+      "pins": {
+        "RESET": 225,
+        "SET": 9
+      },
+      "types": {
+        "DFFRE": 225,
+        "DFFSE": 9
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/next_voice.phase_39_s2",
+          "F",
+          "LUT2"
+        ]
+      ],
+      "aliases": [],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          234
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/updated.phase_39_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/updated.phase_38_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/updated.phase_37_s0",
+          "RESET",
+          "DFFRE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_trumpet/updated.phase_36_s0",
+          "RESET",
+          "DFFRE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/part_tick",
+      "fanout_pins": 1,
+      "unique_cells": 1,
+      "pins": {
+        "I2": 1
+      },
+      "types": {
+        "LUT4": 1
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/part_tick_s0",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_modr/part_tick",
+        "u_system/u_sound/u_voice/u_modr/u_pitch/part_tick"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_modr/u_pitch/active_delta_383_s6",
+          "I2",
+          "LUT4"
+        ]
+      ]
+    }
+  ],
+  "tests": [
+    {
+      "test": "parts",
+      "passed": true,
+      "summary": [
+        "PASS control fanout slots=16 checked_cycles=60000",
+        "PASS control fanout slots=7 checked_cycles=60000",
+        "PASS control fanout slots=4 checked_cycles=60000",
+        "PASS tb_control_fanout"
+      ]
+    },
+    {
+      "test": "play_table",
+      "passed": true,
+      "summary": [
+        "PASS tb_router_play_table MODES=64 publications=4 cfg_tick=24 done_tick=6 invalid_ticks=7265 driven_ticks=1 success_last_slot_failure_reset_abort_retry_cycle_equivalence"
+      ]
+    }
+  ],
+  "source_hashes": {
+    "rtl/config_pkg.sv": "66c3c54f3d39755fc79c9ba901bf0aac6b6f05997652ec491790c28db6c58608",
+    "rtl/math/pkg/fxp_pkg.sv": "6b70f69357f6759e075feb31eeacfdd8c5cbdfe8995670f77694702acf6d2026",
+    "rtl/drivers/pkg/clk_rst_pkg.sv": "7dc94c382cf85d5c67c195ee6b463aef0b7c55e759cb2d9570105ad5c83f8e91",
+    "rtl/drivers/pkg/pad_driver_pkg.sv": "4bff719047b3f1bb009ad0351278cbdfae75ca6b019e139bc3f5e9b66d071116",
+    "rtl/router/pkg/modal_step_pkg.sv": "e3d06b8e2ad05c30adb943dfc2722fa50a8e9e30f4f7c7112ea32fff090db266",
+    "rtl/router/pkg/router_pkg.sv": "e74378ee6332b4b0386353fc78aa275a70c5141df7a9a551e4154489582777cf",
+    "rtl/router/parts/envelope.sv": "d9f9005bf4e0a2106d6de02105264c89fb2458bc52b2848fad74154159e10dab",
+    "rtl/router/parts/polyphony_gain.sv": "83e988d7f446d33f3842ce59eef077ea6edaadbd466cc71d7f21db03a1129e3c",
+    "rtl/router/parts/excitation.sv": "9c23336137ae274806c6f36f66f7f9d27946d896821e992a508f34816c638a33",
+    "rtl/router/pkg/trumpet_excitation_pkg.sv": "ffb455a8596583947a05d1de7543c166292338d9091edf2a94ad32413ccc2c63",
+    "rtl/router/parts/trumpet_excitation.sv": "d108c597db2909ce5994b62b64a2459b15b35a291c9eacb3c8558e0f4ae98981",
+    "rtl/router/parts/modulation0.sv": "77384ed8a7f01057ccf669f2efb317463b638b00d4fcb071745e4530a7b9878f",
+    "rtl/router/parts/modulation1.sv": "7c11ae7bfadd81ce8f4fe9c08abd6e1025ee9015360e62e08d84fd769645f94a",
+    "rtl/router/parts/body_biquad.sv": "711e4e9fef2438c07123091ed1628369d45a812771d2da87abef671a5e9abda4",
+    "rtl/router/parts/comb_reverb.sv": "8d1b22419a8b6c5d10ac9164e942b2373e36d79da4cd6db495bd8c143c52ad96",
+    "rtl/router/engines/eng0.sv": "b7e26e4ccffa24296931ab40651bd342cce97e44f5d0be5130ff049b25369457",
+    "rtl/router/engines/eng1.sv": "69588f13c5acd79cd7e28761e55bb9e2d05570def812ca50fdf75ff4094b7664",
+    "rtl/router/routers/eng_router.sv": "0e4c1d8d9af2988f102607c5af37c13a0418c1b44dc0d215345f7c967a64eabf",
+    "rtl/router/routers/performance_input_mux.sv": "70d386dbc2f6962719d588977de169b58c71e1d2c1eb4b651ee8db0debe85dd8",
+    "rtl/router/routers/env_router.sv": "399508212977526b3a32fecdefc250050571e2bcaef444d13ef47623c1ff6c80",
+    "rtl/router/routers/exc_router.sv": "b5b25c0db324127f443159c3df2e1daf2199f9d849eaf5ff08705d2853863107",
+    "rtl/router/routers/mod_router.sv": "8a79a9dc6e3d54cc8c2c3eaf40d820d1ccc213fa7928f4184d8822546ceb878b",
+    "rtl/router/routers/body_router.sv": "9621cd996f9fc8971a801c457ee2054a278e95ca98cce1d5054c7f22444426dd",
+    "rtl/router/routers/reverb_router.sv": "5460afab660740b1196cb47ff5b97b214a5e3faec8f369940a4667f5141f22f3",
+    "rtl/router/loader.sv": "cdabe56c96c0351ffcf8b05847f61f061a4c7f62a7e9d2b9f094cbcee7129156",
+    "rtl/router/voice_router.sv": "d11be6ef8f1fb4192a57077b097545f39b0b75fea74bd48280a2bcafa92ba75a",
+    "rtl/audio/audio_async_fifo.sv": "93bc6adb9846b6e2065fd27a3007abe87e9a1322e9eca8d11b3f03aba241756c",
+    "rtl/audio/i2s_amp_tx.sv": "14c0ef3ba847e0daf98bb8113f4540e8d15b1af319f1ada1149614ffdfc0e0fd",
+    "rtl/audio/pt8211_tx.sv": "da9be30ab3ca31256115f4dc8953c31d613b124950cc5a5a89481ccd805633a4",
+    "rtl/audio/stereo_spatializer.sv": "6bf7a22a103aeba8f5233758c2db3b8536fd17d59085eb4625a0f9fe204f2226",
+    "rtl/audio/i2s_audio_output.sv": "156d868bd380b4b8058fe91645f829db018d45edf0b95999617f4f1e034f59cc",
+    "rtl/math/math.sv": "18e674fa59a75a8a0c5c0192bdf2d18d8fa2862a437dbd56cb3cfc7975ea40e5",
+    "rtl/drivers/pad_driver.sv": "c67e77c24a2bea20e3e3f48888290dac07d3e0704b8a66dad8bdc3ba2cea5cab",
+    "rtl/drivers/pad_led_effects.sv": "863698e130decbd429fa7b67a6d9f6b15ccf742f04d37f21d6d16ca2a4459b36",
+    "rtl/drivers/gowin_adc/gowin_adc.v": "305de90d00a6cdb6c5594b02559a795e9409816344a821dfcea7e264b9e0c52c",
+    "rtl/midi/midi_note_state.sv": "008a1e8c34a0f61c54454580c2e9c38f547501eb883a24a39e8c1e60f6b1c333",
+    "rtl/midi/midi_guide_state.sv": "1562348b96c1c9f42a005dd81d554404da1362276e62ef44aeed34498d054d8a",
+    "rtl/midi/midi_instrument_map.sv": "1f1b6cc82cc6f2a574fc68472671c88c15c80b895057e5ac63277a794e51dc8f",
+    "rtl/router/midi_voice_top.sv": "e376f3b2824acb409082aa0830194875e68e20c837d21bfba9197fd537a3ae0e",
+    "rtl/comm/comm_pkg.sv": "9b95511a1af92650209b2eca4c779251a80f036ff2e17d4d02a33237690a24af",
+    "rtl/drivers/common/comm_fifo.sv": "df2a2df9a871aca3097eb110087353d559826e21133cf51523b2294faeb30609",
+    "rtl/drivers/uart/comm_uart_rx.sv": "1363e961cb8f818b3706ca308d3f1852832e895501bbf88d320aefd97b451b3b",
+    "rtl/drivers/uart/comm_uart_tx.sv": "37baf2c15d2f8c48a7b3156c0748623b74f7f6868ea95a22572ed311401e9fe8",
+    "rtl/drivers/uart/uart_driver.sv": "cdd57df3d980439cd55d3b4f486e52f84f2edfdd87907298670f9caaf42d7a65",
+    "rtl/drivers/bluetooth_hc05/comm_hc05_status.sv": "1accfbc8a2d7b0d897e440bb6b1f6edb815bd50cbb1c2d14f11812f803a5f833",
+    "rtl/drivers/bluetooth_hc05/hc05_driver.sv": "ee3c9d51c8170b7a3c8320f2424d1bf6b154faf3f975273162118df46eb519b0",
+    "rtl/comm/slip_frame_rx.sv": "1b1fa247a0e094476a1792afaf7179c83c208bf1af04a46a0bab55b2e237565c",
+    "rtl/comm/slip_frame_tx.sv": "ba0a4653765ca89e820eb0f8dbc4a04bd682ee62e12d80ff0ee980def53ab9f6",
+    "rtl/comm/performance_frame_tx.sv": "395508b8e790a74d2f46bc06cfdb709a2a9a772609c5de7f10ad8d16a7c0199e",
+    "rtl/comm/performance_capture.sv": "a73b0f0ddb444c07e54cf51e0dc9a3b924846d7e9549c6a4f9a89982485f1107",
+    "rtl/comm/transport_link.sv": "c98a6141f45875d942135659464a7f8799347671aee0e658232ded621cf6591b",
+    "rtl/comm/frame_arbiter.sv": "2fc6f05460f05af70dc7e069d5c9621514a82023d6d6ceaa99c4e132036f40d2",
+    "rtl/comm/session_ctrl.sv": "da6f5c3b4c14de8c486723badfc590939882c56943a1856346ef6c3f50a08e44",
+    "rtl/drivers/analyzer/midi_analyzer.sv": "44e77105f37a42ccb47f77dff6c80e8d5f9cb8b47dbfd8529d47961d07264469",
+    "rtl/drivers/analyzer/config_analyzer.sv": "55170a16f6a35f1a6e976f2e406e1e9c4ce8db361bb6072cede3c026b989ef24",
+    "rtl/drivers/analyzer/parser_dispatch.sv": "825af0091b93a01580ee7bd5bfd4600d7f50d63e8257f49012f2b2b79c0bad7b",
+    "rtl/comm/comm_top.sv": "aa3021fa4824cee8313795dfa2d611c4cde9ee2fcd063579473be39cdb91f6b4",
+    "rtl/drivers/pkg/joystick_pkg.sv": "66afeda41eecaa8f7df4428bdc3d99ee65056ce799409d760c8cf0a227ddea51",
+    "rtl_FFT/src/ui/ui_pkg.sv": "e51a5f5d0ec4534f4f8d548adc62c987e62a232aaf49ede05507214ac15de9d9",
+    "rtl_FFT/src/ui/sidebar_font_pkg.sv": "620156dedffd9974ea3411aba8bee8011cf8987650fa35deb65fa2c23c5d4335",
+    "rtl_FFT/src/ui/sidebar_label_rom.sv": "de56aa412207f37d4fc502449b0a3608ba63d697801e57926cad13ea1024276f",
+    "rtl/control_loop.sv": "ae3e956634b08b60ba1b8f8ccaf5b3555acdcca7858f9d2d72ee8c7575231be2",
+    "rtl/config_dispatch.sv": "e7102e89f0abe71f72bdf6666c5fe3a66c4653bef06dd01d811a8491326790df",
+    "rtl/drivers/joystick_adapter.sv": "e6e47dbac697f9065778bd8ad3a6d2ecf26029962cad7516a4ff68298911a778",
+    "rtl_FFT/src/ui/sidebar_mailbox.sv": "3674b611d97e8b599ce541f58e00c7fea07df18108af015b80e87fd99edf8ed4",
+    "rtl_FFT/src/ui/sidebar_ctrl.sv": "598b2889daf4a5b27e6eb9a3648493e931ed4f39947b2188269acaeebba5e1d3",
+    "rtl_FFT/src/ui/sidebar_system.sv": "74b2d6a1b236d896142eb36a1c1c32b3ea54ffc44dd131957d4724f65d126818",
+    "rtl_FFT/src/display/lcd_sidebar.sv": "619f678495f5bdbdb93a9e1bb399920d6fd9bb1ea882196d33da4d23ae0a64ba",
+    "rtl_FFT/src/display/lcd_pad_guide.sv": "e64cbe4143895f1716a6eaf08ce7c46162938ef1b28bcc73e735719e613c84bb",
+    "rtl_FFT/src/display/lcd_draw.v": "e52d292e1980e8c8b5f44c282e6080d11d47abb3b17b4140605207a89811f122",
+    "rtl_FFT/src/display/lcd_fft.v": "0f3b570d1fd81e96aa644046730c1a77e76e2763962bec4f7a3a506b7948f078",
+    "rtl_FFT/src/display/lcd_wave.v": "d084ba909f0ff4818d293ffabb4de2e59d10ed61cd2de5013a73e71c25ec4e0e",
+    "rtl_FFT/src/display/lcd_curve_spectrum.sv": "b8a60d781743b1925da09de3f2b3aa7bacf8b3105713d39e146aa863e8d32e6e",
+    "rtl_FFT/src/display/lcd_background.v": "e7683f472d066dbe3bc101fb69ac94285cec46508153fe289f686545f75a93c9",
+    "rtl_FFT/src/ui/key_ui_event.sv": "1f7965cdc2f6030a21493665693e67db22eedae7466ad120b171fdabb55795b0",
+    "rtl_FFT/src/display/lcd_timing.v": "f3351fde9ded64b6c43e14ed05702901186511683c416fae12d09dfc72238eed",
+    "rtl_FFT/src/display/cordic_polar.sv": "23c993681c9a9cb0a7980437c9819ac12fe1e3e57a623712681408ade950c937",
+    "rtl_FFT/src/display/lcd_polar_curve.sv": "74658fc66d8e37e1edaae76f28339671eaeaa8e5ea1643972d6909fd370b43a4",
+    "rtl_FFT/src/fft/fft1024_iter.sv": "7eeb13df71f96ef6dde206c12da3dce5e68edfc084dcb3a16b7b9c8c3ae13bfb",
+    "rtl_FFT/src/fft/fft_ctrl.v": "703d1bf7951e9ae117e96a07690ef46bd454963a5d1f7f9f8d5cb4d7cb8b389c",
+    "rtl_FFT/src/spectrum/spectrum_map.v": "069e0131ea72d0becb20871f52f1aa9d7528d20f392984ea4f02206cf0912497",
+    "rtl_FFT/src/audio/real_audio_chain.v": "25bd9bda87c962332495be0f1ac7cee314dc60d87ad906cc02cdc0367773ce4a",
+    "rtl_FFT/src/audio/time_pingpong.v": "fb2f76eb0473505a90ed02c50278042c8c449ee74a0152fa954b30a7788884d9",
+    "rtl_FFT/src/audio/wave_capture.sv": "8b4b4799165533150bd1857fad75f8d53bcd4f3be74a7fb6bd7f9ecd00db574b",
+    "rtl_FFT/src/display/display_frame_buffer.sv": "840415cb15e00020c496d84b433c3f232bcb9967abecfa6d718937eb62cbb610",
+    "rtl_FFT/src/display/waterfall_store.sv": "22ce36737e63f6cb997816fdd31f0ce4687c6da3933725db6755bcdeac907886",
+    "rtl_FFT/src/display/wave_frame_buffer.sv": "9bb8ddd74382d1d111fe8e0cec6742cffcdb9f3b70d4a774ee6bda4a3bdbcec2",
+    "rtl_FFT/src/display/trail_calc.sv": "2d54a906106829181697189d72ab683ab1706d6794ee3c1c27890b411e7e0992",
+    "rtl_FFT/src/display/trail_store.sv": "630130c336835093eb27d2c34b1498683871c26e0a7bd4de805975f2b2ab6d8e",
+    "rtl_FFT/src/display/curve_calc.sv": "0d6924408726045ca2e5ef428ed46066768896f3f6e47ecb30797743c0028901",
+    "rtl_FFT/src/display/curve_store.sv": "a1408e558b164bb28819f1859a6e859671be1bd31cfe50b64c699760a30c97ac",
+    "rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v": "56d446dd5dc01db9ea7d1c5bf0e2c4f8cd3390bf2345043958affd10748fb842",
+    "rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v": "f876a34a9948f88a0d863eb592ebe795ae7dbe0ee2681d35d2816f3c098351af",
+    "rtl/platform/tang_mega_138k_pro/ip/pll_init.v": "3ef05a1ba92157d73e3c54ed9d589645508a4ae332d8bcf133a0457cc3e866c8",
+    "rtl/platform/tang_mega_138k_pro/board_clock_reset.sv": "d57797331dd082149c2b23b584ab463ed01ad2a4959ea654234dbeb4e39386a2",
+    "rtl/platform/tang_mega_138k_pro/instrument_system.sv": "599ba1966b941800aa7c6434a5750c0a4c6d149119a473a1f44b32d5e67e83fa",
+    "rtl/platform/tang_mega_138k_pro/instrument_board_top.sv": "2518154ba168528328a0533b8e76b728e18bfa803ae21f51604807a63c42ad63"
+  }
+}

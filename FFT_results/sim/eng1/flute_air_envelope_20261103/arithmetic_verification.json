@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "systemverilog_vectors": 8192,
+  "checks": [
+    "LFSR32 sequence",
+    "signed24 extension",
+    "signed32 DC removal",
+    "arithmetic strength shift",
+    "signed64 pre-envelope addition",
+    "signed96 product bits94:31",
+    "zero envelope",
+    "deterministic independent voice seeds"
+  ],
+  "test_source": "sim/unit/eng1/test_flute_air_envelope.py",
+  "test_sha256": "45e97e8bd7e239ac963fb88dd09f954476adae3178724ce8137196bdf7e5729f",
+  "scope": "Isolated arithmetic expression parity via Icarus11, not production router cycle simulation or PnR"
+}

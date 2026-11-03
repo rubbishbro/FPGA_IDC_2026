@@ -5,11 +5,11 @@ export function setupRecording({getLink,supportsRecording,getProject,commitTrack
   const busy=()=>state!=='idle';
   function render(){
     button.setAttribute('aria-label',state==='recording'?'停止录制演奏':state==='arming'?'准备录制演奏':state==='stopping'?'正在收尾录制':'录制演奏');
-    button.classList.toggle('recording',busy());button.setAttribute('aria-pressed',busy());button.textContent=state==='arming'?'准备录制…':state==='stopping'?'收尾中…':state==='recording'?'■ 停止录制':'● 录制演奏';
+    button.classList.toggle('recording',busy());button.setAttribute('aria-pressed',busy());button.textContent=state==='arming'?'准备录制…':state==='stopping'?'收尾中…':state==='recording'?'停止录制':'录制演奏';
     button.disabled=!!getLink().pendingConfig||state==='arming'||state==='stopping'||(!busy()&&(!getLink().connected||!supportsRecording()));
-    button.title=supportsRecording()?'录制板端压力垫演奏，停止后生成新 MIDI 轨道':'演奏录制需要有线 v1 链路';
     if(state==='arming')label.textContent=startAcknowledged?'START 已确认 · 等待回传起点':'等待板端确认 START';
     else if(recorder&&busy()){const seconds=Math.min(600,Math.max(recorder.seconds,(performance.now()-startedAt)/1000));label.textContent=`REC ${Math.floor(seconds/60).toString().padStart(2,'0')}:${Math.floor(seconds%60).toString().padStart(2,'0')} · ${recorder.track.notes.length} 音符 · ${lastTake.frames} 回传帧${recorder.incomplete?' · 不完整':''}`;}else label.textContent='PAD → MIDI';
+    button.title=(supportsRecording()?'录制板端压力垫演奏，停止后生成新 MIDI 轨道':'演奏录制需要有线 v1 链路')+(busy()?` · ${label.textContent}`:'');
   }
   function lock(value){document.querySelector('.workspace').inert=value;for(const id of ['play','stop','rewind','tempo','output','loop-toggle','project-name'])document.getElementById(id).disabled=value;}
   function finalize(incomplete=false){

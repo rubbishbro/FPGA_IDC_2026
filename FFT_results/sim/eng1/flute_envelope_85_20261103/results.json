@@ -1,0 +1,93 @@
+{
+  "parameters": {
+    "A_STEP": 248551,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 380283
+  },
+  "timing": {
+    "attack_ms": 180.02083333333334,
+    "decay_ms": 120.02083333333333,
+    "release_from_sustain_ms": 100.02083333333333,
+    "sustain_fraction": 0.850000000023283,
+    "sustain_db_below_peak": -1.4116214854762232
+  },
+  "sample_rate": 48000,
+  "seconds": 7.2,
+  "events": [
+    [
+      0.12,
+      64,
+      1.55,
+      100
+    ],
+    [
+      1.95,
+      67,
+      0.28,
+      100
+    ],
+    [
+      2.35,
+      72,
+      0.28,
+      100
+    ],
+    [
+      2.75,
+      76,
+      0.55,
+      100
+    ],
+    [
+      3.55,
+      72,
+      1.0,
+      80
+    ],
+    [
+      3.95,
+      64,
+      0.6,
+      80
+    ],
+    [
+      4.95,
+      67,
+      0.3,
+      110
+    ],
+    [
+      5.35,
+      64,
+      0.95,
+      100
+    ]
+  ],
+  "renders": {
+    "original": {
+      "file": "original.wav",
+      "playback_gain": 6.896525225894142e-09,
+      "steady_rms_dbfs": -22.498774780628253,
+      "peak_dbfs": -1.3529049062239864
+    },
+    "gentle_85": {
+      "file": "gentle_85.wav",
+      "playback_gain": 2.028389699606029e-09,
+      "steady_rms_dbfs": -22.498774765588443,
+      "peak_dbfs": -10.412833061685568
+    }
+  },
+  "steady_match_window_seconds": [
+    0.8,
+    1.5
+  ],
+  "modal_state_rails": 0,
+  "method": "Current ENG1 model rerender, ADSR parameters only. Original cached production reference; source hashes checked. No breath/EQ/reverb. Fixed per-file playback gain matching first-note steady RMS.",
+  "scope": "Sample-frame integer simulation; no production RTL changes or cycle-level RTL verification.",
+  "sources": {
+    "python/modal_sim/flute_envelope_audition.py": "6963f2080d5d4b1bd455dc61fa84ed2d97b1f241434dc2b5461568d58ba8d943",
+    "python/modal_sim/eng1_rtl.py": "a11c016916d120d04f1744b3d27fdb4734496673679281608c194c200e1bc5ce",
+    "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "R_STEP": 211269,
+  "release_from_sustain_ms": 179.99969825199153,
+  "actual_level_crossing_ms_after_note_off": {
+    "0.5": 37.0625,
+    "0.1": 112.91666666666667,
+    "0.01": 167.66666666666666
+  },
+  "last_nonzero_ms": 179.97916666666666,
+  "note_off_seconds": 1.67,
+  "pre_note_off_bit_exact": true,
+  "state_rails": 0,
+  "method": "Selected E4 soft G weights; only R_STEP changed,100ms to180ms. Same steady playback gain. No noise/body/reverb changes. Production RTL unchanged."
+}

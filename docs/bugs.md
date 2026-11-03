@@ -1,6 +1,8 @@
 # 当前问题与验证缺口
 
-更新：**2026-11-02**。板上固件身份存在矛盾：README 原先写3ED7（旧v2协议，早于录制回传，现已改为指向烧录记录），烧录记录写0BFE（unversioned）；且0BFE烧录的Flash资源仍是旧768KiB，见I05。参数与证据只维护在[调试记录](调试记录.md)。旧问题编号保留；旧文档已删除，需要历史记录时查 Git。
+> 当前状态总览见 [status.md](status.md)；本页只维护问题与关闭条件。
+
+更新：**2026-11-02**。板上固件身份存在矛盾：README 原先写3ED7（旧v2协议，早于录制回传，现已改为指向烧录记录），烧录记录写0BFE（unversioned）；且0BFE烧录的Flash资源仍是旧768KiB，见I05。参数与证据只维护在[调试记录](./调试记录.md)。旧问题编号保留；旧文档已删除，需要历史记录时查 Git。
 
 ## 1. 当前阻塞与未关闭问题
 
@@ -57,4 +59,4 @@
 | 显示与板级 | 已接入真实FFT/波形/极坐标及独立PCM FIFO，当前50MHz整板PnR通过；实物连续出声、模拟采集及真实延迟仍待联调 | 不以PnR代替实物功能/音频验收；配置mailbox不覆盖音频 |
 | debug | ns_rd返回最近缓存状态字，不能按输入地址读任意RAM |
 
-本页维护问题及关闭条件。赛题要求见[赛题原文](../reference_agent_readfirst/competition_requements_most_important.md)，参数与执行结果见[调试记录](调试记录.md)。
+本页维护问题及关闭条件。赛题要求见[赛题原文](../reference_agent_readfirst/competition_requements_most_important.md)，参数与执行结果见[调试记录](./调试记录.md)。

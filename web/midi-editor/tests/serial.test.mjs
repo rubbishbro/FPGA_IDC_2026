@@ -3,16 +3,23 @@ import assert from 'node:assert/strict';
 import {SerialLink} from '../src/serial.mjs';
 import {FrameReader,encodeFrame} from '../src/protocol.mjs';
 function mockLink(){
-  const wires=[],frames=[];let closeCount=0,cancelCount=0,pendingRead;
+  const wires=[],frames=[];let closeCount=0,cancelCount=0,pendingRead,openOptions;
   const api={addEventListener(){},requestPort:async()=>port};
   const writer={write:async wire=>wires.push(wire),ready:Promise.resolve(),releaseLock(){}};
-  const port={open:async()=>{},writable:{getWriter:()=>writer},readable:{getReader:()=>({read:()=>new Promise(r=>pendingRead=r),cancel:async()=>{cancelCount++;pendingRead?.({done:true});},releaseLock(){}})},close:async()=>{closeCount++;}};
+  const port={open:async options=>{openOptions=options;},writable:{getWriter:()=>writer},readable:{getReader:()=>({read:()=>new Promise(r=>pendingRead=r),cancel:async()=>{cancelCount++;pendingRead?.({done:true});},releaseLock(){}})},close:async()=>{closeCount++;}};
   const link=new SerialLink(()=>{},()=>{},api);link.baud=2000000;
   const decode=()=>{const reader=new FrameReader(f=>frames.push(f));for(const w of wires)reader.feed(w);return frames;};
-  return {link,writer,wires,decode,receive(value){pendingRead({value,done:false});},get closeCount(){return closeCount;},get cancelCount(){return cancelCount;}};
+  return {link,writer,wires,decode,receive(value){pendingRead({value,done:false});},get closeCount(){return closeCount;},get cancelCount(){return cancelCount;},get openOptions(){return openOptions;}};
 }
 test('serial writes valid independently decodable frames and disconnects the stream',async()=>{
   const m=mockLink();await m.link.connect(2000000);await m.link.send([[0x91,60,90],[0x81,60,0]]);assert.equal(m.wires.length,1);const [f]=m.decode();assert.deepEqual([...f.payload],[0x91,60,90,0x81,60,0]);assert.equal(m.link.txBytes,m.wires[0].length);await m.link.disconnect();assert.equal(m.cancelCount,1);assert.equal(m.closeCount,1);assert.equal(m.link.connected,false);
+});
+test('HC-05 v1 link opens at 9600 8N1 and reports the real baud',async()=>{
+  const m=mockLink();await m.link.connect(9600);
+  assert.equal(m.openOptions.baudRate,9600);assert.equal(m.openOptions.dataBits,8);
+  assert.equal(m.openOptions.stopBits,1);assert.equal(m.openOptions.parity,'none');
+  assert.equal(m.link.baud,9600);assert.equal(m.link.diagnostics().baud,9600);
+  await m.link.disconnect();
 });
 test('panic cancels unsent note frames, then queues complete all-sound-off messages',async()=>{
   const m=mockLink();await m.link.connect(2000000);

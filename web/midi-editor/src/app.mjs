@@ -24,6 +24,7 @@ const history=new History(project,()=>{scheduleSave();render();});selectedTrack=
 const synth=new ReferenceSynth();
 const serialV1=new SerialLink(renderSerial,log),serialV2=new V2SerialLink(renderSerial,log);
 let serial=serialV1,recoveryGeneration=-1,resumeAfterRecovery=false,connecting=false;
+const LINK_PREF='fpga-midi-studio:link';
 const playback=new Playback({
   send:events=>output==='uart'?serial.send(events.map(e=>e.data)):synth.send(events),
   panic:()=>{synth.panic();if(output==='uart'&&serial.connected)serial.panic([Number($('hw-channel').value)]).catch(e=>log('清音失败',e.message));},
@@ -160,8 +161,10 @@ function renderSerial(){
   const phase=v2?(phases[serial.phase]||serial.phase||'未握手'):(serial.connected?'串口已连接':'未连接');
   $('connection-badge').textContent=phase;$('connection-badge').classList.toggle('connected',serial.connected);
   $('connect').querySelector('span').textContent=serial.port?'断开串口':'连接串口';
-  if(!v2)$('baud').value='115200';
-  $('baud').disabled=!v2||!!serial.port||connecting;$('protocol').disabled=!!serial.port||connecting;
+  // v1 wired uses 115200 and HC-05 uses 9600; the operator must choose the
+  // matching rate. Do not overwrite or disable the selection for v1.
+  $('link').disabled=!!serial.port||connecting;
+  $('baud').disabled=!!serial.port||connecting;$('protocol').disabled=!!serial.port||connecting;
   renderSerialCounters();$('export-link-diagnostics').disabled=v2;
   $('v2-tools').hidden=!v2;$('protocol-status').textContent=v2?'UART v2':'UART v1';
   $('v2-phase').textContent=phase;
@@ -195,6 +198,21 @@ $('play').onclick=play;$('stop').onclick=()=>{stopPlayback();playback.position=h
 $('panic').onclick=async()=>{stopPlayback();if(serial.connected){try{await serial.panic();toast('全通道清音请求已写入；板端静音状态需实机确认');}catch(e){toast(`清音写入失败：${e.message}`,true);}}else toast('已停止电脑试听；串口未连接');};
 $('loop-toggle').onclick=()=>edit(p=>p.loop.enabled=!p.loop.enabled);
 $('output').onchange=()=>{stopPlayback();output=$('output').value;$('output-status').textContent=output==='uart'?'FPGA · 串口':'参考试听 · 三角波';status(output==='uart'?'已选择串口，播放前将核对硬件配置':'已选择电脑参考试听');};
+$('link').onchange=()=>{
+  if(serial.port)return;
+  stopPlayback();
+  try{localStorage.setItem(LINK_PREF,$('link').value);}catch{}
+  if($('link').value==='bluetooth'){
+    // The current board only implements v1; keep the protocol and baud in
+    // sync with the physical link so a stale v2 selection cannot survive.
+    $('protocol').value='v1';
+    serial=serialV1;
+    $('baud').value='9600';
+  }else{
+    $('baud').value='115200';
+  }
+  renderSerial();
+};
 $('protocol').onchange=()=>{stopPlayback();serial=$('protocol').value==='v2'?serialV2:serialV1;renderSerial();};
 // TYPE82 may be frequent: refresh counters at a bounded rate even when no
 // CONFIG replies arrive, without rendering the connection UI for every note.
@@ -263,6 +281,7 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playback.playing){stopPlayback();status('页面进入后台，已停止走带并请求清音');}});
 window.addEventListener('pagehide',()=>{stopPlayback();try{localStorage.setItem(DRAFT,JSON.stringify(history.current));}catch{}});
 if(!navigator.serial)$('serial-support').textContent='当前浏览器无 Web Serial。连接硬件请用 Chrome / Edge 打开本地地址。';
+try{if(localStorage.getItem(LINK_PREF)==='bluetooth'){$('link').value='bluetooth';$('protocol').value='v1';$('baud').value='9600';}}catch{}
 log('就绪','v1 有线演奏 / v2 会话插件 · 本地编辑');render();renderSerial();
 requestAnimationFrame(()=>requestAnimationFrame(()=>roll.fit()));
 

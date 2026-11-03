@@ -1,0 +1,312 @@
+{
+  "configurations": {
+    "gentle": {
+      "lp_shift": 5,
+      "hold_samples": 1536,
+      "fade_log2": 12
+    },
+    "softer": {
+      "lp_shift": 6,
+      "hold_samples": 2048,
+      "fade_log2": 12
+    }
+  },
+  "envelope": {
+    "A_STEP": 186414,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 211269
+  },
+  "source_frames": [
+    {
+      "start_seconds": 0.02,
+      "end_seconds": 0.08,
+      "harmonics_db": [
+        0.0,
+        -13.616194687042666,
+        -29.653751381912123,
+        -18.718594891687758,
+        -25.657646705448553
+      ]
+    },
+    {
+      "start_seconds": 0.08,
+      "end_seconds": 0.14,
+      "harmonics_db": [
+        0.0,
+        -1.272418052031864,
+        -12.975785196509687,
+        -6.649177085907436,
+        -9.754717478473918
+      ]
+    },
+    {
+      "start_seconds": 0.14,
+      "end_seconds": 0.2,
+      "harmonics_db": [
+        0.0,
+        -2.277694298570711,
+        -12.915731275006252,
+        -6.625454177269445,
+        -8.209727465032335
+      ]
+    },
+    {
+      "start_seconds": 0.2,
+      "end_seconds": 0.26,
+      "harmonics_db": [
+        0.0,
+        -4.269448644196936,
+        -17.91863829822806,
+        -7.873905284077441,
+        -10.866404358325447
+      ]
+    },
+    {
+      "start_seconds": 0.26,
+      "end_seconds": 0.32,
+      "harmonics_db": [
+        0.0,
+        -3.448459773271701,
+        -15.375568275469043,
+        -9.504178981607314,
+        -10.7282822405448
+      ]
+    },
+    {
+      "start_seconds": 0.45,
+      "end_seconds": 1.05,
+      "harmonics_db": [
+        0.0,
+        -1.2549412534383542,
+        -9.011161928189392,
+        -9.303776125052389,
+        -9.109678131894517
+      ]
+    }
+  ],
+  "variants": {
+    "baseline": {
+      "harmonic_frames": [
+        {
+          "start_seconds": 0.02,
+          "end_seconds": 0.08,
+          "harmonics_db": [
+            0.0,
+            -0.6706763508681308,
+            -7.539763990668518,
+            -7.953910296885565,
+            -7.46150491045531
+          ]
+        },
+        {
+          "start_seconds": 0.08,
+          "end_seconds": 0.14,
+          "harmonics_db": [
+            0.0,
+            -0.6677676499073898,
+            -7.536551414483523,
+            -8.327043898314058,
+            -7.834029995116492
+          ]
+        },
+        {
+          "start_seconds": 0.14,
+          "end_seconds": 0.2,
+          "harmonics_db": [
+            0.0,
+            -0.6679196090124455,
+            -7.5375633554590005,
+            -8.598765283984328,
+            -8.104988093408979
+          ]
+        },
+        {
+          "start_seconds": 0.2,
+          "end_seconds": 0.26,
+          "harmonics_db": [
+            0.0,
+            -0.6670903682275325,
+            -7.5361581092837415,
+            -8.776419728143281,
+            -8.283249826127628
+          ]
+        },
+        {
+          "start_seconds": 0.26,
+          "end_seconds": 0.32,
+          "harmonics_db": [
+            0.0,
+            -0.6664587015146883,
+            -7.536410136011287,
+            -8.887274221484244,
+            -8.39335536031423
+          ]
+        },
+        {
+          "start_seconds": 0.45,
+          "end_seconds": 1.05,
+          "harmonics_db": [
+            0.0,
+            -0.6663082729263721,
+            -7.535708099945002,
+            -9.037481562165963,
+            -8.544135699177053
+          ]
+        }
+      ],
+      "late_relative_rms_error": 0.0,
+      "peak": 0.17152798175811768,
+      "early_H2_H5_mean_abs_error_vs_source_db": 16.005083029303393
+    },
+    "gentle": {
+      "harmonic_frames": [
+        {
+          "start_seconds": 0.02,
+          "end_seconds": 0.08,
+          "harmonics_db": [
+            0.0,
+            -12.155702912671341,
+            -23.34034030896352,
+            -22.47518582974143,
+            -21.10750815640323
+          ]
+        },
+        {
+          "start_seconds": 0.08,
+          "end_seconds": 0.14,
+          "harmonics_db": [
+            0.0,
+            -1.2497915456820774,
+            -7.696695645699489,
+            -7.84998500746218,
+            -7.273810892402814
+          ]
+        },
+        {
+          "start_seconds": 0.14,
+          "end_seconds": 0.2,
+          "harmonics_db": [
+            0.0,
+            -0.6658349161593724,
+            -7.422289992011045,
+            -8.058798707077198,
+            -7.541323455824266
+          ]
+        },
+        {
+          "start_seconds": 0.2,
+          "end_seconds": 0.26,
+          "harmonics_db": [
+            0.0,
+            -0.6559453364333718,
+            -7.480043832001682,
+            -8.442695300114424,
+            -7.941071584418657
+          ]
+        },
+        {
+          "start_seconds": 0.26,
+          "end_seconds": 0.32,
+          "harmonics_db": [
+            0.0,
+            -0.6602563169451524,
+            -7.508353881926178,
+            -8.686100962015363,
+            -8.189059232027624
+          ]
+        },
+        {
+          "start_seconds": 0.45,
+          "end_seconds": 1.05,
+          "harmonics_db": [
+            0.0,
+            -0.6663529170421333,
+            -7.5355868416001215,
+            -9.03486370013739,
+            -8.541201077129363
+          ]
+        }
+      ],
+      "late_relative_rms_error": 0.00022075087412612497,
+      "peak": 0.15507328510284424,
+      "early_H2_H5_mean_abs_error_vs_source_db": 4.020158083604731
+    },
+    "softer": {
+      "harmonic_frames": [
+        {
+          "start_seconds": 0.02,
+          "end_seconds": 0.08,
+          "harmonics_db": [
+            0.0,
+            -12.756303149517635,
+            -19.964849412129432,
+            -19.187556419029967,
+            -18.367987703675595
+          ]
+        },
+        {
+          "start_seconds": 0.08,
+          "end_seconds": 0.14,
+          "harmonics_db": [
+            0.0,
+            0.2970862150348772,
+            -6.308384196673673,
+            -6.53483736686434,
+            -6.002316857064759
+          ]
+        },
+        {
+          "start_seconds": 0.14,
+          "end_seconds": 0.2,
+          "harmonics_db": [
+            0.0,
+            -0.44863481410398914,
+            -7.260857613248575,
+            -7.877674542587856,
+            -7.375438656797399
+          ]
+        },
+        {
+          "start_seconds": 0.2,
+          "end_seconds": 0.26,
+          "harmonics_db": [
+            0.0,
+            -0.5829292308921197,
+            -7.429881779179647,
+            -8.366925096786105,
+            -7.870659080613597
+          ]
+        },
+        {
+          "start_seconds": 0.26,
+          "end_seconds": 0.32,
+          "harmonics_db": [
+            0.0,
+            -0.6289698016843466,
+            -7.488808825466199,
+            -8.645224673863051,
+            -8.150267234302747
+          ]
+        },
+        {
+          "start_seconds": 0.45,
+          "end_seconds": 1.05,
+          "harmonics_db": [
+            0.0,
+            -0.6668202495358302,
+            -7.53583466680664,
+            -9.034422379833277,
+            -8.540990081630337
+          ]
+        }
+      ],
+      "late_relative_rms_error": 0.00027740496852885285,
+      "peak": 0.1545276641845703,
+      "early_H2_H5_mean_abs_error_vs_source_db": 4.576853509105723
+    }
+  },
+  "method": "2 cascaded signed32 one-poles, shifts5 or6, then 8-bit shift/add crossfade to original pulse. Second pole reads old first pole. Same modal coefficients, ADSR and fixed model playback gain. No added breath or body filter.",
+  "arithmetic_checks": "PASS: signed shift-add endpoints and rounding bounds, exact excitation return, silence, gate reset and deterministic reset; model rails and WAV checks passed.",
+  "limitations": "Onset-spectrum surrogate, not physical jet-delay/nonlinear feedback. Source 10%-RMS onset alignment approximate. Model and reference envelope remain different. Not full RTL cycle/area/timing verification; production RTL unchanged."
+}

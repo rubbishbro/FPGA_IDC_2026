@@ -1,0 +1,48 @@
+{
+  "title": "Mystery of Love - first chorus flute audition",
+  "composer": "Sufjan Stevens",
+  "melody_source": "https://www.hooktheory.com/theorytab/view/sufjan-stevens/mystery-of-love#chorus",
+  "melody_provenance": "Hooktheory visible Chorus / Copy / Copy Melody clipboard export, accessed2026-11-03; community transcription, not an official score.",
+  "tempo_bpm": 108,
+  "key": "E minor",
+  "notes": [
+    62,
+    64,
+    67,
+    69,
+    71,
+    72,
+    74,
+    76
+  ],
+  "note_events": 31,
+  "seconds": 19.033333333333335,
+  "envelope": {
+    "A_STEP": 186414,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 211269
+  },
+  "onset_excitation": {
+    "lp_shift": 5,
+    "hold_samples": 1536,
+    "fade_log2": 12
+  },
+  "body": "identity",
+  "reverb": "NONE",
+  "added_breath": false,
+  "coefficient_method": "Per-note mezzo-piano source shape; original production poles retained. E4 uses previously auditioned coefficients; other notes fitted offline and transfer RMS matched to E4.",
+  "replay_check": "1600 sample parity check against normal frame path; zero-pitch committed-frame replay. MIDI parser, loading and core-clock pitch scheduling not rendered.",
+  "modal_state_rail_hits": 0,
+  "native_pcm_rail_samples": 0,
+  "playback_gain": 8.890134011900196e-09,
+  "peak_dbfs": -11.163866089095107,
+  "file": "mystery_of_love_chorus_flute.wav",
+  "limitations": "Experimental timbre extension from E4 to other notes, not production deployed; source melody community transcription. Fixed240ms attack on every note may soften short notes. No legato-specific envelope mode.",
+  "source_hashes": {
+    "python/modal_sim/flute_mystery_chorus.py": "1ec9c3ddbfebba3303ca709c5ca06b5b519e247290939dd16900c70a2e635e82",
+    "python/modal_sim/eng1_rtl.py": "a11c016916d120d04f1744b3d27fdb4734496673679281608c194c200e1bc5ce",
+    "python/modal_sim/router_eng1.py": "9ac1376d5a77d6b2ce6c286f9de253550c9e5ad4a5b39396a8d29e6d616c089d",
+    "python/modal_sim/flute_jet_onset_audition.py": "c47e1201f29fd29d970b77c0fda92b1f9da8fe271135b1a3f911efd23a992776"
+  }
+}

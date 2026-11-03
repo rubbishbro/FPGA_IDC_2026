@@ -1,0 +1,13 @@
+{
+  "file": "steady_comparison_4s.wav",
+  "order": [
+    "source_forte",
+    "baseline",
+    "source_mezzo_piano",
+    "soft_weights"
+  ],
+  "segment_seconds": 4,
+  "gap_seconds": 0.35,
+  "total_seconds": 17.05,
+  "method": "Repeat original steady excerpts with 15ms linear crossfades, 10ms boundary fades; unchanged gain. Not newly recorded or rerendered 4-second sustains."
+}

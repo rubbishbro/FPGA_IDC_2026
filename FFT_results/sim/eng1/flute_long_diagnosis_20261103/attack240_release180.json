@@ -1,0 +1,13 @@
+{
+  "parameters": {
+    "A_STEP": 186414,
+    "D_STEP": 55924,
+    "S_LEVEL": 1825361100,
+    "R_STEP": 211269
+  },
+  "attack_ms": 239.9993704648435,
+  "early_20_100ms_rms_change_db": -2.498739775256658,
+  "steady_and_release_bit_exact_after_seconds": 0.55,
+  "state_rails": 0,
+  "method": "Only A_STEP changed180ms to240ms; original soft G/poles,85% sustain,120ms decay and180ms release retained. Same playback gain. Production RTL unchanged."
+}

@@ -61,12 +61,13 @@
       </div></section>
       <section class="inspector-section"><div class="section-label">片段与循环 <span class="quiet">4/4</span></div><div class="field-row"><label>起始拍<input id="loop-start" type="number" min="1" step=".25"></label><label>结束拍<input id="loop-end" type="number" min="1.25" step=".25"></label></div><label class="inline-field">工程长度 / 小节<input id="bars" type="number" min="1" max="10000"></label></section>
       <section class="inspector-section hardware"><div class="section-label">设备连接 <span id="connection-badge" class="connection-badge">未连接</span></div>
-        <label class="serial-select">通信协议<select id="protocol"><option value="v1">v1 · 板载有线 UART</option><option value="v2">v2 · 蓝牙 UART / 测试串口</option></select></label>
-        <label class="serial-select">波特率<select id="baud" disabled><option>115200</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
+        <label class="serial-select">连接方式<select id="link"><option value="wired">有线 USB-UART · 115200</option><option value="bluetooth">HC-05 蓝牙 · 9600</option></select></label>
+        <label class="serial-select">通信协议<select id="protocol"><option value="v1">v1 · 有线 115200 / 蓝牙 9600</option><option value="v2">v2 · 蓝牙/测试串口（当前固件不支持）</option></select></label>
+        <label class="serial-select">波特率<select id="baud" disabled><option>115200</option><option>9600</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
         <button id="connect" class="connect-button"><svg><use href="#i-plug"/></svg><span>连接串口</span></button>
         <button id="export-link-diagnostics" class="connect-button">导出通信诊断</button>
         <p id="serial-support" class="hint">USB 转 UART · 8N1 · SLIP / CRC16</p>
-        <p id="protocol-hint" class="hint">板载 USB 串口选择 v1；v2 使用 HC-05 对应串口，或 USB-TTL 接蓝牙 RX/TX。</p>
+        <p id="protocol-hint" class="hint">有线选“连接方式=有线”+ v1 + 115200；HC-05 选“蓝牙”+ v1 + 9600（HC-05 本身也需配置为 9600）。当前固件没有 v2 心跳/会话层，v2 仅保留给其它固件。</p>
         <div id="v2-tools" hidden>
           <div class="session-readout" role="status" aria-live="polite"><strong id="v2-phase">未握手</strong><span id="v2-context">等待连接</span></div>
           <button id="v2-status" class="full subtle" disabled>查询会话状态</button>

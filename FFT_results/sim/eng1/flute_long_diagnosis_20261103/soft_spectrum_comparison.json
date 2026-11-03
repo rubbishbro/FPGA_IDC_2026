@@ -1,0 +1,66 @@
+{
+  "window_seconds": [
+    0.57,
+    1.17
+  ],
+  "window_after_aligned_onset_seconds": [
+    0.45,
+    1.05
+  ],
+  "normalization": "Each PSD normalized to its own integrated 80..8000Hz power. Harmonic shapes relative to H1.",
+  "metrics": {
+    "source_mezzo_piano": {
+      "f0_hz": 328.9693093439801,
+      "centroid_80_8000_hz": 651.2448427054421,
+      "off_harmonic_power_fraction_by_exclusion_hz": {
+        "15": 0.0012270043780693311,
+        "30": 0.0008585506663627301,
+        "60": 0.0005436458591757058,
+        "100": 0.00028225082763954783
+      }
+    },
+    "soft_weights": {
+      "f0_hz": 328.80999290801384,
+      "centroid_80_8000_hz": 649.2690883436873,
+      "off_harmonic_power_fraction_by_exclusion_hz": {
+        "15": 4.791764380722559e-06,
+        "30": 1.5169239919456746e-07,
+        "60": 4.499722791667605e-09,
+        "100": 3.1842941243311927e-10
+      }
+    }
+  },
+  "harmonic_error_model_minus_source_db": [
+    0.0,
+    0.0015482021823838288,
+    0.0012190157018556746,
+    0.004016714692008705,
+    -0.0019463644904273991,
+    -0.25763869895545,
+    -0.0025946762209905216,
+    0.030308925046220736,
+    0.019666250596266366,
+    -0.005629997288512101,
+    -0.03118259301832893,
+    0.00465490201216312,
+    -0.02642898766163171,
+    -0.2184966914306088,
+    -0.006524697410547731,
+    0.013297512032998782,
+    -0.12738253345784756,
+    -0.041197856191615756,
+    -0.016550271946016437,
+    0.000736536560218326,
+    -0.07696608265239036,
+    -0.27275039047073335,
+    0.005828941996128378,
+    -0.01231500990538592
+  ],
+  "median_abs_error_H2_H8_db": 0.0025946762209905216,
+  "median_abs_error_H2_H12_db": 0.00465490201216312,
+  "notes": [
+    "Same source/window used to fit weights; near-zero harmonic error is expected, not independent validation.",
+    "Off-harmonic energy includes recording noise/room, vibrato sidebands, window leakage and codec effects; not a calibrated breath-noise measurement.",
+    "Narrow model lines may have higher PSD peaks despite matched harmonic band energy."
+  ]
+}

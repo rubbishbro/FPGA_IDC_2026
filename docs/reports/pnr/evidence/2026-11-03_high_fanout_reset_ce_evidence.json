@@ -1,0 +1,687 @@
+{
+  "review_date": "2026-11-03",
+  "scope": "Read-only source/netlist/report review; no new synthesis, PnR or simulation.",
+  "baseline_source": "build/pnr_20261103_mod1fix2/instrument_board/impl/gwsynthesis/instrument_board.vg",
+  "baseline_netlist_sha256": "c591c85a152472508c99d2213fd62240ab8f60f4410a23212428fdec59b72512",
+  "baseline_hash_verified": true,
+  "unknown_primitive_ports": [],
+  "fanout_type": "Structural primitive sink-pin count, not placed net length/congestion or STA tool collection count.",
+  "targets": [
+    {
+      "net": "u_system/n3105_6",
+      "fanout_pins": 7445,
+      "unique_cells": 7445,
+      "pins": {
+        "CLEAR": 7258,
+        "PRESET": 152,
+        "RESET": 35
+      },
+      "types": {
+        "DFFCE": 7258,
+        "DFFPE": 152,
+        "SDPB": 32,
+        "MULT27X36": 3
+      },
+      "drivers": [
+        [
+          "u_system/n3105_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_pad/n3105_6",
+        "u_system/u_pad/led_inst/n3105_6",
+        "u_system/u_pad/input_inst/n3105_6",
+        "u_system/u_pad_leds/n3105_6",
+        "u_system/u_record/n3105_6",
+        "u_system/u_record/u_events/n3105_6",
+        "u_system/u_comm/n3105_6",
+        "u_system/u_comm/u_wired/n3105_6",
+        "u_system/u_comm/u_wired/u_rx/n3105_6",
+        "u_system/u_comm/u_wired/u_rx_fifo/n3105_6",
+        "u_system/u_comm/u_wired/u_tx/n3105_6",
+        "u_system/u_comm/u_bluetooth/n3105_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          3088
+        ],
+        [
+          "u_system/u_sound/g_audio.u_audio",
+          918
+        ],
+        [
+          "u_system/u_sound/u_notes",
+          490
+        ],
+        [
+          "u_system/u_comm/g_link[0].u_transport",
+          255
+        ],
+        [
+          "u_system/u_comm/g_link[1].u_transport",
+          255
+        ],
+        [
+          "u_system/u_pad/input_inst",
+          222
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/pad_div_4_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_3_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/pad_div_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_exc/n53_6",
+      "fanout_pins": 2199,
+      "unique_cells": 2199,
+      "pins": {
+        "CLEAR": 2195,
+        "PRESET": 4
+      },
+      "types": {
+        "DFFCE": 2195,
+        "DFFPE": 4
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_exc/n53_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_exc/u_gen/n53_6",
+        "u_system/u_sound/u_voice/u_exc/u_trumpet/n53_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          2199
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_exc/trumpet_r_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/shift_r_4_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/rise_sh_r_2_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/rise_sh_r_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/part_tick",
+      "fanout_pins": 1800,
+      "unique_cells": 1800,
+      "pins": {
+        "I0": 83,
+        "I1": 3,
+        "CE": 1712,
+        "I2": 1,
+        "I3": 1
+      },
+      "types": {
+        "LUT3": 19,
+        "LUT4": 68,
+        "DFFCE": 1696,
+        "LUT2": 1,
+        "DFFPE": 16
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/part_tick_s0",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_exc/part_tick",
+        "u_system/u_sound/u_voice/u_exc/u_gen/part_tick",
+        "u_system/u_sound/u_voice/u_exc/u_trumpet/part_tick",
+        "u_system/u_sound/u_voice/u_env/part_tick",
+        "u_system/u_sound/u_voice/u_env/u_adsr/part_tick",
+        "u_system/u_sound/u_voice/u_modr/part_tick",
+        "u_system/u_sound/u_voice/u_modr/u_pitch/part_tick"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1800
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/frame_start_s1",
+          "I0",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[0]_31_s2",
+          "I0",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[0]_23_s2",
+          "I0",
+          "LUT4"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_exc/u_gen/acc[1]_31_s2",
+          "I0",
+          "LUT4"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_modr/n6_6",
+      "fanout_pins": 1783,
+      "unique_cells": 1783,
+      "pins": {
+        "CLEAR": 1780,
+        "RESET": 3
+      },
+      "types": {
+        "DFFCE": 1780,
+        "MULT27X36": 3
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_modr/n6_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_modr/u_mod0/n6_6",
+        "u_system/u_sound/u_voice/u_modr/u_pitch/n6_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1783
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_modr/start_d1_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/done_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/nmod_lat_6_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_modr/u_mod0/nmod_lat_5_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_env/n235_6",
+      "fanout_pins": 1120,
+      "unique_cells": 1120,
+      "pins": {
+        "CLEAR": 1104,
+        "PRESET": 16
+      },
+      "types": {
+        "DFFCE": 1104,
+        "DFFPE": 16
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_env/n235_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_env/u_adsr/n235_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          1120
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_26_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_24_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_21_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/a_step_r_1_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_env/sustain_mode_r",
+      "fanout_pins": 920,
+      "unique_cells": 920,
+      "pins": {
+        "I2": 1,
+        "I0": 904,
+        "I1": 15
+      },
+      "types": {
+        "LUT3": 899,
+        "LUT4": 21
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_env/sustain_mode_r_s0",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_env/u_adsr/sustain_mode_r"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          920
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/n74_s0",
+          "I2",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/n76_s0",
+          "I0",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/n78_s0",
+          "I0",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_env/u_adsr/n79_s0",
+          "I0",
+          "LUT3"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_era/n129_6",
+      "fanout_pins": 824,
+      "unique_cells": 824,
+      "pins": {
+        "CLEAR": 807,
+        "RESET": 17
+      },
+      "types": {
+        "DFFCE": 807,
+        "MULT27X36": 17
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/n129_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_era/u_eng0/n129_6",
+        "u_system/u_sound/u_voice/u_era/u_eng1/n129_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          824
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_63_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_34_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_33_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_era/u_eng0/t_a11_32_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/u_erb/n129_6",
+      "fanout_pins": 824,
+      "unique_cells": 824,
+      "pins": {
+        "CLEAR": 807,
+        "RESET": 17
+      },
+      "types": {
+        "DFFCE": 807,
+        "MULT27X36": 17
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/n129_s2",
+          "O",
+          "INV"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_erb/u_eng0/n129_6",
+        "u_system/u_sound/u_voice/u_erb/u_eng1/n129_6"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          824
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_63_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_34_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_33_s0",
+          "CLEAR",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/u_erb/u_eng0/t_a11_32_s0",
+          "CLEAR",
+          "DFFCE"
+        ]
+      ]
+    },
+    {
+      "net": "u_system/u_sound/u_voice/smp_tick_q",
+      "fanout_pins": 696,
+      "unique_cells": 696,
+      "pins": {
+        "I2": 2,
+        "CE": 689,
+        "D": 1,
+        "I3": 1,
+        "I0": 2,
+        "I1": 1
+      },
+      "types": {
+        "LUT3": 2,
+        "DFFCE": 690,
+        "LUT4": 4
+      },
+      "drivers": [
+        [
+          "u_system/u_sound/u_voice/smp_tick_q_s0",
+          "Q",
+          "DFFCE"
+        ]
+      ],
+      "aliases": [
+        "u_system/u_sound/u_voice/u_input/smp_tick_q",
+        "u_system/u_sound/u_voice/u_modr/smp_tick_q",
+        "u_system/u_sound/u_voice/u_modr/u_pitch/smp_tick_q"
+      ],
+      "top_regions": [
+        [
+          "u_system/u_sound/u_voice",
+          696
+        ]
+      ],
+      "sample_sinks": [
+        [
+          "u_system/u_sound/u_voice/performance_commit_s2",
+          "I2",
+          "LUT3"
+        ],
+        [
+          "u_system/u_sound/u_voice/gate_r_15_s0",
+          "CE",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/gate_r_14_s0",
+          "CE",
+          "DFFCE"
+        ],
+        [
+          "u_system/u_sound/u_voice/gate_r_13_s0",
+          "CE",
+          "DFFCE"
+        ]
+      ]
+    }
+  ],
+  "timing": {
+    "report": "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_mod1fix2/instrument_board/impl/pnr/instrument_board.tr",
+    "setup_violations": 0,
+    "hold_violations": 0,
+    "checks": {
+      "setup": {
+        "worst_slack_ns": 0.05,
+        "reported_violations": 0
+      },
+      "hold": {
+        "worst_slack_ns": 0.181,
+        "reported_violations": 0
+      },
+      "recovery": {
+        "worst_slack_ns": 10.581,
+        "reported_violations": 0
+      },
+      "removal": {
+        "worst_slack_ns": 0.349,
+        "reported_violations": 0
+      },
+      "min_pulse_width": {
+        "worst_slack_ns": 4.3,
+        "reported_violations": 0
+      },
+      "max_delay": {
+        "worst_slack_ns": 7.528,
+        "reported_violations": 0
+      }
+    },
+    "clocks": {
+      "clk50": {
+        "target_mhz": 50.0,
+        "fmax_mhz": 351.27
+      },
+      "clk_core": {
+        "target_mhz": 50.0,
+        "fmax_mhz": 50.125
+      },
+      "clk_audio": {
+        "target_mhz": 12.5,
+        "fmax_mhz": 18.118
+      },
+      "clk_pix": {
+        "target_mhz": 33.333,
+        "fmax_mhz": 36.158
+      }
+    },
+    "max_delay_constraints": [
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/wgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.758,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_audio}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/rgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.893,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_sound/g_audio.u_audio/frame_toggle*/Q}] -to [get_pins {u_system/u_sound/g_audio.u_audio/frame_s1*/D}] 10.000",
+        "worst_slack_ns": 8.996,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_ui/u_view_cdc/request_toggle*/Q}] -to [get_pins {u_system/u_ui/u_view_cdc/req_meta*/D}] 10.000",
+        "worst_slack_ns": 7.754,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_ui/u_view_cdc/ack_toggle*/Q}] -to [get_pins {u_system/u_ui/u_view_cdc/ack_meta*/D}] 10.000",
+        "worst_slack_ns": 9.036,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_ui/pixel_view*/D}] 10.000",
+        "worst_slack_ns": 7.528,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_ports {rst_n}] -to [get_ports {amp_sd dac_pa_en}] 100.000",
+        "worst_slack_ns": 84.188,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_visualizer_fifo/wgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.734,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_pix}] -to [get_pins {u_system/u_visualizer_fifo/rgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 9.318,
+        "reported_violations": 0
+      }
+    ]
+  },
+  "changed_current_inputs": [
+    {
+      "path": "rtl/config_pkg.sv",
+      "baseline_sha256": "6c510fa5a198fb376b0a72aac5a697d83d9a083a91d76f4dde019a99391ff900",
+      "current_sha256": "66c3c54f3d39755fc79c9ba901bf0aac6b6f05997652ec491790c28db6c58608"
+    },
+    {
+      "path": "rtl/router/pkg/router_pkg.sv",
+      "baseline_sha256": "7c53f112f64396c6bee18c89b7787be8ef64a686f325c1902194974996503bc3",
+      "current_sha256": "e74378ee6332b4b0386353fc78aa275a70c5141df7a9a551e4154489582777cf"
+    },
+    {
+      "path": "rtl/router/engines/eng1.sv",
+      "baseline_sha256": "49a63ff0353dd0af8878270f9665f9d8c7203da446c8bc4360d09914febc20d1",
+      "current_sha256": "406b7e07849ab04f819cbbe4c145aff1940d13d196bdc2a6614751a22510fb64"
+    },
+    {
+      "path": "rtl/router/midi_voice_top.sv",
+      "baseline_sha256": "9bcd0c48f44d8a2aa2f01feea10c30c0d2b3c95b0116f7668ece8fb244d76d03",
+      "current_sha256": "e376f3b2824acb409082aa0830194875e68e20c837d21bfba9197fd537a3ae0e"
+    },
+    {
+      "path": "rtl_FFT/src/ui/ui_pkg.sv",
+      "baseline_sha256": "5691fce8ee5f6a6a25dad296ab2b4f54fe96674414f80e2e8b7fbeb33ace7925",
+      "current_sha256": "e51a5f5d0ec4534f4f8d548adc62c987e62a232aaf49ede05507214ac15de9d9"
+    },
+    {
+      "path": "rtl/config_dispatch.sv",
+      "baseline_sha256": "aad8ce3ea128a9aaf3209e65fa38b8f64ba2bb69587a8402f803fc108f1b98ec",
+      "current_sha256": "e7102e89f0abe71f72bdf6666c5fe3a66c4653bef06dd01d811a8491326790df"
+    },
+    {
+      "path": "rtl_FFT/src/ui/sidebar_ctrl.sv",
+      "baseline_sha256": "4965da86729394343a4c0bc20f8890ee238f1a93338e78eda820950f9fe45170",
+      "current_sha256": "598b2889daf4a5b27e6eb9a3648493e931ed4f39947b2188269acaeebba5e1d3"
+    },
+    {
+      "path": "rtl_FFT/src/ui/sidebar_system.sv",
+      "baseline_sha256": "9ddda45d886a820ae2376b397022f80377314b71afe0eed155f2698c0c72fdf5",
+      "current_sha256": "74b2d6a1b236d896142eb36a1c1c32b3ea54ffc44dd131957d4724f65d126818"
+    },
+    {
+      "path": "rtl_FFT/src/display/lcd_sidebar.sv",
+      "baseline_sha256": "6b2cde853bb6d1ba60cb2214d97383eb8d45a1ae98fb52ff7e9fb866c30e3db0",
+      "current_sha256": "619f678495f5bdbdb93a9e1bb399920d6fd9bb1ea882196d33da4d23ae0a64ba"
+    },
+    {
+      "path": "rtl_FFT/src/display/lcd_pad_guide.sv",
+      "baseline_sha256": "215226bd59f623983b0818822b8fb356eb6bc2a82d23de7a12e3d366dc00e8e9",
+      "current_sha256": "e64cbe4143895f1716a6eaf08ce7c46162938ef1b28bcc73e735719e613c84bb"
+    },
+    {
+      "path": "rtl_FFT/src/display/lcd_draw.v",
+      "baseline_sha256": "16e2930c8352f1a57f90afda66cf5669951a76ae3c24f69baa2cb1a14bb0b6a0",
+      "current_sha256": "e52d292e1980e8c8b5f44c282e6080d11d47abb3b17b4140605207a89811f122"
+    },
+    {
+      "path": "rtl/platform/tang_mega_138k_pro/instrument_system.sv",
+      "baseline_sha256": "33dc7827e3e6eb7764adaeb18a4322a70ad92653640262cb50228d89a584f01f",
+      "current_sha256": "599ba1966b941800aa7c6434a5750c0a4c6d149119a473a1f44b32d5e67e83fa"
+    }
+  ],
+  "note": "fanout_old70k is the mod1fix2 passed baseline; fanout_new74k refers to older0115 inputs despite its directory name."
+}
