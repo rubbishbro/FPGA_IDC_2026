@@ -361,7 +361,7 @@ module midi_voice_top #(
                 control_timeout_count<=inc(control_timeout_count);error_sticky[1]<=1;
             end
             if(note_timeout) error_sticky[2]<=1;
-            if(config_busy && cfg_state!=C_RELEASE) cfg_timer<=inc(cfg_timer); else cfg_timer<=0;
+            if(config_busy && cfg_state!=C_RELEASE && cfg_state!=C_KEY_RELEASE) cfg_timer<=inc(cfg_timer); else cfg_timer<=0;
             case(cfg_state)
                 C_INIT,C_RUN,C_FAULT: if(cfg_state==C_INIT ||
                     (cfg_state==C_RUN && config_request) ||
@@ -541,7 +541,7 @@ module midi_voice_top #(
                     target_first<=0;config_failed<=0;cfg_state<=C_CLEAN;
                 end
             end
-            if((config_busy && cfg_state!=C_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
+            if((config_busy && cfg_state!=C_RELEASE && cfg_state!=C_KEY_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
                (cfg_state==C_RUN && cleanup_pending && cleanup_timer>=CONFIG_TIMEOUT_CYCLES)) begin
                 config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
             end
