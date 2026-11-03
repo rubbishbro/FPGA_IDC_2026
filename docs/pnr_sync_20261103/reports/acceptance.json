@@ -1,0 +1,157 @@
+{
+  "status": "passed",
+  "ports": 51,
+  "production_sources": 97,
+  "pins": {
+    "lcd_g[5]": "J16",
+    "lcd_g[4]": "K15",
+    "lcd_g[3]": "F22",
+    "lcd_g[2]": "G22",
+    "lcd_g[1]": "G21",
+    "lcd_g[0]": "G20",
+    "lcd_b[5]": "F20",
+    "lcd_b[4]": "G19",
+    "lcd_b[3]": "F19",
+    "lcd_b[2]": "F18",
+    "lcd_b[1]": "M17",
+    "lcd_b[0]": "M16",
+    "lcd_r[5]": "H19",
+    "lcd_r[4]": "J19",
+    "lcd_r[3]": "G25",
+    "lcd_r[2]": "H18",
+    "lcd_r[1]": "J18",
+    "lcd_r[0]": "K17",
+    "lcd_en": "A24",
+    "lcd_clk": "H21",
+    "clk": "P16",
+    "rst_n": "G16",
+    "key0": "F15",
+    "key1": "G15",
+    "uart_rx[0]": "N16",
+    "uart_tx[0]": "P15",
+    "uart_rx[1]": "T23",
+    "uart_tx[1]": "R23",
+    "bt_state": "T24",
+    "pad_row[0]": "H14",
+    "pad_row[1]": "L17",
+    "pad_row[2]": "E25",
+    "pad_row[3]": "C24",
+    "pad_ch[0]": "D25",
+    "pad_ch[1]": "L18",
+    "pad_ch[2]": "B24",
+    "led_dat": "H15",
+    "flash_cs_n": "P18",
+    "flash_sck": "H13",
+    "flash_dq[0]": "R14",
+    "flash_dq[1]": "R15",
+    "flash_dq[2]": "P14",
+    "flash_dq[3]": "N14",
+    "amp_bclk": "A19",
+    "amp_ws": "A18",
+    "amp_din": "A20",
+    "amp_sd": "A17",
+    "dac_bck": "E22",
+    "dac_ws": "F24",
+    "dac_din": "G24",
+    "dac_pa_en": "H17"
+  },
+  "adc": "Dedicated ADCV_P=N12 / ADCV_N=P11; not a regular IO_LOC",
+  "audio_reference_hz": 12500000,
+  "actual_sample_hz": 48828.125,
+  "timing": {
+    "report": "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.tr",
+    "setup_violations": 0,
+    "hold_violations": 0,
+    "checks": {
+      "setup": {
+        "worst_slack_ns": 1.049,
+        "reported_violations": 0
+      },
+      "hold": {
+        "worst_slack_ns": 0.181,
+        "reported_violations": 0
+      },
+      "recovery": {
+        "worst_slack_ns": 10.29,
+        "reported_violations": 0
+      },
+      "removal": {
+        "worst_slack_ns": 0.27,
+        "reported_violations": 0
+      },
+      "min_pulse_width": {
+        "worst_slack_ns": 4.3,
+        "reported_violations": 0
+      },
+      "max_delay": {
+        "worst_slack_ns": 6.828,
+        "reported_violations": 0
+      }
+    },
+    "clocks": {
+      "clk50": {
+        "target_mhz": 50.0,
+        "fmax_mhz": 352.454
+      },
+      "clk_core": {
+        "target_mhz": 50.0,
+        "fmax_mhz": 52.766
+      },
+      "clk_audio": {
+        "target_mhz": 12.5,
+        "fmax_mhz": 17.616
+      },
+      "clk_pix": {
+        "target_mhz": 33.333,
+        "fmax_mhz": 37.279
+      }
+    },
+    "max_delay_constraints": [
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/wgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.494,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_audio}] -to [get_pins {u_system/u_sound/g_audio.u_audio/u_fifo/rgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 9.118,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_sound/g_audio.u_audio/frame_toggle*/Q}] -to [get_pins {u_system/u_sound/g_audio.u_audio/frame_s1*/D}] 10.000",
+        "worst_slack_ns": 9.369,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_ui/u_view_cdc/request_toggle*/Q}] -to [get_pins {u_system/u_ui/u_view_cdc/req_meta*/D}] 10.000",
+        "worst_slack_ns": 8.923,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_pins {u_system/u_ui/u_view_cdc/ack_toggle*/Q}] -to [get_pins {u_system/u_ui/u_view_cdc/ack_meta*/D}] 10.000",
+        "worst_slack_ns": 8.472,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_ui/pixel_view*/D}] 10.000",
+        "worst_slack_ns": 6.828,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_ports {rst_n}] -to [get_ports {amp_sd dac_pa_en}] 100.000",
+        "worst_slack_ns": 88.665,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_core}] -to [get_pins {u_system/u_visualizer_fifo/wgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.608,
+        "reported_violations": 0
+      },
+      {
+        "constraint": "set_max_delay -from [get_clocks {clk_pix}] -to [get_pins {u_system/u_visualizer_fifo/rgray_s1_*/D}] 10.000",
+        "worst_slack_ns": 8.699,
+        "reported_violations": 0
+      }
+    ]
+  }
+}

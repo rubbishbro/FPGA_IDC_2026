@@ -152,6 +152,7 @@ module instrument_system #(
 
     logic keymap_valid,keymap_ready,keymap_rsp_valid;
     logic keymap_waiting_release,keymap_cancel;
+    logic backend_source_valid;
     logic [31:0] keymap_wait_timer;
     localparam int KEYMAP_WAIT_CYCLES=CLK_HZ*2/5;
     logic [7:0] keymap_result;
@@ -209,7 +210,7 @@ module instrument_system #(
         .pad_instrument(router_pkg::INST_PIANO),.reverb_preset(router_pkg::REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),.selected_channel(4'd1),
         .note_bank(1'b0),.first_midi_note(FIRST_MIDI),.slot_note_map(router_pkg::default_note_map()),
-        .backend_valid(backend_valid && !policy_req && !policy_rsp_valid),.backend_source(backend_source),
+        .backend_valid(backend_valid && !policy_req && !policy_rsp_valid),.backend_source(backend_source),.backend_source_valid(backend_source_valid),
         .backend_ready(voice_ready),.backend_request(backend_request),.backend_rsp_valid(voice_rsp_valid),
         .backend_rsp_ready(backend_rsp_ready && !policy_rsp_valid),.backend_response(voice_response),
         .backend_supported(voice_supported),.backend_audio_valid(audio_valid),.backend_audio_fault(audio_fault),.backend_audio_state(audio_state),.guide_display(guide_display),
@@ -236,6 +237,8 @@ module instrument_system #(
             if(key_scan_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
     end
     assign keymap_valid=bridge_state==B_KEY_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
+    // Cancel an already-accepted scalar backend transaction if the source dies.
+    assign backend_source_valid=!quarantine[backend_source] && remote_permission[backend_source];
     // Cancel an in-flight table if the source is lost before it commits.
     assign keymap_cancel=bridge_state==B_KEY_WAIT &&
                          (quarantine[ctx_source] || !remote_permission[ctx_source] ||

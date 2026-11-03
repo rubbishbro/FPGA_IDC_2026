@@ -48,6 +48,7 @@ module midi_voice_top #(
     input logic [6:0] first_midi_note,
     input logic [SLOTS*7-1:0] slot_note_map,
     input logic backend_valid,backend_source,
+    input logic backend_source_valid=1'b1,
     output logic backend_ready,
     input config_pkg::cfg_request_t backend_request,
     output logic backend_rsp_valid,
@@ -418,13 +419,40 @@ module midi_voice_top #(
                     end else begin
                         active_channel<=channel_q;active_bank<=bank_q;config_failed<=0;cfg_state<=C_RUN;
                         if(CONFIG_BACKEND)begin
-                            backend_audio_state.instrument<=16'(inst_use);
-                            backend_audio_state.channel<={1'b0,channel_q}+5'd1;
-                            backend_audio_state.source<=mode_q ? (source_q ? 2'd2 : 2'd1) : 2'd0;
-                            backend_audio_state.bank<=bank_q;backend_audio_state.reverb<=target_reverb;
-                            backend_audio_state.guide<=guide_q;backend_audio_state.custom_keys<=custom_q;
-                            committed_map<=slot_map_q;guide_revision<=guide_revision+1'b1;
-                            committed_pad<=pad_q;have_commit<=1;
+                            if(backend_inflight && !backend_source_valid)begin
+                                // Commit gate: source died after acceptance. Keep
+                                // the committed snapshot; do not update audio
+                                // state or the flash table.
+                                slot_map_q<=committed_map;
+                                custom_q<=backend_audio_state.custom_keys;
+                                channel_q<=4'(backend_audio_state.channel-1'b1);
+                                mode_q<=backend_audio_state.source!=0;
+                                source_q<=backend_audio_state.source==2;
+                                guide_q<=backend_audio_state.guide;
+                                bank_q<=backend_audio_state.bank;
+                                pad_q<=committed_pad;
+                                inst_use<=committed_pad;
+                                first_q<=INSTRUMENT_NOTE_RANGES ? router_pkg::note_first(committed_pad) : 7'd0;
+                                reverb_q<=backend_audio_state.reverb;
+                                target_slot_map<=committed_map;
+                                target_custom<=backend_audio_state.custom_keys;
+                                target_pad<=committed_pad;
+                                target_channel<=4'(backend_audio_state.channel-1'b1);
+                                target_mode<=backend_audio_state.source!=0;
+                                target_source<=backend_audio_state.source==2;
+                                target_guide<=backend_audio_state.guide;
+                                target_bank<=backend_audio_state.bank;
+                                target_reverb<=backend_audio_state.reverb;
+                                target_first<=0;arm_pad<=1'b0;
+                            end else begin
+                                backend_audio_state.instrument<=16'(inst_use);
+                                backend_audio_state.channel<={1'b0,channel_q}+5'd1;
+                                backend_audio_state.source<=mode_q ? (source_q ? 2'd2 : 2'd1) : 2'd0;
+                                backend_audio_state.bank<=bank_q;backend_audio_state.reverb<=target_reverb;
+                                backend_audio_state.guide<=guide_q;backend_audio_state.custom_keys<=custom_q;
+                                committed_map<=slot_map_q;guide_revision<=guide_revision+1'b1;
+                                committed_pad<=pad_q;have_commit<=1;
+                            end
                             if(keymap_inflight)begin
                                 keymap_result<=keymap_rollback ? 8'd6 : 8'd0;
                                 keymap_rsp_valid<=1;
@@ -432,8 +460,8 @@ module midi_voice_top #(
                             end
                             if(backend_inflight)begin
                                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
-                                backend_response.result<=config_pkg::CFG_OK;
-                                backend_response.applied_value<=pending_request.value;
+                                backend_response.result<=backend_source_valid ? config_pkg::CFG_OK : 8'd6;
+                                backend_response.applied_value<=backend_source_valid ? pending_request.value : 32'd0;
                                 backend_rsp_valid<=1;backend_inflight<=0;
                             end
                         end

@@ -1,0 +1,466 @@
+*** GOWIN Tcl Command Line Console  *** 
+alog error: failed to open log file: '/home/rubbishbro/.cache/GowinSemi/IDE/sh.log'
+FLASH_RESOURCE_CONTRACT {"passed": true, "notes": 32, "records": 12288, "image_bytes": 1576960, "flash_base": 8388608, "sha256": "e9de9737735eda50f03853c959d162868949b2a80ec202dce992d3924c3ca900"}
+current working directory: /home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/router_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/config_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/math/pkg/fxp_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/clk_rst_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/pad_driver_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/modal_step_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/envelope.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/polyphony_gain.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/excitation.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/trumpet_excitation_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/trumpet_excitation.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation0.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation1.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/body_biquad.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng0.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng1.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/eng_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/performance_input_mux.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/env_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/exc_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/mod_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/body_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/reverb_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/loader.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_amp_tx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/pt8211_tx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/stereo_spatializer.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_audio_output.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/math/math.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/gowin_adc/gowin_adc.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_note_state.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_guide_state.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_instrument_map.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/midi_voice_top.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/comm_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_rx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_tx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/uart_driver.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/comm_hc05_status.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/hc05_driver.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_tx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_frame_tx.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_capture.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/transport_link.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/frame_arbiter.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/session_ctrl.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/midi_analyzer.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/parser_dispatch.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/comm_top.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/joystick_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/ui_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_font_pkg.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_label_rom.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/control_loop.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/config_dispatch.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/joystick_adapter.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_mailbox.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_ctrl.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_system.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_sidebar.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_pad_guide.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_draw.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_wave.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_curve_spectrum.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_background.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/key_ui_event.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/cordic_polar.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_polar_curve.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft1024_iter.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft_ctrl.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/real_audio_chain.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/time_pingpong.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/wave_capture.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/display_frame_buffer.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/waterfall_store.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/wave_frame_buffer.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_calc.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_store.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_calc.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_store.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/pll_init.v"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/board_clock_reset.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_system.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board_top.sv"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board.cst"
+add new file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board.sdc"
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/router_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/config_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/math/pkg/fxp_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/clk_rst_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/pad_driver_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/modal_step_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/envelope.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/polyphony_gain.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/excitation.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/trumpet_excitation_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/trumpet_excitation.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation0.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation1.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/body_biquad.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng0.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng1.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/eng_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/performance_input_mux.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/env_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/exc_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/mod_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/body_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/reverb_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/loader.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_amp_tx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/pt8211_tx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/stereo_spatializer.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_audio_output.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/math/math.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/gowin_adc/gowin_adc.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_note_state.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_guide_state.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_instrument_map.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/midi_voice_top.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/comm_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_rx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_tx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/uart_driver.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/comm_hc05_status.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/hc05_driver.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_tx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_frame_tx.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_capture.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/transport_link.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/frame_arbiter.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/session_ctrl.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/midi_analyzer.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/parser_dispatch.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/comm_top.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pkg/joystick_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/ui_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_font_pkg.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_label_rom.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/control_loop.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/config_dispatch.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/joystick_adapter.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_mailbox.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_ctrl.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_system.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_sidebar.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_pad_guide.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_draw.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v'
+WARN  (EX3801) : Parameter 'PEAK_HYST' becomes localparam in 'lcd_fft' with formal parameter declaration list("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":22)
+WARN  (EX3801) : Parameter 'PEAK_FALL' becomes localparam in 'lcd_fft' with formal parameter declaration list("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":23)
+WARN  (EX3801) : Parameter 'FALL_PERIOD' becomes localparam in 'lcd_fft' with formal parameter declaration list("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":24)
+WARN  (EX3801) : Parameter 'HUE_STEP' becomes localparam in 'lcd_fft' with formal parameter declaration list("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":85)
+WARN  (EX3801) : Parameter 'HUE_DIV' becomes localparam in 'lcd_fft' with formal parameter declaration list("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":86)
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_wave.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_curve_spectrum.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_background.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/key_ui_event.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/cordic_polar.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_polar_curve.sv'
+WARN  (EX3792) : Literal value 'd4096 truncated to fit in 12 bits("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_polar_curve.sv":240)
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft1024_iter.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft_ctrl.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/real_audio_chain.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/time_pingpong.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/wave_capture.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/display_frame_buffer.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/waterfall_store.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/wave_frame_buffer.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_calc.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_store.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_calc.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_store.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/pll_init.v'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/board_clock_reset.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_system.sv'
+Analyzing Verilog file '/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board_top.sv'
+Compiling module 'instrument_board_top'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board_top.sv":2)
+Compiling module 'board_clock_reset'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/board_clock_reset.sv":4)
+Compiling module 'Gowin_PLL_core_100M'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m.v":1)
+Compiling module 'Gowin_PLL_core_100M_MOD'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/gowin_pll_core_100m_mod.v":11)
+Compiling module 'PLL_INIT(CLK_PERIOD=20,MULTI_FAC=16)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/pll_init.v":3)
+WARN  (EX3791) : Expression size 5 truncated to fit in target size 4("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/pll_init.v":179)
+WARN  (EX3791) : Expression size 18 truncated to fit in target size 17("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/ip/pll_init.v":207)
+Compiling module 'instrument_system(KEY_DEBOUNCE=1000000,KEY_LONG=40000000,NOTE_BANKS=1'b1,BT_HAS_STATE=1'b0,FIRST_MIDI=7'b0110000,FLASH_BASE=32'b00000000100000000000000000000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_system.sv":3)
+Compiling module 'pad_driver'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":12)
+Compiling module 'led8x8'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":51)
+Extracting RAM for identifier 'pixel_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":66)
+Compiling module 'shift_timer(N=3)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":451)
+Compiling module 'sense4x4_joystick'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":197)
+Compiling module 'Gowin_ADC'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/gowin_adc/gowin_adc.v":10)
+Compiling module 'cart2polar(IN_L=14)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/math/math.sv":35)
+Compiling module 'pad_led_effects'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":3)
+Extracting RAM for identifier 'phase_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":18)
+Extracting RAM for identifier 'breath_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":19)
+Extracting RAM for identifier 'palette_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":20)
+Extracting RAM for identifier 'distance_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":21)
+Extracting RAM for identifier 'shape_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":22)
+Extracting RAM for identifier 'age_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":23)
+Extracting RAM for identifier 'radial_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":24)
+Extracting RAM for identifier 'combine_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":25)
+Extracting RAM for identifier 'colour_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":26)
+Extracting RAM for identifier 'pending_phase'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":65)
+Extracting RAM for identifier 'pending_age'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":65)
+Extracting RAM for identifier 'pending_travel'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":66)
+Extracting RAM for identifier 'wave_birth_age'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":105)
+Extracting RAM for identifier 'wave_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":108)
+WARN  (EX2526) : Entry size 8 at rtl/drivers/pad_led_tables/palette.mem:1 does not match memory width 6("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":30)
+WARN  (EX2526) : Entry size 8 at rtl/drivers/pad_led_tables/shape.mem:1 does not match memory width 6("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":32)
+WARN  (EX2526) : Entry size 8 at rtl/drivers/pad_led_tables/age.mem:1 does not match memory width 6("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":33)
+WARN  (EX2526) : Entry size 8 at rtl/drivers/pad_led_tables/radial.mem:1 does not match memory width 6("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":34)
+WARN  (EX2526) : Entry size 8 at rtl/drivers/pad_led_tables/combine.mem:1 does not match memory width 6("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_led_effects.sv":35)
+Compiling module 'performance_capture'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_capture.sv":4)
+Compiling module 'comm_fifo(WIDTH=112,DEPTH=128)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":13)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":67)
+WARN  (EX3791) : Expression size 5 truncated to fit in target size 4("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_capture.sv":81)
+Compiling module 'comm_top(CLK_HZ=50000000,SUPPORTED_INSTRUMENTS=16'b0000110000101011)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/comm_top.sv":5)
+Compiling module 'uart_driver(CLK_HZ=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/uart_driver.sv":4)
+Compiling module 'comm_uart_rx(CLK_HZ=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_rx.sv":17)
+Compiling module 'comm_fifo(DEPTH=1024)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":13)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":67)
+Compiling module 'comm_uart_tx(CLK_HZ=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_tx.sv":10)
+Compiling module 'hc05_driver(CLK_HZ=50000000,BAUD=9600,DEBOUNCE_CYCLES=1000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/hc05_driver.sv":4)
+Compiling module 'uart_driver(CLK_HZ=50000000,BAUD=9600)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/uart_driver.sv":4)
+Compiling module 'comm_uart_rx(CLK_HZ=50000000,BAUD=9600)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_rx.sv":17)
+Compiling module 'comm_uart_tx(CLK_HZ=50000000,BAUD=9600)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/uart/comm_uart_tx.sv":10)
+Compiling module 'comm_hc05_status(HAS_STATE=1'b0,DEBOUNCE_CYCLES=1000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/comm_hc05_status.sv":12)
+Compiling module 'transport_link(TIMEOUT_CYCLES=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/transport_link.sv":4)
+Compiling module 'slip_frame_rx(TIMEOUT_CYCLES=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv":19)
+Extracting RAM for identifier 'payload_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv":84)
+Extracting RAM for identifier 'meta_type'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv":85)
+Extracting RAM for identifier 'meta_seq'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv":86)
+Extracting RAM for identifier 'meta_len'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_rx.sv":87)
+Compiling module 'comm_fifo(WIDTH=32,DEPTH=2)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":13)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":73)
+Compiling module 'performance_frame_tx'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/performance_frame_tx.sv":3)
+Compiling module 'slip_frame_tx'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/slip_frame_tx.sv":4)
+Compiling module 'session_ctrl'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/session_ctrl.sv":3)
+Compiling module 'frame_arbiter'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/comm/frame_arbiter.sv":4)
+Compiling module 'parser_dispatch(SUPPORTED_INSTRUMENTS=16'b0000110000101011)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/parser_dispatch.sv":4)
+Compiling module 'midi_analyzer'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/midi_analyzer.sv":12)
+Compiling module 'config_analyzer(SUPPORTED_INSTRUMENTS=16'b0000110000101011)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv":16)
+Extracting RAM for identifier 'cache_seq'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv":110)
+Extracting RAM for identifier 'cache_len'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv":111)
+Extracting RAM for identifier 'cache_payload'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv":112)
+Extracting RAM for identifier 'cache_result'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/analyzer/config_analyzer.sv":113)
+Compiling module 'comm_fifo(WIDTH=33,DEPTH=64)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":13)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/common/comm_fifo.sv":67)
+Compiling module 'midi_voice_top(CLK_HZ=50000000,PAD_NOTE_ON_TH=64,PAD_NOTE_OFF_TH=48,AUDIO_ENABLE=1'b1,PT8211_ENABLE=1'b1,FLASH_BASE=32'b00000000100000000000000000000000,FLASH_BYTES=16777216,NOTE_BANKS=1'b1,INSTRUMENT_NOTE_RANGES=1'b1,CONFIG_BACKEND=1'b1,RESOURCE_MASK=12'b110000101011)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/midi_voice_top.sv":8)
+Compiling module 'midi_instrument_map'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_instrument_map.sv":4)
+Compiling module 'midi_guide_state'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_guide_state.sv":4)
+Compiling module 'midi_note_state(CHECK_VOICE_IDLE=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/midi/midi_note_state.sv":7)
+Compiling module 'voice_router(CLK_HZ=50000000,PAD_NOTE_ON_TH=8'b01000000,PAD_NOTE_OFF_TH=8'b00110000,DEBUG_PORT=1'b0,EXTERNAL_SAMPLE_TICK=1'b1,MIDI_ENABLE=1'b1,LOAD_OFFSETS=1'b1,FLASH_NOTES=32,FLASH_BASE=32'b00000000100000000000000000000000,FLASH_BYTES=16777216)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":26)
+Extracting RAM for identifier 'ca_a11_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":153)
+Extracting RAM for identifier 'ca_a12_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":154)
+Extracting RAM for identifier 'ca_a21_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":155)
+Extracting RAM for identifier 'ca_a22_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":156)
+Extracting RAM for identifier 'ca_gq_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":157)
+Extracting RAM for identifier 'ca_gv_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":158)
+Extracting RAM for identifier 'ca_wo_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":159)
+Extracting RAM for identifier 'q_ram_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":160)
+Extracting RAM for identifier 'v_ram_a'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":161)
+Extracting RAM for identifier 'ca_a11_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":163)
+Extracting RAM for identifier 'ca_a12_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":164)
+Extracting RAM for identifier 'ca_a21_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":165)
+Extracting RAM for identifier 'ca_a22_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":166)
+Extracting RAM for identifier 'ca_gq_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":167)
+Extracting RAM for identifier 'ca_gv_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":168)
+Extracting RAM for identifier 'ca_wo_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":169)
+Extracting RAM for identifier 'q_ram_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":170)
+Extracting RAM for identifier 'v_ram_b'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":171)
+Extracting RAM for identifier 'pm_a11'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":174)
+Extracting RAM for identifier 'pm_a12'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":175)
+Extracting RAM for identifier 'pm_a22'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":176)
+Extracting RAM for identifier 'pm_wo'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":177)
+Extracting RAM for identifier 'pm_s11'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":178)
+Extracting RAM for identifier 'pm_s12'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":179)
+Extracting RAM for identifier 'pm_s22'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":180)
+Extracting RAM for identifier 'pm_swo'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":181)
+Extracting RAM for identifier 'x_q'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/voice_router.sv":184)
+Compiling module 'performance_input_mux(MIDI_ENABLE=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/performance_input_mux.sv":5)
+Compiling module 'exc_router(CLK_HZ=50000000,SPLIT_RESET=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/exc_router.sv":16)
+Compiling module 'excitation_gen(CLK_HZ=50000000,SUSTAIN_ENABLE=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/excitation.sv":31)
+Compiling module 'trumpet_excitation'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/trumpet_excitation.sv":13)
+Extracting RAM for identifier 'state_mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/trumpet_excitation.sv":43)
+Compiling module 'env_router(CLK_HZ=50000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/env_router.sv":2)
+Compiling module 'envelope_ADSR(CLK_HZ=50000000,SUSTAIN_ENABLE=1'b1,PRECOMPUTED_DECAY_LIMIT=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/envelope.sv":7)
+Compiling module 'mod_router(SPLIT_RESET=1'b1,PAD_NOTE_ON_TH=8'b01000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/mod_router.sv":4)
+Compiling module 'modulation0(PAD_NOTE_ON_TH=8'b01000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation0.sv":26)
+Compiling module 'modulation1(PAD_NOTE_ON_TH=8'b01000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation1.sv":7)
+Extracting RAM for identifier 'ratio0'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation1.sv":45)
+Extracting RAM for identifier 'ratio1'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/modulation1.sv":45)
+Compiling module 'weight_loader(CLK_HZ=50000000,FLASH_NOTES=32,USE_OFFSETS=1'b1,SUPPORT_ABORT=1'b1,LOAD_CONTROL=1'b1,FLASH_BYTES=16777216,FLASH_BASE=32'b00000000100000000000000000000000)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/loader.sv":6)
+Compiling module 'eng_router(SPLIT_RESET=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/eng_router.sv":9)
+Compiling module 'eng0'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng0.sv":44)
+WARN  (EX3791) : Expression size 64 truncated to fit in target size 32("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/modal_step_pkg.sv":135)
+WARN  (EX3791) : Expression size 64 truncated to fit in target size 32("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/pkg/modal_step_pkg.sv":139)
+Compiling module 'eng1'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/engines/eng1.sv":40)
+Compiling module 'polyphony_gain(ENABLE=1'b0)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/polyphony_gain.sv":5)
+Compiling module 'body_router'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/body_router.sv":22)
+Compiling module 'body_biquad'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/body_biquad.sv":33)
+Extracting RAM for identifier 'hist'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/body_biquad.sv":83)
+Compiling module 'reverb_router'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/routers/reverb_router.sv":22)
+Compiling module 'comb_reverb'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv":31)
+Extracting RAM for identifier 'c1'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv":58)
+Extracting RAM for identifier 'c2'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv":59)
+Extracting RAM for identifier 'c3'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv":60)
+Extracting RAM for identifier 'c4'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/parts/comb_reverb.sv":61)
+Compiling module 'i2s_audio_output(PT8211_ENABLE=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_audio_output.sv":8)
+Compiling module 'stereo_spatializer'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/stereo_spatializer.sv":5)
+Compiling module 'audio_async_fifo'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv":27)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv":97)
+Compiling module 'i2s_amp_tx'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/i2s_amp_tx.sv":25)
+Compiling module 'pt8211_tx'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/pt8211_tx.sv":6)
+Compiling module 'lcd_timing(ROTATE_180=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v":1)
+WARN  (EX3791) : Expression size 16 truncated to fit in target size 10("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v":47)
+WARN  (EX3791) : Expression size 16 truncated to fit in target size 10("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v":48)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 10("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v":51)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 10("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_timing.v":52)
+Compiling module 'key_ui_event(DEBOUNCE_CNT=1000000,LONG_CNT=40000000,SHORT_EVENT=1,LONG_EVENT=2)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/key_ui_event.sv":1)
+Compiling module 'key_ui_event(DEBOUNCE_CNT=1000000,LONG_CNT=40000000,SHORT_EVENT=3,LONG_EVENT=4)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/key_ui_event.sv":1)
+Compiling module 'audio_async_fifo(WIDTH=24)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv":27)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/audio/audio_async_fifo.sv":97)
+Compiling module 'real_audio_chain'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/real_audio_chain.v":9)
+Compiling module 'time_pingpong(WIDTH=24)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/time_pingpong.v":12)
+Extracting RAM for identifier 'tbuf_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/time_pingpong.v":50)
+Compiling module 'wave_capture'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/audio/wave_capture.sv":1)
+Compiling module 'wave_frame_buffer'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/wave_frame_buffer.sv":1)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/wave_frame_buffer.sv":18)
+Compiling module 'fft_ctrl'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft_ctrl.v":8)
+Extracting RAM for identifier 'hann_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft_ctrl.v":65)
+WARN  (EX3791) : Expression size 17 truncated to fit in target size 16("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft_ctrl.v":76)
+Compiling module 'fft1024_iter'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft1024_iter.sv":12)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft1024_iter.sv":56)
+Extracting RAM for identifier 'tw_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/fft/fft1024_iter.sv":74)
+Compiling module 'spectrum_map'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v":1)
+Extracting RAM for identifier 'bin_mag'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v":44)
+Extracting RAM for identifier 'bar_range'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v":45)
+Extracting RAM for identifier 'smooth_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/spectrum/spectrum_map.v":48)
+Compiling module 'waterfall_store'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/waterfall_store.sv":9)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/waterfall_store.sv":39)
+WARN  (EX2526) : Entry size 12 at waterfall_zero.mem:1 does not match memory width 10("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/waterfall_store.sv":41)
+Compiling module 'trail_calc'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_calc.sv":1)
+Compiling module 'trail_store'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_store.sv":1)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/trail_store.sv":13)
+Compiling module 'curve_calc'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_calc.sv":1)
+Extracting RAM for identifier 'bars'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_calc.sv":29)
+Compiling module 'curve_store'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_store.sv":1)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/curve_store.sv":18)
+Compiling module 'display_frame_buffer'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/display_frame_buffer.sv":14)
+Extracting RAM for identifier 'mem'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/display_frame_buffer.sv":40)
+Compiling module 'sidebar_system(CTRL_HZ=50000000,AUDIO_BACKEND=1'b1,JOY_DEADZONE_ON=200,JOY_DEADZONE_OFF=100,JOY_FILTER_CENTER=1'b1,JOY_SWAP_XY=1'b1,JOY_INVERT_X=1'b1,REVERSE_SCAN=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_system.sv":3)
+Compiling module 'joystick_adapter(CLK_HZ=50000000,DEADZONE_ON=200,DEADZONE_OFF=100,FILTER_CENTER=1'b1,SWAP_XY=1'b1,INVERT_X=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/joystick_adapter.sv":4)
+Compiling module 'sidebar_ctrl'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_ctrl.sv":2)
+WARN  (EX3791) : Expression size 16 truncated to fit in target size 15("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_ctrl.sv":67)
+WARN  (EX3791) : Expression size 16 truncated to fit in target size 15("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_ctrl.sv":68)
+Compiling module 'control_loop(SOURCES=2,REQUEST_W=64)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/control_loop.sv":12)
+Compiling module 'config_dispatch(LOCAL_SUPPORTED=22'b0000010000011111000000,AUDIO_BACKEND=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/config_dispatch.sv":3)
+Compiling module 'sidebar_mailbox(WIDTH=837)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_mailbox.sv":3)
+Compiling module 'sidebar_mailbox(WIDTH=264)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_mailbox.sv":3)
+Compiling module 'lcd_draw(REVERSE_SCAN=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_draw.v":1)
+Compiling module 'lcd_background'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_background.v":1)
+Compiling module 'lcd_fft(REVERSE_SCAN=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":1)
+Extracting RAM for identifier 'dot_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":234)
+Extracting RAM for identifier 'fall_ram'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":235)
+WARN  (EX3791) : Expression size 10 truncated to fit in target size 9("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_fft.v":107)
+Compiling module 'lcd_wave'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_wave.v":1)
+Compiling module 'lcd_polar_curve(REVERSE_SCAN=1'b1)'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_polar_curve.sv":39)
+Compiling module 'cordic_polar'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/cordic_polar.sv":18)
+Compiling module 'lcd_pad_guide'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_pad_guide.sv":3)
+Extracting RAM for identifier 'font_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_pad_guide.sv":138)
+Compiling module 'sidebar_label_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_label_rom.sv":4)
+Extracting RAM for identifier 'labels'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/ui/sidebar_label_rom.sv":12)
+Compiling module 'lcd_sidebar'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_sidebar.sv":4)
+Extracting RAM for identifier 'font_rom'("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_sidebar.sv":135)
+NOTE  (EX0101) : Current top module is "instrument_board_top"
+[5%] Running netlist conversion ...
+WARN  (CV0016) : Input bt_state is unused("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board_top.sv":19)
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+WARN  (NL0002) : The module "comm_hc05_status" instantiated to "u_status" is swept in optimizing("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/bluetooth_hc05/hc05_driver.sv":41)
+WARN  (NL0002) : The module "cart2polar" instantiated to "c2p_inst" is swept in optimizing("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/drivers/pad_driver.sv":278)
+WARN  (NL0002) : The module "midi_instrument_map" instantiated to "u_map" is swept in optimizing("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/router/midi_voice_top.sv":189)
+WARN  (NL0002) : The module "lcd_background" instantiated to "u_bg" is swept in optimizing("/home/rubbishbro/Projects/FPGA_IDC_2026/rtl_FFT/src/display/lcd_draw.v":50)
+[95%] Generate netlist file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/gwsynthesis/instrument_board.vg" completed
+[100%] Generate report file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/gwsynthesis/instrument_board_syn.rpt.html" completed
+GowinSynthesis finish
+INSTRUMENT_BOARD_SYN_DONE
+Reading netlist file: "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/gwsynthesis/instrument_board.vg"
+Parsing netlist file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/gwsynthesis/instrument_board.vg" completed
+Processing netlist completed
+Reading constraint file: "/home/rubbishbro/Projects/FPGA_IDC_2026/rtl/platform/tang_mega_138k_pro/instrument_board.cst"
+Physical Constraint parsed completed
+Running placement......
+[10%] Placement Phase 0 completed
+[20%] Placement Phase 1 completed
+[30%] Placement Phase 2 completed
+[50%] Placement Phase 3 completed
+Running routing......
+[60%] Routing Phase 0 completed
+[70%] Routing Phase 1 completed
+[80%] Routing Phase 2 completed
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' by the specified constraint. And then it may lead to the excessive delay or skew
+[90%] Routing Phase 3 completed
+Running timing analysis......
+[95%] Timing analysis completed
+Placement and routing completed
+Bitstream generation in progress......
+Bitstream generation completed
+Running power analysis......
+[100%] Power analysis completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.power.html" completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.pin.html" completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.rpt.html" completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.rpt.txt" completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.tr.html" completed
+Generate file "/home/rubbishbro/Projects/FPGA_IDC_2026/build/pnr_20261103_24min_v2/instrument_board/impl/pnr/instrument_board.tr" completed
+Tue Nov  3 12:13:04 2026
+
+INSTRUMENT_BOARD_PNR_DONE
+PASS board source/pin preflight: 51 ports, 97 production files
+INSTRUMENT_BOARD_TIMING_ACCEPTED
