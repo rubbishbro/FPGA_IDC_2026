@@ -93,7 +93,7 @@ module midi_voice_top #(
     logic bank_q,target_bank,mode_q,target_mode,source_q,target_source;
     logic guide_q,target_guide,arm_pad;
     logic custom_q,target_custom,keymap_inflight,keymap_validating,keymap_rollback;
-    logic keymap_timeout,keymap_canceled;
+    logic keymap_timeout,keymap_canceled,keymap_abort_responded;
     logic [31:0] keymap_deadline_timer;
     logic [255:0] keymap_hold;
     logic [3:0] keymap_scan;
@@ -323,7 +323,7 @@ module midi_voice_top #(
             slot_map_q<=router_pkg::default_note_map();target_slot_map<=router_pkg::default_note_map();
             committed_map<=router_pkg::default_note_map();custom_q<=0;target_custom<=0;
             keymap_inflight<=0;keymap_validating<=0;keymap_rollback<=0;keymap_hold<=0;keymap_scan<=0;
-            keymap_rsp_valid<=0;keymap_result<=6;keymap_timeout<=0;keymap_canceled<=0;keymap_deadline_timer<=0;
+            keymap_rsp_valid<=0;keymap_result<=6;keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;keymap_deadline_timer<=0;
             guide_q<=0;target_guide<=0;guide_revision<=0;arm_pad<=0;
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
             target_channel<=0;target_bank<=0;target_first<=0;target_mode<=0;target_source<=0;
@@ -421,10 +421,13 @@ module midi_voice_top #(
                             committed_map<=slot_map_q;guide_revision<=guide_revision+1'b1;
                             committed_pad<=pad_q;have_commit<=1;
                             if(keymap_inflight)begin
-                                keymap_result<=keymap_timeout ? 8'd4 :
-                                                 (keymap_canceled ? 8'd6 : (keymap_rollback ? 8'd6 : 8'd0));
-                                keymap_rsp_valid<=1;keymap_inflight<=0;keymap_rollback<=0;
-                                keymap_timeout<=0;keymap_canceled<=0;
+                                if(!keymap_abort_responded)begin
+                                    keymap_result<=keymap_timeout ? 8'd4 :
+                                                     (keymap_canceled ? 8'd6 : (keymap_rollback ? 8'd6 : 8'd0));
+                                    keymap_rsp_valid<=1;
+                                end
+                                keymap_inflight<=0;keymap_rollback<=0;
+                                keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;
                             end
                             if(backend_inflight)begin
                                 backend_response.tag<=pending_request.tag;backend_response.id<=pending_request.id;
@@ -473,7 +476,7 @@ module midi_voice_top #(
             if(keymap_valid && keymap_ready)begin
                 keymap_hold<=keymap_entries;keymap_scan<=0;
                 keymap_inflight<=1;keymap_validating<=1;keymap_rollback<=0;
-                keymap_timeout<=0;keymap_canceled<=0;keymap_deadline_timer<=0;
+                keymap_timeout<=0;keymap_canceled<=0;keymap_abort_responded<=0;keymap_deadline_timer<=0;
             end
             if(keymap_validating)begin
                 if(!key_entry_ok)begin
@@ -518,8 +521,13 @@ module midi_voice_top #(
             if(keymap_inflight && !keymap_rsp_valid) begin
                 if(keymap_deadline_timer < 32'hffff_ffff)
                     keymap_deadline_timer <= keymap_deadline_timer + 1'b1;
-                if(keymap_deadline_timer >= KEYMAP_RELEASE_TIMEOUT_CYCLES-1) begin
+                if(keymap_deadline_timer >= KEYMAP_RELEASE_TIMEOUT_CYCLES-1 &&
+                   !keymap_abort_responded) begin
+                    // Reply first, rollback second. The host deadline does not
+                    // depend on pad release or on the rollback reload time.
                     keymap_timeout<=1;keymap_validating<=0;arm_pad<=1'b0;
+                    keymap_abort_responded<=1;
+                    keymap_rsp_valid<=1'b0;
                     if(have_commit)begin
                         target_slot_map<=committed_map;
                         target_custom<=backend_audio_state.custom_keys;
@@ -532,16 +540,17 @@ module midi_voice_top #(
                         target_reverb<=backend_audio_state.reverb;
                         target_first<=0;config_failed<=0;cfg_state<=C_CLEAN;
                     end else begin
-                        keymap_result<=8'd4;keymap_rsp_valid<=1;keymap_inflight<=0;
-                        keymap_timeout<=0;cfg_state<=C_RUN;
+                        keymap_inflight<=0;keymap_timeout<=0;cfg_state<=C_RUN;
                     end
                 end
             end else keymap_deadline_timer<=0;
             // A source can be quarantined or lose permission while the keymap
             // table is already in flight. Abort/rollback instead of silently
             // committing the table after the reply was suppressed.
-            if(keymap_cancel && keymap_inflight) begin
+            if(keymap_cancel && keymap_inflight && !keymap_abort_responded) begin
                 keymap_canceled<=1;keymap_validating<=0;arm_pad<=1'b0;
+                keymap_abort_responded<=1;
+                keymap_rsp_valid<=1'b0;
                 if(have_commit)begin
                     target_slot_map<=committed_map;
                     target_custom<=backend_audio_state.custom_keys;
@@ -554,8 +563,7 @@ module midi_voice_top #(
                     target_reverb<=backend_audio_state.reverb;
                     target_first<=0;config_failed<=0;cfg_state<=C_CLEAN;
                 end else begin
-                    keymap_result<=8'd6;keymap_rsp_valid<=1;keymap_inflight<=0;
-                    keymap_canceled<=0;cfg_state<=C_RUN;
+                    keymap_inflight<=0;keymap_canceled<=0;cfg_state<=C_RUN;
                 end
             end
             if((config_busy && cfg_state!=C_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
