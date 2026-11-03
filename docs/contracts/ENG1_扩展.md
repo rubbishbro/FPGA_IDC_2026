@@ -6,6 +6,8 @@
 
 ## 一、鼓噪声数据合同
 
+2026-11-03用户确认主体采用零状态单冲激ABC、噪声采用拟合单低通/双低通差分的正式方法；共享生产入口为 `python/modal_sim/drum_coefficients.py`，不再将任意相位seed装载作为当前选定方案。该方法已完成六件完整采样RTL核对，整机鼓组安装与生命周期仍待接入，见[试听与当前增益](../reports/2026-11-03_鼓镲对照试听与当前增益.md)。
+
 噪声开关由Flash记录的LFSR seed决定：seed=0禁用，seed≠0启用。
 不新增enable、trigger、velocity等端口，ENG1保持原接口。
 本合同替代此前的显式开关/tag提案；未生成或烧录鼓Flash镜像，未做综合/PnR。

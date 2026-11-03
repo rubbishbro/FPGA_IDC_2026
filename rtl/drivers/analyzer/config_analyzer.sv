@@ -15,7 +15,7 @@
 // 不猜测 ACK。
 module config_analyzer #(
     parameter int EQ_BANDS = 3,
-    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0fff
 ) (
     input  logic        clk,
     input  logic        rst_n,

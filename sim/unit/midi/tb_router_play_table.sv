@@ -22,23 +22,35 @@ module tb_router_play_table #(parameter int MODES=64);
         .EXTERNAL_SAMPLE_TICK(1),.MIDI_ENABLE(1)) dut(
         .clk(clk),.rst_n(rst_n),.start(start),.sample_tick(sample_tick),
         .fmap(fmap),.inst(inst),.reverb_preset(REVERB_NONE),.reload(reload),
+        .record_snapshot_valid(),.record_snapshot_gate(),.record_snapshot_level(),.record_snapshot_notes(),
+        .pad_keys_down(),.slot_note_map((SLOTS*7)'(router_pkg::default_note_map())),
         .table_valid(valid),.load_err(error),.done(done),.ready(),
         .y_valid(yv),.y_data(y),
         .qspi_cs_n(cs),.qspi_sck(sck),.qspi_dq_o(dqo),.qspi_dq_oe(oe),.qspi_dq_i(dqi),
         .maintenance_clear(maintenance),.map_reload(1'b0),.load_offsets('0),
-        .midi_select(1'b0),.midi_valid(1'b0),.midi_gate('0),.midi_velocity('0),
+        .midi_select(1'b0),.midi_valid(1'b0),.midi_ready(),.midi_gate('0),.midi_velocity('0),
         .midi_retrigger('0),.midi_hard_clear('0),
+        .pitch_control_valid(1'b0),.pitch_control_cancel(1'b0),.pitch_control_source(1'b0),
+        .pitch_control_data(32'd0),.pitch_slot_source('0),.pitch_cleanup(2'd0),
+        .pitch_control_ready(),.pitch_control_rejected(),
+        .maintenance_done(),.midi_inflight(),.load_complete(),.voice_idle(),
         .ns_rd_en(1'b0),.ns_rd_addr('0),.ns_rd_sel(1'b0));
     voice_router_reference #(.SLOTS(SLOTS),.N_MODES(MODES),.CLK_HZ(4_000_000),
         .EXTERNAL_SAMPLE_TICK(1),.MIDI_ENABLE(1)) reference(
         .clk(clk),.rst_n(rst_n),.start(start),.sample_tick(sample_tick),
         .fmap(fmap),.inst(inst),.reverb_preset(REVERB_NONE),.reload(reload),
+        .record_snapshot_valid(),.record_snapshot_gate(),.record_snapshot_level(),.record_snapshot_notes(),
+        .pad_keys_down(),.slot_note_map((SLOTS*7)'(router_pkg::default_note_map())),
         .table_valid(ref_valid),.load_err(ref_error),.done(ref_done),.ready(),
         .y_valid(ref_yv),.y_data(ref_y),
         .qspi_cs_n(ref_cs),.qspi_sck(ref_sck),.qspi_dq_o(ref_dqo),.qspi_dq_oe(ref_oe),.qspi_dq_i(ref_dqi),
         .maintenance_clear(maintenance),.map_reload(1'b0),.load_offsets('0),
-        .midi_select(1'b0),.midi_valid(1'b0),.midi_gate('0),.midi_velocity('0),
+        .midi_select(1'b0),.midi_valid(1'b0),.midi_ready(),.midi_gate('0),.midi_velocity('0),
         .midi_retrigger('0),.midi_hard_clear('0),
+        .pitch_control_valid(1'b0),.pitch_control_cancel(1'b0),.pitch_control_source(1'b0),
+        .pitch_control_data(32'd0),.pitch_slot_source('0),.pitch_cleanup(2'd0),
+        .pitch_control_ready(),.pitch_control_rejected(),
+        .maintenance_done(),.midi_inflight(),.load_complete(),.voice_idle(),
         .ns_rd_en(1'b0),.ns_rd_addr('0),.ns_rd_sel(1'b0));
     w25q64_read_model #(.N_MODES(MODES),.MEM_FILE("play_table.mem"),.MEM_BYTES(MEM_BYTES)) flash(
         .cs_n(cs),.sck(sck),.dq_o(dqo),.dq_oe(oe),.blank(1'b0),.dq_i(dqi));

@@ -1,6 +1,6 @@
 """Current production ENG1, at committed audio-frame boundaries.
 
-Q24 input/state, 64 stored / 48 computed modes, four sustained instruments.
+Q24 input/state, 64 stored / 48 computed modes, five sustained instruments.
 The DSP consumes accepted gate/level/retrigger/clear snapshots, not raw MIDI
 bytes. PitchEngine separately models the core-clock pitch FSM. Loader/QSPI,
 MIDI queues and audio FIFO/serializer clocks are outside this sample model.
@@ -22,7 +22,7 @@ import router_eng1 as R
 import pitch_linear as P
 
 ROOT = Path(__file__).resolve().parents[2]
-INSTRUMENTS = {"flute": 2, "trumpet": 3, "cello": 4, "violin": 5}
+INSTRUMENTS = {"flute": 2, "trumpet": 3, "cello": 4, "violin": 5, "oboe": 6}
 STATE_FRAC = 24
 STORAGE_MODES = 64
 ACTIVE_MODES = 48
@@ -73,13 +73,13 @@ class ResourceBank:
     """Immutable note resources decoded from the actual production byte layout."""
     def __init__(self, instrument, notes, sample_rate=48000):
         if instrument not in INSTRUMENTS:
-            raise ValueError("only flute/trumpet/cello/violin have production ENG1 front ends")
+            raise ValueError("only flute/trumpet/cello/violin/oboe have production ENG1 front ends")
         self.instrument, self.notes, self.sample_rate = instrument, MappingProxyType(dict(notes)), int(sample_rate)
 
     @classmethod
     def from_directory(cls, directory, instrument):
         if instrument not in INSTRUMENTS:
-            raise ValueError("only four sustained instruments have production ENG1 resources")
+            raise ValueError("only five sustained instruments have production ENG1 resources")
         directory = Path(directory)
         m = json.loads((directory/'manifest.json').read_text())
         if (m.get('a1_format'), m.get('storage_modes'), m.get('active_modes_limit')) != ('Q2.24', 64, 48):
@@ -100,7 +100,7 @@ class ResourceBank:
     @classmethod
     def build(cls, instrument, notes):
         if instrument not in INSTRUMENTS:
-            raise ValueError("only four sustained instruments have production ENG1 resources")
+            raise ValueError("only five sustained instruments have production ENG1 resources")
         # Use the same exported bytes/profile identity as the production packer.
         import sys
         tools_path = str(ROOT/'rtl/router/tools')
@@ -590,7 +590,7 @@ class Eng1Synth:
                                 for s in range(self.slots)),64)
         out = self.reverb.step(mix)  # B body_router is five exact passthrough sections.
         voices=int(np.count_nonzero((e>0)&~dead))
-        shift=2 if voices==1 else 1 if 2<=voices<=7 else 0
+        shift=2 if voices==4 else 1 if 2<=voices<=7 else 0
         self.poly_gain=4096<<shift
         out=R.wrap_signed(int(out)<<shift,64)
         if clears.any() and not gates.any():self.poly_gain=4096

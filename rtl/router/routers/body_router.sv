@@ -114,6 +114,54 @@ module body_router #(
                 coef_q[ 8] = -32'sd214866875;
                 coef_q[ 9] =  32'sd89687668;
             end
+            router_pkg::INST_BANJO: begin
+                // params.Patch("banjo").sos: four measured-body SOS, Q4.27.
+                // Section 4 retains the default passthrough.
+                coef_q[ 0] =  32'sd118149256;
+                coef_q[ 1] =  32'sd11691380;
+                coef_q[ 2] =  32'sd44193096;
+                coef_q[ 3] = -32'sd3826079;
+                coef_q[ 4] =  32'sd54072426;
+                coef_q[ 5] =  32'sd134217728;
+                coef_q[ 6] = -32'sd133272346;
+                coef_q[ 7] =  32'sd77765359;
+                coef_q[ 8] = -32'sd142671385;
+                coef_q[ 9] =  32'sd84178552;
+                coef_q[10] =  32'sd134217728;
+                coef_q[11] = -32'sd237418319;
+                coef_q[12] =  32'sd104832647;
+                coef_q[13] = -32'sd241092555;
+                coef_q[14] =  32'sd108514550;
+                coef_q[15] =  32'sd134217728;
+                coef_q[16] = -32'sd246600918;
+                coef_q[17] =  32'sd124145447;
+                coef_q[18] = -32'sd246081333;
+                coef_q[19] =  32'sd123716282;
+            end
+            router_pkg::INST_MANDOLIN: begin
+                // params.Patch("mandolin").sos: four measured-body SOS, Q4.27.
+                // Section 4 retains the default passthrough.
+                coef_q[ 0] =  32'sd118540642;
+                coef_q[ 1] =  32'sd29724204;
+                coef_q[ 2] =  32'sd35077275;
+                coef_q[ 3] = -32'sd6254490;
+                coef_q[ 4] =  32'sd37784913;
+                coef_q[ 5] =  32'sd134217728;
+                coef_q[ 6] = -32'sd174841607;
+                coef_q[ 7] =  32'sd98445623;
+                coef_q[ 8] = -32'sd175203889;
+                coef_q[ 9] =  32'sd97748420;
+                coef_q[10] =  32'sd134217728;
+                coef_q[11] = -32'sd233795871;
+                coef_q[12] =  32'sd109662286;
+                coef_q[13] = -32'sd230333412;
+                coef_q[14] =  32'sd106224213;
+                coef_q[15] =  32'sd134217728;
+                coef_q[16] = -32'sd261638022;
+                coef_q[17] =  32'sd128048485;
+                coef_q[18] = -32'sd260748405;
+                coef_q[19] =  32'sd127229199;
+            end
             default: ;                    // 全直通
         endcase
     end

@@ -86,7 +86,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
                         if({reply_bytes[source][10],reply_bytes[source][9],reply_bytes[source][8],reply_bytes[source][7]}!=32'hdbc01234)$fatal(1,"FAIL take ID");
                         case(reply_bytes[source][3])
                           0:perf_starts++;
-                          1:begin perf_ons++;if(perf_ons==1)perf_first_on_tick={reply_bytes[source][18],reply_bytes[source][17],reply_bytes[source][16],reply_bytes[source][15]};if(reply_bytes[source][19]!=21 || reply_bytes[source][20]!=64)$fatal(1,"FAIL PAD recorded pitch/velocity %d/%d",reply_bytes[source][19],reply_bytes[source][20]);end
+                          1:begin perf_ons++;if(perf_ons==1)perf_first_on_tick={reply_bytes[source][18],reply_bytes[source][17],reply_bytes[source][16],reply_bytes[source][15]};if(reply_bytes[source][19]!=router_pkg::note_first(router_pkg::INST_PIANO) || reply_bytes[source][20]!=64)$fatal(1,"FAIL PAD recorded pitch/velocity %d/%d",reply_bytes[source][19],reply_bytes[source][20]);end
                           2:begin perf_offs++;
                             if(({reply_bytes[source][18],reply_bytes[source][17],reply_bytes[source][16],reply_bytes[source][15]}-perf_first_on_tick)<190)$fatal(1,"FAIL device record timestamp/held duration");
                           end
@@ -293,7 +293,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
         if(nonzero!=0 || dut.u_system.u_sound.u_voice.note_on!=0 || dut.u_system.u_sound.gate!=0)
             $fatal(1,"FAIL UART guide automatically played");
         wait(dut.u_system.u_ui.pixel_guide.target[0]);
-        if(!dut.u_system.u_ui.pixel_guide.enabled || dut.u_system.u_ui.pixel_guide.note_map[6:0]!=21)
+        if(!dut.u_system.u_ui.pixel_guide.enabled || dut.u_system.u_ui.pixel_guide.note_map[6:0]!=router_pkg::note_first(router_pkg::INST_PIANO))
             $fatal(1,"FAIL board guide snapshot wiring");
         pad_enabled=1;wait(dut.u_system.guide_display.pressed[0]);wait(nonzero>20);
         frame(0,1,21,3,128'h0078b1);clocks(2000);
@@ -331,7 +331,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
         table_payload=0;table_payload[7:0]=8'h20;
         for(int i=0;i<16;i++)begin
             table_payload[(1+2*i)*8 +:8]=0;
-            table_payload[(2+2*i)*8 +:8]=8'(21+((63-i*3)%32));
+            table_payload[(2+2*i)*8 +:8]=8'(router_pkg::note_first(router_pkg::INST_PIANO)+((63-i*3)%32));
         end
         table_payload[39:32]=52; // duplicate bindings for keys0/1
         config_reply(1,40,33,table_payload,0);

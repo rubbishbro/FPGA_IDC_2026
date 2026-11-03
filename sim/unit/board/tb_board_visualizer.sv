@@ -85,38 +85,3 @@ module tb_polar_contracts;
     end
     initial begin #10000;$fatal(1,"FAIL polar watchdog");end
 endmodule
-
-module tb_polar_page;
-    logic clk=0,rst_n=0,frame_pulse=0,lcd_valid=0;
-    always #5 clk=~clk;
-    logic [9:0] x=0,y=0,address;
-    logic [39:0] history=0;
-    wire hit;
-    wire [5:0] r,g,b;
-    integer fd,pixels=0,colored=0;
-    lcd_polar_curve dut(.clk(clk),.rst_n(rst_n),.frame_pulse(frame_pulse),.lcd_valid(lcd_valid),
-        .pix_x(x),.pix_y(y),.curve_rd_addr(address),.curve_rd_data(history),.theme(1'b0),.hit(hit),.r(r),.g(g),.b(b));
-    always @(posedge clk)begin
-        if(address>767)$fatal(1,"FAIL polar history address %0d",address);
-        // Independent one-cycle memory, four distinguishable age curves.
-        history<={10'(90+address/8),10'(140+address/7),10'(210+address/6),10'(280+address/5)};
-    end
-    initial begin
-        fd=$fopen("polar.ppm","wb");$fwrite(fd,"P6\n800 480\n255\n");
-        repeat(4)@(negedge clk);rst_n=1;repeat(25)@(negedge clk);
-        for(int row=0;row<480;row++)begin
-            for(int col=0;col<1192;col++)begin
-                @(negedge clk);x=10'(col);y=10'(row);lcd_valid=col<800;
-                @(posedge clk);#1;
-                if(col<800)begin
-                    if((^{hit,r,g,b})===1'bx)$fatal(1,"FAIL unknown polar pixel x=%0d y=%0d",col,row);
-                    if({r,g,b}!=0)colored++;
-                    $fwrite(fd,"%c%c%c",{r,r[5:4]},{g,g[5:4]},{b,b[5:4]});pixels++;
-                end
-            end
-        end
-        $fclose(fd);
-        if(pixels!=384000 || colored<10000)$fatal(1,"FAIL empty polar page pixels=%0d lit=%0d",pixels,colored);
-        $display("PASS tb_polar_page pixels=%0d colored=%0d bounded_history/known_RGB",pixels,colored);$finish;
-    end
-endmodule

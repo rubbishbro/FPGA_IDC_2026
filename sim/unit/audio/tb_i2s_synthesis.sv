@@ -18,7 +18,7 @@ module tb_i2s_synthesis;
     logic [6:0] actual_modes;
     generate if(!PAD_TOP) begin : g_midi
     midi_voice_top #(.STEREO_ENABLE(STEREO),.AUDIO_ENABLE(1),.NOTE_BANKS(1)) dut(
-        .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pan_position(pan),.itd_enable(itd),
+        .backend_source_valid(1'b1),.clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pan_position(pan),.itd_enable(itd),
         .pad_instrument(ENG1 ? INST_FLUTE : INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(reload),.midi_select(midi_mode),.midi_source_id(1'b0),.panic(panic),
         .backend_ready(),.backend_rsp_valid(),.backend_response(),.backend_supported(),

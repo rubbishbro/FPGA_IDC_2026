@@ -405,6 +405,26 @@ module tb_integration_keymap_config;
                             dut.u_system.u_sound.keymap_inflight));
 
         // =============================================================
+        // Reject at the final slot too: a staged scan must not publish a
+        // partially valid table. Exercise both bounds and the full-byte ID.
+        for(int bad=0;bad<4;bad++)begin
+            build_keymap(8'd0,8'd21,p);
+            case(bad)
+                0:p[(2+2*15)*8 +:8]=8'd20; // below piano lower bound
+                1:p[(2+2*15)*8 +:8]=8'd53; // exclusive upper bound
+                2:p[(1+2*15)*8 +:8]=8'd1;  // mixed instrument
+                3:p[(1+2*15)*8 +:8]=8'h10; // same low nibble, invalid full ID
+            endcase
+            b0=tx_start_total;
+            send_frame(TYPE_CFG,8'(8'h60+bad),8'd33,p,1'b0);
+            check_reply(8'h20,8'h03,8'(8'h60+bad),$sformatf("invalid_last_slot_%0d_reply_03",bad),b0,500_000_000,ok);
+            wait_idle($sformatf("invalid_last_slot_%0d_idle",bad),50_000_000);
+            pass_fail($sformatf("invalid_last_slot_%0d_no_publish",bad),
+                      !dut.u_system.audio_state.custom_keys && dut.u_system.audio_valid &&
+                      !dut.u_system.u_sound.keymap_inflight,
+                      "invalid table changed the committed configuration");
+        end
+
         // 1) 0x20 keymap A over wired v1, then immediately a 0x02 config.
         // =============================================================
         build_keymap(8'h00,8'd21,p);

@@ -46,7 +46,7 @@ module tb_midi_keymap;
         .lcd_r(),.lcd_g(),.lcd_b(),.lcd_valid_out(),.active_values(values),.ui_scene(scene),.sidebar_width());
     midi_voice_top #(.SLOTS(16),.N_MODES(4),.CLK_HZ(1_000_000),.SR_HZ(48000),
         .NOTE_BANKS(1),.INSTRUMENT_NOTE_RANGES(1),.RESOURCE_MASK(12'h003),.CONFIG_BACKEND(1),.SINGLE_SOURCE(0),.CONFIG_TIMEOUT_CYCLES(300_000)) sound(
-        .clk(clk),.rst_n(rst_n),.audio_clk(clk),.run(1'b1),.fmap(fmap),
+        .backend_source_valid(1'b1),.clk(clk),.rst_n(rst_n),.audio_clk(clk),.run(1'b1),.fmap(fmap),
         .pan_position(6'd16),.itd_enable(1'b0),.amp_bclk(),.amp_ws(),.amp_din(),
         .audio_sample_tick(),.audio_deadline_miss(),.audio_overflow(),.audio_underflow(),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),.selected_channel(4'd1),

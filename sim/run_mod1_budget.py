@@ -12,6 +12,7 @@ def main():
  p.add_argument('--frames',type=int,default=320)
  p.add_argument('--real-flash',action='store_true',help='Also exercise real Flash loading and trumpet maintenance/restart')
  p.add_argument('--model-python',help='Python with NumPy for the real-Flash integer audio parity check')
+ p.add_argument('--directory',type=Path,default=ROOT/'rtl/router/tools/performance')
  p.add_argument('--instruments',nargs='+',default=['violin','trumpet'])
  a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=True)
  ini=Path(os.environ.get('QSIM_INI',str(Path.home()/'gowin/simlib_questa/modelsim.ini')))
@@ -28,7 +29,7 @@ def main():
  if a.real_flash:
   sources += [ROOT/'sim/unit/midi/w25q64_read_model.sv',ROOT/'sim/unit/audio/tb_trumpet_deadline.sv']
  run('compile','vlog',['-sv','-work',work,*sources,ROOT/'sim/unit/audio/tb_mod1_budget.sv'])
- directory=ROOT/'rtl/router/tools/performance';manifest=json.loads((directory/'resources.json').read_text());raw=(directory/'resources.bin').read_bytes()
+ directory=a.directory.resolve();manifest=json.loads((directory/'resources.json').read_text());raw=(directory/'resources.bin').read_bytes()
  from run_aftertouch import vectors
  vectors(out)
  rows=[]
@@ -39,7 +40,7 @@ def main():
   for r in notes:
    data=raw[r['offset']:r['offset']+4096]
    records.extend(data[i:i+64].hex() for i in range(0,4096,64))
-   profiles.append(f"{r['period']:04x}{r['a_step']:08x}{r['r_step']:08x}")
+   profiles.append(f"{r.get('period',0):04x}{r.get('a_step',0):08x}{r.get('r_step',0):08x}")
   (out/f'{inst}_records.mem').write_text('\n'.join(records)+'\n');(out/f'{inst}_profiles.mem').write_text('\n'.join(profiles)+'\n')
   for cap in a.caps:
    s=run(f'{inst}_{cap}','vsim',['-c','-suppress','7061','-lib',work,'tb_mod1_budget',f'-gCAP={cap}',f"-gINSTRUMENT={notes[0]['instrument']}",f'-gTEST_FRAMES={a.frames}',f'+records={inst}_records.mem',f'+profiles={inst}_profiles.mem','-do','run -all; quit -f'])

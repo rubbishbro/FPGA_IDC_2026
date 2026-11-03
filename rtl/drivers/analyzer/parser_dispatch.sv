@@ -3,7 +3,7 @@
 // （仅收完最后一字节，并不等于其待处理事件/ACK 已完成）。
 module parser_dispatch #(
     parameter int EQ_BANDS = 3,
-    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0fff
 ) (
     input logic clk, rst_n,
     input logic s_valid,

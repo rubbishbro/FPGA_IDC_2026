@@ -26,6 +26,30 @@ package router_pkg;
         INST_NONE       = 4'hF
     } instrument_e;
 
+    // GM notes remain external; compact resource slots follow ascending GM order.
+    // 3'd7 is invalid. This lookup does not enable the drum resource/channel.
+    function automatic logic [2:0] drum_index_of(input logic [7:0] gm_note);
+        case (gm_note)
+            8'd36: return 3'd0; // kick
+            8'd38: return 3'd1; // snare
+            8'd42: return 3'd2; // closed hi-hat
+            8'd45: return 3'd3; // low tom
+            8'd49: return 3'd4; // crash
+            8'd59: return 3'd5; // ride
+            default: return 3'd7;
+        endcase
+    endfunction
+
+    function automatic logic [6:0] drum_note_of(input logic [2:0] index);
+        case(index)
+            0:return 36;1:return 38;2:return 42;3:return 45;4:return 49;5:return 59;
+            default:return 127;
+        endcase
+    endfunction
+    function automatic logic [4:0] resource_index_of(input instrument_e inst,input logic [7:0] note);
+        return inst==INST_DRUMS ? {2'b0,drum_index_of(note)} : 5'(note-{1'b0,note_first(inst)});
+    endfunction
+
     typedef enum logic [1:0] {
         REVERB_NONE     = 2'd0,
         REVERB_HALL     = 2'd1,
@@ -50,25 +74,34 @@ package router_pkg;
     } sustain_cfg_t;
     function automatic logic is_sustain(input instrument_e inst);
         return inst==INST_FLUTE || inst==INST_TRUMPET ||
-               inst==INST_CELLO || inst==INST_VIOLIN;
+               inst==INST_CELLO || inst==INST_VIOLIN || inst==INST_OBOE;
+    endfunction
+    // Pitch modulation is independent of sustained vs plucked excitation.
+    function automatic logic uses_mod1(input instrument_e inst);
+        case(inst)
+            INST_FLUTE,INST_TRUMPET,INST_CELLO,INST_VIOLIN,INST_OBOE,
+            INST_BANJO,INST_MANDOLIN,INST_GUITAR_ABC:return 1'b1;
+            default:return 1'b0; // both pianos, matrix guitar and drums
+        endcase
     endfunction
     // Frozen per-instrument 32-note windows (通信协议约定 §3.2.1).
     // Slot index is relative to this first MIDI; it is never sent as the MIDI note.
     function automatic logic [6:0] note_first(input instrument_e inst);
         case(inst)
-            INST_PIANO,INST_PIANO_ABC:return 21;
-            INST_GUITAR,INST_GUITAR_ABC:return 40;
+            INST_PIANO,INST_PIANO_ABC:return 44;
+            INST_GUITAR,INST_GUITAR_ABC:return 44;
             INST_BANJO:return 48;
             INST_MANDOLIN,INST_VIOLIN:return 55;
             INST_FLUTE:return 60;
             INST_TRUMPET:return 51;
-            INST_CELLO:return 36;
+            INST_CELLO:return 44;
             INST_OBOE:return 58;
             default:return 0;
         endcase
     endfunction
     function automatic logic note_in_range(input instrument_e inst,input logic [7:0] note);
-        return inst!=INST_DRUMS && inst!=INST_NONE && inst<=INST_GUITAR_ABC &&
+        if(inst==INST_DRUMS)return drum_index_of(note)<6;
+        return inst!=INST_NONE && inst<=INST_GUITAR_ABC &&
                {1'b0,note_first(inst)}<=note && 9'(note)<9'(note_first(inst))+9'd32;
     endfunction
     // Legacy 16-note resource mapping. Banked resources supply their own map.
@@ -140,22 +173,29 @@ package router_pkg;
         endcase
     endfunction
 
-    // Per-instrument output gain, Q4.12. Unity=4096. Values are calibrated
-    // from *_raw_q24.npy max-20ms RMS to a common -14 dBFS target at
-    // PCM_HEADROOM_BITS=0 (per-channel full scale 1.0 Q24); they include
-    // both attenuation and positive gain. The loudest measured peak leaves
-    // ~1.57 dB margin; do not raise the target above -12.43 dBFS without a
-    // fresh peak scan.
-    // Re-run sim/analyze_instrument_loudness.py and re-check peak headroom
-    // after any resource/level change.
+    // Per-instrument output gain, signed Q4.12 (unity=4096).
+    // Python calibration: MIDI69 for every pitched instrument, full level255,
+    // single voice, modulation off, body enabled, reverb NONE; sliding20ms
+    // max RMS=-12dBFS, full scale=1.0 Q24, PCM_HEADROOM_BITS=0.
+    // Drums use rise3/pw8, loudest of six accepted-method hits (kick), one common trim.
+    // Reference-note calibration does not guarantee full-range/polyphonic peaks.
+    // Calculation artifact: build/reference_gain_calibration/results.json.
     function automatic logic signed [15:0] gain_q12_of(input instrument_e inst);
         case (inst)
-            INST_PIANO:      return 16'sd9532; // +7.34 dB, RMS target -14 dBFS
-            INST_GUITAR:     return 16'sd7676; // +5.46 dB
-            INST_TRUMPET:    return 16'sd1252; // -10.29 dB
-            INST_VIOLIN:     return 16'sd614;  // -16.48 dB
-            INST_PIANO_ABC:  return 16'sd1304; // -9.94 dB
-            INST_GUITAR_ABC: return 16'sd916;  // -13.01 dB
+            INST_PIANO:      return 16'sd18420;
+            INST_GUITAR:     return 16'sd12843;
+            INST_FLUTE:      return 16'sd1882;
+            INST_TRUMPET:    return 16'sd2494;
+            INST_CELLO:      return 16'sd1029;
+            INST_VIOLIN:     return 16'sd1390;
+            INST_OBOE:       return 16'sd3321;
+            INST_DRUMS:      return 16'sd453; // rise3/pw8; kick=max20ms reference; production drum group trim.
+            INST_BANJO:      return 16'sd1097;
+            // TODO: MIDI69 calibrated peak is about +0.69dBFS at headroom0.
+            // Accepted temporary overshoot; retain the requested RMS target.
+            INST_MANDOLIN:   return 16'sd1543;
+            INST_PIANO_ABC:  return 16'sd10992;
+            INST_GUITAR_ABC: return 16'sd1165;
             default:         return 16'sd4096;
         endcase
     endfunction

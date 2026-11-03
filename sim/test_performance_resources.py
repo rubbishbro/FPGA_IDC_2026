@@ -1,4 +1,4 @@
-"""Six timbres: both engines, fixed address regions and format regressions."""
+"""Twelve timbres: both engines, fixed address regions and format regressions."""
 from pathlib import Path
 import json
 import hashlib
@@ -23,16 +23,16 @@ DIRECTORY=ROOT/'rtl/router/tools/performance'
 class PerformanceResourcesTests(unittest.TestCase):
     def test_current_deployment_contract(self):
         result=check(DIRECTORY)
-        self.assertEqual((result['records'],result['image_bytes']), (12288,1576960))
+        self.assertEqual((result['records'],result['image_bytes']), (22912,1576960))
 
     def test_exported_records_are_selected_source_coefficients(self):
         m=json.loads((DIRECTORY/'resources.json').read_text())
         data=(DIRECTORY/'resources.bin').read_bytes()
         for name,ident in P.INSTRUMENTS.items():
-            for slot in (0,15,16,31):
+            for slot in ((0,1,2,3,4,5) if name=='drums' else (0,15,16,31)):
                 midi=m['note_maps'][name][slot]
                 row=P.make_note(name,midi)
-                profile=((1<<80)|(row['period']<<64)|(row['a_step']<<32)|row['r_step']) if name in ('trumpet','violin') else 0
+                profile=((1<<80)|(row['period']<<64)|(row['a_step']<<32)|row['r_step']) if name in P.SUSTAINED else 0
                 from pitch_tables import with_profile
                 row['data']=with_profile(row['data'],profile)
                 at=ident*131072+slot*4096
@@ -71,7 +71,7 @@ class PerformanceResourcesTests(unittest.TestCase):
     def test_wrong_engine_id_cli_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             p=subprocess.run([sys.executable,str(ROOT/'rtl/router/tools/pack_board_flash.py'),
-                '--instrument',f'10={ROOT/"rtl/router/tools/coefficients/eng0_piano.bin"}',
+                '--instrument',f'10={DIRECTORY/"piano_eng0.bin"}',
                 '--out',str(Path(temp)/'wrong.bin')],capture_output=True,text=True)
             self.assertNotEqual(p.returncode,0)
             self.assertIn('Instrument ID/engine format mismatch',p.stderr)

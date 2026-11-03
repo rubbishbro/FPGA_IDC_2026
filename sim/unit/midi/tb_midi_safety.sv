@@ -23,7 +23,7 @@ module tb_midi_safety;
         .NOTE_BANKS(1),.CONTROL_SUPPORTED(5'b10000),.CONTROL_TIMEOUT_CYCLES(64),
         // QE initialization alone is 200000 cycles with this CLK_HZ fixture.
         .OP_TIMEOUT_CYCLES(5000),.CONFIG_TIMEOUT_CYCLES(500000)) dut (
-        .clk(clk),.rst_n(rst_n),.run(run),.reload(reload),.midi_select(midi_select),
+        .backend_source_valid(1'b1),.clk(clk),.rst_n(rst_n),.run(run),.reload(reload),.midi_select(midi_select),
         .midi_source_id(midi_source_id),.panic(panic),.note_bank(note_bank),.first_midi_note(first_midi_note),
         .fmap(fmap),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .backend_valid(1'b0),.backend_source(1'b0),.backend_ready(),.backend_request('0),

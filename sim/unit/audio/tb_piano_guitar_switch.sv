@@ -29,7 +29,7 @@ module tb_piano_guitar_switch;
         .FLASH_BASE(32'h0080_0000),.FLASH_BYTES(16777216),.PCM_HEADROOM_BITS(0),
         .NOTE_BANKS(0),.RESOURCE_MASK(10'b0000000011),
         .PAD_NOTE_ON_TH(64),.PAD_NOTE_OFF_TH(48)) dut(
-        .clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
+        .backend_source_valid(1'b1),.clk(clk),.audio_clk(audio_clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
         .pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'd1),.note_bank(1'b0),.first_midi_note(7'd48),.slot_note_map(default_note_map()),

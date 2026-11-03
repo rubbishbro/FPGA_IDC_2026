@@ -1,0 +1,341 @@
+# ** Note: (vsim-220) '/home/rubbishbro/gowin/simlib_questa/modelsim.ini' is used as the ini file.
+# ** Note: (vsim-224) The environment variable MODELSIM and QSIM_INI are the same. MODELSIM will be deprecated in future releases. Please use QSIM_INI only.
+# vsim -c -suppress 14408,16154 -lib build/selection_source_port_fix_20261103/gate/work tb -do "run -all; quit -f" 
+# Start time: 16:21:18 on Nov 03,2026
+# ** Note: (vsim-3813) Design is being optimized due to module recompilation...
+# ** Note: (vopt-220) '/home/rubbishbro/gowin/simlib_questa/modelsim.ini' is used as the ini file.
+# ** Note: (vopt-224) The environment variable MODELSIM and QSIM_INI are the same. MODELSIM will be deprecated in future releases. Please use QSIM_INI only.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2685) [TFMPC] - Too few port connections for 'dut'.  Expected 355, found 53.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'phase'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'bit_index'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 't'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'bcnt'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'gained_y'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_out_3'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_out_1'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_out_0'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'qe_phase'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'beat'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'st'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_63'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_59'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_58'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_57'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_56'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_52'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_48'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_44'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_40'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_32'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_27'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'router_y_25'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_127'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_126'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_125'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_124'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_123'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_122'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_121'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_119'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_118'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_117'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_116'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_115'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_114'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_113'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_111'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_110'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_109'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_108'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_107'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_106'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_105'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_103'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_102'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_101'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_100'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_99'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_98'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_97'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_95'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_94'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_93'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_92'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_91'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_90'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_89'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_87'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_86'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_85'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_84'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_83'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_82'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_81'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_79'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_78'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_77'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_76'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_75'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_74'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_73'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_71'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_70'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_69'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_68'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_67'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_66'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_65'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_63'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_62'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_61'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_60'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_59'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_58'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_57'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_55'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_54'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_53'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_52'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_51'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_50'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_49'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_47'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_46'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_45'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_44'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_43'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_42'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_41'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_39'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_38'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_37'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_36'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_35'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_34'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_33'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_31'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_30'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_29'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_28'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_27'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_26'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_25'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_23'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_22'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_21'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_20'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_19'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_18'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_17'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_15'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_14'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_13'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_12'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_9'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_7'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_5'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_3'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_2'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_level_Z_1'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_gate_Z'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'op_cleanup_sources_Z'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'state_cleanup_done'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.glow '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.last_outside '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.outside_count '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'guide_cleanup_done'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.target '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.matched_Z '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.pressed_Z '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.applied_value '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.result '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'op_timer'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_15 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_14 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_10 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_9 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_8 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_2 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_1 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.id_0 '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\voice_response.tag '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\audio_state.reverb '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.audio.source '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.audio.channel '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.audio.instrument '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'first_q'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'channel_q'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'cfg_state'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'dac_din_d'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'amp_din_d'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'spatial_frame_tick'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'frame_seen'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'frame_s2'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'gain_valid'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_sck_d_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_sck_d'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'flash_cs_n_d'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n19024_5'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'table_valid'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'record_snapshot_valid_Z'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'op_valid_Z'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n6824_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n6757_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n6756_5'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pending'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'op_source_id_Z'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'event_source_q'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1645_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1796_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'note_map_59_5'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'note_map_86_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'note_map_99_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'note_map_105_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n231_9'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'backend_inflight'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1735_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1734_10_89'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1822_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1910_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1909_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2084_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2083_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2171_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2259_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2258_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2432_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2431_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2519_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2607_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2606_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2781_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2780_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2868_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2956_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2955_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1738_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1737_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2261_13'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1911_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1736_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2957_13'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2782_13'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1825_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2869_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1999_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1824_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2520_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2870_13'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2172_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1823_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2694_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1997_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'audio_valid'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.enabled_Z '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n7845_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n8108_12'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_127_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_119_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_111_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_103_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_95_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_87_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_79_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_71_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_63_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_55_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_47_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_39_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_31_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_23_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_15_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_7_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'pad_use_0_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n7845_9'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n12197_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n11580_5'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n11580_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'audio_valid_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'audio_valid_3'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'maintain_req_4'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1913_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2086_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2174_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2608_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2521_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2433_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2696_11'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1650_10'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n230_7'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2954_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2867_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2779_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2693_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2695_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2605_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2518_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2430_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1650_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1651_9'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2345_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2346_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2347_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2257_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2260_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2170_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2173_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2082_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n2085_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1996_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1998_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1908_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1912_8'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1821_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n1733_6'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.link_fault_Z '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.waiting_release_Z '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'synth_midi'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'n295_2'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.fault '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'have_commit'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\audio_state.guide '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port '\guide_display.audio.bank '.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'voice_rsp_valid'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'source_q'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'mode_q'.
+# ** Warning: build/selection_source_port_fix_20261103/gate/tb.sv(56): (vopt-2718) [TFMPC] - Missing connection for port 'guide_q'.
+# ** Note: (vsim-12126) Error and warning message counts have been restored: Errors=0, Warnings=303.
+# //  Questa Altera Starter FPGA Edition-64
+# //  Version 2025.2 linux_x86_64 May 31 2025
+# //
+# // Unpublished work. Copyright 2025 Siemens
+# //
+# // This material contains trade secrets or otherwise confidential information
+# // owned by Siemens Industry Software Inc. or its affiliates (collectively,
+# // "SISW"), or its licensors. Access to and use of this information is strictly
+# // limited as set forth in the Customer's applicable agreements with SISW.
+# //
+# // This material may not be copied, distributed, or otherwise disclosed outside
+# // of the Customer's facilities without the express written permission of SISW,
+# // and may not be used in any way not expressly authorized by SISW.
+# //
+# Loading sv_std.std
+# Loading work.tb(fast)
+# run -all
+# id=0100 source_invalid=0 publish_ce=1
+# reply=1/0 inst=1 bank=1 reverb=1
+# id=0200 source_invalid=0 publish_ce=1
+# reply=1/0 inst=1 bank=1 reverb=1
+# id=0300 source_invalid=0 publish_ce=1
+# reply=1/0 inst=1 bank=1 reverb=1
+# id=0500 source_invalid=0 publish_ce=1
+# reply=1/0 inst=1 bank=1 reverb=1
+# PASS actual synthesis gate: four local commits, live wired accepted with BT down, dead BT rejected
+# ** Note: $finish    : build/selection_source_port_fix_20261103/gate/tb.sv(86)
+#    Time: 311 ns  Iteration: 0  Instance: /tb
+# End time: 16:21:21 on Nov 03,2026, Elapsed time: 0:00:03
+# Errors: 0, Warnings: 303, Suppressed Errors: 2

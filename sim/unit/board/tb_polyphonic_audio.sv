@@ -13,7 +13,7 @@ module polyphonic_audio_case #(parameter bit ALT=0)(input logic clk,aclk,rst_n,o
     logic cs,sck,oe,run=1;
     wire[111:0] note_map=default_note_map();
     midi_voice_top #(.STEREO_ENABLE(0),.CLK_HZ(50_000_000),.SLOTS(16),.N_MODES(64),.AUDIO_ENABLE(1)) dut(
-        .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap('0),.pad_instrument(INST_PIANO),
+        .backend_source_valid(1'b1),.clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap('0),.pad_instrument(INST_PIANO),
         .reverb_preset(REVERB_HALL),.reload(1'b0),.midi_select(1'b1),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(CHANNEL),.note_bank(1'b0),.first_midi_note(7'd0),.slot_note_map(note_map),
         .backend_ready(),.backend_rsp_valid(),.backend_response(),.backend_supported(),

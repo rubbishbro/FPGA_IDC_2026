@@ -50,7 +50,7 @@ module tb_joint_config;
     );
     midi_voice_top #(.SLOTS(16),.N_MODES(64),.NOTE_BANKS(1),.CONFIG_BACKEND(1),
         .RESOURCE_MASK(10'b0000000011),.CONFIG_TIMEOUT_CYCLES(5_000_000)) sound(
-        .clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
+        .backend_source_valid(1'b1),.clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
         .pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'd0),.note_bank(1'b0),.first_midi_note(7'd48),.slot_note_map('0),
@@ -89,7 +89,7 @@ module tb_joint_config;
     endtask
     task automatic result(input logic [15:0] tag,id,input logic [7:0] code);
         wait(ext_rsp_valid);@(negedge clk);
-        ck(ext_response.tag==tag && ext_response.id==id && ext_response.result==code,"matching final result");
+        ck(ext_response.tag==tag && ext_response.id==id && ext_response.result==code,$sformatf("matching final result expected=%h/%h/%0d actual=%h/%h/%0d",tag,id,code,ext_response.tag,ext_response.id,ext_response.result));
         ext_rsp_ready=1;@(negedge clk);ext_rsp_ready=0;
     endtask
     task automatic request(input logic [15:0] tag,id,input integer value);
@@ -131,12 +131,17 @@ module tb_joint_config;
             send(4,16'h0501,0);result(4,16'h0501,CFG_UNSUPPORTED);
             ck(values[0]==1 && values[12]==1 && flash.transactions==before_spi,"unsupported resource/all-channel cannot partially change state");
         end
-        blank=1;send(5,16'h0100,0);result(5,16'h0100,CFG_FAILED);
+        // Zero coefficient data is legal; inject a real loader abort rather
+        // than treating a blank Flash response as a loader failure.
+        send(5,16'h0100,0);wait(sound.u_voice.ld_busy);
+        force sound.u_voice.u_ld.abort=1'b1;
+        repeat(2)@(negedge clk);release sound.u_voice.u_ld.abort;
+        result(5,16'h0100,CFG_FAILED);
         ck(audio_fault && !audio_valid && !sound.u_voice.table_valid && sound.u_voice.inst_prev==INST_GUITAR,
            "failed table is not a successful instrument commit");
         ck(values[0]==1 && values[12]==1,"failure preserves both last-successful UI identities");
         wait(ui.pixel_view.scene.has_result && ui.pixel_view.scene.result==CFG_FAILED);
-        blank=0;request(6,16'h0100,0);
+        request(6,16'h0100,0);
         ck(!audio_fault && values[0]==0 && values[12]==2,"explicit retry recovers same target");
         request(7,16'h0300,1);
         ck(values[5]==1 && active_bank==1 && sound.u_voice.ca_a11_b[0]==32'h10180000,

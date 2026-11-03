@@ -60,6 +60,8 @@ module tb_control_loop #(
         end else begin
             if ((^src_ready === 1'bx) || (req_valid !== 1'b0 && req_valid !== 1'b1))
                 $fatal(1, "unknown handshake signal ready=%b valid=%b", src_ready, req_valid);
+            if ((|src_ready) && (!poll_tick || req_valid))
+                $fatal(1, "ready offered outside an idle polling edge");
             if (was_stalled && (!req_valid || {req_source, req_request} !== held_output))
                 $fatal(1, "output changed while stalled");
             was_stalled = req_valid && !req_ready;
@@ -77,7 +79,7 @@ module tb_control_loop #(
 
             grants = 0;
             for (integer i = 0; i < SOURCES; i++) begin
-                if (src_ready[i]) begin
+                if (src_ready[i] && src_valid[i]) begin
                     grants++;
                     if (!poll_tick || req_valid || !src_valid[i])
                         $fatal(1, "source accepted outside an idle polling edge");
@@ -131,6 +133,17 @@ module tb_control_loop #(
             fresh_payload(i);
         end
         reset_dut();
+
+        // With no competing valid request, each source must see capacity
+        // before asserting its own valid. Toggle between sampling edges so
+        // this checks combinational independence without accepting a request.
+        for (integer i = 0; i < SOURCES; i++) begin
+            @(negedge clk);poll_tick=1;src_valid='0;
+            #1;if (!src_ready[i]) $fatal(1,"ready waits for own valid");
+            src_valid[i]=1;
+            #1;if (!src_ready[i]) $fatal(1,"own valid withdrew ready");
+            src_valid='0;
+        end
 
         // Requests must not be read between polls; empty polls produce nothing.
         before_count = accepted;

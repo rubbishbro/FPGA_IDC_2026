@@ -23,10 +23,10 @@ let frames=0;const reader=new FrameReader(frame=>{frames++;if(frame.type===130)r
 // Deliberately fragment the real pin stream to exercise browser read boundaries.
 for(let i=0;i<wire.length;i+=7)reader.feed(wire.subarray(i,i+7));
 assert.equal(recorder.ended,true);assert.equal(recorder.incomplete,false);assert.equal(recorder.track.notes.length,2);
-// Current production default is piano low bank: router_pkg::note_first(INST_PIANO)=21,
-// resources.json low group 21..36, and tb_instrument_board checks the same 21/64.
+// Current production default is piano low bank: router_pkg::note_first(INST_PIANO)=44,
+// resources.json low group 44..59, and tb_instrument_board checks the same 44/64.
 // Do not use the retired 40..76 legacy map here.
-assert.deepEqual(recorder.track.notes.map(n=>[n.pitch,n.velocity]),[[21,64],[21,64]]);
+assert.deepEqual(recorder.track.notes.map(n=>[n.pitch,n.velocity]),[[44,64],[44,64]]);
 assert.equal(recorder.track.channel,1);
 project.tracks=[recorder.track];validateProject(project);
 const midi=writeMidi(project);await mkdir(dirname(output),{recursive:true});await writeFile(output,midi);const parsed=parseMidi(midi).project;

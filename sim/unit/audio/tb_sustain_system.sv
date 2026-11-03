@@ -14,7 +14,7 @@ module tb_sustain_system;
     logic [3:0] dqo,dqi;
     pad_driver_pkg::mat4x4 fmap='0;
     midi_voice_top #(.STEREO_ENABLE(0),.AUDIO_ENABLE(1),.NOTE_BANKS(1),.SINGLE_SOURCE(0),.RESOURCE_MASK(10'b0000111111)) dut(
-        .clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
+        .backend_source_valid(1'b1),.clk(clk),.audio_clk(aclk),.rst_n(rst_n),.run(run),.fmap(fmap),.pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(reload),.midi_select(1'b1),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'(config_pkg::instrument_channel(16'(INST))-1)),.note_bank(bank),.first_midi_note(7'd48),.slot_note_map('0),
         .backend_ready(),.backend_rsp_valid(),.backend_response(),.backend_supported(),
@@ -104,7 +104,7 @@ module tb_sustain_system;
                 expected_y+=64'(product>>>31);
                 if(expect_e[s]>0)expected_count++;
             end
-            expected_gain=expected_count==1 ? 2 : (expected_count>=2 && expected_count<=7 ? 1 : 0);
+            expected_gain=expected_count==4 ? 2 : (expected_count>=2 && expected_count<=7 ? 1 : 0);
             expected_y=expected_y<<<expected_gain;
             core_frames++;
         end

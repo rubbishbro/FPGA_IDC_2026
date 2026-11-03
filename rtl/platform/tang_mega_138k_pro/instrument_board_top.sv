@@ -4,7 +4,7 @@ module instrument_board_top #(
     parameter bit NOTE_BANKS=1,BT_HAS_STATE=0,
     parameter int PCM_HEADROOM_BITS=0,
     parameter bit LCD_ROTATE_180=1'b1,
-    parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
+    parameter logic [11:0] RESOURCE_MASK=12'b111111111111,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,STEREO_ITD_ENABLE=1'b1,

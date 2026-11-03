@@ -45,3 +45,7 @@
 ## 证据 JSON
 
  review 的原始证据在 [reports/pnr/evidence](../../reports/pnr/evidence)：control fanout、core reset、high fanout reset/CE。JSON 文件名保留原日期前缀。
+
+## 临时诊断包
+
+- [067C 提交失败诊断包](config_failure_diagnostic_20261103/README.md)：保留补丁与测试夹具；后续已完成代码与网表复现，最终修复见 [76F0 / 9188 报告](../../reports/2026-11-03_76F0配置失败与来源端口修复.md)。不作为正式协议或当前修复入口。

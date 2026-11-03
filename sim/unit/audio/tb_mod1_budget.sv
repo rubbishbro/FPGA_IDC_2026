@@ -85,6 +85,10 @@ module tb_mod1_budget #(parameter int CAP=4,INSTRUMENT=3,FRAME_CYCLES=1024,TEST_
         @(negedge clk);release dut.state;release dut.inst_lat;release dut.inst_prev;
         release dut.nm_lat;release dut.table_valid;release dut.zero_frames;
         run=1;
+        // Settle the forced preload's instrument-change clear before a pluck.
+        // Sustained sources would eventually emit another pulse and conceal
+        // a trigger lost to the initial clear; finite strikes cannot do that.
+        repeat(8)@(posedge tick);@(negedge clk);
         for(int s=0;s<16;s++)fmap.raw[s*8 +:8]=8'(180+s*3);
         repeat(TEST_FRAMES)@(posedge tick);
         @(negedge clk);
@@ -155,5 +159,5 @@ module tb_mod1_budget #(parameter int CAP=4,INSTRUMENT=3,FRAME_CYCLES=1024,TEST_
     // Every computed frame changes all 16 pressures (no easy unchanged-slot case).
     always @(negedge clk)if(run && tick && frame>2)
         for(int s=0;s<16;s++)fmap.raw[s*8 +:8]=8'(130+((frame*31+s*7)%120));
-    initial begin #((TEST_FRAMES+4)*FRAME_CYCLES*20);$fatal(1,"budget watchdog");end
+    initial begin #((TEST_FRAMES+32)*FRAME_CYCLES*20);$fatal(1,"budget watchdog");end
 endmodule

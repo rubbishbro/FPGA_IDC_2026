@@ -52,7 +52,8 @@ module sidebar_ctrl #(
     always_ff @(posedge clk or negedge rst_n) begin
         if(!rst_n) begin
             count_q<=0;limit_q<=0;change_q<=5'd1;
-            cat_q<=0;sel_q<=0;edit_q<=0;changed_q<=0;
+            // Populate the default scene too: its indices already equal zero.
+            cat_q<=0;sel_q<=0;edit_q<=0;changed_q<=1;
         end else begin
             changed_q<=scene_changed;
             if(scene_changed || changed_q) begin
@@ -92,7 +93,7 @@ module sidebar_ctrl #(
         count=category_count(scene.category);
         limit=cfg_max(scene.edit_index);
         if(scene.edit_index==5)limit=1; // low/high 16-note group, committed by audio backend
-        if(scene.edit_index==0)limit=11; // Legacy IDs preserved; ABC piano/guitar at10/11
+        if(scene.edit_index==0)limit=11; // All12 instrument IDs are selectable; backend checks resource readiness.
         if(scene.edit_index==6)limit=2; // 当前实际绘制目录：0/1/2
         change=scene.edit_index==1?10:1;
     end

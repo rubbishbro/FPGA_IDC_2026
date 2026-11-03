@@ -51,7 +51,7 @@ module tb_flash_config_review;
     );
     midi_voice_top #(.SLOTS(16),.N_MODES(64),.NOTE_BANKS(1),.CONFIG_BACKEND(1),
         .INSTRUMENT_NOTE_RANGES(1),.FLASH_BASE(32'h00800000),.FLASH_BYTES(16777216),.RESOURCE_MASK(12'b110000101011),.CONFIG_TIMEOUT_CYCLES(20_000_000)) sound(
-        .clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
+        .backend_source_valid(1'b1),.clk(clk),.rst_n(rst_n),.run(1'b1),.fmap(fmap),
         .pad_instrument(INST_PIANO),.reverb_preset(REVERB_NONE),
         .reload(1'b0),.midi_select(1'b0),.midi_source_id(1'b0),.panic(1'b0),
         .selected_channel(4'd0),.note_bank(1'b0),.first_midi_note(7'd48),.slot_note_map('0),

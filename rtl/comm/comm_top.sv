@@ -17,7 +17,7 @@ module comm_top #(
     parameter int TIMEOUT_CYCLES = CLK_HZ,
     parameter bit BT_HAS_STATE = 1'b0,
     parameter int STATE_DEBOUNCE_CYCLES = CLK_HZ / 50,
-    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0c2b
+    parameter logic [15:0] SUPPORTED_INSTRUMENTS=16'h0fff
 
 ) (
     input logic clk, rst_n,
@@ -45,8 +45,9 @@ module comm_top #(
     input logic cfg_done_valid,
     output logic cfg_done_ready,
     input logic [7:0] cfg_result,
-    input logic perf_valid=1'b0,output logic perf_ready,
-    input logic [15:0] perf_seq=16'd0,input logic [191:0] perf_payload=192'd0
+    // Live descriptor inputs: explicit nets avoid default-port constant folding.
+    input wire perf_valid,output logic perf_ready,
+    input wire [15:0] perf_seq,input wire [191:0] perf_payload
 );
     localparam int ECW = $clog2(EVENT_DEPTH + 1);
     logic [1:0] byte_rx_valid, byte_rx_ready, byte_tx_valid, byte_tx_ready;

@@ -43,10 +43,15 @@ module control_loop #(
             for (int offset = 0; offset < SOURCES; offset++) begin
                 candidate = int'(rr_next) + offset;
                 if (candidate >= SOURCES) candidate = candidate - SOURCES;
-                if (!selected_valid && src_valid[candidate]) begin
-                    selected_valid        = 1'b1;
-                    selected_source       = SOURCE_W'(candidate);
+                // Ready describes capacity, independent of this source's valid.
+                // Stop offering later sources only after an earlier valid one.
+                // This breaks the bridge valid -> arbiter ready return path.
+                if (!selected_valid) begin
                     src_ready[candidate]  = 1'b1;
+                    if (src_valid[candidate]) begin
+                        selected_valid  = 1'b1;
+                        selected_source = SOURCE_W'(candidate);
+                    end
                 end
             end
         end

@@ -42,7 +42,7 @@ module tb_mod_router_channels;
                 a11<=10000+100*int'(p_mode);a12<=20000+100*int'(p_mode);
                 a22<=30000+100*int'(p_mode);wo<=40000+100*int'(p_mode);
                 s11<=1048576;s12<=1048576;s22<=-1048576;swo<=1048576;
-            end else if(inst==INST_TRUMPET)begin
+            end else if(uses_mod1(inst))begin
                 a11<=-26000000;a12<=-25000000+100*int'(p_mode);a22<=-24000000;wo<=0;
                 s11<=0;s12<=p_mode[0] ? -4194304 : 4194304;s22<=0;swo<=bad_tag ? 0 : 32'h50315431;
             end else $fatal(1,"FAIL inactive kernel issued parameter read");
@@ -57,7 +57,7 @@ module tb_mod_router_channels;
                    co.a22!==adjust(30000+100*int'(co_mode),-1048576,31) ||
                    co.wo!==adjust(40000+100*int'(co_mode),1048576,30))
                     $fatal(1,"FAIL ENG0 payload/mask");
-            end else if(inst==INST_TRUMPET)begin
+            end else if(uses_mod1(inst))begin
                 if(co_we!=5'b00010 || co.a12!==(-25000000+100*int'(co_mode)+(co_mode[0] ? -60000 : 60000)) ||
                    co.a11!=0 || co.a21!=0 || co.a22!=0 || co.wo!=0 || co.gq!=0 || co.gv!=0)
                     $fatal(1,"FAIL ENG1 payload/mask");
@@ -70,7 +70,7 @@ module tb_mod_router_channels;
         @(negedge clk);start=0;wait(done);@(posedge clk);#1;
         if(reads!=expected_reads || writes!=expected_writes || busy)
             $fatal(1,"FAIL shared handshake inst=%d reads=%d writes=%d",kind,reads,writes);
-        if(kind==INST_TRUMPET && !bad_tag && $signed(delta[slot*24 +:24])!=60000)
+        if(uses_mod1(kind) && !bad_tag && $signed(delta[slot*24 +:24])!=60000)
             $fatal(1,"FAIL pitch commit payload");
         jobs++;@(negedge clk);
     endtask
@@ -85,6 +85,11 @@ module tb_mod_router_channels;
         job(INST_TRUMPET,2,6,6);
         job(INST_TRUMPET,0,6,6);
         job(INST_PIANO,3,0,0);
+        job(INST_PIANO_ABC,3,0,0);
+        job(INST_FLUTE,2,6,6);job(INST_CELLO,2,6,6);
+        job(INST_VIOLIN,2,6,6);job(INST_OBOE,2,6,6);
+        job(INST_BANJO,2,6,6);job(INST_MANDOLIN,2,6,6);
+        job(INST_GUITAR_ABC,2,6,6);
         job(INST_GUITAR,0,8,4);
         bad_tag=1;job(INST_TRUMPET,1,1,0);bad_tag=0;
         // Abort completion must stay distinct from successful pitch_commit.

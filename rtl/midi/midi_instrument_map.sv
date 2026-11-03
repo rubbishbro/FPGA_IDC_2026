@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// 固定映射：界面通道 1..8，对应线上 channel 0..7。
+// 固定映射：界面通道 1..12；10为GM鼓组。
 // 本表只产生音色请求；不证明 Flash 已有该音色，也不实现多音色并发。
 module midi_instrument_map (
     input logic [3:0] channel,
@@ -8,7 +8,7 @@ module midi_instrument_map (
 );
     import router_pkg::*;
     always_comb begin
-        mapped = channel<8;
+        mapped = channel<12;
         instrument = mapped ? instrument_e'(config_pkg::midi_instrument({1'b0,channel}+5'd1)) : INST_NONE;
     end
 endmodule

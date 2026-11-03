@@ -80,35 +80,38 @@ module env_router #(
             end
             router_pkg::INST_OBOE: begin
                 // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
-                use_adsr = 1'b0;
+                use_adsr = 1'b1;
                 a_step = 32'd16_777_216;
                 d_step = 32'd1_048_576;
-                s_level = 32'd536_870_912;
+                s_level = 32'h1fff_ffff;
                 r_step = 32'd1_048_576;
             end
             router_pkg::INST_DRUMS: begin
-                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
-                use_adsr = 1'b0;
-                a_step = 32'd16_777_216;
-                d_step = 32'd1_048_576;
-                s_level = 32'd536_870_912;
-                r_step = 32'd1_048_576;
+                // Guitar-style ADSR: natural decay while held, finite release on Note Off.
+                // TODO: audition this instrument's independent attack/release values.
+                use_adsr = 1'b1;
+                a_step = 32'd89_478_486;
+                d_step = 32'd0;
+                s_level = 32'h7fff_ffff;
+                r_step = 32'd74_566;
             end
             router_pkg::INST_BANJO: begin
-                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
-                use_adsr = 1'b0;
-                a_step = 32'd16_777_216;
-                d_step = 32'd1_048_576;
-                s_level = 32'd536_870_912;
-                r_step = 32'd1_048_576;
+                // Guitar-style ADSR: natural decay while held, finite release on Note Off.
+                // TODO: audition this instrument's independent attack/release values.
+                use_adsr = 1'b1;
+                a_step = 32'd89_478_486;
+                d_step = 32'd0;
+                s_level = 32'h7fff_ffff;
+                r_step = 32'd74_566;
             end
             router_pkg::INST_MANDOLIN: begin
-                // TODO: 核定该乐器的独立包络参数；暂保留现有行为。
-                use_adsr = 1'b0;
-                a_step = 32'd16_777_216;
-                d_step = 32'd1_048_576;
-                s_level = 32'd536_870_912;
-                r_step = 32'd1_048_576;
+                // Guitar-style ADSR: natural decay while held, finite release on Note Off.
+                // TODO: audition this instrument's independent attack/release values.
+                use_adsr = 1'b1;
+                a_step = 32'd89_478_486;
+                d_step = 32'd0;
+                s_level = 32'h7fff_ffff;
+                r_step = 32'd74_566;
             end
             router_pkg::INST_NONE: begin
                 // TODO: 核定该乐器的独立包络参数；暂保留现有行为。

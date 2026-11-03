@@ -108,10 +108,11 @@ module exc_router #(
                 n_pulse = 3'd0;
             end
             router_pkg::INST_DRUMS: begin
-                // TODO: 核定独立激励；暂保留原默认参数。
+                // Selected equal-peak audition: 8-sample rise, one finite strike.
+                // Bank/mapping/lifetime integration remains pending.
                 shift = 6'd16;
-                rise_sh = 6'd5;
-                pw_len = 16'd32;
+                rise_sh = 6'd3;
+                pw_len = 16'd8;
                 gap_len = 16'd0;
                 n_pulse = 3'd0;
             end

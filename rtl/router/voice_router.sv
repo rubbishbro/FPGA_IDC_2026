@@ -407,10 +407,13 @@ module voice_router #(
     endfunction
     logic [SLOTS-1:0] mod_safe,mod_serviced;
     logic [31:0] mod_frame_age,mod_frame_span;
-    wire mod1_path=is_sustain(inst_lat);
+    wire mod1_path=uses_mod1(inst_lat);
     wire [SLOTS-1:0] mod_eligible=mod1_path ? (mod_req & mod_safe & ~mod_serviced) : mod_req;
     wire [VWID-1:0] mod_candidate=mod1_path ? next_mod_req(mod_eligible,mod_rr) : first_req(mod_eligible);
-    wire [31:0] mod_job_bound=6*(nm_lat<MOD1_MODES_PER_JOB ? 32'(nm_lat) : MOD1_MODES_PER_JOB)+22;
+    localparam int MOD_BOUND_W=$clog2(6*((N_MODES<MOD1_MODES_PER_JOB)?N_MODES:MOD1_MODES_PER_JOB)+23);
+    // Stable configuration data: calculate alongside nm_lat, not on the
+    // per-cycle frame-age -> deadline -> scheduling enable path.
+    logic [MOD_BOUND_W-1:0] mod_job_bound;
     wire mod_window_ok=!mod1_path || (table_valid && !smp_tick_q &&
         mod_frame_age+mod_job_bound<mod_frame_span);
     logic [7:0]              fmap_prev [0:SLOTS-1];   // 上次调制用的力度（变了才重新调制）
@@ -895,6 +898,8 @@ module voice_router #(
     assign voice_idle = idle_confirmed;
     instrument_e run_inst;
     assign run_inst = (change_pend && !ready) ? inst_lat : inst;
+    wire [IW:0] run_modes=(n_modes_of(run_inst)>N_MODES) ?
+                         (IW+1)'(N_MODES) : (IW+1)'(n_modes_of(run_inst));
 
     // 这一拍会不会在 S_DONE 里真正启动加载（和 case 里的判定同一条件）。
     //   必须用组合判据：always_ff 里调制器的门在 case 之前执行，非阻塞赋值下
@@ -1024,6 +1029,7 @@ module voice_router #(
 
             pick_b     <= 1'b0;
             nm_lat     <= '0;
+            mod_job_bound <= MOD_BOUND_W'(22);
             table_valid<= 1'b0;
             zero_frames<= (IW+1)'(HS + 2);   // 启动保护，成功加载后改为一帧全槽清理
             inst_lat   <= INST_NONE;
@@ -1082,8 +1088,9 @@ module voice_router #(
                         if (zero_frames != '0) zero_frames <= zero_frames - 1'b1;
                         // 每个乐器用多少模态由 router_pkg 定；超过表的物理深度就限幅
                         //   （n_modes_of 不知道 N_MODES，所以夹在这里）
-                        nm_lat   <= (n_modes_of(run_inst) > N_MODES) ? (IW+1)'(N_MODES)
-                                                                 : (IW+1)'(n_modes_of(run_inst));
+                        nm_lat <= run_modes;
+                        mod_job_bound <= MOD_BOUND_W'(6*((32'(run_modes)<MOD1_MODES_PER_JOB) ?
+                                                       32'(run_modes) : MOD1_MODES_PER_JOB)+22);
 
                         pick_b   <= 1'b0;
                         if (change_pend) begin

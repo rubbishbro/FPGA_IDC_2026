@@ -8,7 +8,7 @@ module instrument_system #(
     parameter bit LCD_ROTATE_180=1'b1,
     // Legacy probe fallback; production NOTE_BANKS uses per-instrument note_first.
     parameter logic [6:0] FIRST_MIDI=48,
-    parameter logic [11:0] RESOURCE_MASK=12'b110000101011,
+    parameter logic [11:0] RESOURCE_MASK=12'b111111111111,
     parameter logic [31:0] FLASH_BASE=32'h0080_0000,
     parameter int FLASH_BYTES=16_777_216,
     parameter bit STEREO_ENABLE=1'b1,STEREO_AUTO_SWEEP=1'b0,
@@ -135,7 +135,7 @@ module instrument_system #(
     logic ext_valid,ext_ready,ext_rsp_valid;
     cfg_request_t ext_request;
     cfg_response_t ext_response;
-    typedef enum logic [3:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN,B_REC_START,B_REC_STOP,B_KEY_SEND,B_KEY_WAIT} bridge_t;
+    typedef enum logic [3:0] {B_IDLE,B_CHECK,B_SEND,B_WAIT,B_DONE,B_KEY_SCAN,B_REC_START,B_REC_STOP,B_KEY_SEND,B_KEY_WAIT,B_KEY_VALIDATE,B_KEY_ADVANCE} bridge_t;
     // Finish within the 500ms host deadline, reserving 100ms for the reply.
     localparam int REC_WAIT_CYCLES=(CLK_HZ/5)*2;
     bridge_t bridge_state;
@@ -147,6 +147,10 @@ module instrument_system #(
     logic [$clog2(CLK_HZ/50+1)-1:0] remote_admit_age;
     logic [3:0] key_scan_slot;
     logic key_note_supported;
+    logic [7:0] key_table_instrument,key_item_instrument,key_item_note;
+    logic [7:0] key_note_first;
+    logic [8:0] key_note_end;
+    logic key_table_melodic,key_item_valid;
     localparam logic [111:0] COMM_NOTE_MAP=router_pkg::default_note_map();
     wire [7:0] key_scan_note=ctx_shadow[(2+2*key_scan_slot)*8 +:8];
 
@@ -231,14 +235,19 @@ module instrument_system #(
 
     always_comb begin
         key_note_supported=0;
-        if(NOTE_BANKS)key_note_supported=router_pkg::note_in_range(
-            router_pkg::instrument_e'(ctx_shadow[(1+2*key_scan_slot)*8 +:4]),key_scan_note);
+        if(NOTE_BANKS && key_table_instrument==8'(router_pkg::INST_DRUMS))
+            key_note_supported=router_pkg::drum_index_of(key_item_note)<6;
+        else if(NOTE_BANKS)key_note_supported=key_table_melodic &&
+            key_item_note>=key_note_first && {1'b0,key_item_note}<key_note_end;
         else for(int slot=0;slot<16;slot++)
-            if(key_scan_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
+            if(key_item_note=={1'b0,COMM_NOTE_MAP[slot*7 +:7]})key_note_supported=1;
     end
     assign keymap_valid=bridge_state==B_KEY_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
     // Cancel an already-accepted scalar backend transaction if the source dies.
-    assign backend_source_valid=!quarantine[backend_source] && remote_permission[backend_source];
+    // backend_source is the UI arbiter origin (0=local, 1=external),
+    // not a transport index. The bridge holds ctx_source until its reply.
+    assign backend_source_valid=!backend_source ||
+                                (!quarantine[ctx_source] && remote_permission[ctx_source]);
     // Cancel an in-flight table if the source is lost before it commits.
     assign keymap_cancel=bridge_state==B_KEY_WAIT &&
                          (quarantine[ctx_source] || !remote_permission[ctx_source] ||
@@ -249,7 +258,7 @@ module instrument_system #(
     assign ext_request={ctx_seq,16'h0200,24'd0,ctx_shadow[15:8]};
     // Keep all physical context until the real response retires. Parser owns duplicate-request cache/reply.
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;keymap_wait_timer<=0;end
+        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;keymap_wait_timer<=0;key_table_instrument<=0;key_item_instrument<=0;key_item_note<=0;key_note_first<=0;key_note_end<=0;key_table_melodic<=0;key_item_valid<=0;end
         else begin
         rec_start<=0;rec_stop<=0;rec_abort<=0;
         // A local permission change also cancels a take between CONFIG requests.
@@ -286,6 +295,13 @@ module instrument_system #(
                 else if(ctx_cmd==2 && ctx_len==2 && router_pkg::reverb_value_valid({24'd0,ctx_shadow[15:8]}))bridge_state<=B_SEND;
                 else if(ctx_cmd==8'h20 && ctx_len==33)begin
                     // Same-instrument tables: validate the whole table, then load/commit atomically.
+                    // Decode the immutable table header once, before scanning.
+                    key_table_instrument<=ctx_shadow[15:8];
+                    key_table_melodic<=ctx_shadow[15:8]!=8'(router_pkg::INST_DRUMS) &&
+                        ctx_shadow[15:8]!=8'(router_pkg::INST_NONE) &&
+                        ctx_shadow[15:8]<=8'(router_pkg::INST_GUITAR_ABC);
+                    key_note_first<={1'b0,router_pkg::note_first(router_pkg::instrument_e'(ctx_shadow[11:8]))};
+                    key_note_end<=9'(router_pkg::note_first(router_pkg::instrument_e'(ctx_shadow[11:8])))+9'd32;
                     key_scan_slot<=0;bridge_state<=B_KEY_SCAN;
                 end else begin cfg_result<=1;bridge_state<=B_DONE;end
             end
@@ -299,10 +315,20 @@ module instrument_system #(
                 endcase
                 bridge_state<=B_DONE;
             end
+            // Three bounded phases: table mux -> registered validation -> advance.
             B_KEY_SCAN:begin
-                if(!key_note_supported || ctx_shadow[(1+2*key_scan_slot)*8 +:8]!=ctx_shadow[15:8])begin cfg_result<=3;bridge_state<=B_DONE;end
+                key_item_instrument<=ctx_shadow[(1+2*key_scan_slot)*8 +:8];
+                key_item_note<=key_scan_note;
+                bridge_state<=B_KEY_VALIDATE;
+            end
+            B_KEY_VALIDATE:begin
+                key_item_valid<=key_note_supported && key_item_instrument==key_table_instrument;
+                bridge_state<=B_KEY_ADVANCE;
+            end
+            B_KEY_ADVANCE:begin
+                if(!key_item_valid)begin cfg_result<=3;bridge_state<=B_DONE;end
                 else if(key_scan_slot==15)begin bridge_state<=B_KEY_SEND;end
-                else key_scan_slot<=key_scan_slot+1'b1;
+                else begin key_scan_slot<=key_scan_slot+1'b1;bridge_state<=B_KEY_SCAN;end
             end
             B_KEY_SEND:begin
                 if(quarantine[ctx_source] || !remote_permission[ctx_source])begin cfg_result<=6;bridge_state<=B_DONE;end

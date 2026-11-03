@@ -61,14 +61,15 @@ def pack(instruments, table_bytes, base, capacity, control_profiles=False):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--instrument', action='append', metavar='ID=BIN', help='Repeat for multiple instruments; default is six deployed timbres')
+    ap.add_argument('--instrument', action='append', metavar='ID=BIN', help='Repeat for multiple instruments; default is twelve deployed timbres')
     ap.add_argument('--notes', type=int, choices=(16, 32), default=32)
     ap.add_argument('--out', type=Path, default=ROOT / 'build/flash_resources/resources.bin')
     args = ap.parse_args()
     try:
         entries = args.instrument or [f'{ident}={Path(__file__).parent/"performance"/(name+"_"+engine+".bin")}'
-            for ident,name,engine in [(0,'piano','eng0'),(1,'guitar','eng0'),(3,'trumpet','eng1'),
-                                      (5,'violin','eng1'),(10,'piano_abc','eng1'),(11,'guitar_abc','eng1')]]
+            for ident,name,engine in [(0,'piano','eng0'),(1,'guitar','eng0'),(2,'flute','eng1'),(3,'trumpet','eng1'),
+                                      (4,'cello','eng1'),(5,'violin','eng1'),(6,'oboe','eng1'),(7,'drums','eng1'),(8,'banjo','eng1'),
+                                      (9,'mandolin','eng1'),(10,'piano_abc','eng1'),(11,'guitar_abc','eng1')]]
         instruments = {}
         for entry in entries:
             ident, path = entry.split('=', 1)
@@ -83,6 +84,7 @@ def main():
             matrix=region['instrument'] in (0,1)
             region['engine']='eng0' if matrix else 'eng1'
             for offset in range(0,len(data),64):
+                if region['instrument']==7 and (offset//4096>=6 or (offset%4096)//64>=48):continue
                 abc=data[offset+60:offset+64]==b'P1T1' and data[offset+12:offset+28]==bytes(16)
                 if abc==matrix:
                     raise ValueError('Instrument ID/engine format mismatch: IDs 0/1 require matrix; other IDs require ENG1 ABC/P1T1')

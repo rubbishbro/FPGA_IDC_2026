@@ -697,6 +697,8 @@ def _read_body_router_case(instrument: str) -> list[list[int]] | None:
     inst = {
         "guitar": "INST_GUITAR",
         "bass": "INST_BASS",
+        "banjo": "INST_BANJO",
+        "mandolin": "INST_MANDOLIN",
         "piano": "INST_PIANO",
         "piano_abc": "INST_PIANO_ABC",
         "guitar_abc": "INST_GUITAR",

@@ -25,7 +25,7 @@ module tb_router_midi;
     integer frames=0,checks=0,triggers=0,outputs=0,nonzero_outputs=0;
     logic [7:0] expected_level;
     midi_voice_top #(.SLOTS(4),.N_MODES(4),.SINGLE_SOURCE(0),.CONTROL_SUPPORTED(5'b10000),.CLK_HZ(10_000_000),.SR_HZ(10_000)) dut (
-        .clk(clk),.rst_n(rst_n),.run(run),.fmap(fmap),.pad_instrument(pad_instrument),
+        .backend_source_valid(1'b1),.clk(clk),.rst_n(rst_n),.run(run),.fmap(fmap),.pad_instrument(pad_instrument),
         .reverb_preset(reverb_preset_i),.reload(reload),.midi_select(midi_select),
         .midi_source_id(1'b0),.panic(1'b0),.note_bank(1'b0),.first_midi_note(7'd0),
         .config_busy(config_busy),.config_failed(config_failed),.active_channel(),.active_bank(),

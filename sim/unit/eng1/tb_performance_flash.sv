@@ -1,5 +1,5 @@
 `timescale 1ns/1ps
-// Real 16x64 loader/router, six exported matrix/ABC images, relocated board Flash.
+// Real 16x64 loader/router, twelve exported matrix/ABC images, relocated board Flash.
 module tb_performance_flash;
     import router_pkg::*;
     logic clk=0,rst_n=0,maintenance=0;
@@ -41,8 +41,8 @@ module tb_performance_flash;
     logic [511:0] bank_offsets;
     always_comb begin
         for(int key=0;key<16;key++)begin
-            bank_notes[key*7 +:7]=7'(note_first(inst)+(selected_bank?16:0)+key);
-            bank_offsets[key*32 +:32]=32'(((selected_bank?16:0)+key)*4096);
+            bank_notes[key*7 +:7]=inst==INST_DRUMS ? drum_note_of(3'(key%6)) : 7'(note_first(inst)+(selected_bank?16:0)+key);
+            bank_offsets[key*32 +:32]=inst==INST_DRUMS ? 32'(resource_index_of(inst,{1'b0,bank_notes[key*7 +:7]}))*4096 : 32'(((selected_bank?16:0)+key)*4096);
         end
     end
     voice_router #(.SLOTS(16),.N_MODES(64),.CLK_HZ(50_000_000),.SR_HZ(48_000),.MIDI_ENABLE(1),.LOAD_OFFSETS(1),.FLASH_NOTES(32),
@@ -66,13 +66,13 @@ module tb_performance_flash;
             if($isunknown(dut.y_data))$fatal(1,"FAIL unknown output");
             if(dut.y_data!=0)nonzero_outputs++;
         end
-        if(valid && eng_sel(inst) && (|dut.mod_co_we))$fatal(1,"FAIL matrix modulator wrote ABC coefficients");
+        if(valid && eng_sel(inst) && (|dut.mod_co_we) && (!uses_mod1(inst) || dut.mod_co_we!=5'b00010))$fatal(1,"FAIL wrong modulator wrote ABC coefficients");
         if(valid && eng_sel(inst) && (dut.u_era.e0_start || dut.u_erb.e0_start))$fatal(1,"FAIL wrong engine selected");
         if(valid && !eng_sel(inst) && (dut.u_era.e1_start || dut.u_erb.e1_start))$fatal(1,"FAIL wrong engine selected");
     end
     function automatic logic[31:0] word(input int ident,slot,mode,w);
         int addr;
-        addr=ident*131072+((selected_bank?16:0)+slot)*4096+mode*64+w*4;
+        addr=ident*131072+(ident==7 ? int'(resource_index_of(INST_DRUMS,{1'b0,bank_notes[slot*7 +:7]})) : ((selected_bank?16:0)+slot))*4096+mode*64+w*4;
         return {flash.memory[addr],flash.memory[addr+1],flash.memory[addr+2],flash.memory[addr+3]};
     endfunction
     task automatic verify_table(input instrument_e selected);
@@ -124,9 +124,9 @@ module tb_performance_flash;
         if(err || dut.nm_lat!=n_modes_of(selected))$fatal(1,"FAIL selected profile");
         case(selected)
             INST_PIANO:if(dut.u_exc.rise_sh_r!=5 || dut.u_exc.pw_len_r!=32 ||dut.u_exc.gap_len_r!=448)$fatal(1,"FAIL piano1 frontend");
-            INST_PIANO_ABC:if(dut.u_exc.rise_sh_r!=1 || dut.u_exc.pw_len_r!=2 ||
-                dut.u_exc.gap_len_r!=478 || dut.u_env.r_step_r!=21845)$fatal(1,"FAIL piano frontend");
-            INST_GUITAR,INST_GUITAR_ABC:if(dut.u_env.a_step_r!=89478486 || dut.u_env.d_step_r!=0 ||
+            INST_PIANO_ABC:if(dut.u_exc.rise_sh_r!=2 || dut.u_exc.pw_len_r!=4 ||
+                dut.u_exc.gap_len_r!=476 || dut.u_env.r_step_r!=21845)$fatal(1,"FAIL piano frontend");
+            INST_GUITAR,INST_GUITAR_ABC,INST_BANJO,INST_MANDOLIN,INST_DRUMS:if(dut.u_env.a_step_r!=89478486 || dut.u_env.d_step_r!=0 ||
                 dut.u_env.s_level_r!=32'h7fffffff || dut.u_env.r_step_r!=74566)$fatal(1,"FAIL guitar F frontend");
             INST_VIOLIN:if(dut.u_env.a_step_r!=2236963 || dut.u_env.d_step_r!=0 ||
                 dut.u_env.s_level_r!=32'h7fffffff || dut.u_env.r_step_r!=559241 ||
@@ -143,21 +143,21 @@ module tb_performance_flash;
         frames(512);
         if(nonzero_outputs<=before_nonzero)$fatal(1,"FAIL no sound inst=%0d",selected);
         if(dut.part_gate!==16'h8181)$fatal(1,"FAIL gate map/bank");
-        if(is_sustain(selected))begin
-            if(dut.u_modr.u_pitch.cents[0]!=11981 || dut.u_modr.u_pitch.cents[7]!=11981 ||
+        if(uses_mod1(selected))begin
+            if(dut.u_modr.u_pitch.cents[0]!=17818 || dut.u_modr.u_pitch.cents[7]!=17818 ||
                dut.u_modr.u_pitch.cents[1]!=0)$fatal(1,"FAIL initial aftertouch");
         end
         fmap.raw[0*8 +:8]=240;frames(192);
-        if(is_sustain(selected))begin
-            if(dut.u_modr.u_pitch.cents[0]!=21197 || dut.u_modr.u_pitch.cents[7]!=11981)
+        if(uses_mod1(selected))begin
+            if(dut.u_modr.u_pitch.cents[0]!=27034 || dut.u_modr.u_pitch.cents[7]!=17818)
                 $fatal(1,"FAIL independent aftertouch update");
         end
         held_delta=dut.pitch_delta;
-        if(eng_sel(selected) && dut.mod_req!=0)$fatal(1,"FAIL pressure invoked matrix modulation");
+        if(eng_sel(selected) && !uses_mod1(selected) && dut.mod_req!=0)$fatal(1,"FAIL pressure invoked matrix modulation");
         fmap='0;frames(8);
         if(dut.voice_idle==16'hffff)$fatal(1,"FAIL release retired prematurely");
         frames(184);
-        if(is_sustain(selected) && dut.pitch_delta!==held_delta)$fatal(1,"FAIL aftertouch tail hold");
+        if(uses_mod1(selected) && dut.pitch_delta!==held_delta)$fatal(1,"FAIL aftertouch tail hold");
         maintenance=1;wait(maintenance_done);repeat(2)@(negedge clk);
         if(dut.voice_idle!==16'hffff)$fatal(1,"FAIL clear did not retire both banks");
         maintenance=0;frames(4);
@@ -166,13 +166,16 @@ module tb_performance_flash;
     endtask
     initial begin
         repeat(8)@(negedge clk);rst_n=1;
-        audition(INST_PIANO);audition(INST_GUITAR);audition(INST_TRUMPET);audition(INST_VIOLIN);
-        audition(INST_PIANO_ABC);audition(INST_GUITAR_ABC);
-        audition(INST_PIANO,1);audition(INST_GUITAR,1);audition(INST_TRUMPET,1);
-        audition(INST_VIOLIN,1);audition(INST_PIANO_ABC,1);audition(INST_GUITAR_ABC,1);
-        if(loads!=12 || checked!=12288)$fatal(1,"FAIL incomplete coverage");
+        for(int bank=0;bank<2;bank++)begin
+            audition(INST_PIANO,bank);audition(INST_GUITAR,bank);
+            audition(INST_FLUTE,bank);audition(INST_TRUMPET,bank);audition(INST_CELLO,bank);
+            audition(INST_VIOLIN,bank);audition(INST_OBOE,bank);
+            audition(INST_DRUMS,bank);audition(INST_BANJO,bank);audition(INST_MANDOLIN,bank);
+            audition(INST_PIANO_ABC,bank);audition(INST_GUITAR_ABC,bank);
+        end
+        if(loads!=24 || checked!=24576)$fatal(1,"FAIL incomplete coverage");
         $display("PASS tb_performance_flash loads=%0d records=%0d outputs=%0d",loads,checked,outputs);
         $finish;
     end
-    initial begin #1000000000;$fatal(1,"FAIL timeout inst=%0d state=%0d loads=%0d",inst,dut.state,loads);end
+    initial begin #3000000000;$fatal(1,"FAIL timeout inst=%0d state=%0d loads=%0d",inst,dut.state,loads);end
 endmodule

@@ -64,7 +64,7 @@ module mod_router #(
     logic [4:0] mod0_co_we;
     modal_step_pkg::coeff_t mod0_co_wdata;
     logic signed [31:0] mod1_a1;
-    wire en1=router_pkg::is_sustain(inst);
+    wire en1=router_pkg::uses_mod1(inst);
 
     // 没有揉弦的乐器：直接把 start 延一拍变成 done（避免上层死等）
     always_ff @(posedge clk or negedge rst_n) begin
@@ -107,7 +107,7 @@ module mod_router #(
     );
 
     modulation1 #(.SLOTS(SLOTS),.N_MODES(N_MODES),.MODES_PER_JOB(MOD1_MODES_PER_JOB),.PAD_NOTE_ON_TH(PAD_NOTE_ON_TH)) u_pitch(
-        .clk(clk),.rst_n(SPLIT_RESET ? rst_pitch_n : rst_n),.clear(pitch_clear || !router_pkg::is_sustain(inst)),
+        .clk(clk),.rst_n(SPLIT_RESET ? rst_pitch_n : rst_n),.clear(pitch_clear || !router_pkg::uses_mod1(inst)),
         .pressure_enable(pressure_enable),.pressure_gate(pressure_gate),.pressure_level(pressure_level),
         .table_we(table_we),.table_addr(table_addr),.table_data(table_data),
         .start(start && en1),.job_slot(job_slot),.done(mod1_done),.cleanup(pitch_cleanup),.n_modes(($clog2(N_MODES+1))'(n_modes)),

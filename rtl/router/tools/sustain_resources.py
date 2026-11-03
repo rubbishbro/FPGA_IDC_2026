@@ -16,7 +16,7 @@ import router_eng1 as model
 from pitch_tables import control_page,with_profile
 import pitch_linear
 from sustain_engine import SustainPatch
-INST={'flute':2,'trumpet':3,'cello':4,'violin':5}
+INST={'flute':2,'trumpet':3,'cello':4,'violin':5,'oboe':6}
 FS=48000;DEPTH=64;ENV=(1<<31)-1
 
 class NoteResource(TypedDict):

@@ -37,6 +37,7 @@ package config_pkg;
             1:midi_instrument=1; 2:midi_instrument=0; 3:midi_instrument=3;
             4:midi_instrument=5; 5:midi_instrument=4; 6:midi_instrument=2;
             7:midi_instrument=10;8:midi_instrument=11;
+            9:midi_instrument=6;10:midi_instrument=7;11:midi_instrument=8;12:midi_instrument=9; // channel10 uses GM drums
             default:midi_instrument=16'hffff;
         endcase
     endfunction
@@ -45,6 +46,7 @@ package config_pkg;
             0:instrument_channel=2; 1:instrument_channel=1; 2:instrument_channel=6;
             3:instrument_channel=3; 4:instrument_channel=5; 5:instrument_channel=4;
             10:instrument_channel=7;11:instrument_channel=8;
+            6:instrument_channel=9;7:instrument_channel=10;8:instrument_channel=11;9:instrument_channel=12;
             default:instrument_channel=0;
         endcase
     endfunction
@@ -57,7 +59,7 @@ package config_pkg;
     endfunction
     function automatic logic audio_config_valid(input audio_config_t a);
         return !(a.source==0 && a.guide) && a.source<=2 && router_pkg::reverb_value_valid(32'(a.reverb)) && a.instrument<=11 &&
-               a.channel>=1 && a.channel<=8 &&
+               a.channel>=1 && a.channel<=12 &&
                (a.source==0 || midi_instrument(a.channel)==a.instrument);
     endfunction
     function automatic logic audio_parameter(input logic [15:0] id);

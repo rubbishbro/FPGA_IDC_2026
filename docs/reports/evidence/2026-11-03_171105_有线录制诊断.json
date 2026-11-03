@@ -1,0 +1,74 @@
+{
+  "format": "fpga-midi-link-diagnostic-v1",
+  "exportedAt": "2026-11-03T09:11:05.719Z",
+  "link": {
+    "protocol": "v1",
+    "baud": 115200,
+    "connected": true,
+    "txBytes": 24,
+    "txFrames": 2,
+    "rxBytes": 18,
+    "rxFrames": 2,
+    "rxErrors": 0,
+    "performanceFrames": 0,
+    "lastRxError": null,
+    "trace": [
+      {
+        "direction": "TX",
+        "ms": 1309714,
+        "bytes": 12,
+        "hex": "c0 02 00 05 12 b0 06 31 a6 b9 1d c0"
+      },
+      {
+        "direction": "RX",
+        "ms": 1309728,
+        "bytes": 9,
+        "hex": "c0 80 00 02 12 00 ad 38 c0"
+      },
+      {
+        "direction": "TX",
+        "ms": 1311729,
+        "bytes": 12,
+        "hex": "c0 02 01 05 13 b0 06 31 a6 89 0f c0"
+      },
+      {
+        "direction": "RX",
+        "ms": 1311733,
+        "bytes": 9,
+        "hex": "c0 80 01 02 13 00 28 7d c0"
+      }
+    ]
+  },
+  "recording": {
+    "id": 2788230832,
+    "phase": "finished",
+    "acknowledged": true,
+    "started": false,
+    "frames": 0,
+    "noteOns": 0,
+    "noteOffs": 0,
+    "ignoredFrames": 0,
+    "ended": false,
+    "rxAtStart": {
+      "bytes": 0,
+      "frames": 0,
+      "errors": 0
+    },
+    "failure": "missing_start_frame",
+    "incomplete": true,
+    "notes": 0,
+    "rxSinceStart": {
+      "bytes": 18,
+      "frames": 2,
+      "errors": 0
+    }
+  },
+  "log": [
+    "17:11:01 RX type 80 · seq 1 · payload 13 00",
+    "17:11:01 录制结束 {\"id\":2788230832,\"phase\":\"finished\",\"acknowledged\":true,\"started\":false,\"frames\":0,\"noteOns\":0,\"noteOffs\":0,\"ignoredFrames\":0,\"ended\":false,\"rxAtStart\":{\"bytes\":0,\"frames\":0,\"errors\":0},\"failure\":\"missing_start_frame\",\"incomplete\":true,\"notes\":0}",
+    "17:10:59 RX type 80 · seq 0 · payload 12 00",
+    "17:10:59 录制 START ID a63106b0",
+    "17:10:57 连接 115200 baud · 8N1 · v1 SLIP/CRC",
+    "16:49:09 就绪 v1 有线演奏 / v2 会话插件 · 本地编辑"
+  ]
+}
