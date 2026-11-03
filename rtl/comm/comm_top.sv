@@ -5,7 +5,7 @@
 module comm_top #(
     parameter int CLK_HZ = 100_000_000,
     parameter int WIRED_BAUD = 115200,
-    parameter int BT_BAUD = 115200,
+    parameter int BT_BAUD = 9600,
     parameter int OVERSAMPLE = 16,
     parameter int WIRED_OVERSAMPLE = OVERSAMPLE,
     parameter int BT_OVERSAMPLE = OVERSAMPLE,

@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 // One synth, one configuration owner; independent core/audio/pixel clocks.
 module instrument_system #(
-    parameter int CLK_HZ=50_000_000, BAUD=115200,
+    parameter int CLK_HZ=50_000_000, BAUD=115200, BT_BAUD=9600,
     parameter int KEY_DEBOUNCE=CLK_HZ/50, KEY_LONG=CLK_HZ*4/5,
     parameter bit NOTE_BANKS=1, BT_HAS_STATE=0,
     parameter int PCM_HEADROOM_BITS=0,
@@ -124,7 +124,7 @@ module instrument_system #(
     logic [7:0] cfg_cmd,cfg_result;
     logic [6:0] cfg_len;
     logic [511:0] cfg_shadow;
-    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BAUD),.BT_HAS_STATE(BT_HAS_STATE),.SUPPORTED_INSTRUMENTS({4'b0,RESOURCE_MASK})) u_comm(
+    comm_top #(.CLK_HZ(CLK_HZ),.WIRED_BAUD(BAUD),.BT_BAUD(BT_BAUD),.BT_HAS_STATE(BT_HAS_STATE),.SUPPORTED_INSTRUMENTS({4'b0,RESOURCE_MASK})) u_comm(
         .clk(clk_core),.rst_n(core_n),.rx_i(uart_rx),.tx_o(uart_tx),.hc05_state_async(bt_state),
         .session_restart(session_restart),.source_cleanup_done(cleanup_done),.source_ops_idle(source_idle),
         .midi_ops_idle(midi_idle),.source_quarantine(quarantine),.link_fault_pending(),.error_sticky(),.rx_error_count(),

@@ -16,7 +16,7 @@ module tb_instrument_board #(parameter bit GUIDE_TEST=0, RECORD_TEST=0, KEYMAP_T
     tri [3:0] dq;
     logic blank=0;
     wire [3:0] flash_data;
-    instrument_board_top #(.BAUD(UART_BAUD),.KEY_DEBOUNCE(2),.KEY_LONG(24)) dut(
+    instrument_board_top #(.BAUD(UART_BAUD),.BT_BAUD(UART_BAUD),.KEY_DEBOUNCE(2),.KEY_LONG(24)) dut(
         .clk(clk),.rst_n(rst_n),.key0(key0),.key1(key1),.uart_rx(rx),.uart_tx(tx),.bt_state(1'b0),
         .pad_row(pad_row),.pad_ch(pad_ch),.led_dat(led),.flash_cs_n(cs),.flash_sck(sck),.flash_dq(dq),
         .amp_bclk(bclk),.amp_ws(ws),.amp_din(din),.amp_sd(sd),.dac_bck(db),.dac_ws(dw),.dac_din(dd),.dac_pa_en(pa),.lcd_clk(lclk),.lcd_en(de),.lcd_r(r),.lcd_g(g),.lcd_b(b));
