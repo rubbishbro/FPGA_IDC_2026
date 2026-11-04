@@ -50,19 +50,28 @@ package router_pkg;
         return inst==INST_DRUMS ? {2'b0,drum_index_of(note)} : 5'(note-{1'b0,note_first(inst)});
     endfunction
 
-    typedef enum logic [1:0] {
-        REVERB_NONE     = 2'd0,
-        REVERB_HALL     = 2'd1,
-        REVERB_BATHROOM = 2'd2,
-        REVERB_CHAMBER  = 2'd3
+    typedef enum logic [2:0] {
+        REVERB_NONE     = 3'd0,
+        REVERB_HALL     = 3'd1,
+        REVERB_BATHROOM = 3'd2,
+        REVERB_CHAMBER  = 3'd3,
+        REVERB_CHORUS   = 3'd4 // Local UI only; fixed, zero-feedback short taps.
     } reverb_preset;
 
-    // Validate the full transport/config value BEFORE narrowing to the enum.
+    // Internal/UI validation, before narrowing to the enum.
     function automatic logic reverb_value_valid(input logic [31:0] value);
-        case (value)
-            32'(REVERB_NONE), 32'(REVERB_HALL),
-            32'(REVERB_BATHROOM), 32'(REVERB_CHAMBER): return 1'b1;
-            default: return 1'b0;
+        case(value)
+            32'(REVERB_NONE),32'(REVERB_HALL),32'(REVERB_BATHROOM),
+            32'(REVERB_CHAMBER),32'(REVERB_CHORUS):return 1'b1;
+            default:return 1'b0;
+        endcase
+    endfunction
+    // Preserve the existing external transport contract (IDs 0..3 only).
+    function automatic logic reverb_wire_value_valid(input logic [31:0] value);
+        case(value)
+            32'(REVERB_NONE),32'(REVERB_HALL),32'(REVERB_BATHROOM),
+            32'(REVERB_CHAMBER):return 1'b1;
+            default:return 1'b0;
         endcase
     endfunction
 
@@ -180,6 +189,8 @@ package router_pkg;
     // Drums use rise3/pw8, loudest of six accepted-method hits (kick), one common trim.
     // Added instruments: current ADSR, MIDI69 peak <= -1dBFS;
     // drum trim uses actual production coefficients/excitation, balance applied once.
+    // 2026-11-04 listening adjustment: cello +6dB; oboe Q12=4500, drums Q12=2000.
+    // These overrides supersede the reference RMS/peak targets above.
     // Reference-note calibration does not guarantee full-range/polyphonic peaks.
     // Calculation artifact: build/reference_gain_calibration/results.json.
     function automatic logic signed [15:0] gain_q12_of(input instrument_e inst);
@@ -188,14 +199,14 @@ package router_pkg;
             INST_GUITAR:     return 16'sd12843;
             INST_FLUTE:      return 16'sd1882;
             INST_TRUMPET:    return 16'sd2494;
-            INST_CELLO:      return 16'sd1029;
+            INST_CELLO:      return 16'sd2053;
             INST_VIOLIN:     return 16'sd1390;
-            INST_OBOE:       return 16'sd3321;
-            INST_DRUMS:      return 16'sd453; // rise3/pw8; kick=max20ms reference; production drum group trim.
+            INST_OBOE:       return 16'sd4500;
+            INST_DRUMS:      return 16'sd2000; // rise3/pw8; kick=max20ms reference; production drum group trim.
             INST_BANJO:      return 16'sd1025;
             INST_MANDOLIN:   return 16'sd1244;
             INST_PIANO_ABC:  return 16'sd10159;
-            INST_GUITAR_ABC: return 16'sd1165;
+            INST_GUITAR_ABC: return 16'sd735;
             default:         return 16'sd4096;
         endcase
     endfunction

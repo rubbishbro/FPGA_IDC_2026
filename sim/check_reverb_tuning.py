@@ -8,9 +8,9 @@ import router_eng1 as R
 def main():
  out=ROOT/'build/reverb_tuning';out.mkdir(parents=True,exist_ok=True);work=out/'work';cases=[];rng=random.Random(20261103);results={}
  hall=R.REVERB_PRESETS['HALL'];assert (hall.lengths,hall.feedback,hall.weight,hall.dry,hall.wet)==((1214,1293,1390,1476),(120795955,)*4,(33554432,)*4,93952410,67108864)
- for ident,name in enumerate(['NONE','HALL','BATHROOM','CHAMBER']):
+ for ident,name in enumerate(['NONE','HALL','BATHROOM','CHAMBER','CHORUS']):
   model=R.ReverbRouter(name);p=model.params
-  times=[-3*n/(48000*math.log10(g/(1<<27))) for n,g in zip(p.lengths,p.feedback)] if ident else []
+  times=[-3*n/(48000*math.log10(g/(1<<27))) for n,g in zip(p.lengths,p.feedback)] if ident and any(p.feedback) else []
   if name in ('CHAMBER','BATHROOM'):assert max(abs(t-({'CHAMBER':.6,'BATHROOM':1.1}[name])) for t in times)<1e-6
   xs=[0]*2048+[1<<40]+[0]*8192+[rng.randrange(-(1<<30),1<<30) for _ in range(256)]
   (out/(name+'.txt')).write_text(''.join(f'{x} {model.step(x)}\n' for x in xs))

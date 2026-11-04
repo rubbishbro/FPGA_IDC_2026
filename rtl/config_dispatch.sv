@@ -97,7 +97,8 @@ module config_dispatch #(
                 VALIDATE:begin
                     if(index<0)begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
                     else if(!supported[index])begin response.result<=CFG_UNSUPPORTED;state<=REPLY;end
-                    else if(!cfg_value_valid(index,pending.value))begin
+                    else if(!cfg_value_valid(index,pending.value) ||
+                            (response_source && index==2 && !router_pkg::reverb_wire_value_valid(pending.value)))begin
                         response.result<=CFG_OUT_OF_RANGE;state<=REPLY;
                     end else if(pending.id==16'h0400 && !style_supported(pending.value[15:0]))begin
                         response.result<=CFG_UNSUPPORTED;state<=REPLY;

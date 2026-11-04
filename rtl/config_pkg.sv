@@ -155,7 +155,7 @@ package config_pkg;
     } guide_display_t;
     function automatic integer cfg_max(input integer index);
         case(index)
-            0,6:cfg_max=65534;1:cfg_max=1000;11:cfg_max=2;2:cfg_max=integer'(router_pkg::REVERB_CHAMBER);
+            0,6:cfg_max=65534;1:cfg_max=1000;11:cfg_max=2;2:cfg_max=integer'(router_pkg::REVERB_CHORUS);
             21:cfg_max=32;12:cfg_max=16;13:cfg_max=3;16,17:cfg_max=0;
             default:cfg_max=1;
         endcase

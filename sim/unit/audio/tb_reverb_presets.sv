@@ -13,10 +13,11 @@ module tb_reverb_presets;
     cfg_response_t response,backend_response;
     audio_config_t audio_state;
     cfg_values_t values;
+    logic request_source=1;
     logic req_valid=0,req_ready,rsp_valid,backend_valid,backend_rsp_valid=0,backend_rsp_ready;
     config_dispatch #(.AUDIO_BACKEND(1)) cfg(
         .clk(clk),.rst_n(rst_n),.tick_ms(1'b0),.initial_pan(6'd16),.req_valid(req_valid),.req_ready(req_ready),
-        .request(request),.request_source(1'b1),.rsp_valid(rsp_valid),.rsp_ready(1'b1),
+        .request(request),.request_source(request_source),.rsp_valid(rsp_valid),.rsp_ready(1'b1),
         .response(response),.response_source(),.backend_supported(22'h4),
         .backend_valid(backend_valid),.backend_ready(1'b1),.backend_request(backend_request),
         .backend_source(),.backend_rsp_valid(backend_rsp_valid),.backend_rsp_ready(backend_rsp_ready),
@@ -56,6 +57,17 @@ module tb_reverb_presets;
         configure(REVERB_BATHROOM,CFG_OK);configure(REVERB_CHAMBER,CFG_OK);
         configure(4,CFG_OUT_OF_RANGE);configure(256,CFG_OUT_OF_RANGE);configure(-1,CFG_OUT_OF_RANGE);
         if(values[2]!=32'(REVERB_CHAMBER))$fatal(1,"FAIL invalid value changed UI");
+        request_source=0;configure(REVERB_CHORUS,CFG_OK);
+        request_source=1;configure(REVERB_CHORUS,CFG_OUT_OF_RANGE);
+        if(values[2]!=32'(REVERB_CHORUS))$fatal(1,"FAIL remote rejection changed local chorus");
+        if(cfg_max(2)!=4 || !reverb_value_valid(4) || reverb_wire_value_valid(4) || reverb_value_valid(8))
+            $fatal(1,"FAIL local/wire preset domains");
+        if(labels.value_label(2,REVERB_CHORUS)!=128)$fatal(1,"FAIL chorus UI label");
+        preset=REVERB_CHORUS;#1;
+        if(dsp.len[0]!=577 || dsp.len[1]!=743 || dsp.len[2]!=941 || dsp.len[3]!=1193 ||
+           dsp.gc!='0 || dsp.wc[0]!=50331648 || dsp.wc[1]!=33554432 ||
+           dsp.wc[2]!=33554432 || dsp.wc[3]!=16777216 || dsp.gd!=100663296 || dsp.gw!=33554432)
+            $fatal(1,"FAIL chorus parameters");
         if(labels.value_label(2,REVERB_NONE)!=50 || labels.value_label(2,REVERB_HALL)!=52 ||
            labels.value_label(2,REVERB_BATHROOM)!=53 || labels.value_label(2,REVERB_CHAMBER)!=127)
             $fatal(1,"FAIL preset labels");
@@ -75,7 +87,7 @@ module tb_reverb_presets;
             sample(0);sample(64'sh7fff_ffff_ffff_ffff);sample(64'sh8000_0000_0000_0000);
             sample(-123456789);sample(123456789);
         end
-        $display("PASS tb_reverb_presets four IDs/config/UI/DSP, invalid values, tuned CHAMBER/BATHROOM, NONE dry extremes");$finish;
+        $display("PASS tb_reverb_presets five internal/four external IDs, local-only chorus/UI/DSP, invalid values, tuned CHAMBER/BATHROOM, NONE dry extremes");$finish;
     end
     initial begin #100000;$fatal(1,"FAIL reverb test watchdog");end
 endmodule

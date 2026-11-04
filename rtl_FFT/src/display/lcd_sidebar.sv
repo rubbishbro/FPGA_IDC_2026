@@ -37,6 +37,7 @@ module lcd_sidebar #(parameter FONT_FILE="sidebar_font.mem",parameter LABEL_FILE
                 integer'(router_pkg::REVERB_HALL):value_label=52;
                 integer'(router_pkg::REVERB_BATHROOM):value_label=53;
                 integer'(router_pkg::REVERB_CHAMBER):value_label=127;
+                integer'(router_pkg::REVERB_CHORUS):value_label=128;
                 default:value_label=72;
             endcase
             8,9,10:value_label=value==0?50:51;

@@ -60,13 +60,13 @@ module midi_voice_top #(
     output config_pkg::guide_display_t guide_display,
     output config_pkg::audio_config_t backend_audio_state,
     // Atomic 16-entry CONFIG 20 table, bytes {instrument,note} in key order.
-    input logic keymap_valid=1'b0,
+    input wire keymap_valid,
     output logic keymap_ready,
     output logic keymap_waiting_release,
-    input logic [255:0] keymap_entries='0,
+    input wire [255:0] keymap_entries,
     output logic keymap_rsp_valid,
-    input logic keymap_rsp_ready=1'b1,
-    input logic keymap_cancel=1'b0,
+    input wire keymap_rsp_ready,
+    input wire keymap_cancel,
     output logic [7:0] keymap_result,
     input logic event_valid,
     output logic event_ready,
@@ -99,8 +99,10 @@ module midi_voice_top #(
     logic [255:0] keymap_hold;
     logic [3:0] keymap_scan;
     logic [SLOTS*7-1:0] committed_map;
-    wire [7:0] key_inst=keymap_hold[keymap_scan*16 +:8];
-    wire [7:0] key_note=keymap_hold[keymap_scan*16+8 +:8];
+    // Separate table mux, range validation and commit to bound each control path.
+    logic [1:0] keymap_phase;
+    logic [7:0] key_inst,key_note;
+    logic key_entry_valid;
     wire key_entry_ok=key_inst<12 && key_inst==keymap_hold[7:0] &&
         RESOURCE_MASK[key_inst[3:0]] && router_pkg::note_in_range(router_pkg::instrument_e'(key_inst[3:0]),key_note);
     logic [15:0] guide_revision;
@@ -110,6 +112,7 @@ module midi_voice_top #(
     logic backend_inflight,have_commit;
     logic backend_canceled,backend_rollback;
     config_pkg::cfg_request_t pending_request;
+    logic pending_backend_external;
     config_pkg::audio_config_t candidate;
     router_pkg::instrument_e candidate_pad,committed_pad;
     logic [7:0] candidate_result;
@@ -118,6 +121,7 @@ module midi_voice_top #(
     router_pkg::reverb_preset reverb_q;
     router_pkg::reverb_preset target_reverb;
     logic [31:0] cfg_timer,op_timer,ctrl_timer,cleanup_timer;
+    logic cleanup_timeout_q;
     logic state_idle,state_ready,state_valid,op_valid,op_ready;
     logic [1:0] backend_stage;
     config_pkg::audio_config_t candidate_q;
@@ -210,7 +214,7 @@ module midi_voice_top #(
             backend_supported[20]=1;
         end
         candidate=have_commit ? backend_audio_state :
-                  config_pkg::audio_config_t'({16'd0,5'd2,2'd0,1'b0,2'd0,1'b0,1'b0});
+                  config_pkg::audio_config_t'({16'd0,5'd2,2'd0,1'b0,3'd0,1'b0,1'b0});
         candidate_pad=have_commit ? committed_pad : router_pkg::INST_PIANO;
         candidate_result=config_pkg::CFG_OK;
         candidate_supported=1;
@@ -247,7 +251,9 @@ module midi_voice_top #(
         candidate_inst=candidate.source==0 ? 16'(candidate_pad) : candidate.instrument;
         if(INSTRUMENT_NOTE_RANGES && have_commit && candidate_inst!=backend_audio_state.instrument)candidate.bank=0;
         if(!candidate_supported)candidate_result=config_pkg::CFG_UNSUPPORTED;
-        else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(pending_request.id),pending_request.value))
+        else if(!config_pkg::cfg_value_valid(config_pkg::cfg_index(pending_request.id),pending_request.value) ||
+                (pending_backend_external && pending_request.id==16'h0200 &&
+                 !router_pkg::reverb_wire_value_valid(pending_request.value)))
             candidate_result=config_pkg::CFG_OUT_OF_RANGE;
         else if((pending_request.id==16'h0100 && pending_request.value>11) ||
                 !config_pkg::audio_config_valid(candidate) || candidate_inst>11)
@@ -328,6 +334,7 @@ module midi_voice_top #(
             slot_map_q<=router_pkg::default_note_map();target_slot_map<=router_pkg::default_note_map();
             committed_map<=router_pkg::default_note_map();custom_q<=0;target_custom<=0;
             keymap_inflight<=0;keymap_validating<=0;keymap_rollback<=0;keymap_hold<=0;keymap_scan<=0;
+            keymap_phase<=0;key_inst<=0;key_note<=0;key_entry_valid<=0;
             keymap_rsp_valid<=0;keymap_result<=6;
             guide_q<=0;target_guide<=0;guide_revision<=0;arm_pad<=0;
             cfg_state<=C_INIT;channel_q<=0;bank_q<=0;first_q<=0;mode_q<=0;source_q<=0;
@@ -337,10 +344,10 @@ module midi_voice_top #(
             reload_q<=0;panic_q<=0;map_reload<=0;maint_seen<=0;
             backend_stage<=0;candidate_q<='0;candidate_pad_q<=router_pkg::INST_PIANO;candidate_result_q<=0;
             backend_inflight<=0;backend_canceled<=0;backend_rollback<=0;
-            backend_rsp_valid<=0;backend_response<='0;pending_request<='0;
+            backend_rsp_valid<=0;backend_response<='0;pending_request<='0;pending_backend_external<=0;
             backend_audio_state<='0;have_commit<=0;committed_pad<=router_pkg::INST_PIANO;
             reverb_q<=router_pkg::REVERB_NONE;target_reverb<=router_pkg::REVERB_NONE;
-            cfg_timer<=0;op_timer<=0;ctrl_timer<=0;cleanup_timer<=0;config_failed<=0;active_channel<=0;active_bank<=0;
+            cfg_timer<=0;op_timer<=0;ctrl_timer<=0;cleanup_timer<=0;cleanup_timeout_q<=0;config_failed<=0;active_channel<=0;active_bank<=0;
             unsupported_count<=0;control_timeout_count<=0;dropped_count<=0;error_sticky<=0;
         end else begin
             reload_q<=reload;panic_q<=panic;map_reload<=0;
@@ -357,6 +364,9 @@ module midi_voice_top #(
             end
             if(!maintain_req) maint_seen<=0;
             else if(maintenance_done) maint_seen<=1;
+            // Register the wide compare before the fault FSM. A timeout is
+            // reported one core cycle later, and only while cleanup is still pending.
+            cleanup_timeout_q<=cleanup_pending && cleanup_timer>=CONFIG_TIMEOUT_CYCLES;
             if(cleanup_pending) cleanup_timer<=inc(cleanup_timer); else cleanup_timer<=0;
             if(op_valid) op_timer<=inc(op_timer); else op_timer<=0;
             if(control_op && ctrl_supported && !op_ready) ctrl_timer<=inc(ctrl_timer); else ctrl_timer<=0;
@@ -480,7 +490,7 @@ module midi_voice_top #(
             // Request transport, validation and execution are separate cycles.
             // Never propagate an upstream ID decode through the whole backend.
             if(backend_valid && backend_ready)begin
-                pending_request<=backend_request;
+                pending_request<=backend_request;pending_backend_external<=backend_source;
                 backend_inflight<=1;
                 backend_canceled<=!backend_source_valid;backend_rollback<=0;
                 backend_stage<=1;
@@ -513,23 +523,34 @@ module midi_voice_top #(
             // The table is staged and validated before touching live resources.
             // Scalar config and the table share the same cleanup/load/commit owner.
             if(keymap_valid && keymap_ready)begin
-                keymap_hold<=keymap_entries;keymap_scan<=0;
+                keymap_hold<=keymap_entries;keymap_scan<=0;keymap_phase<=0;
                 keymap_inflight<=1;keymap_validating<=1;keymap_rollback<=0;
             end
             if(keymap_validating)begin
-                if(!key_entry_ok)begin
-                    keymap_result<=3;keymap_rsp_valid<=1;keymap_inflight<=0;keymap_validating<=0;
-                end else begin
-                    target_slot_map[keymap_scan*7 +:7]<=key_note[6:0];
-                    if(keymap_scan==15)begin
-                        keymap_validating<=0;target_custom<=1;
-                        target_pad<=router_pkg::instrument_e'(keymap_hold[3:0]);
-                        target_channel<=4'(config_pkg::instrument_channel({8'd0,keymap_hold[7:0]})-1'b1);
-                        target_mode<=mode_q;target_source<=source_q;target_guide<=guide_q;
-                        target_bank<=bank_q;target_first<=0;target_reverb<=backend_audio_state.reverb;
-                        arm_pad<=1'b0;config_failed<=0;cfg_timer<=0;cfg_state<=C_KEY_RELEASE;
-                    end else keymap_scan<=keymap_scan+1'b1;
-                end
+                case(keymap_phase)
+                    0:begin
+                        key_inst<=keymap_hold[keymap_scan*16 +:8];
+                        key_note<=keymap_hold[keymap_scan*16+8 +:8];
+                        keymap_phase<=1;
+                    end
+                    1:begin key_entry_valid<=key_entry_ok;keymap_phase<=2;end
+                    default:begin
+                        keymap_phase<=0;
+                        if(!key_entry_valid)begin
+                            keymap_result<=3;keymap_rsp_valid<=1;keymap_inflight<=0;keymap_validating<=0;
+                        end else begin
+                            target_slot_map[keymap_scan*7 +:7]<=key_note[6:0];
+                            if(keymap_scan==15)begin
+                                keymap_validating<=0;target_custom<=1;
+                                target_pad<=router_pkg::instrument_e'(key_inst[3:0]);
+                                target_channel<=4'(config_pkg::instrument_channel({8'd0,key_inst})-1'b1);
+                                target_mode<=mode_q;target_source<=source_q;target_guide<=guide_q;
+                                target_bank<=bank_q;target_first<=0;target_reverb<=backend_audio_state.reverb;
+                                arm_pad<=1'b0;config_failed<=0;cfg_timer<=0;cfg_state<=C_KEY_RELEASE;
+                            end else keymap_scan<=keymap_scan+1'b1;
+                        end
+                    end
+                endcase
             end
             // A failed custom load restores the previous committed resource/map.
             // If restoration also fails, stay muted/faulted and report failure.
@@ -580,7 +601,7 @@ module midi_voice_top #(
                 end
             end
             if((config_busy && cfg_state!=C_RELEASE && cfg_state!=C_KEY_RELEASE && cfg_timer>=CONFIG_TIMEOUT_CYCLES-1) ||
-               (cfg_state==C_RUN && cleanup_pending && cleanup_timer>=CONFIG_TIMEOUT_CYCLES)) begin
+               (cfg_state==C_RUN && cleanup_pending && cleanup_timeout_q)) begin
                 config_failed<=1;error_sticky[3]<=1;cfg_state<=C_FAULT;
             end
         end

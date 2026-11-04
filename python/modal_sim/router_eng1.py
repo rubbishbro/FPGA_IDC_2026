@@ -785,6 +785,8 @@ class ReverbPreset:
 #: dict (and the HALL/BATHROOM test expectations) in the same commit.
 _REV_Q_ONE = 1 << REV_FRAC
 REVERB_PRESETS: dict[str, ReverbPreset] = {
+    "CHORUS": ReverbPreset((577,743,941,1193), (0,)*4, (50331648,33554432,33554432,16777216),
+                           100663296,33554432),
     "NONE": ReverbPreset((1, 1, 1, 1), (0, 0, 0, 0), (0, 0, 0, 0),
                          _REV_Q_ONE, 0),
     "CHAMBER": ReverbPreset((431, 557, 683, 809), (121035857, 117432701, 113936808, 110544986), (33554432,) * 4,

@@ -40,7 +40,7 @@ module tb_config_joint_result;
         rsp_ready=1;@(negedge clk);rsp_ready=0;repeat(2)@(negedge clk);
     endtask
     initial begin
-        request='0;backend_response='0;audio_state={16'd0,5'd2,2'd1,1'b0,2'd0,1'b0,1'b0};
+        request='0;backend_response='0;audio_state={16'd0,5'd2,2'd1,1'b0,3'd0,1'b0,1'b0};
         repeat(5)@(negedge clk);rst_n=1;repeat(3)@(negedge clk);
         ck(values[0]==0 && values[12]==2 && values[11]==1,"initial actual snapshot");
         send(1);audio_state.instrument=1;audio_state.channel=1;

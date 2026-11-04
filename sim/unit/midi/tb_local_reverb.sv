@@ -119,7 +119,7 @@ module tb_local_reverb;
         wait(ui.ui_rsp_valid);@(negedge clk);
         ck(backend_request.id==16'h0200 && backend_request.value==preset,"correct local request id/value");
         ck(backend_source==0,"request is local UI");
-        ck(ui.response.result==expected_code,"local result matches expected");
+        ck(ui.response.result==expected_code,$sformatf("local result matches expected actual=%0d expected=%0d",ui.response.result,expected_code));
         if(expected_code==0)begin
             ck(audio_valid && !audio_fault && audio_state.reverb==preset,"authoritative reverb commit");
             ck(values[2]==preset,"UI active reverb matches commit");
@@ -133,14 +133,17 @@ module tb_local_reverb;
         ext_request='0;repeat(5)@(negedge clk);rst_n=1;
         wait(audio_valid);repeat(20)@(negedge clk);
         key(2);key(1);key(2); // cold boot -> effects
-        apply_local(1,0);apply_local(2,0);apply_local(3,0);apply_local(0,0);
+        apply_local(1,0);apply_local(2,0);apply_local(3,0);apply_local(4,0);
+        send(16'h44,16'h0200,4);result(16'h44,16'h0200,CFG_OUT_OF_RANGE);
+        ck(audio_state.reverb==4 && values[2]==4,"external chorus rejected; local state preserved");
+        apply_local(0,0);
         // Holding a PAD must not prevent a reverb-only commit.
         fmap.raw[7:0]=8'd100;#1_000_000;
         apply_local(1,0);
         fmap='0;#1_000_000;
         apply_local(0,0);
         source_valid=0;
-        apply_local(1,6);
+        apply_local(1,CFG_FAILED);
         ck(audio_state.reverb==0 && values[2]==0,"failed gate preserves committed snapshot");
         $display("PASS tb_local_reverb checks=%0d accepted=%0d completed=%0d",checks,accepted,completed);$finish;
     end

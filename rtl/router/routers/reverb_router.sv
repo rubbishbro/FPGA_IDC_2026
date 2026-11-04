@@ -73,6 +73,15 @@ module reverb_router #(
             router_pkg::REVERB_NONE: begin
                 // The defaults above are the bit-exact dry passthrough preset.
             end
+            router_pkg::REVERB_CHORUS: begin
+                // Static chorus-like thickening: no LFO, no feedback/tail recursion.
+                // Weights sum to unity; dry+wet=1. Reuse all existing delay RAMs.
+                len[0]=(AW+1)'(577);len[1]=(AW+1)'(743);
+                len[2]=(AW+1)'(941);len[3]=(AW+1)'(1193);
+                wc[0]=32'sd50331648;wc[1]=Q_0_25;
+                wc[2]=Q_0_25;wc[3]=32'sd16777216;
+                gd=32'sd100663296;gw=Q_0_25;
+            end
             router_pkg::REVERB_CHAMBER: begin
                 // Target RT60=0.60s @48kHz; TODO: confirm by listening.
                 len[0] = (AW+1)'(431);
