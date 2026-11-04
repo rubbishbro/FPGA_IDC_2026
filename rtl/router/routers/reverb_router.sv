@@ -144,7 +144,12 @@ module reverb_router #(
         if (!rst_n) preset_q <= router_pkg::REVERB_NONE;
         else        preset_q <= preset;
     end
-    assign comb_clr = clear_req || (preset != preset_q);
+    // Keep each compare inside LUT input capacity. A full 3-bit inequality
+    // maps to a carry chain whose final COUT feeds the entire clear network.
+    // Preserve these small intermediate nets so synthesis cannot re-form it.
+    (* syn_keep = 1 *) wire changed_lo = |(preset[1:0] ^ preset_q[1:0]);
+    (* syn_keep = 1 *) wire changed_hi = preset[2] ^ preset_q[2];
+    assign comb_clr = clear_req || changed_lo || changed_hi;
     comb_reverb #(.N(N), .G_FRAC(G_FRAC)) u_comb (
         .clk(clk), .rst_n(rst_n),
         .n1(len[0]), .n2(len[1]), .n3(len[2]), .n4(len[3]),
