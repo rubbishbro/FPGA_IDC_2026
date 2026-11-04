@@ -25,11 +25,10 @@ module transport_link #(
     input logic [15:0] reply_seq,
     input logic [7:0] reply_command, reply_result,
     output logic tx_busy,
-    // These are live descriptor wires, including on the wired recording path.
-    input wire perf_valid,
+    input logic perf_valid=1'b0,
     output logic perf_ready,
-    input wire [15:0] perf_seq,
-    input wire [191:0] perf_payload
+    input logic [15:0] perf_seq=16'd0,
+    input logic [191:0] perf_payload=192'd0
 );
     logic queued_valid, queued_ready;
     logic [31:0] queued_data;

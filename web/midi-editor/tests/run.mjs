@@ -12,3 +12,4 @@ import './reference-wave.test.mjs';
 import './sample-synth.test.mjs';
 
 import './keymap.test.mjs';
+import './guide-ui.test.mjs';

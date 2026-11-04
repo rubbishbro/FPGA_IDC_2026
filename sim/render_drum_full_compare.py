@@ -10,7 +10,7 @@ import sys,json,math,zlib,hashlib,subprocess
 import numpy as np
 import soundfile as sf
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'python/modal_sim'),str(ROOT/'python/fft_analysis')]
+sys.path[:0]=[str(ROOT/'python_monotor/modal_sim'),str(ROOT/'python_monotor/fft_analysis')]
 import drumkit as DK
 import percussion as PC
 import router_eng1 as R
@@ -47,7 +47,7 @@ def main():
  OUT.mkdir(parents=True,exist_ok=True)
  if not (ROOT/'build/drum_filter_fit/results.json').exists():
   subprocess.run([sys.executable,str(ROOT/'sim/fit_drum_noise.py')],cwd=ROOT,check=True)
- fits=json.loads((ROOT/'build/drum_filter_fit/results.json').read_text())['rows'];kit=PC.load_kit(str(ROOT/'FFT_results/params/drums.npz'))
+ fits=json.loads((ROOT/'build/drum_filter_fit/results.json').read_text())['rows'];kit=PC.load_kit(str(ROOT/'python_monotor/results/params/drums.npz'))
  py=[];rt=[];allco=[];expected=[];rows=[];fade=np.ones(N);fade[-2400:]=np.linspace(1,0,2400)**2
  for key in KEYS:
   spec=kit[key];table,co,branches=coefficients(key,spec,fits)
@@ -68,7 +68,7 @@ def main():
   standard='drumkit.render_kit_hit: original float modes + Gaussian noise/current257tap FIR',
   rtl='48 impulse-driven ABC + fitted single/two-LP LFSR branches, Q24/Q16; current ENG1 arithmetic; drum bank not deployed',
   shared_processing='same Python reference piece balance for both versions; same50ms end fade; 1s gaps; no body/reverb/polyphonic gain',
-  source_hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),ROOT/'FFT_results/params/drums.npz',ROOT/'rtl/router/engines/eng1.sv',ROOT/'build/drum_filter_fit/results.json']})
+  source_hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),ROOT/'python_monotor/results/params/drums.npz',ROOT/'rtl/router/engines/eng1.sv',ROOT/'build/drum_filter_fit/results.json']})
  (OUT/'report.json').write_text(json.dumps(report,indent=2))
  print('PASS preview',OUT,flush=True)
 if __name__=='__main__':main()

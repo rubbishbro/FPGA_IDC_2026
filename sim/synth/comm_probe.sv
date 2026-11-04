@@ -26,7 +26,6 @@ module comm_probe (
     assign cfg_done_valid = backend_pending && backend_delay == 0;
     comm_top #(.BT_HAS_STATE(1'b1)) u_comm (
         .clk(clk),.rst_n(rst_n),.rx_i(rx_i),.tx_o(tx_o),.hc05_state_async(state_async),
-        .perf_valid(1'b0),.perf_seq(16'd0),.perf_payload(192'd0),
         .session_restart({2{&lfsr[11:0]}}),.source_cleanup_done(2'b11),
         .source_ops_idle(2'b11),.midi_ops_idle(1'b1),
         .source_quarantine(quarantine),.link_fault_pending(pending),

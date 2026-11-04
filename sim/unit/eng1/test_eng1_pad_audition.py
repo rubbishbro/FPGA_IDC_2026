@@ -4,7 +4,7 @@ import sys
 import unittest
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'python/modal_sim'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]/'python_monotor/modal_sim'))
 import eng1_pad_audition as A
 import eng1_rtl as E
 

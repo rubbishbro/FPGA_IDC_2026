@@ -10,7 +10,8 @@ import {resourceBank} from './resource-banks.mjs';
 import {setupSidebars} from './sidebars.mjs';
 import {setupKeymap} from './keymap-ui.mjs';
 import {setupRecording} from './recording-ui.mjs';
-let recording,keymap;
+import {setupGuide} from './guide-ui.mjs';
+let recording,keymap,guide;
 const $=id=>document.getElementById(id),DRAFT='fpga-midi-studio:v1';
 let toastTimer,autosaveTimer,selectedTrack,clipboard=[],worker,output='local',manifest=null,starting=false,lastTick=0,startGeneration=0;
 let project=demoProject();
@@ -75,6 +76,7 @@ function render(){
   $('undo').disabled=!history.undoStack.length;$('redo').disabled=!history.redoStack.length;const active=currentTrack();$('editing-track').textContent=active.name;$('editing-track').parentElement.style.setProperty('--track-color',active.color);
   const ids=new Set(currentTrack().notes.map(n=>n.id));roll.selection=new Set([...roll.selection].filter(id=>ids.has(id)));
   renderTracks();renderSelection();renderPosition();roll.invalidate();
+  guide?.render();
 }
 function renderTracks(){
   $('tracks').replaceChildren();
@@ -153,13 +155,14 @@ function toggleChannelPicker(trigger,current,onPick){
 }
 function renderSelection(){const notes=roll.selected(),n=notes[0];$('selection-count').textContent=notes.length?`${notes.length} 个音符`:'未选择';$('selection-fields').hidden=!n;$('selection-empty').hidden=!!n;if(n){$('note-pitch').value=n.pitch;$('note-name').textContent=noteName(n.pitch);$('note-velocity').value=n.velocity;$('note-beat').value=Number((n.beat+1).toFixed(6));$('note-duration').value=Number(n.duration.toFixed(6));}}
 function renderPosition(){const b=Math.max(0,playback.position);$('position').textContent=`${String(Math.floor(b/4)+1).padStart(3,'0')} : ${Math.floor(b%4)+1} : ${String(Math.floor((b%1)*480)).padStart(3,'0')}`;}
-function renderTransport(){$('play').classList.toggle('playing',playback.playing);$('play').querySelector('span').textContent=playback.playing?'暂停':'播放';$('play').setAttribute('aria-label',playback.playing?'暂停':'播放');}
+function renderTransport(){$('play').classList.toggle('playing',playback.playing);$('play').querySelector('span').textContent=playback.playing?'暂停':'播放';$('play').setAttribute('aria-label',playback.playing?'暂停':'播放');guide?.render();}
 function renderSerialCounters(){
   $('tx-frames').textContent=serial.txFrames;$('tx-bytes').textContent=serial.txBytes;$('rx-frames').textContent=serial.rxFrames;
   $('rx-frames').title=serial===serialV1?`收到 ${serial.rxBytes} 字节 · ${serial.performanceFrames} 个录制帧 · ${serial.rxErrors} 个解码错误`:'';
 }
 function renderSerial(){
   keymap?.render();
+  guide?.render();
   const v2=serial===serialV2;
   const phases={idle:'未握手',hello_sent:'正在请求会话',welcome:'设备清理完成',confirm_sent:'正在确认会话',active:'会话已就绪',resync:'正在恢复演奏',resume_sent:'等待恢复确认',fault:'会话已失效'};
   const phase=v2?(phases[serial.phase]||serial.phase||'未握手'):(serial.connected?'串口已连接':'未连接');
@@ -238,7 +241,7 @@ $('link').onchange=()=>{
 $('protocol').onchange=()=>{stopPlayback();serial=$('protocol').value==='v2'?serialV2:serialV1;renderSerial();};
 // TYPE82 may be frequent: refresh counters at a bounded rate even when no
 // CONFIG replies arrive, without rendering the connection UI for every note.
-const serialCounterTimer=setInterval(renderSerialCounters,250);
+const serialCounterTimer=setInterval(()=>{renderSerialCounters();if($('guide-dialog').open)guide?.render();},250);
 window.addEventListener('pagehide',()=>clearInterval(serialCounterTimer));
 $('export-link-diagnostics').onclick=()=>{
   const report={format:'fpga-midi-link-diagnostic-v1',exportedAt:new Date().toISOString(),link:serialV1.diagnostics(),recording:recording?.diagnostics,log:Array.from($('link-log').children,p=>p.textContent)};
@@ -286,6 +289,7 @@ setupSidebars();
 $('help').onclick=()=>$('help-dialog').showModal();$('close-help').onclick=()=>$('help-dialog').close();
 $('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
 document.addEventListener('keydown',e=>{
+  if($('guide-dialog').open)return;
   if(e.key==='Escape'){if($('help-dialog').open||$('keymap-dialog').open)return;$('panic').click();return;}
   if(recording?.busy)return;
   if(e.target.closest('input,textarea,select')||$('help-dialog').open||$('keymap-dialog').open)return;
@@ -323,3 +327,13 @@ keymap=setupKeymap({getLink:()=>serial,supported:()=>serial===serialV1,isBusy:()
     $('hw-channel').value=String(spec.channel-1);$('hw-notes').value=[...new Set(notes)].join(',');syncHwChannelIcon();
     log('键位配置',`${spec.name} · 设备确认成功 · ${notes.join(',')}`);render();
   }});
+
+guide=setupGuide({getLink:()=>serial,supported:()=>serial===serialV1,
+  getSourceName:()=>$('link').value==='bluetooth'?'蓝牙 MIDI':'有线 MIDI',
+  getProfile:hardwareProfile,getProject:()=>history.current,
+  isBusy:()=>!!recording?.busy||!!keymap?.busy,isPlaying:()=>playback.playing,stopPlayback,
+  startPlayback:async()=>{
+    $('output').value='uart';$('output').onchange();await play();
+    if(!playback.playing)throw Error($('status').textContent);
+  }
+});

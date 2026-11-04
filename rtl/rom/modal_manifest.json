@@ -2755,7 +2755,7 @@
     }
   ],
   "format": 1,
-  "generator": "python/modal_sim/gen_hw_rom.py",
+  "generator": "python_monotor/modal_sim/gen_hw_rom.py",
   "index_bits": 20,
   "index_depth": 1024,
   "index_file": "modal_index.mem",

@@ -8,7 +8,7 @@ import sustain_resources as S
 
 def main():
     catalog=json.loads((ROOT/'rtl/router/tools/sustain_profiles.json').read_text())
-    diagnostic=json.loads((ROOT/'FFT_results/params/sustain_q24/sustain_profiles_q24.json').read_text())
+    diagnostic=json.loads((ROOT/'python_monotor/results/params/sustain_q24/sustain_profiles_q24.json').read_text())
     rows={(e['instrument'],e['midi']):e for e in catalog['entries']}
     assert catalog['pitch_format']==diagnostic['pitch_format']=='P1T1'
     for e in diagnostic['entries']:assert e['coeff_sha256']==rows[e['instrument'],e['midi']]['coeff_sha256']

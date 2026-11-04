@@ -5,7 +5,7 @@ import sys,json,argparse
 from concurrent.futures import ProcessPoolExecutor,as_completed
 import numpy as np
 import soundfile as sf
-ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python/modal_sim')]
+ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python_monotor/modal_sim')]
 from render_drum_excitation_compare import render,Q,FS,N
 from eng1_audition import Strike
 OUT=ROOT/'build/drum_rise_compare'

@@ -38,7 +38,7 @@ def main():
     output=(out/'simulation.log').read_text()
     if 'PASS tb_performance_flash loads=12 records=12288' not in output or 'FAIL' in output:
         raise RuntimeError(output)
-    sys.path.insert(0,str(ROOT/'python/modal_sim'))
+    sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
     import eng1_rtl as E
     from run_eng1_model import compare_wave
     directory=ROOT/'rtl/router/tools/performance'

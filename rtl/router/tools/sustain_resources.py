@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import TypedDict
 import argparse,hashlib,json,struct,sys
 ROOT=Path(__file__).resolve().parents[3]
-sys.path.insert(0,str(ROOT/'python/modal_sim'))
-sys.path.insert(0,str(ROOT/'python'))
-sys.path.insert(0,str(ROOT/'python/fft_analysis'))
+sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
+sys.path.insert(0,str(ROOT/'python_monotor'))
+sys.path.insert(0,str(ROOT/'python_monotor/fft_analysis'))
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 import router_eng1 as model
 from pitch_tables import control_page,with_profile
@@ -97,7 +97,7 @@ def main():
         pitch_format='P1T1',pitch_slope_frac=pitch_linear.SLOPE_FRAC,
         pitch_words={'8':'lower','9':'a1_nominal','10':'upper','13':'K','15':'P1T1 tag'},
         first_midi=None if args.catalog else args.first_midi,notes=None if args.catalog else args.notes,
-        sources={name:hashlib.sha256((ROOT/f'FFT_results/params/{name}_sustain.npz').read_bytes()).hexdigest() for name in INST},
+        sources={name:hashlib.sha256((ROOT/f'python_monotor/results/params/{name}_sustain.npz').read_bytes()).hexdigest() for name in INST},
         entries=[{k:v for k,v in row.items() if k!='data'} for row in entries])
     (args.out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     if args.profile_out:

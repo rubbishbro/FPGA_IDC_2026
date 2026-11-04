@@ -16,7 +16,7 @@ CO_Q=(28,30,23,28,32,34,29)
 
 @lru_cache(None)
 def source_table(name,params=False):
-    path=ROOT/'sythsound'/f'{name}_{"param" if params else "coeff_scaled"}.txt'
+    path=ROOT/'python_monotor/matrix_sim'/f'{name}_{"param" if params else "coeff_scaled"}.txt'
     notes={};current=None
     for line in path.read_text().splitlines():
         if line.startswith('midi'):

@@ -7,7 +7,7 @@ import json,sys,math
 import numpy as np
 import soundfile as sf
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'python/modal_sim'),str(ROOT/'sim')]
+sys.path[:0]=[str(ROOT/'python_monotor/modal_sim'),str(ROOT/'sim')]
 import router_eng1 as R
 from eng1_audition import Strike
 from render_drum_full_compare import sat

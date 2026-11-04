@@ -57,7 +57,7 @@ def main():
   if a.model_python:
    code="""import sys,json
 from pathlib import Path
-r=Path(sys.argv[1]);out=Path(sys.argv[2]);sys.path[:0]=[str(r/'sim'),str(r/'python/modal_sim')]
+r=Path(sys.argv[1]);out=Path(sys.argv[2]);sys.path[:0]=[str(r/'sim'),str(r/'python_monotor/modal_sim')]
 import eng1_rtl as E
 from run_eng1_model import compare_wave
 p=r/'rtl/router/tools/performance';m=json.loads((p/'resources.json').read_text());raw=(p/'resources.bin').read_bytes()

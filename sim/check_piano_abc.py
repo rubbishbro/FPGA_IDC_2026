@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'rtl/router/tools'),str(ROOT/'python/modal_sim')]
+sys.path[:0]=[str(ROOT/'rtl/router/tools'),str(ROOT/'python_monotor/modal_sim')]
 import matrix_resources as M
 import performance_resources as P
 import pitch_linear as L

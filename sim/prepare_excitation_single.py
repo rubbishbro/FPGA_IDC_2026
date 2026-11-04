@@ -1,7 +1,7 @@
 from pathlib import Path
 import sys
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'python/modal_sim'))
+sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
 from eng1_audition import Strike
 out=ROOT/'build/excitation_single_check';out.mkdir(parents=True,exist_ok=True);rows=[];idx=0
 for rise,pw in [(0,1),(1,2),(3,8),(5,32)]:

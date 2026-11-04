@@ -97,7 +97,7 @@ def main():
             rows.append((note, mode, v[8:16]))
     # Broader generated text catalog, quantized into the same PM field formats.
     catalog, note = [], None
-    for line in (ROOT/'sythsound/guitar_param.txt').read_text().splitlines():
+    for line in (ROOT/'python_monotor/matrix_sim/guitar_param.txt').read_text().splitlines():
         if line.startswith('midi'):
             note = int(line[4:])
         elif line.startswith('mode'):

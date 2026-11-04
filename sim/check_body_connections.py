@@ -5,7 +5,7 @@ import sys,os,re,shutil,subprocess,json
 import numpy as np
 from scipy.signal import sosfreqz
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'python/modal_sim'))
+sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
 from params import Patch
 import router_eng1 as R
 from drum_coefficients import DRUM_INDEX_BY_GM

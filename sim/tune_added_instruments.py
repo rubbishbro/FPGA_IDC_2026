@@ -11,7 +11,7 @@ import argparse,concurrent.futures,hashlib,json,math,os,re,shutil,struct,subproc
 import numpy as np
 import soundfile as sf
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python/modal_sim')]
+sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python_monotor/modal_sim')]
 from calibrate_reference_gains import ReferencePerformance,metrics,STRIKES
 import router_eng1 as R
 from render_drum_excitation_compare import production_bank

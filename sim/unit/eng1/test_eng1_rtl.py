@@ -4,7 +4,7 @@ import sys
 import numpy as np
 import pytest
 ROOT=Path(__file__).resolve().parents[3]
-sys.path.insert(0,str(ROOT/'python/modal_sim'))
+sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
 sys.path.insert(0,str(ROOT/'rtl/router/tools'))
 import eng1_rtl as E
 import router_eng1 as R

@@ -21,7 +21,7 @@ def main():
  r=subprocess.run([str(out/'obj/Vtb_trumpet_deadline')],cwd=out,capture_output=True,text=True,timeout=180)
  output=r.stdout+r.stderr;(out/'simulation.log').write_text(output);print(output);r.check_returncode()
  if 'PASS tb_trumpet_deadline' not in output:raise RuntimeError('missing PASS')
- sys.path.insert(0,str(ROOT/'python/modal_sim'))
+ sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
  import eng1_rtl as E
  from run_eng1_model import compare_wave
  directory=ROOT/'rtl/router/tools/performance'

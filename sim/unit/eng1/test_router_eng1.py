@@ -19,9 +19,9 @@ import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "python" / "modal_sim"))
-sys.path.insert(0, str(ROOT / "python"))
-sys.path.insert(0, str(ROOT / "python" / "fft_analysis"))
+sys.path.insert(0, str(ROOT / "python_monotor" / "modal_sim"))
+sys.path.insert(0, str(ROOT / "python_monotor"))
+sys.path.insert(0, str(ROOT / "python_monotor" / "fft_analysis"))
 
 import router_eng1 as R  # noqa: E402
 

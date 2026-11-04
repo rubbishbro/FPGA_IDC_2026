@@ -66,6 +66,7 @@
         <label class="serial-select">波特率<select id="baud" disabled><option>115200</option><option>9600</option><option>230400</option><option>460800</option><option>921600</option><option>1000000</option><option>2000000</option></select></label>
         <button id="connect" class="connect-button"><svg><use href="#i-plug"/></svg><span>连接串口</span></button>
         <button id="open-keymap" class="connect-button">自定义键位配置</button>
+        <button id="open-guide" class="connect-button" aria-haspopup="dialog" aria-controls="guide-dialog">演奏指引</button>
         <button id="export-link-diagnostics" class="connect-button">导出通信诊断</button>
         <p id="serial-support" class="hint">USB 转 UART · 8N1 · SLIP / CRC16</p>
         <p id="protocol-hint" class="hint">有线选“连接方式=有线”+ v1 + 115200；HC-05 选“蓝牙”+ v1 + 9600（HC-05 本身也需配置为 9600）。当前固件没有 v2 心跳/会话层，v2 仅保留给其它固件。</p>
@@ -85,7 +86,7 @@
           <label class="stack-label">当前已加载音高（MIDI 编号）<textarea id="hw-notes" rows="3" spellcheck="false">21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36</textarea></label>
           <button id="load-manifest" class="full subtle">从资源清单读取音组</button><input id="manifest-input" type="file" accept=".json" hidden>
           <label class="inline-field">音高组（与板端一致）<select id="manifest-bank"><option value="0">低组 / 0</option><option value="1">高组 / 1</option></select></label>
-          <button id="hardware-exercise" class="full subtle">生成当前音组测试片段</button><p class="hint">这里记录板端当前配置。v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；音色、接收通道和音组仍需在板端设置。</p>
+          <button id="hardware-exercise" class="full subtle">生成当前音组测试片段</button><p class="hint">这里记录板端当前配置。在板端选择与连接方式相同的有线或蓝牙 MIDI；音色、接收通道和音组仍需在板端设置。跟奏练习可打开上方“演奏指引”。</p>
         </details>
       </section>
       <section class="inspector-section monitor"><div class="section-label">链路监视 <span class="quiet">HOST</span></div><div class="link-stats"><div><strong id="tx-frames">0</strong><small>TX 帧</small></div><div><strong id="tx-bytes">0</strong><small>TX 字节</small></div><div><strong id="rx-frames">0</strong><small>RX 帧</small></div></div><div id="link-log" class="link-log" aria-label="连接日志"></div></section>
@@ -96,7 +97,7 @@
 </div>
 <div id="channel-menu" class="channel-menu" role="listbox" aria-label="MIDI 通道与音色" hidden></div>
 <div id="toast" class="toast" role="status" hidden></div>
-<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听按轨道音色加载真实乐器录音。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；v1 在板端选有线 MIDI，v2 选蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
+<dialog id="help-dialog"><div class="dialog-heading"><span class="eyebrow">QUICK GUIDE</span><button id="close-help" class="mini-icon" aria-label="关闭指南">×</button></div><h2>让一个音符，成为一段旋律。</h2><p>两侧栏默认收起。鼠标移到左右边缘即可展开，移开后自动收起；点击边缘标签也可操作。填写输入框时侧栏会保持展开，完成后点击编辑区即可收起。</p><div class="help-grid"><div><h3>编辑</h3><p><kbd>D</kbd> 画笔 · <kbd>V</kbd> 框选 · <kbd>E</kbd> 橡皮<br>拖动音符移动；拖右缘修改音长。<br>下方力度条可拖动。Shift 点击多选。<br>Alt 拖动复制；方向键移动选中音符。<br>Delete 删除；Ctrl+C / V 复制粘贴。<br>Ctrl+Z 撤销；Ctrl+Shift+Z 重做。</p></div><div><h3>播放</h3><p>空格播放 / 暂停，Esc 紧急清音。<br>L 开关循环；点击上方时间尺定位。<br>电脑试听按轨道音色加载真实乐器录音。<br>切到 FPGA 输出后，走带只发送 UART。<br>切换页面或关闭窗口前会请求清音；<br>断线时不能保证板端已经静音。</p></div></div><div class="help-hardware"><h3>连接 FPGA</h3><p>在 Chrome / Edge 打开本地页面。使用与 RTL 一致的波特率；在板端选择与连接方式相同的有线或蓝牙 MIDI；再设置对应音色 / 通道及音组，再核对已加载音高清单。播放器只发送音符和踏板 / 清音控制，其他 MIDI 控制事件保留在工程及导出文件中。</p><p>板端目前是单音色、固定 16 个槽。UART 播放前检查通道、缺失音高和同音重叠。TX 计数表示主机写入量，不能代替硬件生效或 I2S 出声确认。</p></div><p class="hint">本版本支持 4/4 拍，MIDI format 0 / 1 与变速图。导出 MIDI 包含全部轨道，静音 / 独奏只影响播放。草稿仅存在此浏览器，建议另存工程。</p></dialog>
 <dialog id="keymap-dialog" aria-labelledby="keymap-title">
   <div class="dialog-heading"><span class="eyebrow">DEVICE CONFIGURATION</span><button id="close-keymap" class="mini-icon" aria-label="关闭键位配置">×</button></div>
   <h2 id="keymap-title">自定义压力垫键位</h2>
@@ -109,6 +110,23 @@
   <button id="keymap-send" class="connect-button">通过串口应用键位</button>
   <p id="keymap-result" role="status" aria-live="polite">尚未发送到设备</p>
   <p class="hint">更改时会重载音色资源。成功以设备回复为准；超时表示结果未知，可保持松键后重新应用。此页面不能读取设备当前键位，也不保证断电保存。</p>
+</dialog>
+<dialog id="guide-dialog" aria-labelledby="guide-title" aria-describedby="guide-description">
+  <div class="dialog-heading"><span class="eyebrow">PLAY ALONG</span><button id="close-guide" class="mini-icon" aria-label="关闭演奏指引并停止提示">×</button></div>
+  <h2 id="guide-title">跟着提示，亲手演奏</h2>
+  <p id="guide-description">Web 播放当前工程并发送音符，板端 LCD 显示应按的键。按下实体压力垫才会发声。</p>
+  <ol class="guide-steps">
+    <li>连接串口，在板端打开 <strong>输入 → 演奏来源 → <span id="guide-source">有线 MIDI</span></strong>。</li>
+    <li>在板端选择 <strong>输入 → 演奏方式 → 引导演奏</strong>，核对接收通道和音组或自定义键位。</li>
+    <li>在右侧“板端已加载配置”填写相同通道与音高；准备好当前工程后，确认并开始。</li>
+  </ol>
+  <p id="guide-profile"></p>
+  <p id="guide-check" role="status" aria-live="polite"></p>
+  <label class="guide-confirm"><input id="guide-confirm" type="checkbox">我已在板端开启引导演奏，并核对来源、通道及键位</label>
+  <div class="guide-actions"><button id="guide-start" class="connect-button" disabled>开始指引播放</button><button id="guide-stop" disabled>停止提示</button></div>
+  <p id="guide-result" role="status" aria-live="polite"></p>
+  <div class="guide-legend" aria-label="LCD 提示颜色"><span>🟨 应按</span><span>🟩 按中</span><span>🟦 已按</span></div>
+  <p class="hint">引导模式需在板端开启，Web 无法读取或切换此模式。切换演奏来源后需重新开启引导。关闭此面板或按 Esc 会停止提示播放；停止提示不会关闭板端引导模式。</p>
 </dialog>
 <script type="module" src="/src/app.mjs"></script>
 </body></html>

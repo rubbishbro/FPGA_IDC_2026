@@ -5,7 +5,7 @@ Build-only results; caller decides whether to apply the resulting common trim.
 from pathlib import Path
 import sys,json,re,hashlib,math
 import numpy as np
-ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python/modal_sim')]
+ROOT=Path(__file__).resolve().parents[1];sys.path[:0]=[str(ROOT/'sim'),str(ROOT/'python_monotor/modal_sim')]
 from eng1_audition import Strike
 from drum_coefficients import DRUM_EXCITATION
 from render_drum_excitation_compare import render,N
@@ -24,6 +24,6 @@ def main():
   print(row['drum'],json.dumps(r),flush=True)
  key=max(results,key=lambda k:results[k]['max20ms_rms']);q=results[key]['gain_q12']
  old=int(re.search(r"INST_DRUMS:\s*return 16'sd(\d+)",(ROOT/'rtl/router/pkg/router_pkg.sv').read_text())[1])
- report=dict(fs=48000,full_scale_q24=1.,target_dbfs=-12,force=255,window='sliding960 samples,hop1',excitation=cfg,drive_peak_q24=int(max(drive)),results=results,common_reference=key,common_gain_q12=q,common_gain_linear=results[key]['gain_linear'],old_gain_q12=old,delta_db_vs_previous=20*math.log10(q/old),existing_gain_removed=True,metadata='piece balance retained; no body/reverb/modulation/listening normalization',source_hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'rtl/router/routers/exc_router.sv',ROOT/'python/modal_sim/drum_coefficients.py',base/'coefficients.mem']})
+ report=dict(fs=48000,full_scale_q24=1.,target_dbfs=-12,force=255,window='sliding960 samples,hop1',excitation=cfg,drive_peak_q24=int(max(drive)),results=results,common_reference=key,common_gain_q12=q,common_gain_linear=results[key]['gain_linear'],old_gain_q12=old,delta_db_vs_previous=20*math.log10(q/old),existing_gain_removed=True,metadata='piece balance retained; no body/reverb/modulation/listening normalization',source_hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [ROOT/'rtl/router/routers/exc_router.sv',ROOT/'python_monotor/modal_sim/drum_coefficients.py',base/'coefficients.mem']})
  (OUT/'results.json').write_text(json.dumps(report,indent=2));print('COMMON',key,q,report['delta_db_vs_previous'],flush=True)
 if __name__=='__main__':main()

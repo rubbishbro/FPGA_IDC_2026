@@ -1,16 +1,16 @@
 # Locally unpacked wheels -- the sandbox cannot use pip's install path.
-# Kept at the repository root because python/tools/ resolves them from there.
+# Kept at the repository root because python_monotor/tools/ resolves them from there.
 _analysis/
 _libs/
 _wheels/
 
 # Rendered audio, from the experiments and tests. Regenerate any time.
-# Not anchored, because the experiments write to python/out/ as well as out/.
+# Not anchored, because the experiments write to python_monotor/out/ as well as out/.
 out/
 **/out/
 
 # Python build artefacts. These patterns are recursive on purpose: a bare
-# `__pycache__/` matches only at the root and would miss every one under python/.
+# `__pycache__/` matches only at the root and would miss every one under python_monotor/.
 **/__pycache__/
 *.py[cod]
 **/.pytest_cache/
@@ -54,18 +54,11 @@ rtl/simsynth/local/
 
 # rtl_FFT 的 Gowin/ModelSim 生成物（可重新生成，不入库）
 rtl_FFT/impl/
-rtl_FFT/archive/debug_board/impl/
 rtl_FFT/*.gprj.user
-rtl_FFT/archive/debug_board/*.gprj.user
-rtl_FFT/archive/logs/
 rtl_FFT/sim/work/
 rtl_FFT/sim/transcript
-rtl_FFT/sim/archive/legacy/transcript
 rtl_FFT/sim/**/*.wlf
 rtl_FFT/sim/**/*.log
-rtl_FFT/sim/archive/legacy/diag/*.csv
-rtl_FFT/sim/archive/legacy/diag/*.svg
-rtl_FFT/sim/archive/legacy/diag/*.txt
 
 # flash 模型的存储镜像（由 tools/gen_mem.py 每次生成）
 MEM.TXT
@@ -76,27 +69,44 @@ SECSI.TXT
 SFDP.TXT
 SREG.TXT
 
-# eng1 音色诊断/拟合实验的中间产物（npz/npy/wav/csv，可由 python/modal_sim 重新生成）
+# eng1 音色诊断/拟合实验的中间产物（npz/npy/wav/csv，可由 python_monotor/modal_sim 重新生成）
 # 累计数百 MB，不入库；结论与脚本已跟踪。
 #
 # 2026-11 新增的对照实验（trumpet_*/violin_*/pad_*/yongchun_violin/hinos_sentimentais）：
 # 只入库 results.json / manifest.json / PROVENANCE.json / *_filter.npz / 图与 README，
 # 原始波形数组（.npy，约 300MB）与试听音频（.wav，约 220MB）不入库——跑一次脚本即可重建。
-FFT_results/sim/eng1/**/*.npy
-FFT_results/sim/eng1/**/*.wav
+python_monotor/results/sim/eng1/**/*.npy
+python_monotor/results/sim/eng1/**/*.wav
 # matplotlib 字体缓存（每份 ~848KB，纯缓存）
-FFT_results/sim/eng1/**/mpl/
-FFT_results/sim/eng1/final_excitation_width/source_snapshot/
-/FFT_results/sim/eng1/a_source_audit/
-/FFT_results/sim/eng1/guitar_diagnosis/
-/FFT_results/sim/eng1/guitar_refit/
-/FFT_results/sim/eng1/mystery_of_love/
-/FFT_results/sim/eng1/piano_body_release/
-/FFT_results/sim/eng1/piano_diagnosis/
-/FFT_results/sim/eng1/piano_short_release/
-/FFT_results/sim/eng1/trumpet_diagnosis/
-/FFT_results/sim/vibrato_coeff/
+python_monotor/results/sim/eng1/**/mpl/
+python_monotor/results/sim/eng1/final_excitation_width/source_snapshot/
+/python_monotor/results/sim/eng1/a_source_audit/
+/python_monotor/results/sim/eng1/guitar_diagnosis/
+/python_monotor/results/sim/eng1/guitar_refit/
+/python_monotor/results/sim/eng1/mystery_of_love/
+/python_monotor/results/sim/eng1/piano_body_release/
+/python_monotor/results/sim/eng1/piano_diagnosis/
+/python_monotor/results/sim/eng1/piano_short_release/
+/python_monotor/results/sim/eng1/trumpet_diagnosis/
+/python_monotor/results/sim/vibrato_coeff/
 
 
 # Browser WAV assets are regenerated from local music_resources.
 /web/midi-editor/assets/samples/*/*.wav
+
+# Cache and simulator scratch kept out of submission.
+**/.mypy_cache/
+**/.ruff_cache/
+**/.cache/
+**/.hvigor/
+**/.preview/**/cache/
+/transcript
+
+# Local application checkout, signing configuration and submission packages.
+/ePiano_config/
+/exports/
+
+# Assistant-local state and credentials are never project source.
+/.agents/
+/.aws/
+/.codex/

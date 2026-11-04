@@ -4,11 +4,11 @@ import sys,json,pathlib
 import numpy as np
 from scipy.signal import freqz
 from scipy.optimize import least_squares
-ROOT=pathlib.Path(__file__).resolve().parents[1];(ROOT/'build/drum_filter_fit').mkdir(parents=True,exist_ok=True);sys.path[:0]=[str(ROOT/'python/fft_analysis')]
+ROOT=pathlib.Path(__file__).resolve().parents[1];(ROOT/'build/drum_filter_fit').mkdir(parents=True,exist_ok=True);sys.path[:0]=[str(ROOT/'python_monotor/fft_analysis')]
 import percussion as P
 fs=48000;freq=np.r_[0.,np.geomspace(20,fs/2,240)];z=np.exp(-2j*np.pi*freq/fs);Q=1<<24
 rows=[]
-for key,spec in P.load_kit(str(ROOT/'FFT_results/params/drums.npz')).items():
+for key,spec in P.load_kit(str(ROOT/'python_monotor/results/params/drums.npz')).items():
  hs=P.noise_filters(spec,fs)
  for branch,h in [('tail',hs[0]),('attack',hs[2])]:
   if h is None:continue

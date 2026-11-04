@@ -60,7 +60,7 @@ def main():
         p=subprocess.run([executable('vvp'),str(trace)],cwd=out,capture_output=True,text=True,check=True,timeout=60)
         (out/'trace.log').write_text(p.stdout+p.stderr)
         code="import sys,json; from pathlib import Path; sys.path[:0]=sys.argv[1:3]; from run_eng1_model import compare_pitch; print(json.dumps(compare_pitch(Path(sys.argv[3]))))"
-        p=subprocess.run([args.model_python,'-c',code,str(ROOT/'sim'),str(ROOT/'python/modal_sim'),str(out)],capture_output=True,text=True,check=True,timeout=60)
+        p=subprocess.run([args.model_python,'-c',code,str(ROOT/'sim'),str(ROOT/'python_monotor/modal_sim'),str(out)],capture_output=True,text=True,check=True,timeout=60)
         result['parity']=json.loads(p.stdout)
         print('PASS Python/RTL aftertouch',result['parity'],flush=True)
     (out/'results.json').write_text(json.dumps(result,indent=2)+'\n')

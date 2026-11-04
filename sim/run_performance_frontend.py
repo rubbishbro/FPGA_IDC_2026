@@ -10,7 +10,7 @@ import sys
 import numpy as np
 
 ROOT=Path(__file__).resolve().parents[1]
-sys.path.insert(0,str(ROOT/'python/modal_sim'))
+sys.path.insert(0,str(ROOT/'python_monotor/modal_sim'))
 import eng1_rtl as E
 import eng1_audition as A
 

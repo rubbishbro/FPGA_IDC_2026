@@ -9,7 +9,7 @@ from pathlib import Path
 import sys,json,re,math,hashlib,argparse,copy
 import numpy as np
 ROOT=Path(__file__).resolve().parents[1]
-sys.path[:0]=[str(ROOT/'python/modal_sim'),str(ROOT/'sim')]
+sys.path[:0]=[str(ROOT/'python_monotor/modal_sim'),str(ROOT/'sim')]
 import eng1_rtl as E
 import eng1_audition as A
 import router_eng1 as R

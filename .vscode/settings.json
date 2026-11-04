@@ -1,8 +1,9 @@
 {
   "python.analysis.extraPaths": [
-    "./python",
-    "./python/modal_sim",
-    "./python/fft_analysis",
+    "./python_monotor",
+    "./python_monotor/modal_sim",
+    "./python_monotor/fft_analysis",
+    "./python_monotor/matrix_sim",
     "./rtl/router/tools"
   ]
 }

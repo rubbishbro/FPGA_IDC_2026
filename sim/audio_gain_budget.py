@@ -86,7 +86,7 @@ def load_audit() -> dict:
 
 
 def load_npy_stats(name: str) -> dict:
-    path = ROOT / 'FFT_results/sim/eng1/pad_path_retest' / name / 'step_pressure_raw_q24.npy'
+    path = ROOT / 'python_monotor/results/sim/eng1/pad_path_retest' / name / 'step_pressure_raw_q24.npy'
     if not path.is_file():
         return {}
     try:

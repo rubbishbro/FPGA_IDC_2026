@@ -18,7 +18,7 @@ from functools import lru_cache
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT/'python/modal_sim'))
+sys.path.insert(0, str(ROOT/'python_monotor/modal_sim'))
 import eng1_audition as A
 import guitar_refit_experiments as F
 import pitch_linear as P
@@ -67,7 +67,7 @@ def abc_record(table):
 @lru_cache(None)
 def _plucked_raw(name,midi):
     # Exact target MIDI; choose a recorded dynamic explicitly, never a neighbour.
-    index=json.loads((ROOT/f'FFT_results/params/{name}_coeffindex.json').read_text())
+    index=json.loads((ROOT/f'python_monotor/results/params/{name}_coeffindex.json').read_text())
     dynamic='forte' if f'{midi}|forte' in index else 'piano'
     old=R.load_a_table(name,midi,dynamic)
     # Old ABC gains assume a seven-sample raised-cosine pulse. Recalibrate
@@ -101,7 +101,7 @@ def drum_notes():
     # Refit from source NPZ on each production invocation, never depend on a preview.
     subprocess.run([sys.executable,str(ROOT/'sim/fit_drum_noise.py')],cwd=ROOT,check=True)
     fits=json.loads((ROOT/'build/drum_filter_fit/results.json').read_text())['rows']
-    kit=PC.load_kit(str(ROOT/'FFT_results/params/drums.npz'));result={}
+    kit=PC.load_kit(str(ROOT/'python_monotor/results/params/drums.npz'));result={}
     for key,gm in zip(DRUM_KEYS,DRUM_GM_NOTES):
         spec=kit[key];table,co,branches=build_coefficients(key,spec,fits)
         balance=DK._piece_norm(kit,key,1.,3.)*DK.KIT_GAIN[key]
@@ -175,26 +175,26 @@ def frontend_configs():
 
 
 def resource_sources():
-    sources=[Path(__file__),Path(__file__).with_name('matrix_resources.py'),Path(__file__).with_name('pitch_tables.py'),Path(__file__).with_name('pitch_tables.json'),Path(__file__).with_name('sustain_profiles.json'),ROOT/'python/modal_sim/eng1_audition.py',
-        ROOT/'python/modal_sim/guitar_refit_experiments.py',
-        ROOT/'rtl/router/tools/sustain_resources.py',ROOT/'python/modal_sim/pitch_linear.py',
-        ROOT/'python/modal_sim/router_eng1.py',ROOT/'python/modal_sim/params.py',
-        ROOT/'python/modal_sim/eng1_rtl.py',ROOT/'FFT_results/params/guitar_manifest.json']
+    sources=[Path(__file__),Path(__file__).with_name('matrix_resources.py'),Path(__file__).with_name('pitch_tables.py'),Path(__file__).with_name('pitch_tables.json'),Path(__file__).with_name('sustain_profiles.json'),ROOT/'python_monotor/modal_sim/eng1_audition.py',
+        ROOT/'python_monotor/modal_sim/guitar_refit_experiments.py',
+        ROOT/'rtl/router/tools/sustain_resources.py',ROOT/'python_monotor/modal_sim/pitch_linear.py',
+        ROOT/'python_monotor/modal_sim/router_eng1.py',ROOT/'python_monotor/modal_sim/params.py',
+        ROOT/'python_monotor/modal_sim/eng1_rtl.py',ROOT/'python_monotor/results/params/guitar_manifest.json']
     sources += [Path(__file__).parent/'coefficients'/f'eng0_{name}.bin' for name in ('piano','guitar')]
-    sources += [ROOT/'sythsound'/name for name in ['piano_coeff_scaled.txt','guitar_coeff_scaled.txt','guitar_param.txt','piano_coeff_gen.py','guitar_coeff_gen.py','guitar_param_gen.py']]
-    sources += [ROOT/f'FFT_results/params/{name}_{suffix}' for name in ('piano','guitar','banjo','mandolin')
+    sources += [ROOT/'python_monotor/matrix_sim'/name for name in ['piano_coeff_scaled.txt','guitar_coeff_scaled.txt','guitar_param.txt','piano_coeff_gen.py','guitar_coeff_gen.py','guitar_param_gen.py']]
+    sources += [ROOT/f'python_monotor/results/params/{name}_{suffix}' for name in ('piano','guitar','banjo','mandolin')
                 for suffix in ('coeff.mem','coeffindex.json')]
-    sources += [ROOT/f'FFT_results/params/{name}_sustain.npz' for name in SUSTAINED]
-    sources += [ROOT/f'FFT_results/params/{name}_body.npz' for name in ('banjo','mandolin')]
-    sources += [ROOT/'python/fft_analysis/core.py',ROOT/'rtl/router/routers/body_router.sv']
+    sources += [ROOT/f'python_monotor/results/params/{name}_sustain.npz' for name in SUSTAINED]
+    sources += [ROOT/f'python_monotor/results/params/{name}_body.npz' for name in ('banjo','mandolin')]
+    sources += [ROOT/'python_monotor/fft_analysis/core.py',ROOT/'rtl/router/routers/body_router.sv']
     sources += [ROOT/'rtl/router/routers/exc_router.sv',ROOT/'rtl/router/parts/excitation.sv',
                 ROOT/'rtl/router/parts/trumpet_excitation.sv',ROOT/'rtl/router/pkg/trumpet_excitation_pkg.sv',
                 Path(__file__).with_name('trumpet_excitation_rom.py'),
                 Path(__file__).parent/'performance/trumpet_excitation.json']
-    sources += [ROOT/'python/modal_sim/trumpet_lip.py',ROOT/'rtl/router/pkg/router_pkg.sv',ROOT/'rtl/router/routers/mod_router.sv',ROOT/'rtl/router/parts/modulation1.sv',ROOT/'rtl/router/parts/modulation0.sv',ROOT/'rtl/config_pkg.sv',ROOT/'rtl/midi/midi_instrument_map.sv']
-    sources += [ROOT/f'FFT_results/params/guitar_{suffix}.npz'
+    sources += [ROOT/'python_monotor/modal_sim/trumpet_lip.py',ROOT/'rtl/router/pkg/router_pkg.sv',ROOT/'rtl/router/routers/mod_router.sv',ROOT/'rtl/router/parts/modulation1.sv',ROOT/'rtl/router/parts/modulation0.sv',ROOT/'rtl/config_pkg.sv',ROOT/'rtl/midi/midi_instrument_map.sv']
+    sources += [ROOT/f'python_monotor/results/params/guitar_{suffix}.npz'
                 for suffix in ('partials','gammascale','body')]
-    sources += [ROOT/'python/modal_sim/drum_coefficients.py',ROOT/'python/modal_sim/drumkit.py',ROOT/'python/fft_analysis/percussion.py',ROOT/'FFT_results/params/drums.npz',ROOT/'sim/fit_drum_noise.py',ROOT/'rtl/router/routers/env_router.sv']
+    sources += [ROOT/'python_monotor/modal_sim/drum_coefficients.py',ROOT/'python_monotor/modal_sim/drumkit.py',ROOT/'python_monotor/fft_analysis/percussion.py',ROOT/'python_monotor/results/params/drums.npz',ROOT/'sim/fit_drum_noise.py',ROOT/'rtl/router/routers/env_router.sv']
     return sources
 
 

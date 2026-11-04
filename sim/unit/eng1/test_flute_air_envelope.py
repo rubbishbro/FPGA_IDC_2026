@@ -9,7 +9,7 @@ import unittest
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT/'python/modal_sim'))
+sys.path.insert(0, str(ROOT/'python_monotor/modal_sim'))
 import flute_air_envelope as F
 
 

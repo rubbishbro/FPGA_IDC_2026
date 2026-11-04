@@ -63,4 +63,8 @@ https://www.mutopiaproject.org/ftp/BachJS/BWV1047/brandenburg_2/
 
 页面等待匹配的设备 `CONFIG_REPLY`（命令、序号匹配且结果为 0）后才显示成功，并更新主机的已加载音高核对清单。超时、断线或设备返回 BUSY / OUT_OF_RANGE / NOT_READY 均不视为成功；超时结果未知，可保持松键后重新应用。页面暂不读取设备已有键位，不保证断电保存。
 
-本次只增加前端编码、配置界面及测试，不增加 RTL 实例或信号扇出。`tests/keymap.test.mjs` 检查全部 12 种音色范围与生产资源一致，并通过 SerialLink 实际编码、独立帧解码和模拟回包验证发送/确认路径。当前环境没有可用物理串口，未执行实板配置；既有 `build/keyscan_pipeline_20261103/keymap/results.json` 记录此前 UART / 板级键位集成回归 45 项通过，本次未重新运行该 RTL 回归（环境缺少 Verilator）。
+本次只增加前端编码、配置界面及测试，不增加 RTL 实例或信号扇出。`tests/keymap.test.mjs` 检查全部 12 种音色范围与生产资源一致，并通过 SerialLink 实际编码、独立帧解码和模拟回包验证发送/确认路径。前端实现阶段的开发环境没有可用物理串口，当时未执行实板配置；既有 `build/keyscan_pipeline_20261103/keymap/results.json` 记录此前 UART / 板级键位集成回归 45 项通过，本次未重新运行该 RTL 回归（环境缺少 Verilator）。
+
+## 整机验收更新（2026-11-04）
+
+用户已确认整机联调及全部功能测试通过，当前版本的有线/蓝牙联机、自定义键位、演奏录制与轨道生成已完成验收。上文测试计数与环境说明保留各自实现阶段的记录，最新结论见[验收报告](reports/2026-11-04_整机联调与功能验收.md)。
