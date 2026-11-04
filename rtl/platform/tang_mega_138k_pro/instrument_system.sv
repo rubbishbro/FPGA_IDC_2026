@@ -158,6 +158,7 @@ module instrument_system #(
     logic keymap_waiting_release,keymap_cancel;
     logic backend_source_valid;
     logic [31:0] keymap_wait_timer;
+    logic keymap_wait_expired;
     localparam int KEYMAP_WAIT_CYCLES=CLK_HZ*2/5;
     logic [7:0] keymap_result;
     logic backend_valid,backend_ready,backend_source,backend_rsp_valid,backend_rsp_ready;
@@ -251,14 +252,14 @@ module instrument_system #(
     // Cancel an in-flight table if the source is lost before it commits.
     assign keymap_cancel=bridge_state==B_KEY_WAIT &&
                          (quarantine[ctx_source] || !remote_permission[ctx_source] ||
-                          (keymap_waiting_release && keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1));
+                          (keymap_waiting_release && keymap_wait_expired));
     assign cfg_ready=bridge_state==B_IDLE && core_n;
     assign cfg_done=bridge_state==B_DONE && core_n;
     assign ext_valid=bridge_state==B_SEND && !quarantine[ctx_source] && remote_permission[ctx_source];
     assign ext_request={ctx_seq,16'h0200,24'd0,ctx_shadow[15:8]};
     // Keep all physical context until the real response retires. Parser owns duplicate-request cache/reply.
     always_ff @(posedge clk_core or negedge core_n)begin
-        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;keymap_wait_timer<=0;key_table_instrument<=0;key_item_instrument<=0;key_item_note<=0;key_note_first<=0;key_note_end<=0;key_table_melodic<=0;key_item_valid<=0;end
+        if(!core_n)begin bridge_state<=B_IDLE;cfg_result<=6;ctx_source<=0;ctx_seq<=0;ctx_cmd<=0;ctx_len<=0;ctx_shadow<=0;rec_start<=0;rec_stop<=0;rec_abort<=0;rec_wait_timer<=0;rec_request_id<=0;rec_current_id<=0;remote_admit_age<=0;key_scan_slot<=0;keymap_wait_timer<=0;keymap_wait_expired<=0;key_table_instrument<=0;key_item_instrument<=0;key_item_note<=0;key_note_first<=0;key_note_end<=0;key_table_melodic<=0;key_item_valid<=0;end
         else begin
         rec_start<=0;rec_stop<=0;rec_abort<=0;
         // A local permission change also cancels a take between CONFIG requests.
@@ -267,8 +268,12 @@ module instrument_system #(
         else if(remote_admit_age<CLK_HZ/50)remote_admit_age<=remote_admit_age+1'b1;
         if(bridge_state==B_REC_START || bridge_state==B_REC_STOP)rec_wait_timer<=rec_wait_timer+1'b1;
         else rec_wait_timer<=0;
-        if(bridge_state==B_KEY_WAIT && keymap_waiting_release)keymap_wait_timer<=keymap_wait_timer+1'b1;
-        else keymap_wait_timer<=0;
+        // Precompute the next timer value's deadline; cancellation/reply still
+        // occur on the original cycle, without a wide compare in their path.
+        if(bridge_state==B_KEY_WAIT && keymap_waiting_release)begin
+            keymap_wait_timer<=keymap_wait_timer+1'b1;
+            keymap_wait_expired<=keymap_wait_timer>=KEYMAP_WAIT_CYCLES-2;
+        end else begin keymap_wait_timer<=0;keymap_wait_expired<=0;end
         case(bridge_state)
             B_IDLE:if(cfg_valid)begin
                 ctx_source<=cfg_source;ctx_seq<=cfg_seq;ctx_cmd<=cfg_cmd;ctx_len<=cfg_len;ctx_shadow<=cfg_shadow;bridge_state<=B_CHECK;
@@ -341,7 +346,7 @@ module instrument_system #(
                     bridge_state<=B_DONE;
                 end else if(quarantine[ctx_source] || !remote_permission[ctx_source])begin
                     cfg_result<=8'd6;bridge_state<=B_DONE;
-                end else if(keymap_waiting_release && keymap_wait_timer>=KEYMAP_WAIT_CYCLES-1)begin
+                end else if(keymap_waiting_release && keymap_wait_expired)begin
                     // Reply 04 before rollback cleanup; keymap_cancel asks the
                     // audio backend to abort/restore quietly.
                     cfg_result<=8'd4;bridge_state<=B_DONE;
